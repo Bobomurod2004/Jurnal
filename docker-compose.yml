@@ -71,23 +71,11 @@ services:
       - ./mainweb/static:/var/www/mainweb/static:ro
       - ./fmadmin/dist:/var/www/fmadmin/dist:ro
       - uploads_data:/var/www/journal/static/uploads:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-      - certbot_www:/var/www/certbot:ro
+      - /etc/nginx/certs:/etc/nginx/certs:ro
     depends_on:
       - mainweb
       - fmadmin
 
-  certbot:
-    image: certbot/certbot
-    container_name: journal_certbot
-    volumes:
-      - /etc/letsencrypt:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
-    depends_on:
-      - nginx
-
 volumes:
   postgres_data:
   uploads_data:
-  certbot_www:
