@@ -1,0 +1,15 @@
+<header id="header" class="top-0 fixed hidden w-full z-50 border-b border-gray-200 bg-white/95 backdrop-blur-sm animate-fade animate-duration-200 animate-ease-out">
+    <div class="border-b border-gray-200 bg-white">
+        <div class="container mx-auto px-4 py-3">
+            {% with logo_height=40, show_title=true %}
+            {% include 'components/headers/header_top.html' %}
+            {% endwith %}
+        </div>
+    </div>
+
+    <div>
+        <div class="container mx-auto px-4 py-3">
+            {% include 'components/menu/main_menu.html' %}
+        </div>
+    </div>
+</header>

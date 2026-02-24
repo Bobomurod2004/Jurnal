@@ -1,0 +1,88 @@
+{% extends 'basic.html' %}
+
+{% block title %}{{ t('website_title') }}{% endblock %}
+
+
+{% block content %}
+{% include 'components/headers/main_header.html' %}
+{% include 'components/hero/main_hero.html' %}
+{% from "components/items/editorial.html" import editor with context %}
+    <div class="mt-8 bg-white">
+        <div class="container py-8 mx-auto">
+            <div class="grid grid-cols-4 gap-4">
+                <div class="col-span-3">
+                    <h4 class="text-2xl font-medium mb-4">{{ t('editorial_board') }}</h4>
+                    <div class="mb-8">
+                        {{ t('editorial_board_description') }}
+                    </div>
+
+                    {% for editor_data in editors %}
+                    {{ editor(editor_data) }}
+                    {% endfor %}
+
+                    
+
+    
+                </div>
+                <div class="border-s border-gray-100 px-4">
+                    <div class="">
+
+                        <h4 class="text-lg font-medium mb-6">{{ t('pages') }}</h4>
+                        <div class="flex flex-col text-sm">
+                            <a href="" class="text-blue-600 hover:text-blue-800 bg-gray-50 px-2 py-1 border-s-2 border-fmmain mb-2">{{ t('aims_and_goals') }}</a>
+                            <a href="" class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">{{ t('other_page') }}</a>
+                            <a href="" class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">{{ t('one_more_other_page') }}</a>
+                            <a href="" class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">{{ t('another_one') }}</a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+
+{% endblock %}
+{% block scripts %}
+
+
+<script>
+    const header = document.getElementById('header'); // Get the header element
+    const menu = document.getElementById('menu'); // Get the #menu element
+
+    window.addEventListener('scroll', function () {
+        const menuPosition = menu.getBoundingClientRect().top; // Get the position of #menu relative to the viewport
+        const scrollPosition = window.scrollY; // Current scroll position
+
+        if (menuPosition <= 0) {
+            // If #menu is in or above the viewport, show the header
+            header.classList.remove('hidden');
+        } else {
+            // If #menu is below the viewport, hide the header
+            header.classList.add('hidden');
+        }
+    });
+</script>
+
+
+
+<script>
+    $(document).ready(function () {
+        $('.toggler_item').on('click', '.toggler_button', function () {
+            const $clickedItem = $(this).closest('.toggler_item').find('.toggler_data');
+            $clickedItem.toggleClass('hidden');
+            var chtext = $(this).find('span');
+            var chicon = $(this).find('iconify-icon');
+            console.log( chicon.data('on'))
+            if ($clickedItem.hasClass('hidden')) {
+                chtext.text(chtext.data('off'))
+                chicon.attr('icon', chicon.data('icon-off'))
+            } else {
+                chtext.text(chtext.data('on'))
+                chicon.attr('icon', chicon.data('icon-on'))
+            }
+        });
+    });
+</script>
+{% endblock %}

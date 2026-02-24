@@ -1,0 +1,137 @@
+{% extends 'basic.html' %}
+
+
+{% block content %}
+
+<div class="page-header d-print-none mb-4">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title m-0">{{ t("admin_issues_title") }}</h2>
+    </div>
+    <div class="col-auto ms-auto">
+      <div class="btn-list">
+        <a href="{{ url_for('issue_edit', issue_id=0) }}" class="btn btn-primary d-none d-sm-inline-block">
+          <i class="ti ti-plus"></i>
+          {{ t("admin_btn_add_issue") }}
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<form method="get" action="{{ url_for('issues') }}">
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="form-label">{{ t("admin_label_title") }}</div>
+      <input type="text" class="form-control" placeholder="{{ t('admin_placeholder_search_title') }}" name="title"
+        value="{{ search_title|default('') }}">
+    </div>
+    <div class="col-md-2">
+      <div class="form-label">{{ t("admin_label_volume") }}</div>
+      <input type="text" class="form-control" placeholder="{{ t('admin_placeholder_volume') }}" name="vol_no"
+        value="{{ search_vol_no|default('') }}">
+    </div>
+    <div class="col-md-2">
+      <div class="form-label">{{ t("admin_label_issue_no") }}</div>
+      <input type="text" class="form-control" placeholder="{{ t('admin_placeholder_issue_no') }}" name="issue_no"
+        value="{{ search_issue_no|default('') }}">
+    </div>
+    <div class="col-md-4">
+      <div class="form-label">{{ t("admin_label_status") }}</div>
+      <select class="form-select" name="status">
+        <option value="">{{ t("admin_label_all") }}</option>
+        <option value="published" {% if search_status=='published' %}selected{% endif %}>{{
+          t("admin_label_status_published") }}</option>
+        <option value="draft" {% if search_status=='draft' %}selected{% endif %}>{{ t("admin_label_status_draft") }}
+        </option>
+      </select>
+    </div>
+  </div>
+  <div class="mt-3 d-flex justify-content-end">
+    <button class="btn btn-ghost-danger me-2" type="button" onclick="window.location.href='{{ url_for('issues') }}'">
+      <i class="ti ti-x pe-2"></i> {{ t("admin_btn_clear") }}
+    </button>
+    <button class="btn btn-primary" type="submit">
+      <i class="ti ti-search pe-2"></i> {{ t("admin_btn_search") }}
+    </button>
+  </div>
+</form>
+
+<div class="card mt-4">
+  <div class="table-responsive">
+    <table class="table card-table table-hover">
+      <thead>
+        <tr>
+          <th>{{ t("admin_label_issue_no") }}</th>
+          <th>{{ t("admin_label_title") }}</th>
+          <th>{{ t("admin_label_publication_date") }}</th>
+          <th>{{ t("admin_label_status") }}</th>
+          <th>{{ t("admin_label_articles_count") }}</th>
+          <th class="w-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for issue in issues %}
+        <tr>
+          <td class="align-middle">{{ issue.vol_no }}-{{ issue.issue_no }}</td>
+          <td class="align-middle">{{ issue.title }}</td>
+          <td class="align-middle">{{ issue.created_at | datetimeformat }}</td>
+          <td class="align-middle">
+            {% if issue.subscription_enable %}
+            <span class="badge bg-success-lt">{{ t("admin_label_by_subscription") }}</span>
+            {% else %}
+            <span class="badge bg-warning-lt">{{ t("admin_label_free") }}</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">{{ issue_article_count[issue.id] }}</td>
+          <td class="align-middle">
+            <div class="d-flex">
+              <a href="{{ url_for('issue_edit', issue_id=issue.id) }}"
+                class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1 me-2">
+                {{ t("admin_btn_edit") }}
+              </a>
+              <a href="{{ url_for('articles', issue=issue.id) }}"
+                class="btn btn-icon btn-outline-info bg-info-lt btn-sm px-2 py-1">
+                {{ t("admin_btn_show_all_articles") }}
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer d-flex align-items-center">
+    {% set start_idx = (page - 1) * 20 + 1 %}
+    {% set end_idx = (page - 1) * 20 + issues|length %}
+    <p class="m-0 text-secondary">{{ t("admin_pagination_showing") }} <span>{{ start_idx }}-{{ end_idx }}</span> {{
+      t("admin_pagination_of") }} <span>{{ total_issues }}</span> {{ t("admin_pagination_entries") }}</p>
+    <ul class="pagination m-0 ms-auto">
+      <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+        <a class="page-link"
+          href="{{ url_for('issues', page=page-1, title=search_title, vol_no=search_vol_no, issue_no=search_issue_no, status=search_status) }}"
+          tabindex="-1" aria-disabled="true">
+          <i class="ti ti-chevron-left"></i>
+        </a>
+      </li>
+      {% for p in range(1, total_pages+1) %}
+      <li class="page-item {% if p == page %}active{% endif %}"><a class="page-link"
+          href="{{ url_for('issues', page=p, title=search_title, vol_no=search_vol_no, issue_no=search_issue_no, status=search_status) }}">{{
+          p }}</a></li>
+      {% endfor %}
+      <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+        <a class="page-link"
+          href="{{ url_for('issues', page=page+1, title=search_title, vol_no=search_vol_no, issue_no=search_issue_no, status=search_status) }}">
+          <i class="ti ti-chevron-right"></i>
+        </a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+
+{% endblock %}

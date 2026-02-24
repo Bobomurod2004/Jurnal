@@ -1,0 +1,119 @@
+{% extends 'basic.html' %}
+
+{% block title %}{{ t('contact_us') }} - {{ t('website_title') }}{% endblock %}
+
+{% block content %}
+    {% include 'components/headers/main_header.html' %}
+{% include 'components/hero/main_hero.html' %}
+
+<div class="mt-8 bg-white">
+    <div class="container py-8 mx-auto">
+        <div class="grid grid-cols-4 gap-8">
+            <!-- Contact Form -->
+            <div class="col-span-3">
+                <h4 class="text-2xl font-medium mb-6">{{ t('contact_us') }}</h4>
+                <p class="text-gray-600 mb-8">{{ t('contact_description') }}</p>
+
+                {% include 'components/notifications/flash_messages.html' %}
+
+                <form action="{{ url_for('app__contact') }}" method="POST" class="space-y-6">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="name" class="block mb-2 text-sm font-medium text-gray-900">{{ t('full_name') }} *</label>
+                            <input type="text" name="name" id="name" required
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                        </div>
+                        <div>
+                            <label for="email" class="block mb-2 text-sm font-medium text-gray-900">{{ t('email') }} *</label>
+                            <input type="email" name="email" id="email" required
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                                placeholder="{{ t('email_placeholder') }}">
+                        </div>
+                    </div>
+
+                    <div class="my-2">
+                        <label for="subject" class="block mb-2 text-sm font-medium text-gray-900">{{ t('subject') }} *</label>
+                        <input type="text" name="subject" id="subject" required
+                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                    </div>
+
+                    <div class="my-2">
+                        <label for="message" class="block mb-2 text-sm font-medium text-gray-900">{{ t('message') }} *</label>
+                        <textarea name="message" id="message" rows="6" required
+                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"></textarea>
+                    </div>
+
+                    <div class="flex items-start my-4">
+                        <div class="flex h-5 items-center">
+                            <input type="checkbox" name="privacy_policy" id="privacy_policy" required
+                                class="w-4 h-4 border border-gray-300 accent-fmmain rounded-sm bg-gray-50 focus:ring-3 focus:ring-fmmain-light">
+                        </div>
+                        <div class="ms-2 text-sm">
+                            <label for="privacy_policy" class="font-medium text-gray-900">
+                                {{ t('privacy_policy_agreement') }}
+                            </label>
+                            <p class="text-gray-500">{{ t('privacy_policy_description') }}</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <button type="submit"
+                            class="text-nowrap flex items-center justify-center gap-x-1 rounded-md px-6 py-2.5 text-sm text-green-900 font-semibold border-fmmain-light bg-fmmain-light hover:bg-fmmain-light-2 hover:cursor-pointer transition-colors"
+                            id="menu-button" aria-expanded="true" aria-haspopup="true">
+                            {{ t('send_message') }}
+                            <iconify-icon icon="tabler:chevron-right" class="text-sm text-green-900"></iconify-icon>
+                        </button>
+
+                    </div>
+                </form>
+            </div>
+
+            <!-- Contact Information -->
+            <div class="border-s ms-4 border-gray-100 px-4">
+                <div class="mb-8">
+                    <h5 class="text-lg font-medium mb-4">{{ t('contact_information') }}</h5>
+                    <div class="space-y-4">
+                        <div class="my-4">
+                            <div class="mb-1 font-medium text-gray-700">{{ t('address') }}</div>
+                            <p class="text-gray-600 px-2 py-1 mb-2">{{ t('journal_address') }}</p>
+                        </div>
+                        <div class="my-4">
+                            <div class="mb-1 font-medium text-gray-700">{{ t('email') }}</div>
+                            <a href="mailto:contact@journal.com" class="text-blue-600 hover:text-blue-800 px-2 py-1 border-s-2 mb-2 bg-gray-50/0 border-fmmain/0">contact@journal.com</a>
+                        </div>
+                        <div class="my-4">
+                            <div class="mb-1 font-medium text-gray-700">{{ t('phone')|capitalize }}</div>
+                            <a href="tel:+1234567890" class="text-blue-600 hover:text-blue-800 px-2 py-1 border-s-2 mb-2 bg-gray-50/0 border-fmmain/0">+1 (234) 567-890</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h5 class="text-lg font-medium mb-4">{{ t('quick_links') }}</h5>
+                    <div class="flex flex-col space-y-2">
+                        <a href="{{ url_for('app__page_alias', alias='faq') }}" class="text-blue-600 hover:text-blue-800 px-2 py-1 border-s-2 mb-2 bg-gray-50/0 border-fmmain/0">{{ t('faq') }}</a>
+                        <a href="{{ url_for('app__page_alias', alias='submission_guidelines') }}" class="text-blue-600 hover:text-blue-800 px-2 py-1 border-s-2 mb-2 bg-gray-50/0 border-fmmain/0">{{ t('submission_guidelines') }}</a>
+                        <a href="{{ url_for('app__page_alias', alias='privacy_policy') }}" class="text-blue-600 hover:text-blue-800 px-2 py-1 border-s-2 mb-2 bg-gray-50/0 border-fmmain/0">{{ t('privacy_policy') }}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const header = document.getElementById('header');
+    const menu = document.getElementById('menu');
+
+    window.addEventListener('scroll', function () {
+        const menuPosition = menu.getBoundingClientRect().top;
+        if (menuPosition <= 0) {
+            header.classList.remove('hidden');
+        } else {
+            header.classList.add('hidden');
+        }
+    });
+</script>
+{% endblock %} 

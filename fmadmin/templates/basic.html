@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <title>{{ t("admin_page_title_default") }}</title>
+  <link href="/dist/js/tom-select/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet" />
+  <link href="/dist/css/tabler.min.css?1740918423" rel="stylesheet" />
+  <link href="/dist/css/tabler-flags.min.css?1740918423" rel="stylesheet" />
+  <link href="/dist/css/tabler-socials.min.css?1740918423" rel="stylesheet" />
+  <link href="/dist/css/tabler-payments.min.css?1740918423" rel="stylesheet" />
+  <link href="/dist/css/tabler-vendors.min.css?1740918423" rel="stylesheet" />
+  <link href="/dist/css/tabler-marketing.min.css?1740918423" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.28.1/tabler-icons.min.css"
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+  </style>
+  <style>
+    .ck-editor__editable_inline {
+      min-height: 400px;
+    }
+  </style>
+
+</head>
+
+<body>
+  <div class="page">
+    <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
+      <div class="container-fluid">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu"
+          aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <!-- END NAVBAR TOGGLER -->
+        <!-- BEGIN NAVBAR LOGO -->
+        <div class="my-4 fs-2 fw-bold text-white d-flex justify-content-center align-items-center">
+          {{ t("admin_sidebar_logo_text") }}
+        </div>
+
+        <div class="collapse navbar-collapse" id="sidebar-menu">
+          <!-- BEGIN NAVBAR MENU -->
+          <ul class="navbar-nav pt-lg-3">
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('index') }}">
+                <i class="ti ti-home fs-2 pe-2"></i>
+                <span class="nav-link-title">{{ t('admin_home') }}</span>
+              </a>
+            </li>
+
+            <!-- Раздел "Пользователи" только для администраторов -->
+            {% if session.fmadmin_user and session.fmadmin_user.rolename == 'admin' %}
+            <li class="px-3 pt-4 pb-2 text-muted">
+              <h4 class="m-0">{{ t('admin_users') }}</h4>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('users') }}">
+                <i class="ti ti-home fs-2 pe-2"></i>
+                <span class="nav-link-title">{{ t('admin_users') }}</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('authors') }}">
+                <i class="ti ti-home fs-2 pe-2"></i>
+                <span class="nav-link-title">{{ t('admin_authors') }}</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('editors') }}">
+                <i class="ti ti-user-check fs-2 pe-2"></i>
+                <span class="nav-link-title">{{ t('admin_editors') }}</span>
+              </a>
+            </li>
+            {% endif %}
+
+            <!-- Раздел "Подачи" только для администраторов -->
+            {% if session.fmadmin_user and session.fmadmin_user.rolename == 'admin' %}
+            <li class="px-3 pt-4 pb-2 text-muted">
+              <h4 class="m-0">{{ t('admin_submissions_section') }}</h4>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center"
+                href="{{ url_for('submission_documents') }}">
+                <i class="ti ti-file-text fs-2 pe-2"></i>
+                <span class="nav-link-title">{{ t('admin_documents') }}</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('submissions') }}">
+                <i class="ti ti-file-text fs-2 pe-2"></i>
+                <span class="nav-link-title">{{ t('admin_submission_articles') }}</span>
+              </a>
+            </li>
+            {% endif %}
+
+            <!-- Назначения для редакторов и администраторов -->
+            {% if session.fmadmin_user and session.fmadmin_user.rolename in ['admin', 'editor'] %}
+            <li class="px-3 pt-4 pb-2 text-muted">
+              <h4 class="m-0">
+                {% if session.fmadmin_user.rolename == 'editor' %}
+                {{ t('admin_my_tasks') }}
+                {% else %}
+                {{ t('admin_editor_tasks') }}
+                {% endif %}
+              </h4>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center"
+                href="{{ url_for('editor_assignments') }}">
+                <i class="ti ti-clipboard-check fs-2 pe-2"></i>
+                <span class="nav-link-title">
+                  {% if session.fmadmin_user.rolename == 'editor' %}
+                  {{ t('admin_my_assignments') }}
+                  {% else %}
+                  {{ t('admin_assignments') }}
+                  {% endif %}
+                </span>
+              </a>
+            </li>
+            {% endif %}
+
+            <!-- Раздел "Контент сайта" только для администраторов -->
+            {% if session.fmadmin_user and session.fmadmin_user.rolename == 'admin' %}
+            <li class="px-3 pt-4 pb-2 text-muted">
+              <h4 class="m-0">{{ t('admin_content') }}</h4>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('issues') }}">
+                <i class="ti ti-home fs-2 pe-2"></i>
+                <span class="nav-link-title">{{ t('admin_issues') }}</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('articles') }}">
+                <i class="ti ti-home fs-2 pe-2"></i>
+                <span class="nav-link-title">{{ t('admin_articles') }}</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('news') }}">
+                <i class="ti ti-home fs-2 pe-2"></i>
+                <span class="nav-link-title">{{ t('admin_news') }}</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('announcements') }}">
+                <i class="ti ti-home fs-2 pe-2"></i>
+                <span class="nav-link-title">{{ t('admin_announcements') }}</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('tariffs') }}">
+                <i class="ti ti-home fs-2 pe-2"></i>
+                <span class="nav-link-title">{{ t('admin_tariffs') }}</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('translations') }}">
+                <i class="ti ti-home fs-2 pe-2"></i>
+                <span class="nav-link-title">{{ t('admin_translations') }}</span>
+              </a>
+            </li>
+
+            <li class="px-3 pt-4 pb-2 text-muted">
+              <h4 class="m-0">{{ t('admin_finance') }}</h4>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('payments') }}">
+                <i class="ti ti-credit-card fs-2 pe-2"></i>
+                <span class="nav-link-title">{{ t('admin_payments') }}</span>
+              </a>
+            </li>
+            {% endif %}
+
+          </ul>
+          <!-- END NAVBAR MENU -->
+        </div>
+      </div>
+    </aside>
+    <!--  END SIDEBAR  -->
+    <!-- BEGIN NAVBAR  -->
+    <header class="navbar navbar-expand-md d-none d-lg-flex d-print-none">
+      <div class="container-xl">
+        <!-- BEGIN NAVBAR TOGGLER -->
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar-menu"
+          aria-controls="navbar-menu" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <!-- END NAVBAR TOGGLER -->
+        <div class="navbar-nav flex-row order-md-last">
+          <div class="nav-item dropdown me-3">
+            <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+              {% if session.language == 'uz' %} O'zbekcha {% elif session.language == 'en' %} English {% else %} Русский
+              {% endif %}
+            </a>
+            <div class="dropdown-menu">
+              <a href="/fmadmin/lang/ru" class="dropdown-item">Русский</a>
+              <a href="/fmadmin/lang/uz" class="dropdown-item">O'zbekcha</a>
+              <a href="/fmadmin/lang/en" class="dropdown-item">English</a>
+            </div>
+          </div>
+
+          <div class="nav-item dropdown">
+            <a href="#" class="nav-link d-flex lh-1 p-0 px-2" data-bs-toggle="dropdown" aria-label="Open user menu">
+              {% if session.fmadmin_user %}
+              <span class="avatar avatar-sm">{{ session.fmadmin_user.name[0] if session.fmadmin_user.name else 'U'
+                }}</span>
+              <div class="d-none d-xl-block ps-2">
+                <div>{{ session.fmadmin_user.name or t('admin_user_or_guest') }}</div>
+                <div class="mt-1 small text-secondary">
+                  {% if session.fmadmin_user.rolename == 'admin' %}
+                  {{ t('admin_role_admin') }}
+                  {% elif session.fmadmin_user.rolename == 'editor' %}
+                  {{ t('admin_role_editor') }}
+                  {% else %}
+                  {{ session.fmadmin_user.rolename or t('admin_user_or_guest') }}
+                  {% endif %}
+                </div>
+              </div>
+              {% else %}
+              <span class="avatar avatar-sm">?</span>
+              <div class="d-none d-xl-block ps-2">
+                <div>{{ t('admin_guest') }}</div>
+                <div class="mt-1 small text-secondary">{{ t('admin_not_authorized') }}</div>
+              </div>
+              {% endif %}
+            </a>
+            <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+              {% if session.fmadmin_user %}
+              <a href="#" class="dropdown-item">
+                <i class="ti ti-user me-2"></i>
+                {{ t('admin_profile') }}
+              </a>
+              <a href="#" class="dropdown-item">
+                <i class="ti ti-settings me-2"></i>
+                {{ t('admin_settings') }}
+              </a>
+              <div class="dropdown-divider"></div>
+              <a href="{{ url_for('logout') }}" class="dropdown-item">
+                <i class="ti ti-logout me-2"></i>
+                {{ t('admin_logout') }}
+              </a>
+              {% else %}
+              <a href="{{ url_for('login') }}" class="dropdown-item">
+                <i class="ti ti-login me-2"></i>
+                {{ t('admin_login') }}
+              </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="">
+        </div>
+      </div>
+    </header>
+    <!-- END NAVBAR  -->
+    <div class="page-wrapper">
+
+      <div class="page-body">
+        <div class="container-xl">
+          {% include 'components/alert.html' %}
+          {% block content %}
+          {% endblock %}
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/dist/js/tabler.min.js?1740918423" defer></script>
+
+  <!-- Global user info for JavaScript -->
+  <script>
+    window.userRole = '{{ session.fmadmin_user.rolename if session.fmadmin_user else "guest" }}';
+  </script>
+
+  <!-- Author Search Modal -->
+  {% include 'components/author_search_modal.html' %}
+
+  <!-- Author Utilities -->
+  {% include 'components/author_utils.html' %}
+
+  <script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('textarea.ckeditor').forEach(function (textarea) {
+        ClassicEditor.create(textarea, {
+          ckfinder: {
+            uploadUrl: '/fmadmin/api/upload_image'
+          }
+        }).catch(error => { });
+      });
+    });
+  </script>
+
+  <script src="/dist/js/tom-select/dist/js/tom-select.base.min.js"></script>
+
+  <!-- Toast уведомления -->
+  <script>
+    function showToast(message, type = 'info') {
+      // Создаем контейнер для toast если его нет
+      let toastContainer = document.getElementById('toast-container');
+      if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '1055';
+        document.body.appendChild(toastContainer);
+      }
+
+      // Определяем цвет и иконку по типу
+      let bgClass, iconClass;
+      switch (type) {
+        case 'success':
+          bgClass = 'bg-success';
+          iconClass = 'ti-check';
+          break;
+        case 'error':
+        case 'danger':
+          bgClass = 'bg-danger';
+          iconClass = 'ti-x';
+          break;
+        case 'warning':
+          bgClass = 'bg-warning';
+          iconClass = 'ti-alert-triangle';
+          break;
+        default:
+          bgClass = 'bg-info';
+          iconClass = 'ti-info-circle';
+      }
+
+      // Создаем toast
+      const toastId = 'toast-' + Date.now();
+      const toastHtml = `
+          <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+              <div class="toast-body">
+                <i class="ti ${iconClass} me-2"></i>
+                ${message}
+              </div>
+              <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+          </div>
+        `;
+
+      toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+
+      // Инициализируем и показываем toast
+      const toastElement = document.getElementById(toastId);
+      const toast = new bootstrap.Toast(toastElement, {
+        autohide: true,
+        delay: 5000
+      });
+
+      toast.show();
+
+      // Удаляем элемент после скрытия
+      toastElement.addEventListener('hidden.bs.toast', function () {
+        toastElement.remove();
+      });
+    }
+  </script>
+
+  {% block scripts %}
+
+
+  {% endblock %}
+
+</body>
+
+</html>

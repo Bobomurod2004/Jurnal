@@ -1,0 +1,448 @@
+{% extends 'basic.html' %}
+
+{% block title %}{{ t('website_title') }}{% endblock %}
+
+
+{% block content %}
+{% include 'components/headers/main_header.html' %}
+{% include 'components/hero/main_hero.html' %}
+
+<!-- ============================================================
+     TWO-COLUMN LAYOUT: Main Content + Right Sidebar
+     ============================================================ -->
+<div class="container mx-auto px-4 py-10">
+    <div class="flex flex-col lg:flex-row gap-8">
+
+        <!-- ===== LEFT: Main Content (70%) ===== -->
+        <div class="flex-1 min-w-0 space-y-10">
+
+            <!-- About Journal -->
+            <section class="fm-section-card intersect-once intersect:animate-fade animate-duration-500 animate-ease-out">
+                <div class="flex items-start gap-4">
+                    <div class="shrink-0 w-10 h-10 rounded-xl bg-fmmain-light flex items-center justify-center text-fmmain text-xl">
+                        <iconify-icon icon="solar:info-circle-bold-duotone"></iconify-icon>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-bold text-gray-900 mb-3">{{ t('about_journal') }}</h4>
+                        <p class="text-gray-600 leading-7 mb-4">{{ t('about_journal_text') }}</p>
+                        <a href="{{ url_for('app__page_alias', alias = 'aims_scope') }}"
+                            class="inline-flex items-center gap-1.5 text-sm font-medium text-fmmain hover:text-fmmain/80 transition-colors group">
+                            {{ t('learn_more_aims') }}
+                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-lg transition-transform duration-200 group-hover:translate-x-1"></iconify-icon>
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Editor-in-Chief -->
+            <section class="fm-section-card intersect-once intersect:animate-fade animate-duration-500 animate-ease-out">
+                <div class="flex items-start gap-4">
+                    <div class="shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-fmmain-light to-fmmain-bg flex items-center justify-center text-fmmain text-xl">
+                        <iconify-icon icon="solar:pen-new-square-bold-duotone"></iconify-icon>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-3 mb-4">
+                            <h4 class="text-base font-semibold text-gray-900">{{ t('editor_in_chief') }}</h4>
+                            <a href="{{ url_for('app__editorial') }}"
+                                class="text-xs font-medium text-fmmain hover:text-fmmain/80 transition-colors inline-flex items-center gap-1 group">
+                                {{ t('view_editorial_board') }}
+                                <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-sm transition-transform duration-200 group-hover:translate-x-0.5"></iconify-icon>
+                            </a>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="size-14 bg-gradient-to-br from-fmmain-light to-fmmain-bg text-fmmain rounded-xl flex items-center justify-center text-3xl shadow-sm">
+                                <iconify-icon icon="solar:user-bold" aria-hidden="true"></iconify-icon>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">{{ t('editor_name') }}</h3>
+                                <span class="text-gray-500 text-sm">{{ t('editor_affiliation') }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Articles Section with Tabs -->
+            <section class="intersect-once intersect:animate-fade animate-duration-500 animate-ease-out">
+                <div class="flex items-center gap-2 mb-5">
+                    <iconify-icon icon="solar:document-text-bold-duotone" class="text-fmmain text-xl"></iconify-icon>
+                    <h4 class="text-xl font-bold text-gray-900">{{ t('articles') }}</h4>
+                </div>
+
+                <div class="w-full border-b border-gray-200 pb-0 flex">
+                    <a href="javascript:;" data-tab="latest"
+                        class="tab-link border-b-2 border-green-900 pb-2.5 hover:border-green-500 transition-all px-4 text-sm font-medium">
+                        {{ t('latest_published') }}
+                    </a>
+                    <a href="javascript:;" data-tab="downloaded"
+                        class="tab-link border-b-2 border-green-500/0 pb-2.5 hover:border-green-500 transition-all px-4 text-sm font-medium">
+                        {{ t('most_downloaded') }}
+                    </a>
+                    <a href="javascript:;" data-tab="popular"
+                        class="tab-link border-b-2 border-green-500/0 pb-2.5 hover:border-green-500 transition-all px-4 text-sm font-medium">
+                        {{ t('most_popular') }}
+                    </a>
+                </div>
+
+                <div class="text-sm text-gray-500 mt-3 mb-3">{{ t('latest_publications_day') }}</div>
+
+                <!-- Latest Tab -->
+                <div id="latest-tab" class="tab-content grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {% for publication in latest_publications %}
+                    <div class="article-card group">
+                        <div class="flex items-center gap-2 text-xs mb-3">
+                            <span class="badge badge-neutral">{{ t('research_article') }}</span>
+                            <span class="badge {% if not publication.is_paid %}badge-success{% else %}badge-neutral{% endif %}">
+                                <iconify-icon icon="solar:check-circle-bold-duotone" class="text-xs"></iconify-icon>
+                                {% if not publication.is_paid %}{{ t('open_access') }}{% else %}{{ t('closed_access') }}{% endif %}
+                            </span>
+                        </div>
+                        <a href="{{ url_for('app__article', article_id=publication.id) }}"
+                            class="font-medium text-gray-900 hover:text-fmmain transition-colors leading-snug line-clamp-2 block">{{ publication.title }}</a>
+                        <div class="mt-3 pt-3 border-t border-gray-100">
+                            <div class="text-sm text-gray-600">
+                                {% if publication.main_author_name %}{{ publication.main_author_name }}
+                                {% if publication.subauthor_names %}, ... {{ publication.subauthor_names[0] if publication.subauthor_names }}{% endif %}
+                                {% endif %}
+                            </div>
+                            <div class="text-xs text-gray-400 mt-1">{{ publication.date_publish|timestamp_to_date }}</div>
+                        </div>
+                        {% if not publication.is_paid %}
+                        <div class="mt-3">
+                            <a href="{{ url_for('app__download_article', article_id=publication.id) }}"
+                                class="inline-flex items-center gap-1.5 text-xs font-medium text-fmmain hover:text-fmmain/80 transition-colors">
+                                <iconify-icon icon="tabler:file-type-pdf" class="text-base"></iconify-icon>
+                                {{ t('download_pdf') }}
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Downloaded Tab -->
+                <div id="downloaded-tab" class="tab-content hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {% for publication in downloaded_publications %}
+                    <div class="article-card group">
+                        <div class="flex items-center gap-2 text-xs mb-3">
+                            <span class="badge badge-neutral">{{ t('research_article') }}</span>
+                            <span class="badge {% if not publication.is_paid %}badge-success{% else %}badge-neutral{% endif %}">
+                                <iconify-icon icon="solar:check-circle-bold-duotone" class="text-xs"></iconify-icon>
+                                {% if not publication.is_paid %}{{ t('open_access') }}{% else %}{{ t('closed_access') }}{% endif %}
+                            </span>
+                        </div>
+                        <a href="{{ url_for('app__article', article_id=publication.id) }}"
+                            class="font-medium text-gray-900 hover:text-fmmain transition-colors leading-snug line-clamp-2 block">{{ publication.title }}</a>
+                        <div class="mt-3 pt-3 border-t border-gray-100">
+                            <div class="text-sm text-gray-600">
+                                {% if publication.main_author_name %}{{ publication.main_author_name }}
+                                {% if publication.subauthor_names %}, ... {{ publication.subauthor_names[0] if publication.subauthor_names }}{% endif %}
+                                {% endif %}
+                            </div>
+                            <div class="text-xs text-gray-400 mt-1">{{ publication.date_publish|timestamp_to_date }}</div>
+                        </div>
+                        {% if not publication.is_paid %}
+                        <div class="mt-3">
+                            <a href="{{ url_for('app__download_article', article_id=publication.id) }}"
+                                class="inline-flex items-center gap-1.5 text-xs font-medium text-fmmain hover:text-fmmain/80 transition-colors">
+                                <iconify-icon icon="tabler:file-type-pdf" class="text-base"></iconify-icon>
+                                {{ t('download_pdf') }}
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Popular Tab -->
+                <div id="popular-tab" class="tab-content hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {% for publication in popular_publications %}
+                    <div class="article-card group">
+                        <div class="flex items-center gap-2 text-xs mb-3">
+                            <span class="badge badge-neutral">{{ t('research_article') }}</span>
+                            <span class="badge {% if not publication.is_paid %}badge-success{% else %}badge-neutral{% endif %}">
+                                <iconify-icon icon="solar:check-circle-bold-duotone" class="text-xs"></iconify-icon>
+                                {% if not publication.is_paid %}{{ t('open_access') }}{% else %}{{ t('closed_access') }}{% endif %}
+                            </span>
+                        </div>
+                        <a href="{{ url_for('app__article', article_id=publication.id) }}"
+                            class="font-medium text-gray-900 hover:text-fmmain transition-colors leading-snug line-clamp-2 block">{{ publication.title }}</a>
+                        <div class="mt-3 pt-3 border-t border-gray-100">
+                            <div class="text-sm text-gray-600">
+                                {% if publication.main_author_name %}{{ publication.main_author_name }}
+                                {% if publication.subauthor_names %}, ... {{ publication.subauthor_names[0] if publication.subauthor_names }}{% endif %}
+                                {% endif %}
+                            </div>
+                            <div class="text-xs text-gray-400 mt-1">{{ publication.date_publish|timestamp_to_date }}</div>
+                        </div>
+                        {% if not publication.is_paid %}
+                        <div class="mt-3">
+                            <a href="{{ url_for('app__download_article', article_id=publication.id) }}"
+                                class="inline-flex items-center gap-1.5 text-xs font-medium text-fmmain hover:text-fmmain/80 transition-colors">
+                                <iconify-icon icon="tabler:file-type-pdf" class="text-base"></iconify-icon>
+                                {{ t('download_pdf') }}
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="flex py-5">
+                    <a href="{{ url_for('app__articles') }}"
+                        class="inline-flex items-center gap-1.5 text-sm font-medium text-fmmain hover:text-fmmain/80 transition-colors group">
+                        {{ t('view_all_articles') }}
+                        <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl transition-transform duration-200 group-hover:translate-x-1"></iconify-icon>
+                    </a>
+                </div>
+            </section>
+
+            <!-- News & Announcements -->
+            <section class="intersect-once intersect:animate-fade animate-duration-500 animate-ease-out">
+                <div class="flex items-center gap-2 mb-5">
+                    <iconify-icon icon="solar:chat-round-dots-bold-duotone" class="text-fmmain text-xl"></iconify-icon>
+                    <h4 class="text-xl font-bold text-gray-900">{{ t('home_more_from') }}</h4>
+                </div>
+
+                <div class="w-full border-b border-gray-200 pb-0 flex">
+                    <a href="javascript:;" data-news-tab="news"
+                        class="news-tab-link border-b-2 border-green-900 pb-2.5 hover:border-green-500 transition-all px-4 text-sm font-medium">
+                        {{ t('home_news_tab') }}
+                    </a>
+                    <a href="javascript:;" data-news-tab="announcements"
+                        class="news-tab-link border-b-2 border-green-500/0 pb-2.5 hover:border-green-500 transition-all px-4 text-sm font-medium">
+                        {{ t('home_announcements_tab') }}
+                    </a>
+                </div>
+
+                <div class="text-sm text-gray-500 mt-3 mb-3">{{ t('latest_publications_day') }}</div>
+
+                <div id="news-tab" class="news-tab-content space-y-3">
+                    {% for news in news_items %}
+                    <div class="article-card group">
+                        <div class="flex items-center gap-2 text-xs mb-2 text-gray-400">
+                            <iconify-icon icon="solar:calendar-line-duotone" class="text-sm"></iconify-icon>
+                            {{ news.published_at|timestamp_to_date }}
+                        </div>
+                        <a href="{{ url_for('app__news_detail', news_id=news.id) }}"
+                            class="font-semibold text-gray-900 hover:text-fmmain transition-colors leading-snug">{{ news.title }}</a>
+                    </div>
+                    {% endfor %}
+                    {% if not news_items %}
+                    <div class="py-6 text-gray-400 flex items-center gap-2">
+                        <iconify-icon icon="solar:inbox-bold-duotone" class="text-xl"></iconify-icon>
+                        {{ t('no_news_available') }}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div id="announcements-tab" class="news-tab-content hidden space-y-3">
+                    {% for announcement in announcements %}
+                    <div class="article-card group">
+                        <div class="flex items-center gap-2 text-xs mb-2 text-gray-400">
+                            <iconify-icon icon="solar:calendar-line-duotone" class="text-sm"></iconify-icon>
+                            {{ announcement.published_at|timestamp_to_date }}
+                        </div>
+                        <a href="{{ url_for('app__news_detail', news_id=announcement.id) }}"
+                            class="font-semibold text-gray-900 hover:text-fmmain transition-colors leading-snug">{{ announcement.title }}</a>
+                    </div>
+                    {% endfor %}
+                    {% if not announcements %}
+                    <div class="py-6 text-gray-400 flex items-center gap-2">
+                        <iconify-icon icon="solar:inbox-bold-duotone" class="text-xl"></iconify-icon>
+                        {{ t('no_announcements_available') }}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div id="conferences-tab" class="news-tab-content hidden space-y-3">
+                    <div class="article-card group">
+                        <div class="flex items-center gap-2 text-xs mb-2 text-gray-400">
+                            <iconify-icon icon="solar:calendar-line-duotone" class="text-sm"></iconify-icon>
+                            14 May 2025
+                        </div>
+                        <a href="" class="font-semibold text-gray-900 hover:text-fmmain transition-colors">{{ t('international_conference') }}</a>
+                    </div>
+                </div>
+
+                <div class="flex py-5">
+                    <a href="{{ url_for('app__news') }}"
+                        class="inline-flex items-center gap-1.5 text-sm font-medium text-fmmain hover:text-fmmain/80 transition-colors group">
+                        {{ t('view_all_news') }}
+                        <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl transition-transform duration-200 group-hover:translate-x-1"></iconify-icon>
+                    </a>
+                </div>
+            </section>
+
+            <!-- Submit CTA -->
+            <section class="submit-cta w-full border border-gray-200 px-8 py-10 md:px-12 md:py-12 rounded-2xl bg-white relative overflow-hidden intersect-once intersect:animate-fade animate-duration-500 animate-ease-out">
+                <div class="relative z-10">
+                    <h4 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                        <iconify-icon icon="solar:pen-new-round-bold-duotone" class="text-fmmain text-2xl"></iconify-icon>
+                        {{ t('home_submit_title') }}
+                    </h4>
+                    <div class="my-5 text-gray-600 max-w-2xl leading-7">{{ t('submit_paper_text') }}</div>
+                    <div class="flex flex-wrap gap-3">
+                        <a href="{{ url_for('app__dashboard_articles') }}"
+                            class="inline-flex items-center gap-2 rounded-lg bg-fmmain px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200 group">
+                            {{ t('submit_application') }}
+                            <iconify-icon icon="tabler:arrow-up-right" class="text-base transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"></iconify-icon>
+                        </a>
+                        <a href="{{ url_for('app__page_alias', alias='author_instructions') }}"
+                            class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 hover:border-fmmain/30 hover:text-gray-900 transition-all duration-200 shadow-xs group">
+                            {{ t('menu_guide_for_authors') }}
+                            <iconify-icon icon="tabler:arrow-up-right" class="text-base text-fmmain transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"></iconify-icon>
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- ===== RIGHT: Sidebar (30%) ===== -->
+        <aside class="lg:w-80 shrink-0">
+            <div class="lg:sticky lg:top-24 space-y-6">
+
+                <!-- Journal Stats -->
+                <div class="sidebar-card intersect-once intersect:animate-fade animate-duration-500 animate-ease-out">
+                    <h5 class="sidebar-card-title">
+                        <iconify-icon icon="solar:chart-2-bold-duotone" class="text-fmmain"></iconify-icon>
+                        {{ t('journal_metrics') if t else 'Journal Metrics' }}
+                    </h5>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="stat-mini-card">
+                            <div class="stat-mini-value">{{ t('stat_1_value') }}</div>
+                            <div class="stat-mini-label">{{ t('stat_1_text') }}</div>
+                        </div>
+                        <div class="stat-mini-card">
+                            <div class="stat-mini-value">{{ t('stat_2_value') }}</div>
+                            <div class="stat-mini-label">{{ t('stat_2_text') }}</div>
+                        </div>
+                        <div class="stat-mini-card">
+                            <div class="stat-mini-value">{{ t('stat_3_value') }}</div>
+                            <div class="stat-mini-label">{{ t('stat_3_text') }}</div>
+                        </div>
+                        <div class="stat-mini-card">
+                            <div class="stat-mini-value">{{ t('stat_4_value') }}</div>
+                            <div class="stat-mini-label">{{ t('stat_4_text') }}</div>
+                        </div>
+                    </div>
+                    <a href="{{ url_for('app__page_alias', alias='journal_metrics') }}"
+                        class="inline-flex items-center gap-1 text-xs font-medium text-fmmain hover:text-fmmain/80 transition-colors group mt-3">
+                        {{ t('view_all_insights') }}
+                        <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-sm transition-transform group-hover:translate-x-0.5"></iconify-icon>
+                    </a>
+                </div>
+
+                <!-- Latest Issue -->
+                {% if latest_issue %}
+                <div class="sidebar-card intersect-once intersect:animate-fade animate-duration-500 animate-delay-100 animate-ease-out">
+                    <h5 class="sidebar-card-title">
+                        <iconify-icon icon="solar:book-bold-duotone" class="text-fmmain"></iconify-icon>
+                        {{ t('menu_current_issue') }}
+                    </h5>
+                    <a href="{{ url_for('app__issue', issue_id=latest_issue.id) }}" class="block group">
+                        <div class="rounded-xl overflow-hidden border border-gray-100 mb-3">
+                            {% if latest_issue.cover_image %}
+                            <img src="{{ latest_issue.cover_image }}" alt="{{ latest_issue.title }}" class="w-full h-auto object-cover transition-transform duration-300 group-hover:scale-105">
+                            {% else %}
+                            <div class="h-48 bg-gradient-to-br from-fmmain-light to-fmmain-bg flex items-center justify-center">
+                                <iconify-icon icon="solar:book-bold-duotone" class="text-5xl text-fmmain/40"></iconify-icon>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="font-semibold text-gray-900 group-hover:text-fmmain transition-colors text-sm">{{ latest_issue.title }}</div>
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- Quick Links -->
+                <div class="sidebar-card intersect-once intersect:animate-fade animate-duration-500 animate-delay-200 animate-ease-out">
+                    <h5 class="sidebar-card-title">
+                        <iconify-icon icon="solar:link-round-bold-duotone" class="text-fmmain"></iconify-icon>
+                        {{ t('quick_links') if t else 'Quick Links' }}
+                    </h5>
+                    <nav class="space-y-1">
+                        <a href="{{ url_for('app__page_alias', alias='submission_guidelines') }}" class="sidebar-quick-link">
+                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain"></iconify-icon>
+                            {{ t('menu_submission_guidelines') }}
+                        </a>
+                        <a href="{{ url_for('app__page_alias', alias='author_instructions') }}" class="sidebar-quick-link">
+                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain"></iconify-icon>
+                            {{ t('menu_author_instructions') }}
+                        </a>
+                        <a href="{{ url_for('app__editorial') }}" class="sidebar-quick-link">
+                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain"></iconify-icon>
+                            {{ t('menu_editorial_board') }}
+                        </a>
+                        <a href="{{ url_for('app__page_alias', alias='aims_scope') }}" class="sidebar-quick-link">
+                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain"></iconify-icon>
+                            {{ t('menu_aims_scope') }}
+                        </a>
+                        <a href="{{ url_for('app__issues') }}" class="sidebar-quick-link">
+                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain"></iconify-icon>
+                            {{ t('menu_all_issues') }}
+                        </a>
+                        <a href="{{ url_for('app__contact') }}" class="sidebar-quick-link">
+                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain"></iconify-icon>
+                            {{ t('footer_contact') }}
+                        </a>
+                    </nav>
+                </div>
+
+                <!-- Subscribe CTA -->
+                <div class="sidebar-card bg-gradient-to-br from-fmmain-light/50 to-fmmain-bg/20 border-fmmain/10 intersect-once intersect:animate-fade animate-duration-500 animate-delay-300 animate-ease-out">
+                    <div class="text-center">
+                        <iconify-icon icon="solar:letter-bold-duotone" class="text-3xl text-fmmain mb-2"></iconify-icon>
+                        <h5 class="font-bold text-gray-900 text-sm mb-2">{{ t('menu_subscribe') }}</h5>
+                        <p class="text-xs text-gray-600 mb-4 leading-5">{{ t('submit_paper_text') }}</p>
+                        <a href="{{ url_for('app__page_alias', alias='for_all_researchers') }}"
+                            class="inline-flex items-center gap-1.5 rounded-lg bg-fmmain px-4 py-2 text-xs font-semibold text-white shadow-sm hover:shadow-md transition-all">
+                            {{ t('menu_subscribe') }}
+                            <iconify-icon icon="tabler:arrow-up-right" class="text-sm"></iconify-icon>
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+    </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+
+<script>
+    const header = document.getElementById('header');
+    const menu = document.getElementById('menu');
+
+    window.addEventListener('scroll', function () {
+        const menuPosition = menu.getBoundingClientRect().top;
+        if (menuPosition <= 0) {
+            header.classList.remove('hidden');
+        } else {
+            header.classList.add('hidden');
+        }
+    });
+</script>
+
+<script>
+    $(document).ready(function () {
+        $('.tab-link').click(function () {
+            $('.tab-link').removeClass('border-green-900').addClass('border-green-500/0');
+            $(this).addClass('border-green-900').removeClass('border-green-500/0');
+            $('.tab-content').addClass('hidden');
+            $('#' + $(this).data('tab') + '-tab').removeClass('hidden');
+        });
+
+        $('.news-tab-link').click(function () {
+            $('.news-tab-link').removeClass('border-green-900').addClass('border-green-500/0');
+            $(this).addClass('border-green-900').removeClass('border-green-500/0');
+            $('.news-tab-content').addClass('hidden');
+            $('#' + $(this).data('news-tab') + '-tab').removeClass('hidden');
+        });
+    });
+</script>
+
+{% endblock %}

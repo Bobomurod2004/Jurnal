@@ -1,0 +1,81 @@
+<div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+    <div class="overflow-x-auto pb-1 xl:overflow-visible">
+        <nav class="flex min-w-max items-center gap-1 text-sm font-semibold text-gray-700">
+            <div class="relative inline-block text-left">
+                <button type="button" class="inline-flex items-center gap-1.5 rounded-md px-3 py-2 hover:bg-gray-50 hover:text-gray-900 transition-colors" id="menu-button-submit" aria-expanded="true" aria-haspopup="true">
+                    {{ t('menu_submit_article') }}
+                    <iconify-icon icon="tabler:chevron-down" class="text-base text-gray-500"></iconify-icon>
+                </button>
+                <div class="absolute left-0 z-50 mt-2 hidden w-64 origin-top-left rounded-lg bg-white ring-1 shadow-lg ring-black/5" role="menu" aria-orientation="vertical" aria-labelledby="menu-button-submit" tabindex="-1">
+                    <div class="py-1" role="none">
+                        <a href="{{ url_for('app__page_alias', alias='submission_guidelines') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_submission_guidelines') }}</a>
+                        <a href="{{ url_for('app__page_alias', alias='author_instructions') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_author_instructions') }}</a>
+                        <a href="{{ url_for('app__page_alias', alias='editorial_policy') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_editorial_policy') }}</a>
+                        <a href="{{ url_for('app__page_alias', alias='site_editing_services') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_editing_services') }}</a>
+                        <a href="{{ url_for('app__page_alias', alias='video_guides') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('video_guides') }}</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="relative inline-block text-left">
+                <button type="button" class="inline-flex items-center gap-1.5 rounded-md px-3 py-2 hover:bg-gray-50 hover:text-gray-900 transition-colors" id="menu-button-about" aria-expanded="true" aria-haspopup="true">
+                    {{ t('menu_about_journal') }}
+                    <iconify-icon icon="tabler:chevron-down" class="text-base text-gray-500"></iconify-icon>
+                </button>
+                <div class="absolute left-0 z-50 mt-2 hidden w-64 origin-top-left rounded-lg bg-white ring-1 shadow-lg ring-black/5" role="menu" aria-orientation="vertical" aria-labelledby="menu-button-about" tabindex="-1">
+                    <div class="py-1" role="none">
+                        <a href="{{ url_for('app__page_alias', alias='journal_metrics') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_journal_metrics') }}</a>
+                        <a href="{{ url_for('app__page_alias', alias='aims_scope') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_aims_scope') }}</a>
+                        <a href="{{ url_for('app__page_alias', alias='journal_info') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_journal_info') }}</a>
+                        <a href="{{ url_for('app__editorial') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_editorial_board') }}</a>
+                        <a href="{{ url_for('app__page_alias', alias='news_calls') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_news_calls') }}</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="relative inline-block text-left">
+                <button type="button" class="inline-flex items-center gap-1.5 rounded-md px-3 py-2 hover:bg-gray-50 hover:text-gray-900 transition-colors" id="menu-button-viewall" aria-expanded="true" aria-haspopup="true">
+                    {{ t('menu_view_all') }}
+                    <iconify-icon icon="tabler:chevron-down" class="text-base text-gray-500"></iconify-icon>
+                </button>
+                <div class="absolute left-0 z-50 mt-2 hidden w-64 origin-top-left rounded-lg bg-white ring-1 shadow-lg ring-black/5" role="menu" aria-orientation="vertical" aria-labelledby="menu-button-viewall" tabindex="-1">
+                    <div class="py-1" role="none">
+                        <a href="{{ url_for('app__articles') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_latest_articles') }}</a>
+                        <a href="{{ url_for('app__issue', issue_id=latest_issue.id) if latest_issue else url_for('app__issues') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_current_issue') }}</a>
+                        <a href="{{ url_for('app__issues') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_all_issues') }}</a>
+                        <a href="{{ url_for('app__issues', category='special') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_special_issues') }}</a>
+                        <a href="{{ url_for('app__issues', category='masters') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_series_masters') }}</a>
+                        <a href="{{ url_for('app__issues', category='phd') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_series_phd') }}</a>
+                        <a href="{{ url_for('app__articles', sort='most_viewed') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_most_read') }}</a>
+                        <a href="{{ url_for('app__articles', sort='most_cited') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_most_cited') }}</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="relative inline-block text-left">
+                <button type="button" class="inline-flex items-center gap-1.5 rounded-md px-3 py-2 hover:bg-gray-50 hover:text-gray-900 transition-colors" id="menu-button-subscribe" aria-expanded="true" aria-haspopup="true">
+                    {{ t('menu_subscribe') }}
+                    <iconify-icon icon="tabler:chevron-down" class="text-base text-gray-500"></iconify-icon>
+                </button>
+                <div class="absolute left-0 z-50 mt-2 hidden w-64 origin-top-left rounded-lg bg-white ring-1 shadow-lg ring-black/5" role="menu" aria-orientation="vertical" aria-labelledby="menu-button-subscribe" tabindex="-1">
+                    <div class="py-1" role="none">
+                        <a href="{{ url_for('app__page_alias', alias='for_uzgumya_researchers') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_for_uzgumya') }}</a>
+                        <a href="{{ url_for('app__page_alias', alias='for_all_researchers') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_for_all') }}</a>
+                        <a href="{{ url_for('app__page_alias', alias='masters_subscription') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('masters_subscription') }}</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </div>
+
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <a href="{{ url_for('app__dashboard_articles') }}" class="inline-flex items-center justify-center gap-1.5 rounded-md bg-fmmain px-4 py-2 text-sm font-semibold text-white hover:bg-text-main transition-colors shadow-sm">
+            {{ t('menu_submit_your_article') }}
+            <iconify-icon icon="tabler:arrow-up-right" class="text-base"></iconify-icon>
+        </a>
+        <a href="{{ url_for('app__page_alias', alias='author_instructions') }}" class="inline-flex items-center justify-center gap-1.5 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-fmmain/40 hover:text-gray-900 transition-colors">
+            {{ t('menu_guide_for_authors') }}
+            <iconify-icon icon="tabler:arrow-up-right" class="text-base text-fmmain"></iconify-icon>
+        </a>
+    </div>
+</div>

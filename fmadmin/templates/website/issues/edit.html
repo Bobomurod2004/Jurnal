@@ -1,0 +1,167 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+
+<div class="page-header d-print-none mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">{% if issue.id == 0 %}{{ t("admin_title_create_issue") }}{% else %}{{
+                t("admin_title_edit_issue") }}{% endif %}</h2>
+            <a href="{{ url_for('issues') }}" class="">
+                <i class="ti ti-arrow-left"></i>
+                {{ t("admin_btn_back") }}
+            </a>
+        </div>
+        <div class="col-auto ms-auto">
+            <div class="btn-list">
+                <button id="save-issue-btn-top" type="button" class="btn btn-primary d-none d-sm-inline-block">
+                    <i class="ti ti-check icon icon-1"></i>
+                    {{ t("admin_btn_save") }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="main-issue-form" method="post" enctype="multipart/form-data">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <h5 class="card-title">{% if issue.id == 0 %}{{ t("admin_title_create_issue") }}{% else %}{{
+                            t("admin_title_edit_issue") }}{% endif %}</h5>
+                    </div>
+                    <div class="card-actions">
+                        <div class="btn-group" role="group" aria-label="Язык">
+                            <button type="button" class="btn btn-outline-primary" data-lang="all">{{
+                                t("admin_label_all") }}</button>
+                            <button type="button" class="btn btn-outline-primary" data-lang="ru">RU</button>
+                            <button type="button" class="btn btn-outline-primary" data-lang="uz">UZ</button>
+                            <button type="button" class="btn btn-outline-primary" data-lang="en">EN</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <input type="hidden" name="id" value="{{ issue.id }}">
+                    <div class="mb-3 lang-field lang-en">
+                        <label class="form-label">{{ t("admin_label_title") }}</label>
+                        <input type="text" class="form-control" name="title" value="{{ issue.title or '' }}">
+                    </div>
+                    <div class="mb-3 lang-field lang-uz">
+                        <label class="form-label">{{ t("admin_label_title") }} (uz)</label>
+                        <input type="text" class="form-control" name="title_uz" value="{{ issue.title_uz or '' }}">
+                    </div>
+                    <div class="mb-3 lang-field lang-ru">
+                        <label class="form-label">{{ t("admin_label_title") }} (ru)</label>
+                        <input type="text" class="form-control" name="title_ru" value="{{ issue.title_ru or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_volume") }}</label>
+                        <input type="text" class="form-control" name="vol_no" value="{{ issue.vol_no or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_issue_no") }}</label>
+                        <input type="text" class="form-control" name="issue_no" value="{{ issue.issue_no or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_year") }}</label>
+                        <input type="text" class="form-control" name="year" value="{{ issue.year or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_category") }}</label>
+
+                        <select name="category" class="form-select" id="">
+                            <option value="">{{ t("admin_label_not_specified") }}</option>
+                            {% for category in issue_categories %}
+                            <option value="{{ category.alias }}" {% if issue.category==category.alias %}selected{% endif
+                                %}>{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3 lang-field lang-en">
+                        <label class="form-label">{{ t("admin_label_short_info") }}</label>
+                        <input type="text" class="form-control" name="shortinfo" value="{{ issue.shortinfo or '' }}">
+                    </div>
+                    <div class="mb-3 lang-field lang-uz">
+                        <label class="form-label">{{ t("admin_label_short_info_uz") }}</label>
+                        <input type="text" class="form-control" name="shortinfo_uz"
+                            value="{{ issue.shortinfo_uz or '' }}">
+                    </div>
+                    <div class="mb-3 lang-field lang-ru">
+                        <label class="form-label">{{ t("admin_label_short_info_ru") }}</label>
+                        <input type="text" class="form-control" name="shortinfo_ru"
+                            value="{{ issue.shortinfo_ru or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_price") }}</label>
+                        <input type="text" class="form-control" name="price" value="{{ issue.price or '0' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_price") }} (uz)</label>
+                        <input type="text" class="form-control" name="price_uz" value="{{ issue.price_uz or '0' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_price") }} (ru)</label>
+                        <input type="text" class="form-control" name="price_ru" value="{{ issue.price_ru or '0' }}">
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="subscription_enable"
+                            id="subscription_enable" {% if issue.subscription_enable %}checked{% endif %}>
+                        <label class="form-check-label" for="subscription_enable">{{
+                            t("admin_label_subscription_enabled") }}</label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="is_paid" id="is_paid" {% if issue.is_paid
+                            %}checked{% endif %}>
+                        <label class="form-check-label" for="is_paid">{{ t("admin_label_is_paid_issue") }}</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_cover") }}</label>
+                        {% if issue.cover_image %}
+                        <div class="mb-2"><img src="{{ issue.cover_image }}" alt="cover" style="max-width:200px;"></div>
+                        {% endif %}
+                        <input type="file" class="form-control" name="cover_image" accept="image/*">
+                        <input type="hidden" name="cover_image" value="{{ issue.cover_image }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_created_at") }}</label>
+                        <input type="date" class="form-control" name="created_at"
+                            value="{{ issue.created_at | date_to_form_full }}">
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button id="save-issue-btn" type="submit" class="btn btn-primary">{{ t("admin_btn_save")
+                            }}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function setLang(lang) {
+        if (lang === 'all') {
+            document.querySelectorAll('.lang-field').forEach(e => e.style.display = '');
+        } else {
+            document.querySelectorAll('.lang-field').forEach(e => e.style.display = 'none');
+            document.querySelectorAll('.lang-' + lang).forEach(e => e.style.display = '');
+        }
+        document.querySelectorAll('.btn-group [data-lang]').forEach(btn => btn.classList.remove('active'));
+        document.querySelector('.btn-group [data-lang="' + lang + '"]').classList.add('active');
+    }
+    document.querySelectorAll('.btn-group [data-lang]').forEach(btn => {
+        btn.addEventListener('click', function () {
+            setLang(this.getAttribute('data-lang'));
+        });
+    });
+    setLang('all');
+
+    document.getElementById('save-issue-btn-top').addEventListener('click', function () {
+        document.getElementById('save-issue-btn').click();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,367 @@
+{% extends 'basic_dashboard.html' %}
+{% from 'components/modals/subscription_modal.html' import subscription_modal %}
+
+{% block title %}{{ t('my_payments') }} - {{ t('website_title') }}{% endblock %}
+
+{% block dashboard_content %}
+        <div class="pb-12">
+            <div class="mb-2 flex items-start justify-between">
+                <h4 class="text-2xl font-medium">{{ t('my_payments_title') }}</h4>
+                <div class="flex gap-2">
+                    <a href="/page/payment_guide" class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-200 px-6 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-300 hover:cursor-pointer transition-colors">{{ t('payment_guide') }}</a>
+                    <button id="open_subscribe_modal" class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-500 px-6 py-2 text-sm font-semibold text-gray-50 hover:bg-blue-600 hover:cursor-pointer transition-colors">{{ t('subscribe') }}</button>
+                </div>
+            </div>
+            <div class="mb-4">
+                {{ t('my_payments_desc') }}
+            </div>
+
+            {% if subscription_active %}
+            <div class="mb-8 text-lg font-medium text-gray-900">
+                {{ t('active_subscription') }} {{ subscription_end_date|timestamp_to_date }} ({{ days_left }} {{ t('days_left') }})
+            </div>
+            {% else %}
+            <div class="mb-8 border rounded-lg bg-blue-50/50 border-blue-200 px-4 py-8 sm:px-8">
+                <div class="flex items-start gap-4">
+                    <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
+                        <iconify-icon icon="tabler:star" class="h-6 w-6 text-blue-600"></iconify-icon>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-medium text-gray-900 mb-2">{{ t('subscription_banner_title') }}</h4>
+                        <p class="text-gray-600 mb-4">{{ t('subscription_banner_text') }}</p>
+                        <button id="subscribe_now" class="text-nowrap inline-flex items-center justify-center gap-x-1.5 rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 hover:cursor-pointer transition-colors">
+                            {{ t('subscribe_now') }}
+                            <iconify-icon icon="tabler:arrow-right" class="text-lg"></iconify-icon>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% for payment in payments %}
+            <div class="mb-4">
+                <div class="border px-4 py-4 border-{{ payment.status|status_color }}-400/25 bg-{{ payment.status|status_color }}-50/10 rounded-lg">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h4 class="text-xl font-semibold">
+                                {% if payment.payment_type == 'subscription' %}
+                                {{ t('payment_subscription') }}{% if payment.tariff %}: {{ payment.tariff.name }}{% endif %}
+                                {% else %}
+                                {{ t('payment_article') }}
+                                {% endif %}
+                            </h4>
+                            <div class="text-gray-500">
+                                {% if payment.payment_type == 'subscription' %}
+                                {% if payment.tariff %}{{ payment.tariff.description }}{% else %}{{ t('subscription_activation_info') }}{% endif %}
+                                {% else %}
+                                {{ t('article_access_info') }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="text-end flex flex-col">
+                            <div class="text-sm bg-{{ payment.status|status_color }}-100/75 text-{{ payment.status|status_color }}-900 w-fit ms-auto mb-2 py-1 px-3 rounded-md">
+                                {{ t('payment_' + payment.status) }}
+                            </div>
+                            <div class="text-nowrap text-gray-400 text-xs">{{ t('created') }}: {{ payment.created_at|timestamp_to_date }}</div>
+                            {% if payment.payment_date %}
+                            <div class="text-nowrap text-gray-400 text-xs">{{ t('payment_date') }}: {{ payment.payment_date|timestamp_to_date }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if payment.payment_type == 'article' and payment.articles %}
+                    <div class="my-4">
+                        <h4 class="text-md font-semibold">{{ t('articles_section') }}:</h4>
+                        <div class="flex flex-col gap-2">
+                            {% for article in payment.articles %}
+                            <div>
+                                <a href="" class="text-blue-600 hover:text-blue-700 underline">{{ article.title }}</a>
+                                - {{ article.author }}, <span class="text-gray-400">{{ t('volume') }} {{ article.volume }}, {{ t('issue') }} {{ article.issue }}, {{ article.year }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="flex items-end justify-between mt-4 gap-2">
+                        <div class="flex gap-4 text-sm">
+                            <div class="text-gray-500">{{ t('payment_amount') }}: ${{ "%.2f"|format(payment.amount) }}</div>
+                        </div>
+                        <div class="flex gap-2">
+                            {% if payment.status == 'unpaid' %}
+                            <button data-payment-id="{{ payment.id }}" class="delete-payment text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-red-50 px-6 py-2 text-sm font-semibold text-red-700 hover:bg-red-200 hover:cursor-pointer transition-colors">{{ t('delete_payment') }}</button>
+                            <button data-payment-id="{{ payment.id }}" class="send-payment-details text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-500 px-6 py-2 text-sm font-semibold text-gray-50 hover:bg-blue-600 hover:cursor-pointer transition-colors">{{ t('upload_proof') }}</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Payment Details Modal -->
+<div class="relative z-60 hidden" id="payment_details_modal" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="fixed inset-0 bg-gray-500/75 transition-opacity" aria-hidden="true"></div>
+
+    <div class="fixed inset-0 z-70 w-screen overflow-y-auto">
+        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <h4 class="text-lg font-medium mb-4">{{ t('upload_payment_proof') }}</h4>
+                    
+                    <div class="mb-4">
+                        <div class="text-sm text-gray-600 mb-4">
+                            {{ t('proof_requirements') }}
+                        </div>
+                        
+                        <div class="flex flex-col gap-4">
+                            <div class="payment-file-display hidden mb-2">
+                                {{ t('selected_file') }}: <span class="font-medium payment-filename"></span>
+                            </div>
+                            
+                            <div class="flex gap-4">
+                                <input type="file" id="payment_proof" name="payment_proof" accept=".pdf,.jpg,.jpeg,.png" class="hidden" />
+                                <button type="button" class="select-payment-file flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-gray-50 border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100 hover:cursor-pointer transition-colors group">
+                                    <span class="opacity-100 group-[.processing]:opacity-0">{{ t('select_file') }}</span>
+                                    <iconify-icon icon="svg-spinners:90-ring" class="absolute text-gray-400 opacity-0 group-[.processing]:opacity-100"></iconify-icon>
+                                    <iconify-icon icon="tabler:paperclip" class="text-lg text-blue-600 opacity-100 group-[.processing]:opacity-0"></iconify-icon>
+                                </button>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label for="payment_note" class="block mb-2 text-sm font-medium text-gray-900">{{ t('payment_note') }} ({{ t('optional') }}):</label>
+                                <textarea id="payment_note" name="payment_note" rows="3" class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                    <button type="button" id="submit_payment_details" class="cursor-pointer inline-flex w-full justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-blue-500 sm:ml-3 sm:w-auto">{{ t('upload') }}</button>
+                    <button type="button" id="close_payment_modal" class="cursor-pointer mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 shadow-xs ring-gray-300 ring-inset hover:bg-gray-50 sm:mt-0 sm:w-auto">{{ t('cancel') }}</button>
+                </div>
+            </div>
+        </div>
+
+{{ subscription_modal(tariffs, currency, is_verified, t) }}
+
+<!-- Delete Confirmation Modal -->
+<div class="relative z-60 hidden" id="delete_confirmation_modal" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="fixed inset-0 bg-gray-500/75 transition-opacity" aria-hidden="true"></div>
+
+    <div class="fixed inset-0 z-70 w-screen overflow-y-auto">
+        <div class="container mx-auto flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 w-full" style="max-width: 400px;">
+                <div class="px-4 sm:px-6 py-5">
+                    <div class="flex items-start gap-4">
+                        <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-red-100">
+                            <iconify-icon icon="tabler:alert-triangle" class="h-5 w-5 text-red-600"></iconify-icon>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('delete_payment_confirmation') }}</h3>
+                            <p class="text-sm text-gray-500">{{ t('delete_payment_text') }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 sm:px-8 py-4 sm:flex sm:flex-row-reverse gap-3">
+                    <button type="button" id="confirm_delete_payment" class="inline-flex w-full justify-center rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:w-auto">{{ t('delete_payment') }}</button>
+                    <button type="button" id="cancel_delete_payment" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto">{{ t('cancel') }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block dashboard_scripts %}
+<script>
+    $(document).ready(function () {
+    });
+</script>
+
+<script>
+    $(document).ready(function() {
+        let currentPaymentId = null;
+        let selectedSubscription = null;
+        let paymentToDelete = null;
+        
+        // Open modal when clicking "Send payment details"
+        $('.send-payment-details').click(function() {
+            currentPaymentId = $(this).data('payment-id');
+            $('#payment_details_modal').removeClass('hidden');
+            // Reset form
+            $('#payment_proof').val('');
+            $('#payment_note').val('');
+            $('.payment-file-display').addClass('hidden');
+        });
+
+        // Close modal
+        $('#close_payment_modal').click(function() {
+            $('#payment_details_modal').addClass('hidden');
+            currentPaymentId = null;
+        });
+
+        // Handle file selection button
+        $('.select-payment-file').click(function() {
+            $('#payment_proof').click();
+        });
+
+        // Display selected file name
+        $('#payment_proof').change(function() {
+            const file = this.files[0];
+            if (file) {
+                $('.payment-filename').text(file.name);
+                $('.payment-file-display').removeClass('hidden');
+            } else {
+                $('.payment-file-display').addClass('hidden');
+            }
+        });
+
+        // Handle form submission
+        $('#submit_payment_details').click(function() {
+            const btn = $(this);
+            const file = $('#payment_proof')[0].files[0];
+            
+            if (!file) {
+                alert('Please select a payment proof file');
+                return;
+            }
+
+            btn.prop('disabled', true);
+            
+            const formData = new FormData();
+            formData.append('payment_id', currentPaymentId);
+            formData.append('proof', file);
+            formData.append('note', $('#payment_note').val());
+
+            $.ajax({
+                url: '/api/payment/submit_proof',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        // Reload the page to show updated payment status
+                        window.location.reload();
+                    } else {
+                        alert(response.message || 'Failed to submit payment details');
+                        btn.prop('disabled', false);
+                    }
+                },
+                error: function() {
+                    alert('Failed to submit payment details. Please try again.');
+                    btn.prop('disabled', false);
+                }
+            });
+        });
+
+        // Add click handler for delete button
+        $('.delete-payment').click(function() {
+            paymentToDelete = $(this).data('payment-id');
+            $('#delete_confirmation_modal').removeClass('hidden');
+        });
+
+        // Handle delete confirmation
+        $('#confirm_delete_payment').click(function() {
+            if (!paymentToDelete) return;
+            
+            const btn = $(this);
+            btn.prop('disabled', true);
+            
+            $.ajax({
+                url: '/api/payment/delete/' + paymentToDelete,
+                type: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        window.location.reload();
+                    } else {
+                        alert(response.message || 'Failed to delete payment');
+                        btn.prop('disabled', false);
+                    }
+                },
+                error: function() {
+                    alert('Failed to delete payment. Please try again.');
+                    btn.prop('disabled', false);
+                }
+            });
+        });
+
+        // Handle delete cancellation
+        $('#cancel_delete_payment').click(function() {
+            $('#delete_confirmation_modal').addClass('hidden');
+            paymentToDelete = null;
+        });
+
+        // Open subscription modal
+        $('#open_subscribe_modal').click(function() {
+            $('#subscription_modal').removeClass('hidden');
+            selectedSubscription = null;
+            updateSubscriptionButton();
+            $('.subscription-option').removeClass('border-green-500 bg-green-50/50').addClass('border-gray-200');
+        });
+
+        // Close subscription modal
+        $('#close_subscription_modal').click(function() {
+            $('#subscription_modal').addClass('hidden');
+        });
+
+        // Handle subscription option selection
+        $('.subscription-option').click(function() {
+            // Skip if this is a free plan (no data attributes)
+            if (!$(this).data('tariff-id')) {
+                return;
+            }
+            
+            $('.subscription-option').removeClass('border-green-300 bg-green-50/50').addClass('border-gray-200');
+            $(this).removeClass('border-gray-200').addClass('border-green-300 bg-green-50/50');
+            selectedSubscription = {
+                tariff_id: $(this).data('tariff-id'),
+                amount: $(this).data('amount')
+            };
+            updateSubscriptionButton();
+        });
+
+        function updateSubscriptionButton() {
+            const btn = $('#proceed_subscription');
+            if (selectedSubscription) {
+                btn.prop('disabled', false);
+            } else {
+                btn.prop('disabled', true);
+            }
+        }
+
+        // Handle subscription proceed button
+        $('#proceed_subscription').click(function() {
+            if (!selectedSubscription) return;
+
+            $.ajax({
+                url: '/api/payment/create_subscription',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(selectedSubscription),
+                success: function(response) {
+                    if (response.success) {
+                        window.location.reload();
+                    } else {
+                        alert(response.message || 'Failed to create subscription');
+                    }
+                },
+                error: function() {
+                    alert('Failed to create subscription. Please try again.');
+                }
+            });
+        });
+
+        // Handle subscribe now button click
+        $('#subscribe_now').click(function() {
+            $('#subscription_modal').removeClass('hidden');
+            selectedSubscription = null;
+            updateSubscriptionButton();
+            $('.subscription-option').removeClass('border-green-500 bg-green-50/50').addClass('border-gray-200');
+        });
+    });
+</script>
+{% endblock %}

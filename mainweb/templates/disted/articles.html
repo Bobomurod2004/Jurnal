@@ -1,0 +1,573 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Mulish:ital,wght@0,200..1000;1,200..1000&family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/iconify-icon@2.3.0/dist/iconify-icon.min.js"></script>
+    <link href="/static/styles.css" rel="stylesheet">
+
+</head>
+
+<body>
+    <header id="header" class="top-0 fixed hidden  w-full z-50 bg-white border-b border-fmmain animate-fade animate-duration-200 animate-ease-out">
+        <div class="border-b border-gray-200 bg-fmmain-bg">
+            <div class="container mx-auto px-4 py-3 ">
+                <div class="flex items-center justify-between ">
+                    <div class="pb-0">
+                        <a href="" class="flex items-center content-center">
+                            <img src="static/logo.png" style="height: 40px;" alt="">
+                            <div class="text-xl font-medium ms-4 font-serif">Philology Matters</div>
+                        </a>
+    
+                    </div>
+                    <div class="flex space-x-6">
+                        <div class="pb-1">
+    
+                        </div>
+                        <a href="#" class="border-b-1 border-green-400/0 hover:border-b-1 pb-1 hover:border-green-400 transition-colors group">
+                            <iconify-icon icon="tabler:search" class="-mb-0.5 group-hover:text-green-600 transition-colors"></iconify-icon> Search
+                        </a>
+                        <a href="#" class="border-b-1 border-green-400/0 hover:border-b-1 pb-1 hover:border-green-400 transition-colors group">
+                            <iconify-icon icon="solar:user-bold-duotone" class="-mb-0.5 group-hover:text-green-600 transition-colors"></iconify-icon> My account
+                        </a>
+                        <a href="#" class="border-b-1 border-green-400/0 hover:border-b-1 pb-1 hover:border-green-400 transition-colors group">
+                            <iconify-icon icon="solar:login-3-bold-duotone" class="-mb-0.5 text-gray-500 group-hover:text-green-600 transition-colors"></iconify-icon> Log in
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <div class="">
+            <div class="container mx-auto py-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex">
+                        <div class="relative inline-block text-left">
+                            <div>
+                                <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                    Submit Article
+                                    <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                                </button>
+                            </div>
+    
+                            <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                                <div class="py-1" role="none">
+                                    <a href="/page/submission_guidelines" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Submission Guidelines</a>
+                                    <a href="/page/author_instructions" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Instructions for Authors</a>
+                                    <a href="/page/editorial_policy" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Editorial Policy</a>
+                                    <a href="/page/site_editing_services" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Site Editing Services</a>
+                                </div>
+                            </div>
+                        </div>
+    
+                        <div class="relative inline-block text-left">
+                            <div>
+                                <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                    About the Journal
+                                    <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                                </button>
+                            </div>
+    
+                            <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                                <div class="py-1" role="none">
+                                    <a href="/page/journal_metrics" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Journal Metrics</a>
+                                    <a href="/page/aims_scope" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Aims and Scope</a>
+                                    <a href="/page/journal_info" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Journal Information</a>
+                                    <a href="/page/editorial_board" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Editorial Board</a>
+                                    <a href="/page/news_calls" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">News and Calls for Papers</a>
+                                    <a href="/page/conferences" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Conferences</a>
+                                </div>
+                            </div>
+                        </div>
+    
+                        <div class="relative inline-block text-left">
+                            <div>
+                                <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                    View All Articles and Issues
+                                    <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                                </button>
+                            </div>
+    
+                            <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                                <div class="py-1" role="none">
+                                    <a href="/page/latest_articles" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Latest Articles</a>
+                                    <a href="/page/current_issue" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Current Issue</a>
+                                    <a href="/page/all_issues" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">All Issues</a>
+                                    <a href="/page/special_issues" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Special Issues</a>
+                                    <a href="/page/collections" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Collections</a>
+                                    <a href="/page/most_read_articles" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Most Read Articles</a>
+                                    <a href="/page/most_cited_articles" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Most Cited Articles</a>
+                                </div>
+                            </div>
+                        </div>
+    
+                        <div class="relative inline-block text-left">
+                            <div>
+                                <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                    Subscribe
+                                    <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                                </button>
+                            </div>
+    
+                            <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                                <div class="py-1" role="none">
+                                    <a href="/page/for_uzgumya_researchers" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">For UzGUMya Researchers</a>
+                                    <a href="/page/for_all_researchers" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">For All Researchers</a>
+                                </div>
+                            </div>
+                        </div>
+    
+                    </div>
+                    <div class="flex">
+                        <a href="/" class="inline-flex w-full text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                            Submit your article
+                            <iconify-icon icon="tabler:arrow-up-right" class="text-lg text-fmmain"></iconify-icon>
+                        </a>
+                        <a href="/" class="inline-flex w-full text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                            Guide for authors
+                            <iconify-icon icon="tabler:arrow-up-right" class="text-lg text-fmmain"></iconify-icon>
+                        </a>
+    
+                    </div>
+                </div>
+    
+            </div>
+        </div>
+    </header>
+    <div class="container mx-auto px-4 py-3 ">
+        <div class="flex items-center justify-between ">
+            <div class="pb-0">
+                <a href="">
+                    <img src="static/logo.png" style="height: 32px;" alt="">
+                </a>
+    
+            </div>
+            <div class="flex space-x-6">
+                <div class="pb-1">
+    
+                </div>
+
+                <a href="#" class="border-b-1 border-green-400/0 hover:border-b-1 pb-1 hover:border-green-400 transition-colors group">
+                    <iconify-icon icon="solar:user-bold-duotone" class="-mb-0.5 group-hover:text-green-600 transition-colors"></iconify-icon> My account
+                </a>
+                <a href="#" class="border-b-1 border-red-400/0 hover:border-b-1 pb-1 hover:border-red-400 transition-colors group">
+                    <iconify-icon icon="solar:login-3-bold-duotone" class="-mb-0.5 text-gray-500 group-hover:text-red-600 transition-colors"></iconify-icon> Log out
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-fmmain-bg mt-20">
+        <div class="container mx-auto">
+            <div class=" p-8 flex items-start">
+                <div class="flex-shrink-0 -mt-20">
+                    <img src="static/obl.jpg" alt="Language and Health" class="w-36 h-auto rounded shadow mb-20n">
+                </div>
+                <div class="ml-6 mt-3">
+                    <h1 class="text-3xl font-medium mb-2 font-serif">Philology Problems</h1>
+                    <p class="text-black/75 text-lg">Open access</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="border-b border-gray-200 " id="menu">
+        <div class="container mx-auto py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex">
+                    <div class="relative inline-block text-left">
+                        <div>
+                            <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                Submit Article
+                                <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                            </button>
+                        </div>
+    
+                        <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                            <div class="py-1" role="none">
+                                <a href="/page/submission_guidelines" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Submission Guidelines</a>
+                                <a href="/page/author_instructions" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Instructions for Authors</a>
+                                <a href="/page/editorial_policy" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Editorial Policy</a>
+                                <a href="/page/site_editing_services" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Site Editing Services</a>
+                            </div>
+                        </div>
+                    </div>
+    
+                    <div class="relative inline-block text-left">
+                        <div>
+                            <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                About the Journal
+                                <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                            </button>
+                        </div>
+    
+                        <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                            <div class="py-1" role="none">
+                                <a href="/page/journal_metrics" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Journal Metrics</a>
+                                <a href="/page/aims_scope" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Aims and Scope</a>
+                                <a href="/page/journal_info" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Journal Information</a>
+                                <a href="/page/editorial_board" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Editorial Board</a>
+                                <a href="/page/news_calls" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">News and Calls for Papers</a>
+                                <a href="/page/conferences" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Conferences</a>
+                            </div>
+                        </div>
+                    </div>
+    
+                    <div class="relative inline-block text-left">
+                        <div>
+                            <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                View All Articles and Issues
+                                <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                            </button>
+                        </div>
+    
+                        <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                            <div class="py-1" role="none">
+                                <a href="/page/latest_articles" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Latest Articles</a>
+                                <a href="/page/current_issue" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Current Issue</a>
+                                <a href="/page/all_issues" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">All Issues</a>
+                                <a href="/page/special_issues" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Special Issues</a>
+                                <a href="/page/collections" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Collections</a>
+                                <a href="/page/most_read_articles" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Most Read Articles</a>
+                                <a href="/page/most_cited_articles" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Most Cited Articles</a>
+                            </div>
+                        </div>
+                    </div>
+    
+                    <div class="relative inline-block text-left">
+                        <div>
+                            <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                Subscribe
+                                <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                            </button>
+                        </div>
+    
+                        <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                            <div class="py-1" role="none">
+                                <a href="/page/for_uzgumya_researchers" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">For UzGUMya Researchers</a>
+                                <a href="/page/for_all_researchers" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">For All Researchers</a>
+                            </div>
+                        </div>
+                    </div>
+    
+                </div>
+                <div class="flex">
+                    <a href="/" class="inline-flex w-full text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                        Submit your article
+                        <iconify-icon icon="tabler:arrow-up-right" class="text-lg text-fmmain"></iconify-icon>
+                    </a>
+                    <a href="/" class="inline-flex w-full text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                        Guide for authors
+                        <iconify-icon icon="tabler:arrow-up-right" class="text-lg text-fmmain"></iconify-icon>
+                    </a>
+    
+                </div>
+            </div>
+    
+        </div>
+    </div>
+
+    <div class="mt-8 bg-white">
+        <div class="container py-8 mx-auto">
+            <div class="pb-12">
+                <h4 class="text-2xl font-medium mb-4">My articles</h4>
+                <div class="mb-8">
+                    Here you can control your information or submit new articles
+                </div>
+                <div class="mb-8">
+                    <div class="bg-red-50/50 border my-1 border-red-200 px-4 py-2 rounded-lg text-red-600">
+                        Your last applied article was declined. Please double check all data. <a href="" class="underline text-blue-600 hover:text-blue-800">Open Article</a>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <div class="border px-4 py-4 border-red-400/25 bg-red-50/10 rounded-lg">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h4 class="text-xl font-semibold">Lorem ipsum, dolor sit amet consectetur adipisicing elit.</h4>
+                                <div class="text-gray-500">
+                                    Mark Markov, Abu Samijonov
+                                </div>
+                                
+                            </div>
+                            <div class="text-end flex flex-col">
+                                <div class="text-sm bg-red-100 text-red-900 w-fit ms-auto mb-2 py-1 px-3 rounded-md">
+                                    Rejected
+                                </div>
+                                <div class="text-nowrap text-gray-400 text-xs">Created: 12.12.2025</div>
+                                <div class="text-nowrap text-gray-400 text-xs">Applied: 12.12.2025</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h5 class="text-sm font-semibold">Reason:</h5>
+                            <div class="text-sm">
+                                Lorem ipsum dolor sit amet consectetur adip rovident cum aperiam fugiat culpa, voluptates sunt nam sit minima. Expisicing elit. Provident cum aperiam fugiat culpa, voluptates sunt nam sit minima. Expedita dolorum enim aperiam ducimus molestiae soluta obcaecati ea ut non quidem?
+                            </div>
+                        </div>
+                        <div class="flex justify-end mt-4 gap-2">
+                            <button class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-200 hover:cursor-pointer">Delete</button>
+                            <button class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-500 px-6 py-2 text-sm font-semibold text-gray-50 hover:bg-blue-600 hover:cursor-pointer">Edit</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="border px-4 py-4 border-amber-400/25 bg-amber-50/10 rounded-lg">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h4 class="text-xl font-semibold">Lorem ipsum, dolor sit amet consectetur adipisicing elit.</h4>
+                                <div class="text-gray-500">
+                                    Mark Markov, Abu Samijonov
+                                </div>
+                            </div>
+                            <div class="text-end flex flex-col">
+                                <div class="text-sm bg-amber-100 text-amber-900 w-fit ms-auto mb-2 py-1 px-3 rounded-md">
+                                    Draft
+                                </div>
+                                <div class="text-nowrap text-gray-400 text-xs">Created: 12.12.2025</div>
+                            </div>
+                        </div>
+                        <div class="flex justify-end mt-4 gap-2">
+                            <button class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-200 hover:cursor-pointer">Delete</button>
+                            <button class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-500 px-6 py-2 text-sm font-semibold text-gray-50 hover:bg-blue-600 hover:cursor-pointer">Edit</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="border px-4 py-4 border-green-400/25 bg-green-50/10 rounded-lg">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h4 class="text-xl font-semibold">Lorem ipsum, dolor sit amet consectetur adipisicing elit.</h4>
+                                <div class="text-gray-500">
+                                    Mark Markov, Abu Samijonov
+                                </div>
+                                <div class="text-sm mb-2 text-gray-600 flex">
+                                    <a href="" class="flex items-center w-fit text-md text-blue-700 hover:text-blue-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400">Volume 65</a>, September 2024, 101127
+                                </div>
+                                <div>
+                                    <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                        <iconify-icon icon="tabler:arrow-up-right" class="text-sm me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                                        <span class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                            DOI: 11.22.33.44/444444.444
+                                        </span>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="text-end flex flex-col">
+                                <div class="text-sm bg-green-100/75 text-green-900 w-fit ms-auto mb-2 py-1 px-3 rounded-md">
+                                    Published
+                                </div>
+                                <div class="text-nowrap text-gray-400 text-xs">Created: 12.12.2025</div>
+                                <div class="text-nowrap text-gray-400 text-xs">Accepted: 12.12.2025</div>
+                                <div class="text-nowrap text-gray-400 text-xs">Published: 12.12.2025</div>
+                            </div>
+                        </div>
+                        <div class="flex items-end justify-between mt-4 gap-2">
+                            <div class="flex gap-4 text-sm">
+                                <div>Views: 0</div>
+                                <div>Downloads: 0</div>
+                                <div>Citations: 0</div>
+                            </div>
+                            <div>
+                                <button class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-500 px-6 py-2 text-sm font-semibold text-gray-50 hover:bg-blue-600 hover:cursor-pointer">View</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="border px-4 py-4 border-blue-400/25 bg-blue-50/10 rounded-lg">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h4 class="text-xl font-semibold">Lorem ipsum, dolor sit amet consectetur adipisicing elit.</h4>
+                                <div class="text-gray-500">
+                                    Mark Markov, Abu Samijonov
+                                </div>
+                            </div>
+                            <div class="text-end flex flex-col">
+                                <div class="text-sm bg-blue-100/75 text-blue-900 w-fit ms-auto mb-2 py-1 px-3 rounded-md">
+                                    In process
+                                </div>
+                                <div class="text-nowrap text-gray-400 text-xs">Created: 12.12.2025</div>
+                                <div class="text-nowrap text-gray-400 text-xs">Applied: 12.12.2025</div>
+                            </div>
+                        </div>
+                        <div class="flex items-end justify-between mt-4 gap-2">
+                            <div class="flex gap-4 text-sm">
+                            </div>
+                            <div>
+                                <button class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-500 px-6 py-2 text-sm font-semibold text-gray-50 hover:bg-blue-600 hover:cursor-pointer">View</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+    
+            </div>
+
+        </div>
+    </div>
+
+
+    <div class=" bg-gray-100 text-gray-600 mt-8">
+        <div class="container mx-auto py-12">
+            <div class="flex text-sm mb-12">
+                <div class="border-e text-nowrap border-gray-300 py-2 pe-8">
+                    <div>Crossref DOI: 10.36078</div>
+                    <div>E-ISSN: 2181-1237</div>
+                </div>
+                <div class="ms-8 w-sm py-2" >
+                    <div>Copyright © 2024 Shandong University.</div>
+                    <div>Published by Elsevier B.V. All rights are reserved, including those for text and data mining, AI training, and similar technologies.</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-16 pb-4">
+                <div>
+                    <div class="border-b-2 pb-2 mb-4 border-gray-400 text-gray-600">Submit Article</div>
+                    <div class="flex flex-col gap-2 items-start">
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="border-b-2 pb-2 mb-4 border-gray-400 text-gray-600">Submit Article</div>
+                    <div class="flex flex-col gap-2 items-start">
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="border-b-2 pb-2 mb-4 border-gray-400 text-gray-600">Submit Article</div>
+                    <div class="flex flex-col gap-2 items-start">
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script defer src="https://unpkg.com/tailwindcss-intersect@2.x.x/dist/observer.min.js"></script>
+    <script>
+        $(document).ready(function () {
+                // Handle dropdown toggle for each button
+                $('.relative').on('click', 'button', function (event) {
+                    event.stopPropagation(); // Prevent the document click handler from firing
+
+                    const dropdown = $(this).closest('.relative').find('.absolute');
+
+                    // Hide all other active dropdowns
+                    $('.relative').not($(this).closest('.relative')).each(function () {
+                        const otherDropdown = $(this).find('.absolute');
+                        if (!otherDropdown.hasClass('hidden')) {
+                            otherDropdown.removeClass('dropdown-enter-active').addClass('dropdown-leave');
+                            setTimeout(() => {
+                                otherDropdown.removeClass('dropdown-leave').addClass('dropdown-leave-active hidden');
+                            }, 10); // Small delay to allow the browser to apply the initial state
+                        }
+                    });
+
+                    // Toggle the clicked dropdown
+                    if (dropdown.hasClass('hidden')) {
+                        // Entering state
+                        dropdown.removeClass('hidden dropdown-leave-active').addClass('dropdown-enter');
+                        setTimeout(() => {
+                            dropdown.removeClass('dropdown-enter').addClass('dropdown-enter-active');
+                        }, 10); // Small delay to allow the browser to apply the initial state
+                    } else {
+                        // Leaving state
+                        dropdown.removeClass('dropdown-enter-active').addClass('dropdown-leave');
+                        setTimeout(() => {
+                            dropdown.removeClass('dropdown-leave').addClass('dropdown-leave-active hidden');
+                        }, 10); // Small delay to allow the browser to apply the initial state
+                    }
+                });
+
+                // Hide dropdown when clicking outside of it
+                $(document).click(function (event) {
+                    if (!$(event.target).closest('.relative').length) {
+                        $('.relative').each(function () {
+                            const dropdown = $(this).find('.absolute');
+                            if (!dropdown.hasClass('hidden')) {
+                                dropdown.removeClass('dropdown-enter-active').addClass('dropdown-leave');
+                                setTimeout(() => {
+                                    dropdown.removeClass('dropdown-leave').addClass('dropdown-leave-active hidden');
+                                }, 10); // Small delay to allow the browser to apply the initial state
+                            }
+                        });
+                    }
+                });
+            });
+    </script>
+
+    <script>
+        const header = document.getElementById('header'); // Get the header element
+        const menu = document.getElementById('menu'); // Get the #menu element
+
+        window.addEventListener('scroll', function () {
+            const menuPosition = menu.getBoundingClientRect().top; // Get the position of #menu relative to the viewport
+            const scrollPosition = window.scrollY; // Current scroll position
+
+            if (menuPosition <= 0) {
+                // If #menu is in or above the viewport, show the header
+                header.classList.remove('hidden');
+            } else {
+                // If #menu is below the viewport, hide the header
+                header.classList.add('hidden');
+            }
+        });
+    </script>
+
+    <script>
+        $(document).ready(function () {
+            $('.issue_item').on('click', '.issue_collapse', function () {
+                const $clickedIssueVolumes = $(this).closest('.issue_item').find('.issue_volumes');
+                $('.issue_item').not($(this).closest('.issue_item')).find('.issue_volumes').addClass('hidden');
+                $clickedIssueVolumes.toggleClass('hidden');
+            });
+            $('.issue_item .issue_collapse').first().click();
+        });
+    </script>
+
+    <script>
+        $(document).ready(function () {
+            $('.toggler_item').on('click', '.toggler_button', function () {
+                const $clickedItem = $(this).closest('.toggler_item').find('.toggler_data');
+                $clickedItem.toggleClass('hidden');
+                var chtext = $(this).find('span');
+                var chicon = $(this).find('iconify-icon');
+                console.log( chicon.data('on'))
+                if ($clickedItem.hasClass('hidden')) {
+                    chtext.text(chtext.data('off'))
+                    chicon.attr('icon', chicon.data('icon-off'))
+                } else {
+                    chtext.text(chtext.data('on'))
+                    chicon.attr('icon', chicon.data('icon-on'))
+                }
+            });
+        });
+    </script>
+
+
+
+
+</body>
+
+</html>

@@ -1,0 +1,165 @@
+{% extends 'basic.html' %}
+
+
+{% block content %}
+
+<div class="page-header d-print-none mb-4">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title m-0">{{ t("admin_articles_title") }}</h2>
+    </div>
+    <div class="col-auto ms-auto">
+      <div class="btn-list">
+        <a href="{{ url_for('article_edit', article_id=0) }}" class="btn btn-primary d-none d-sm-inline-block">
+          <i class="ti ti-plus"></i>
+          {{ t("admin_btn_add_article") }}
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<form method="get" action="{{ url_for('articles') }}">
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="form-label">{{ t("admin_label_article_title") }}</div>
+      <input type="text" class="form-control" placeholder="{{ t('admin_placeholder_article_title') }}" name="title"
+        value="{{ search_title|default('') }}">
+    </div>
+    <div class="col-md-3">
+      <div class="form-label">{{ t("admin_label_author") }}</div>
+      <input type="text" class="form-control" placeholder="{{ t('admin_placeholder_author_name') }}" name="author"
+        value="{{ search_author|default('') }}">
+    </div>
+    <div class="col-md-3">
+      <div class="form-label">ORCID</div>
+      <input type="text" class="form-control" placeholder="{{ t('admin_placeholder_orcid') }}" name="orcid"
+        value="{{ search_orcid|default('') }}">
+      <div class="form-check mt-2">
+        <input class="form-check-input" type="checkbox" name="search_orcid_by_name" value="1" id="search_orcid_by_name"
+          {% if search_orcid_by_name %}checked{% endif %}>
+        <label class="form-check-label" for="search_orcid_by_name">
+          {{ t("admin_label_search_by_full_name") }}
+        </label>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="form-label">{{ t("admin_label_issue") }}</div>
+      <select class="form-select" name="issue">
+        <option value="">{{ t("admin_label_all_issues") }}</option>
+        {% for issue in issues %}
+        <option value="{{ issue.id }}" {% if search_issue|default('')|string==issue.id|string %}selected{% endif %}>
+          {{ issue.vol_no }}-{{ issue.issue_no }}{% if issue.year %} ({{ issue.year }}){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+  </div>
+  <div class="mt-3">
+    <div class="d-flex justify-content-end">
+      <button class="btn btn-ghost-danger me-2" type="button"
+        onclick="window.location.href='{{ url_for('articles') }}'">
+        <i class="ti ti-x pe-2"></i> {{ t("admin_btn_clear") }}
+      </button>
+      <button class="btn btn-primary" type="submit">
+        <i class="ti ti-search pe-2"></i> {{ t("admin_btn_search") }}
+      </button>
+    </div>
+  </div>
+</form>
+
+<div class="card mt-4">
+  <div class="table-responsive">
+    <table class="table card-table table-hover">
+      <thead>
+        <tr>
+          <th>{{ t("admin_label_article_title") }}</th>
+          <th>{{ t("admin_label_issue") }}</th>
+          <th class="w-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for article in articles %}
+        <tr>
+          <td class="align-middle">
+            <div class="d-flex flex-column">
+              <div>{{ article.title }}</div>
+              <div class="text-muted small">
+                {% set author_links = [] %}
+                {% if article.main_author_id and article.main_author_id in authors_map %}
+                {% set main_author = authors_map[article.main_author_id] %}
+                {% set _ = author_links.append(main_author.name) %}
+                {% endif %}
+                {% if article.subauthor_ids %}
+                {% for sub_id in article.subauthor_ids %}
+                {% if sub_id in authors_map %}
+                {% set sub_author = authors_map[sub_id] %}
+                {% set _ = author_links.append(sub_author.name) %}
+                {% endif %}
+                {% endfor %}
+                {% endif %}
+                {{ author_links|join(', ') }}
+              </div>
+            </div>
+          </td>
+          <td class="align-middle">
+            {% if article.issue_id and article.issue_id in issues_map %}
+            {% set issue = issues_map[article.issue_id] %}
+            <a href="#" class="text-reset">{{ issue.vol_no }}-{{ issue.issue_no }}{% if issue.year %} ({{ issue.year
+              }}){% endif %}</a>
+            {% else %}
+            —
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            <div class="d-flex">
+              <a href="{{ url_for('article_edit', article_id=article.id) }}"
+                class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1 me-2">
+                {{ t("admin_btn_edit") }}
+              </a>
+              <a href="{{ url_for('article_content', article_id=article.id) }}"
+                class="btn btn-icon btn-outline-info bg-info-lt btn-sm px-2 py-1">
+                {{ t("admin_btn_content") }}
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer d-flex align-items-center">
+    {% set start_idx = (page - 1) * 20 + 1 %}
+    {% set end_idx = (page - 1) * 20 + articles|length %}
+    <p class="m-0 text-secondary">{{ t("admin_pagination_showing") }} <span>{{ start_idx }}-{{ end_idx }}</span> {{
+      t("admin_pagination_of") }} <span>{{ total_articles }}</span> {{ t("admin_pagination_entries") }}</p>
+    <ul class="pagination m-0 ms-auto">
+      <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+        <a class="page-link"
+          href="{{ url_for('articles', page=page-1, title=search_title, author=search_author, orcid=search_orcid, issue=search_issue) }}"
+          tabindex="-1" aria-disabled="true">
+          <i class="ti ti-chevron-left"></i>
+        </a>
+      </li>
+      {% for p in range(1, total_pages+1) %}
+      <li class="page-item {% if p == page %}active{% endif %}"><a class="page-link"
+          href="{{ url_for('articles', page=p, title=search_title, author=search_author, orcid=search_orcid, issue=search_issue) }}">{{
+          p }}</a></li>
+      {% endfor %}
+      <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+        <a class="page-link"
+          href="{{ url_for('articles', page=page+1, title=search_title, author=search_author, orcid=search_orcid, issue=search_issue) }}">
+          <i class="ti ti-chevron-right"></i>
+        </a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+
+{% endblock %}

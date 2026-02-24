@@ -1,0 +1,280 @@
+{% extends 'basic.html' %}
+
+{% block title %}{{ t('issues') }} - {{ t('website_title') }}{% endblock %}
+
+{% block content %}
+{% include 'components/headers/main_header.html' %}
+{% include 'components/hero/main_hero.html' %}
+
+<div class="mt-8 bg-white">
+    <div class="container py-8 mx-auto">
+        <div class="pb-12">
+            <!-- Filters Section -->
+            <div class="mb-8 p-4 bg-gray-50 rounded-lg">
+                <h4 class="text-lg font-medium mb-4">{{ t('filters') }}</h4>
+                <form method="GET" class="flex flex-wrap gap-4">
+                    <!-- Year Filter -->
+                    <div>
+                        <label for="year" class="block text-sm font-medium text-gray-700 mb-1">{{ t('year') }}</label>
+                        <select name="year" id="year" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                            <option value="">{{ t('all_years') }}</option>
+                            {% for year in available_years %}
+                            <option value="{{ year }}" {% if current_filters.year == year|string %}selected{% endif %}>{{ year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Category Filter -->
+                    {% if available_categories %}
+                    <div>
+                        <label for="category" class="block text-sm font-medium text-gray-700 mb-1">{{ t('category') }}</label>
+                        <select name="category" id="category" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                            <option value="">{{ t('all_categories') }}</option>
+                            {% for category in available_categories %}
+                            <option value="{{ category.alias }}" {% if current_filters.category == category.alias %}selected{% endif %}>{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Access Type Filter -->
+                    <div>
+                        <label for="access" class="block text-sm font-medium text-gray-700 mb-1">{{ t('access_type') }}</label>
+                        <select name="access" id="access" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                            <option value="">{{ t('all_access_types') }}</option>
+                            <option value="free" {% if current_filters.access == 'free' %}selected{% endif %}>{{ t('free_access') }}</option>
+                            <option value="paid" {% if current_filters.access == 'paid' %}selected{% endif %}>{{ t('paid_access') }}</option>
+                            <option value="subscription" {% if current_filters.access == 'subscription' %}selected{% endif %}>{{ t('subscription_access') }}</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Filter Buttons -->
+                    <div class="flex items-end gap-2">
+                        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors">
+                            {{ t('apply_filters') }}
+                        </button>
+                        <a href="{{ url_for('app__issues') }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors">
+                            {{ t('clear_filters') }}
+                        </a>
+                    </div>
+                </form>
+            </div>
+            
+            {% for year, year_issues in issues|groupby('year')|sort(reverse=true) %}
+            <div class="mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="text-xl font-medium">{{ year }}</h4>
+                    <button class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer toggle-issues">
+                        <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                        {{ t('toggle_issues') }}
+                    </button>
+                </div>
+                <div class="issues-container" {% if not loop.first %}style="display: none;"{% endif %}>
+                    {% for issue in year_issues|sort(attribute='issue_no', reverse=true) %}
+                    <div class="border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors rounded-lg p-4 mb-4">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex gap-4 flex-1">
+                                <div class="flex-shrink-0">
+                                    <img src="{{ issue.cover_image|cover_or_default }}" alt="{{ t('issue_cover') }}" class="w-20 h-28 object-cover rounded border border-gray-200">
+                                </div>
+                                <div class="flex-1">
+                                    <a href="{{ url_for('app__issue', issue_id=issue.id) }}" class="text-blue-600 hover:text-blue-700 text-lg font-medium">
+                                        {{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }}
+                                    </a>
+                                    {% if issue.title %}
+                                    <div class="text-gray-600">{{ issue.title }}</div>
+                                    {% endif %}
+                                    {% if issue.shortinfo %}
+                                    <div class="text-sm text-gray-500">{{ issue.shortinfo }}</div>
+                                    {% endif %}
+                                    <div class="text-sm text-gray-500 mt-1">
+                                        {{ issue.created_at|timestamp_to_date }}
+                                    </div>
+                                    
+                                    <!-- Тип доступа -->
+                                    <div class="text-xs mt-2">
+                                        {% if issue.is_paid and issue.subscription_enable %}
+                                            <span class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                                                {{ t('access_subscription_or_purchase') }}
+                                            </span>
+                                        {% elif issue.is_paid and not issue.subscription_enable %}
+                                            <span class="inline-flex items-center rounded-md bg-orange-50 px-2 py-1 text-xs font-medium text-orange-700 ring-1 ring-inset ring-orange-700/10">
+                                                {{ t('access_purchase_only') }}
+                                            </span>
+                                        {% elif not issue.is_paid and issue.subscription_enable %}
+                                            <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-700/10">
+                                                {{ t('access_subscription_only') }}
+                                            </span>
+                                        {% else %}
+                                            <span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-700/10">
+                                                {{ t('access_free') }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <a href="{{ url_for('app__issue', issue_id=issue.id) }}" class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 hover:cursor-pointer transition-colors">
+                                    <iconify-icon icon="tabler:book-2" class="text-lg"></iconify-icon>
+                                    {{ t('view_issue') }}
+                                </a>
+                                
+                                {% if issue.is_paid and issue.subscription_enable %}
+                                    <!-- Доступен и по подписке, и по покупке -->
+                                    <a href="{{ url_for('app__dashboard_payments') }}" class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-green-50 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-100 hover:cursor-pointer transition-colors">
+                                        <iconify-icon icon="tabler:crown" class="text-lg"></iconify-icon>
+                                        {{ t('subscribe') }}
+                                    </a>
+                                    <button data-issue-id="{{ issue.id }}" data-issue-title="{{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }}" data-issue-price="{{ issue.price }}" class="purchase-issue-btn text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 hover:cursor-pointer transition-colors">
+                                        <iconify-icon icon="tabler:shopping-cart" class="text-lg"></iconify-icon>
+                                        {{ t('purchase') }} (${{ "%.2f"|format(issue.price) }})
+                                    </button>
+                                {% elif issue.is_paid and not issue.subscription_enable %}
+                                    <!-- Доступен только по покупке -->
+                                    <button data-issue-id="{{ issue.id }}" data-issue-title="{{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }}" data-issue-price="{{ issue.price }}" class="purchase-issue-btn text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 hover:cursor-pointer transition-colors">
+                                        <iconify-icon icon="tabler:shopping-cart" class="text-lg"></iconify-icon>
+                                        {{ t('purchase_only') }} (${{ "%.2f"|format(issue.price) }})
+                                    </button>
+                                {% elif not issue.is_paid and issue.subscription_enable %}
+                                    <!-- Доступен только по подписке -->
+                                    <a href="{{ url_for('app__dashboard_payments') }}" class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-green-50 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-100 hover:cursor-pointer transition-colors">
+                                        <iconify-icon icon="tabler:crown" class="text-lg"></iconify-icon>
+                                        {{ t('subscription_only') }}
+                                    </a>
+                                {% else %}
+                                    <!-- Бесплатный доступ -->
+                                    <span class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-600">
+                                        <iconify-icon icon="tabler:lock-open" class="text-lg"></iconify-icon>
+                                        {{ t('free_access') }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Purchase Confirmation Modal -->
+<div class="relative z-60 hidden" id="purchase_confirmation_modal" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="fixed inset-0 bg-gray-500/75 transition-opacity" aria-hidden="true"></div>
+
+    <div class="fixed inset-0 z-70 w-screen overflow-y-auto">
+        <div class="container mx-auto flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 w-full" style="max-width: 500px;">
+                <div class="px-4 sm:px-6 py-5">
+                    <div class="flex items-start gap-4">
+                        <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
+                            <iconify-icon icon="tabler:shopping-cart" class="h-5 w-5 text-blue-600"></iconify-icon>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('purchase_issue_confirmation') }}</h3>
+                            <p class="text-sm text-gray-500 mb-4">
+                                {{ t('purchase_issue_text') }}: <span id="issue-title" class="font-medium"></span>
+                            </p>
+                            <div class="text-lg font-semibold text-blue-600">
+                                {{ t('price') }}: $<span id="issue-price"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 sm:px-6 py-4 sm:flex sm:flex-row-reverse gap-3">
+                    <button type="button" id="confirm_purchase_issue" class="inline-flex w-full justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:w-auto">{{ t('confirm_purchase') }}</button>
+                    <button type="button" id="cancel_purchase_issue" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto">{{ t('cancel') }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Set initial state of chevron for first year
+        $('.toggle-issues').first().find('iconify-icon').addClass('rotate-180');
+        
+        $('.toggle-issues').click(function() {
+            $(this).closest('.mb-8').find('.issues-container').slideToggle();
+            $(this).find('iconify-icon').toggleClass('rotate-180');
+        });
+
+        // Purchase issue functionality
+        let selectedIssueId = null;
+        
+        $('.purchase-issue-btn').click(function() {
+            selectedIssueId = $(this).data('issue-id');
+            const issueTitle = $(this).data('issue-title');
+            const issuePrice = $(this).data('issue-price');
+            
+            // Check if user is logged in
+            {% if session.user_id %}
+                // User is logged in, show confirmation modal
+                $('#issue-title').text(issueTitle);
+                $('#issue-price').text(issuePrice.toFixed(2));
+                $('#purchase_confirmation_modal').removeClass('hidden');
+            {% else %}
+                // User is not logged in, redirect to login
+                window.location.href = '{{ url_for("app__login") }}';
+            {% endif %}
+        });
+
+        // Handle purchase confirmation
+        $('#confirm_purchase_issue').click(function() {
+            if (!selectedIssueId) return;
+            
+            const btn = $(this);
+            btn.prop('disabled', true);
+            btn.text('{{ t("processing") }}...');
+            
+            $.ajax({
+                url: '/api/issue/purchase',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    issue_id: selectedIssueId
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        $('#purchase_confirmation_modal').addClass('hidden');
+                        alert('{{ t("purchase_created_successfully") }}');
+                        // Optionally redirect to payments page
+                        window.location.href = '{{ url_for("app__dashboard_payments") }}';
+                    } else {
+                        alert(response.message || '{{ t("purchase_failed") }}');
+                        btn.prop('disabled', false);
+                        btn.text('{{ t("confirm_purchase") }}');
+                    }
+                },
+                error: function() {
+                    alert('{{ t("purchase_failed") }}');
+                    btn.prop('disabled', false);
+                    btn.text('{{ t("confirm_purchase") }}');
+                }
+            });
+        });
+
+        // Handle purchase cancellation
+        $('#cancel_purchase_issue').click(function() {
+            $('#purchase_confirmation_modal').addClass('hidden');
+            selectedIssueId = null;
+        });
+    });
+
+    const header = document.getElementById('header');
+    const menu = document.getElementById('menu');
+
+    window.addEventListener('scroll', function () {
+        const menuPosition = menu.getBoundingClientRect().top;
+        if (menuPosition <= 0) {
+            header.classList.remove('hidden');
+        } else {
+            header.classList.add('hidden');
+        }
+    });
+</script>
+{% endblock %} 

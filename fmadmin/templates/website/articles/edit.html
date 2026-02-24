@@ -1,0 +1,342 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+
+<div class="page-header d-print-none mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">{% if article.id == 0 %}{{ t("admin_btn_add_article") }}{% else %}{{
+                t("admin_btn_edit") }}{% endif %}</h2>
+            <a href="{{ url_for('articles') }}" class="">
+                <i class="ti ti-arrow-left"></i>
+                {{ t("admin_btn_back") }}
+            </a>
+        </div>
+        <div class="col-auto ms-auto">
+            <div class="btn-list">
+                <button id="save-article-btn-top" type="button" class="btn btn-primary d-none d-sm-inline-block">
+                    <i class="ti ti-check icon icon-1"></i>
+                    {{ t("admin_btn_save") }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="main-article-form" method="post" enctype="multipart/form-data">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <h5 class="card-title">{% if article.id == 0 %}{{ t("admin_btn_add_article") }}{% else %}{{
+                            t("admin_btn_edit") }}{% endif %}</h5>
+                    </div>
+                    <div class="card-actions">
+                        <div class="btn-group" role="group" aria-label="Язык">
+                            <button type="button" class="btn btn-outline-primary" data-lang="all">{{
+                                t("admin_label_all") }}</button>
+                            <button type="button" class="btn btn-outline-primary" data-lang="ru">RU</button>
+                            <button type="button" class="btn btn-outline-primary" data-lang="uz">UZ</button>
+                            <button type="button" class="btn btn-outline-primary" data-lang="en">EN</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">ID</label>
+                        <input type="text" class="form-control" value="{{ article.id }}" readonly>
+                    </div>
+                    <div class="mb-3 lang-field lang-en">
+                        <label class="form-label">{{ t("admin_label_title") }}</label>
+                        <input type="text" class="form-control" name="title" value="{{ article.title or '' }}">
+                    </div>
+                    <div class="mb-3 lang-field lang-uz">
+                        <label class="form-label">{{ t("admin_label_title") }} (uz)</label>
+                        <input type="text" class="form-control" name="title_uz" value="{{ article.title_uz or '' }}">
+                    </div>
+                    <div class="mb-3 lang-field lang-ru">
+                        <label class="form-label">{{ t("admin_label_title") }} (ru)</label>
+                        <input type="text" class="form-control" name="title_ru" value="{{ article.title_ru or '' }}">
+                    </div>
+                    <div class="mb-3 lang-field lang-en">
+                        <label class="form-label">{{ t("admin_label_abstract") }}</label>
+                        <textarea class="form-control" name="abstract" rows="4">{{ article.abstract or '' }}</textarea>
+                    </div>
+                    <div class="mb-3 lang-field lang-uz">
+                        <label class="form-label">{{ t("admin_label_abstract") }} (uz)</label>
+                        <textarea class="form-control" name="abstract_uz"
+                            rows="4">{{ article.abstract_uz or '' }}</textarea>
+                    </div>
+                    <div class="mb-3 lang-field lang-ru">
+                        <label class="form-label">{{ t("admin_label_abstract") }} (ru)</label>
+                        <textarea class="form-control" name="abstract_ru"
+                            rows="4">{{ article.abstract_ru or '' }}</textarea>
+                    </div>
+                    <div class="mb-3 lang-field lang-en">
+                        <label class="form-label">{{ t("admin_label_keywords") }}</label>
+                        <input type="text" class="form-control" name="keywords"
+                            value="{{ article.keywords|join(', ') if article.keywords else '' }}"
+                            placeholder="{{ t('admin_placeholder_keywords_sep') }}">
+                        <div class="form-text">{{ t("admin_hint_keywords_sep") }}</div>
+                    </div>
+                    <div class="mb-3 lang-field lang-uz">
+                        <label class="form-label">{{ t("admin_label_keywords") }} (uz)</label>
+                        <input type="text" class="form-control" name="keywords_uz"
+                            value="{{ article.keywords_uz|join(', ') if article.keywords_uz else '' }}"
+                            placeholder="{{ t('admin_placeholder_keywords_sep') }}">
+                        <div class="form-text">{{ t("admin_hint_keywords_sep") }}</div>
+                    </div>
+                    <div class="mb-3 lang-field lang-ru">
+                        <label class="form-label">{{ t("admin_label_keywords") }} (ru)</label>
+                        <input type="text" class="form-control" name="keywords_ru"
+                            value="{{ article.keywords_ru|join(', ') if article.keywords_ru else '' }}"
+                            placeholder="{{ t('admin_placeholder_keywords_sep') }}">
+                        <div class="form-text">{{ t("admin_hint_keywords_sep") }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_issue") }}</label>
+                        <select class="form-select" name="issue_id">
+                            <option value="">{{ t("admin_label_not_selected") }}</option>
+                            {% for issue in issues %}
+                            <option value="{{ issue.id }}" {% if article.issue_id==issue.id %}selected{% endif %}>{{
+                                issue.vol_no }}-{{ issue.issue_no }}{% if issue.year %} ({{ issue.year }}){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_main_author") }}</label>
+                        <div class="input-group">
+                            <select class="form-select" name="main_author_id" id="main_author_id_select">
+                                <option value="">{{ t("admin_label_not_selected") }}</option>
+                                {% for author in authors %}
+                                <option value="{{ author.id }}" {% if article.main_author_id==author.id %}selected{%
+                                    endif %}>{{ author.name }}{% if author.orcid %} ({{ author.orcid }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="btn btn-outline-primary"
+                                data-author-search="main_author_id_select" title="{{ t('admin_btn_search') }}">
+                                <i class="ti ti-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_subauthors") }}</label>
+                        <div class="input-group">
+                            <select class="form-select" name="subauthor_ids" multiple id="select-tags">
+                                {% for author in authors %}
+                                <option value="{{ author.id }}" {% if author.id in article.subauthor_ids %}selected{%
+                                    endif %}>{{ author.name }}{% if author.orcid %} ({{ author.orcid }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="btn btn-outline-primary" onclick="searchAndAddCoauthor()"
+                                title="{{ t('admin_btn_search') }}">
+                                <i class="ti ti-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">DOI</label>
+                        <input type="text" class="form-control" name="doi" value="{{ article.doi or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_doi_link") }}</label>
+                        <input type="text" class="form-control" name="doi_link" value="{{ article.doi_link or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_additional_info") }}</label>
+                        <textarea class="form-control" name="additional"
+                            rows="3">{{ article.additional or '' }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_date_sent") }}</label>
+                        <input type="datetime-local" class="form-control" name="date_sent"
+                            value="{{ article.date_sent | date_to_form_full }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_date_accept") }}</label>
+                        <input type="datetime-local" class="form-control" name="date_accept"
+                            value="{{ article.date_accept | date_to_form_full }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_announcement_published_at") }}</label>
+                        <input type="datetime-local" class="form-control" name="date_publish"
+                            value="{{ article.date_publish | date_to_form_full }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_comment") }}</label>
+                        <textarea class="form-control" name="comments" rows="3">{{ article.comments or '' }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_pdf_files") }}</label>
+                        {% if article.file_ids %}
+                        <div class="mb-2">
+                            <small class="text-muted">{{ t("admin_label_current_files") }} (ID: {{
+                                article.file_ids|join(', ') }})</small>
+                            <input type="hidden" name="file_ids" value="{{ article.file_ids|join(', ') }}">
+                        </div>
+                        {% endif %}
+                        <input type="file" class="form-control" name="pdf_files" accept=".pdf" multiple>
+                        <small class="form-hint">{{ t("admin_hint_pdf_upload") }}</small>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="subscription_enable"
+                            id="subscription_enable" {% if article.subscription_enable %}checked{% endif %}>
+                        <label class="form-check-label" for="subscription_enable">{{
+                            t("admin_label_subscription_enable") }}</label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="is_paid" id="is_paid" {% if
+                            article.is_paid %}checked{% endif %}>
+                        <label class="form-check-label" for="is_paid">{{ t("admin_label_is_paid") }}</label>
+                    </div>
+                    <div id="price-fields">
+                        <div class="mb-3">
+                            <label class="form-label">{{ t("admin_label_price") }}</label>
+                            <input type="text" class="form-control" name="price" value="{{ article.price or '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ t("admin_label_price") }} (uz)</label>
+                            <input type="text" class="form-control" name="price_uz"
+                                value="{{ article.price_uz or '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">{{ t("admin_label_price") }} (ru)</label>
+                            <input type="text" class="form-control" name="price_ru"
+                                value="{{ article.price_ru or '' }}">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_created_at") }}</label>
+                        <input type="datetime-local" class="form-control" name="created_at"
+                            value="{{ article.created_at | date_to_form_full }}">
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button id="save-article-btn" type="submit" class="btn btn-primary">{{ t("admin_btn_save")
+                            }}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function setLang(lang) {
+        if (lang === 'all') {
+            document.querySelectorAll('.lang-field').forEach(e => e.style.display = '');
+        } else {
+            document.querySelectorAll('.lang-field').forEach(e => e.style.display = 'none');
+            document.querySelectorAll('.lang-' + lang).forEach(e => e.style.display = '');
+        }
+        document.querySelectorAll('.btn-group [data-lang]').forEach(btn => btn.classList.remove('active'));
+        document.querySelector('.btn-group [data-lang="' + lang + '"]').classList.add('active');
+    }
+    document.querySelectorAll('.btn-group [data-lang]').forEach(btn => {
+        btn.addEventListener('click', function () {
+            setLang(this.getAttribute('data-lang'));
+        });
+    });
+    setLang('all');
+    document.getElementById('save-article-btn-top').addEventListener('click', function () {
+        document.getElementById('save-article-btn').click();
+    });
+    document.addEventListener("DOMContentLoaded", function () {
+        var el;
+        window.TomSelect &&
+            new TomSelect((el = document.getElementById("select-tags")), {
+                copyClassesToDropdown: false,
+                dropdownParent: "body",
+                controlInput: "<input>",
+                render: {
+                    item: function (data, escape) {
+                        if (data.customProperties) {
+                            return '<div><span class="dropdown-item-indicator">' + data.customProperties + "</span>" + escape(data.text) + "</div>";
+                        }
+                        return "<div>" + escape(data.text) + "</div>";
+                    },
+                    option: function (data, escape) {
+                        if (data.customProperties) {
+                            return '<div><span class="dropdown-item-indicator">' + data.customProperties + "</span>" + escape(data.text) + "</div>";
+                        }
+                        return "<div>" + escape(data.text) + "</div>";
+                    },
+                },
+            });
+        // Скрывать выбранного главного автора из соавторов
+        var mainAuthorSelect = document.getElementById('main_author_id_select');
+        var subAuthorsSelect = document.getElementById('select-tags');
+        function updateSubAuthors() {
+            var mainId = mainAuthorSelect.value;
+            Array.from(subAuthorsSelect.options).forEach(function (opt) {
+                opt.style.display = (opt.value && opt.value === mainId) ? 'none' : '';
+            });
+            // Если выбранный главный автор был выбран как соавтор — снять выделение
+            if (mainId) {
+                var selected = Array.from(subAuthorsSelect.selectedOptions).map(o => o.value);
+                if (selected.includes(mainId)) {
+                    subAuthorsSelect.querySelector('option[value="' + mainId + '"]').selected = false;
+                    if (window.TomSelect && subAuthorsSelect.tomselect) subAuthorsSelect.tomselect.removeItem(mainId);
+                }
+            }
+        }
+        mainAuthorSelect.addEventListener('change', updateSubAuthors);
+        updateSubAuthors();
+        // Скрывать/показывать поля цены в зависимости от чекбокса "Платная статья"
+        function togglePriceFields() {
+            var isPaid = document.getElementById('is_paid').checked;
+            document.getElementById('price-fields').style.display = isPaid ? '' : 'none';
+        }
+        document.getElementById('is_paid').addEventListener('change', togglePriceFields);
+        togglePriceFields();
+    });
+
+    // Function to search and add coauthor
+    function searchAndAddCoauthor() {
+        window.openAuthorSearchModal('add_coauthor', function (author) {
+            const selectElement = document.getElementById('select-tags');
+
+            // Check if author is already selected
+            const existingOption = selectElement.querySelector(`option[value="${author.id}"]`);
+            if (existingOption) {
+                if (!existingOption.selected) {
+                    existingOption.selected = true;
+                    // Update TomSelect if it's initialized
+                    if (window.TomSelect && selectElement.tomselect) {
+                        selectElement.tomselect.addItem(author.id);
+                    }
+                } else {
+                    alert('{{ t("admin_msg_author_already_added") }}');
+                }
+            } else {
+                // Create new option and add it
+                const option = new Option(
+                    `${author.name}${author.orcid ? ` (${author.orcid})` : ''}`,
+                    author.id,
+                    true,
+                    true
+                );
+                selectElement.add(option);
+
+                // Update TomSelect if it's initialized
+                if (window.TomSelect && selectElement.tomselect) {
+                    selectElement.tomselect.addOption({
+                        value: author.id,
+                        text: `${author.name}${author.orcid ? ` (${author.orcid})` : ''}`
+                    });
+                    selectElement.tomselect.addItem(author.id);
+                }
+            }
+
+            // Trigger change event
+            selectElement.dispatchEvent(new Event('change'));
+        });
+    }
+</script>
+{% endblock %}

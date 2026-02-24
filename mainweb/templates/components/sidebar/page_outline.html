@@ -1,0 +1,86 @@
+<div id="section2" class="sticky top-20">
+    <h4 class="text-lg font-medium mb-6">{{ t('sidebar_outline') }}</h4>
+    <div class="flex flex-col text-sm">
+        {% for item in outline_items %}
+        <a href="{{ item.url }}" data-block-id="{{ item.id }}" data-page="{{ item.page }}"
+            class="text-blue-600 hover:text-blue-800 px-2 py-1 border-s-2 mb-2 outline-link {% if item.active %}bg-gray-50 border-fmmain{% else %}bg-gray-50/0 border-fmmain/0{% endif %}">
+            {{ item.title }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        // Get current page from URL
+        const currentPath = window.location.pathname;
+        const currentHash = window.location.hash;
+
+        // Function to highlight active link
+        function highlightActiveLink() {
+            $('.outline-link').each(function () {
+                const $link = $(this);
+                const linkPage = $link.data('page');
+                const linkUrl = $link.attr('href');
+
+                // Remove all active states first
+                $link.removeClass('bg-gray-50 border-fmmain').addClass('bg-gray-50/0 border-fmmain/0');
+
+                // Check if this is the active link
+                if (
+                    // Check if URL matches exactly
+                    currentPath === linkUrl ||
+                    // Check if hash matches for same-page links
+                    (currentPath + currentHash === linkUrl) ||
+                    // Check if page type matches (for section pages)
+                    (linkPage && currentPath.includes(linkPage))
+                ) {
+                    $link.addClass('bg-gray-50 border-fmmain').removeClass('bg-gray-50/0 border-fmmain/0');
+                }
+            });
+        }
+
+        // Initial highlight
+        highlightActiveLink();
+
+        // Handle clicks on outline links
+        $('.outline-link').on('click', function (e) {
+            const $link = $(this);
+            const blockId = $link.data('block-id');
+
+            // If it's a same-page link with a block ID
+            if (blockId) {
+                e.preventDefault();
+                const targetElement = $(`[data-block-id="${blockId}"]`);
+                if (targetElement.length) {
+                    $('html, body').animate({
+                        scrollTop: targetElement.offset().top - 80
+                    }, 500);
+                }
+            }
+
+            // Update active state
+            highlightActiveLink();
+        });
+
+        // Handle scroll for same-page sections
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const blockId = entry.target.getAttribute('data-block-id');
+                    if (blockId) {
+                        $('.outline-link').removeClass('bg-gray-50 border-fmmain').addClass('bg-gray-50/0 border-fmmain/0');
+                        $(`.outline-link[data-block-id="${blockId}"]`).addClass('bg-gray-50 border-fmmain').removeClass('bg-gray-50/0 border-fmmain/0');
+                    }
+                }
+            });
+        }, {
+            threshold: 0.2
+        });
+
+        // Observe all sections with block IDs
+        $('.intersect[data-block-id]').each(function () {
+            observer.observe(this);
+        });
+    });
+</script>

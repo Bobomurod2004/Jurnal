@@ -1,0 +1,1223 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+<div class="page-header d-print-none mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">{{ article.title or t('admin_label_article') }}</h2>
+        </div>
+    </div>
+</div>
+
+<!-- Табы навигации -->
+<div class="card">
+    <div class="card-header">
+        <ul class="nav nav-tabs card-header-tabs" data-bs-toggle="tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <a href="#tabs-content" class="nav-link active" data-bs-toggle="tab" aria-selected="true" role="tab">{{
+                    t("admin_btn_content") }}</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a href="#tabs-references" class="nav-link" data-bs-toggle="tab" aria-selected="false" role="tab"
+                    tabindex="-1">{{ t("admin_label_references") }}</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a href="#tabs-citations" class="nav-link" data-bs-toggle="tab" aria-selected="false" role="tab"
+                    tabindex="-1">{{ t("admin_label_citations") }}</a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="tab-content">
+        <!-- Таб контента -->
+        <div class="tab-pane active show" id="tabs-content" role="tabpanel">
+            <div class="card-header ">
+                <div class="d-flex align-items-center justify-content-between w-100">
+                    <h3 class="card-title">{{ t("admin_section_content_blocks") }}</h3>
+                    <button class="btn btn-primary" id="add-block-btn">
+                        <i class="ti ti-plus"></i>
+                        {{ t("admin_btn_add_block") }}
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table card-table table-hover" id="content-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">{{ t("admin_col_order") }}</th>
+                            <th style="width: 80px;">{{ t("admin_col_type") }}</th>
+                            <th>{{ t("admin_label_title") }}</th>
+                            <th class="w-1"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="content-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Таб референсов -->
+        <div class="tab-pane" id="tabs-references" role="tabpanel">
+            <div class="card-header">
+                <div class="d-flex align-items-center justify-content-between w-100">
+                    <h3 class="card-title">{{ t("admin_label_references") }}</h3>
+                    <button class="btn btn-primary" id="add-reference-btn">
+                        <i class="ti ti-plus"></i>
+                        {{ t("admin_btn_add_reference") }}
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table card-table table-hover" id="references-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Название</th>
+                            <th>Авторы</th>
+                            <th>DOI</th>
+                            <th class="w-1"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="references-tbody">
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">{{ t("admin_msg_loading") }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Таб цитирований -->
+        <div class="tab-pane" id="tabs-citations" role="tabpanel">
+            <div class="card-header">
+                <div class="d-flex align-items-center justify-content-between w-100">
+                    <h3 class="card-title">{{ t("admin_label_citations") }}</h3>
+                    <button class="btn btn-primary" id="add-citation-btn">
+                        <i class="ti ti-plus"></i>
+                        {{ t("admin_btn_add_citation") }}
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table card-table table-hover" id="citations-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Название</th>
+                            <th>Авторы</th>
+                            <th>Журнал</th>
+                            <th>Год</th>
+                            <th class="w-1"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="citations-tbody">
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">{{ t("admin_msg_loading") }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка для добавления/редактирования блока -->
+<div class="modal fade" id="blockModal" tabindex="-1" aria-labelledby="blockModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="blockModalLabel">{{ t("admin_modal_block_title") }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="block-form" method="post" enctype="multipart/form-data" action="">
+                <div class="modal-body">
+                    <input type="hidden" id="block-id" name="block_id">
+                    <input type="hidden" id="block-index" name="block_index">
+                    <input type="hidden" name="article_id" value="{{ article_id }}">
+                    <div class="mb-3">
+                        <label for="block-type" class="form-label">{{ t("admin_label_block_type") }}</label>
+                        <select class="form-select" id="block-type" name="block_type" required>
+                            <option value="text">{{ t("admin_label_text") }}</option>
+                            <option value="image">{{ t("admin_label_image") }}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="block-title" class="form-label">{{ t("admin_label_block_title") }}</label>
+                        <input type="text" class="form-control" id="block-title" name="block_title" maxlength="255"
+                            required>
+                    </div>
+                    <div class="mb-3 block-field block-text">
+                        <label for="block-text" class="form-label">{{ t("admin_label_text") }}</label>
+                        <div class="mb-2 text-muted small">{{ t("admin_hint_reference_syntax") }}</div>
+                        <div class="d-flex align-items-center mb-2">
+                            <button type="button" class="btn btn-outline-primary btn-sm me-2" id="custom-insert-btn"
+                                title="Вставить ссылку на референс">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="icon icon-tabler icon-tabler-book-plus"
+                                    viewBox="0 0 24 24">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                    <path d="M9 6h6" />
+                                    <path d="M9 12h6" />
+                                    <path d="M9 18h6" />
+                                    <path d="M15 15v6" />
+                                    <path d="M12 18h6" />
+                                    <path d="M5 4v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z" />
+                                </svg>
+                                {{ t("admin_btn_insert_ref") }}
+                            </button>
+                        </div>
+                        <textarea class="form-control" id="block-text" name="block_text" rows="10"></textarea>
+                    </div>
+                    <div class="mb-3 block-field block-image" style="display:none;">
+                        <label for="block-image" class="form-label">{{ t("admin_label_image") }}</label>
+                        <input type="file" class="form-control" id="block-image" name="block_image" accept="image/*">
+                        <div class="mt-2" id="block-image-preview"></div>
+                        <label for="block-image-desc" class="form-label mt-2">{{ t("admin_label_image_desc") }}</label>
+                        <input type="text" class="form-control" id="block-image-desc" name="block_image_desc"
+                            maxlength="255">
+                    </div>
+                    <div class="mb-3 block-field block-table" style="display:none;">
+                        <label for="block-table" class="form-label">{{ t("admin_label_table_input") }}</label>
+                        <textarea class="form-control" id="block-table" name="block_table" rows="6"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ t("admin_btn_cancel")
+                        }}</button>
+                    <button type="submit" class="btn btn-primary" id="save-block-btn">{{ t("admin_btn_save") }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка для добавления/редактирования референса -->
+<div class="modal fade" id="referenceModal" tabindex="-1" aria-labelledby="referenceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="referenceModalLabel">Manba (Reference)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="reference-form">
+                <div class="modal-body">
+                    <input type="hidden" id="reference-id" name="reference_id">
+
+                    <div class="mb-3">
+                        <label for="reference-source-type" class="form-label">Manba turi (Source Type)</label>
+                        <select class="form-select" id="reference-source-type" name="source_type" required>
+                            <option value="">Tanlang...</option>
+                            <option value="book">Bosma/Elektron kitoblar</option>
+                            <option value="edited_book">Tahrir ostidagi bosma/elektron kitoblar</option>
+                            <option value="coauthored_book">Hammualliflikdagi bosma/elektron kitoblar</option>
+                            <option value="journal_article">Bosma ilmiy jurnaldagi maqola</option>
+                            <option value="electronic_journal_article">Elektron ilmiy jurnaldagi maqola</option>
+                            <option value="magazine_article">Jurnal/Gazetadagi maqola</option>
+                            <option value="electronic_magazine_article">Elektron jurnal/gazetadagi maqola</option>
+                            <option value="blog">Blog/Blogdagi kommentlar</option>
+                            <option value="book_chapter">Tahrir qilingan kitob boblari va ma’lumotnomalardagi maqolalar
+                            </option>
+                            <option value="online_dictionary">Onlayn lug'at</option>
+                            <option value="print_dictionary">Bosma lug'at</option>
+                            <option value="conference">Konferensiya taqdimotlari va materiallari</option>
+                            <option value="online_conference">Onlayn konferensiya taqdimotlari va materiallari</option>
+                            <option value="thesis">Nashr etilgan dissertatsiya yoki tezis manbalari</option>
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-12 mb-3 field-group field-authors">
+                            <label for="reference-authors" class="form-label">Mualliflar (Authors)</label>
+                            <input type="text" class="form-control" id="reference-authors" name="authors">
+                        </div>
+                        <div class="col-md-12 mb-3 field-group field-organization-name">
+                            <label for="reference-organization-name" class="form-label">Tashkilot nomi (Organization
+                                Name)</label>
+                            <input type="text" class="form-control" id="reference-organization-name"
+                                name="organization_name">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3 field-group field-publication-year">
+                            <label for="reference-publication-year" class="form-label">Nashr yili (Year)</label>
+                            <input type="number" class="form-control" id="reference-publication-year"
+                                name="publication_year">
+                        </div>
+                        <div class="col-md-6 mb-3 field-group field-publication-date">
+                            <label for="reference-publication-date" class="form-label">Nashr sanasi (Date)</label>
+                            <input type="text" class="form-control" id="reference-publication-date"
+                                name="publication_date">
+                        </div>
+                    </div>
+
+                    <div class="mb-3 field-group field-title">
+                        <label for="reference-title" class="form-label">Nomi (Title)</label>
+                        <input type="text" class="form-control" id="reference-title" name="title">
+                    </div>
+
+                    <div class="mb-3 field-group field-chapter-title">
+                        <label for="reference-chapter-title" class="form-label">Bob nomi (Chapter Title)</label>
+                        <input type="text" class="form-control" id="reference-chapter-title" name="chapter_title">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3 field-group field-word-term">
+                            <label for="reference-word-term" class="form-label">So'z / Atama (Word/Term)</label>
+                            <input type="text" class="form-control" id="reference-word-term" name="word_term">
+                        </div>
+                        <div class="col-md-6 mb-3 field-group field-thesis-type">
+                            <label for="reference-thesis-type" class="form-label">Dissertatsiya turi (Thesis
+                                Type)</label>
+                            <input type="text" class="form-control" id="reference-thesis-type" name="thesis_type">
+                        </div>
+                    </div>
+
+                    <div class="mb-3 field-group field-source-title">
+                        <label for="reference-source-title" class="form-label">Manba nomi (Source Title)</label>
+                        <input type="text" class="form-control" id="reference-source-title" name="source_title">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3 field-group field-publisher-name">
+                            <label for="reference-publisher-name" class="form-label">Nashriyot (Publisher)</label>
+                            <input type="text" class="form-control" id="reference-publisher-name" name="publisher_name">
+                        </div>
+                        <div class="col-md-6 mb-3 field-group field-publication-place">
+                            <label for="reference-publication-place" class="form-label">Nashr joyi (Place)</label>
+                            <input type="text" class="form-control" id="reference-publication-place"
+                                name="publication_place">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3 field-group field-volume">
+                            <label for="reference-volume" class="form-label">Jild (Volume)</label>
+                            <input type="text" class="form-control" id="reference-volume" name="volume">
+                        </div>
+                        <div class="col-md-4 mb-3 field-group field-issue">
+                            <label for="reference-issue" class="form-label">Son (Issue)</label>
+                            <input type="text" class="form-control" id="reference-issue" name="issue">
+                        </div>
+                        <div class="col-md-4 mb-3 field-group field-edition">
+                            <label for="reference-edition" class="form-label">Nashr (Edition)</label>
+                            <input type="text" class="form-control" id="reference-edition" name="edition">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3 field-group field-page-start">
+                            <label for="reference-page-start" class="form-label">Bosh sahifa (Page Start)</label>
+                            <input type="text" class="form-control" id="reference-page-start" name="page_start">
+                        </div>
+                        <div class="col-md-6 mb-3 field-group field-page-end">
+                            <label for="reference-page-end" class="form-label">Oxirgi sahifa (Page End)</label>
+                            <input type="text" class="form-control" id="reference-page-end" name="page_end">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3 field-group field-conference-country">
+                            <label for="reference-conference-country" class="form-label">Konferensiya mamlakati</label>
+                            <input type="text" class="form-control" id="reference-conference-country"
+                                name="conference_country">
+                        </div>
+                        <div class="col-md-6 mb-3 field-group field-conference-city">
+                            <label for="reference-conference-city" class="form-label">Konferensiya shahri</label>
+                            <input type="text" class="form-control" id="reference-conference-city"
+                                name="conference_city">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3 field-group field-defense-place">
+                            <label for="reference-defense-place" class="form-label">Himoya joyi (Defense Place)</label>
+                            <input type="text" class="form-control" id="reference-defense-place" name="defense_place">
+                        </div>
+                        <div class="col-md-6 mb-3 field-group field-university-name">
+                            <label for="reference-university-name" class="form-label">Universitet (OTM)</label>
+                            <input type="text" class="form-control" id="reference-university-name"
+                                name="university_name">
+                        </div>
+                    </div>
+
+                    <div class="mb-3 field-group field-doi">
+                        <label for="reference-doi" class="form-label">DOI</label>
+                        <input type="text" class="form-control" id="reference-doi" name="doi">
+                    </div>
+
+                    <div class="mb-3 field-group field-url">
+                        <label for="reference-url" class="form-label">URL</label>
+                        <input type="url" class="form-control" id="reference-url" name="url">
+                    </div>
+
+                    <div class="mb-3 field-group field-web-of-science-url">
+                        <label for="reference-web-of-science-url" class="form-label">Web of Science URL</label>
+                        <input type="url" class="form-control" id="reference-web-of-science-url"
+                            name="web_of_science_url">
+                    </div>
+
+                    <div class="mb-3 field-group field-google-scholar-url">
+                        <label for="reference-google-scholar-url" class="form-label">Google Scholar URL</label>
+                        <input type="url" class="form-control" id="reference-google-scholar-url"
+                            name="google_scholar_url">
+                    </div>
+                    <div class="mb-3 field-group field-access-date">
+                        <label for="reference-access-date" class="form-label">Murojaat sanasi (Access Date)</label>
+                        <input type="text" class="form-control" id="reference-access-date" name="access_date">
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ t("admin_btn_cancel")
+                        }}</button>
+                    <button type="submit" class="btn btn-primary">{{ t("admin_btn_save") }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка для добавления/редактирования цитирования -->
+<div class="modal fade" id="citationModal" tabindex="-1" aria-labelledby="citationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="citationModalLabel">{{ t("admin_label_citation") }} (Citation)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="citation-form">
+                <div class="modal-body">
+                    <input type="hidden" id="citation-id" name="citation_id">
+
+                    <div class="mb-3">
+                        <label for="citation-source-type" class="form-label">{{ t("admin_label_source_type") }} (Source
+                            Type)</label>
+                        <select class="form-select" id="citation-source-type" name="source_type" required>
+                            <option value="">{{ t("admin_label_select") }}...</option>
+                            <option value="book">{{ t("admin_source_type_book") }}</option>
+                            <option value="edited_book">{{ t("admin_source_type_edited_book") }}</option>
+                            <option value="coauthored_book">{{ t("admin_source_type_coauthored_book") }}</option>
+                            <option value="journal_article">{{ t("admin_source_type_journal_article") }}</option>
+                            <option value="electronic_journal_article">{{
+                                t("admin_source_type_electronic_journal_article") }}</option>
+                            <option value="magazine_article">{{ t("admin_source_type_magazine_article") }}</option>
+                            <option value="electronic_magazine_article">{{
+                                t("admin_source_type_electronic_magazine_article") }}</option>
+                            <option value="blog">{{ t("admin_source_type_blog") }}</option>
+                            <option value="book_chapter">{{ t("admin_source_type_book_chapter") }}
+                            </option>
+                            <option value="online_dictionary">{{ t("admin_source_type_online_dictionary") }}</option>
+                            <option value="print_dictionary">{{ t("admin_source_type_print_dictionary") }}</option>
+                            <option value="conference">{{ t("admin_source_type_conference") }}</option>
+                            <option value="online_conference">{{ t("admin_source_type_online_conference") }}</option>
+                            <option value="thesis">{{ t("admin_source_type_thesis") }}</option>
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-12 mb-3 field-group field-authors">
+                            <label for="citation-authors" class="form-label">{{ t("admin_label_author") }}
+                                (Authors)</label>
+                            <input type="text" class="form-control" id="citation-authors" name="authors">
+                        </div>
+                        <div class="col-md-12 mb-3 field-group field-organization-name">
+                            <label for="citation-organization-name" class="form-label">{{
+                                t("admin_label_organization_name") }} (Organization
+                                Name)</label>
+                            <input type="text" class="form-control" id="citation-organization-name"
+                                name="organization_name">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3 field-group field-publication-year">
+                            <label for="citation-publication-year" class="form-label">{{ t("admin_label_year") }}
+                                (Year)</label>
+                            <input type="number" class="form-control" id="citation-publication-year"
+                                name="publication_year">
+                        </div>
+                        <div class="col-md-6 mb-3 field-group field-publication-date">
+                            <label for="citation-publication-date" class="form-label">{{ t("admin_label_date") }}
+                                (Date)</label>
+                            <input type="text" class="form-control" id="citation-publication-date"
+                                name="publication_date">
+                        </div>
+                    </div>
+
+                    <div class="mb-3 field-group field-title">
+                        <label for="citation-title" class="form-label">{{ t("admin_label_title") }} (Title)</label>
+                        <input type="text" class="form-control" id="citation-title" name="title">
+                    </div>
+
+                    <div class="mb-3 field-group field-chapter-title">
+                        <label for="citation-chapter-title" class="form-label">{{ t("admin_label_chapter_title") }}
+                            (Chapter Title)</label>
+                        <input type="text" class="form-control" id="citation-chapter-title" name="chapter_title">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3 field-group field-word-term">
+                            <label for="citation-word-term" class="form-label">{{ t("admin_label_word_term") }}
+                                (Word/Term)</label>
+                            <input type="text" class="form-control" id="citation-word-term" name="word_term">
+                        </div>
+                        <div class="col-md-6 mb-3 field-group field-thesis-type">
+                            <label for="citation-thesis-type" class="form-label">{{ t("admin_label_thesis_type") }}
+                                (Thesis
+                                Type)</label>
+                            <input type="text" class="form-control" id="citation-thesis-type" name="thesis_type">
+                        </div>
+                    </div>
+
+                    <div class="mb-3 field-group field-source-title">
+                        <label for="citation-source-title" class="form-label">{{ t("admin_label_source_title") }}
+                            (Source Title)</label>
+                        <input type="text" class="form-control" id="citation-source-title" name="source_title">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3 field-group field-publisher-name">
+                            <label for="citation-publisher-name" class="form-label">{{ t("admin_label_publisher") }}
+                                (Publisher)</label>
+                            <input type="text" class="form-control" id="citation-publisher-name" name="publisher_name">
+                        </div>
+                        <div class="col-md-6 mb-3 field-group field-publication-place">
+                            <label for="citation-publication-place" class="form-label">{{
+                                t("admin_label_publication_place") }} (Place)</label>
+                            <input type="text" class="form-control" id="citation-publication-place"
+                                name="publication_place">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3 field-group field-volume">
+                            <label for="citation-volume" class="form-label">{{ t("admin_label_volume") }}
+                                (Volume)</label>
+                            <input type="text" class="form-control" id="citation-volume" name="volume">
+                        </div>
+                        <div class="col-md-4 mb-3 field-group field-issue">
+                            <label for="citation-issue" class="form-label">{{ t("admin_label_issue") }} (Issue)</label>
+                            <input type="text" class="form-control" id="citation-issue" name="issue">
+                        </div>
+                        <div class="col-md-4 mb-3 field-group field-edition">
+                            <label for="citation-edition" class="form-label">{{ t("admin_label_edition") }}
+                                (Edition)</label>
+                            <input type="text" class="form-control" id="citation-edition" name="edition">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3 field-group field-page-start">
+                            <label for="citation-page-start" class="form-label">{{ t("admin_label_page_start") }} (Page
+                                Start)</label>
+                            <input type="text" class="form-control" id="citation-page-start" name="page_start">
+                        </div>
+                        <div class="col-md-6 mb-3 field-group field-page-end">
+                            <label for="citation-page-end" class="form-label">{{ t("admin_label_page_end") }} (Page
+                                End)</label>
+                            <input type="text" class="form-control" id="citation-page-end" name="page_end">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3 field-group field-conference-country">
+                            <label for="citation-conference-country" class="form-label">{{
+                                t("admin_label_conference_country") }}</label>
+                            <input type="text" class="form-control" id="citation-conference-country"
+                                name="conference_country">
+                        </div>
+                        <div class="col-md-6 mb-3 field-group field-conference-city">
+                            <label for="citation-conference-city" class="form-label">{{ t("admin_label_conference_city")
+                                }}</label>
+                            <input type="text" class="form-control" id="citation-conference-city"
+                                name="conference_city">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3 field-group field-defense-place">
+                            <label for="citation-defense-place" class="form-label">{{ t("admin_label_defense_place") }}
+                                (Defense Place)</label>
+                            <input type="text" class="form-control" id="citation-defense-place" name="defense_place">
+                        </div>
+                        <div class="col-md-6 mb-3 field-group field-university-name">
+                            <label for="citation-university-name" class="form-label">{{ t("admin_label_university") }}
+                                (OTM)</label>
+                            <input type="text" class="form-control" id="citation-university-name"
+                                name="university_name">
+                        </div>
+                    </div>
+
+                    <div class="mb-3 field-group field-doi">
+                        <label for="citation-doi" class="form-label">DOI</label>
+                        <input type="text" class="form-control" id="citation-doi" name="doi">
+                    </div>
+
+                    <div class="mb-3 field-group field-url">
+                        <label for="citation-url" class="form-label">URL</label>
+                        <input type="url" class="form-control" id="citation-url" name="url">
+                    </div>
+
+                    <div class="mb-3 field-group field-web-of-science-url">
+                        <label for="citation-web-of-science-url" class="form-label">Web of Science URL</label>
+                        <input type="url" class="form-control" id="citation-web-of-science-url"
+                            name="web_of_science_url">
+                    </div>
+
+                    <div class="mb-3 field-group field-google-scholar-url">
+                        <label for="citation-google-scholar-url" class="form-label">Google Scholar URL</label>
+                        <input type="url" class="form-control" id="citation-google-scholar-url"
+                            name="google_scholar_url">
+                    </div>
+                    <div class="mb-3 field-group field-access-date">
+                        <label for="citation-access-date" class="form-label">{{ t("admin_label_access_date") }} (Access
+                            Date)</label>
+                        <input type="text" class="form-control" id="citation-access-date" name="access_date">
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="btn btn-primary">Saqlash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+<script>
+    // Получаем данные из template
+    const articleId = parseInt('{{ article_id }}');
+    const contentListData = JSON.parse('{{ content_list|tojson|safe }}');
+
+    let contentList = contentListData;
+    let ckeditorInstance = null;
+
+    // Добавляем SVG иконку (книга с плюсом)
+    const bookPlusIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icon-tabler-book-plus" viewBox="0 0 24 24"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 6h6"/><path d="M9 12h6"/><path d="M9 18h6"/><path d="M15 15v6"/><path d="M12 18h6"/><path d="M5 4v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z"/></svg>';
+
+    // Создаём модалку для вставки цитирования
+    const customModalHtml = `
+<div class="modal fade" id="customInsertModal" tabindex="-1" aria-labelledby="customInsertModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border">
+      <div class="modal-header">
+        <h5 class="modal-title" id="customInsertModalLabel">{{ t("admin_modal_insert_ref_title") }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label for="custom-insert-search" class="form-label">{{ t("admin_label_search_ref") }}</label>
+        <input type="text" class="form-control mb-2" id="custom-insert-search" placeholder="{{ t('admin_placeholder_search_ref') }}">
+        <div id="custom-insert-results" style="max-height:200px;overflow-y:auto;"></div>
+        <hr>
+        <div class="mb-2"><b>{{ t("admin_label_add_new_ref") }}</b></div>
+        <input type="text" class="form-control mb-2" id="custom-insert-title" placeholder="{{ t('admin_label_title') }}" maxlength="500">
+        <input type="text" class="form-control mb-2" id="custom-insert-authors" placeholder="{{ t('admin_label_author') }}" maxlength="500">
+        <input type="text" class="form-control mb-2" id="custom-insert-doi" placeholder="DOI" maxlength="255">
+        <input type="text" class="form-control mb-2" id="custom-insert-doi-link" placeholder="DOI {{ t('admin_label_link') }}" maxlength="255">
+        <input type="text" class="form-control mb-2" id="custom-insert-wos-link" placeholder="WOS {{ t('admin_label_link') }}" maxlength="255">
+        <input type="text" class="form-control mb-2" id="custom-insert-scopus-link" placeholder="Scopus {{ t('admin_label_link') }}" maxlength="255">
+        <input type="text" class="form-control mb-2" id="custom-insert-gscholar-link" placeholder="Google Scholar {{ t('admin_label_link') }}" maxlength="255">
+        <button type="button" class="btn btn-primary w-100" id="custom-insert-add">{{ t("admin_btn_add") }}</button>
+        <div class="text-danger small mt-2" id="custom-insert-add-error" style="display:none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ t("admin_btn_cancel") }}</button>
+      </div>
+    </div>
+  </div>
+</div>`;
+    document.body.insertAdjacentHTML('beforeend', customModalHtml);
+
+    ClassicEditor.create(document.getElementById('block-text'), {
+        toolbar: [
+            'heading', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', 'undo', 'redo', 'insertTable', 'codeBlock'
+        ]
+    }).then(editor => { ckeditorInstance = editor; })
+        .catch(error => { ckeditorInstance = null; });
+
+    document.getElementById('custom-insert-btn').onclick = function () {
+        const modal = new bootstrap.Modal(document.getElementById('customInsertModal'));
+        document.getElementById('custom-insert-search').value = '';
+        document.getElementById('custom-insert-results').innerHTML = '<div class="text-muted">{{ t("admin_msg_search_prompt") }}</div>';
+        document.getElementById('custom-insert-title').value = '';
+        document.getElementById('custom-insert-authors').value = '';
+        document.getElementById('custom-insert-doi').value = '';
+        document.getElementById('custom-insert-doi-link').value = '';
+        document.getElementById('custom-insert-wos-link').value = '';
+        document.getElementById('custom-insert-scopus-link').value = '';
+        document.getElementById('custom-insert-gscholar-link').value = '';
+        document.getElementById('custom-insert-add-error').style.display = 'none';
+        modal.show();
+    };
+
+    document.getElementById('custom-insert-search').addEventListener('input', function () {
+        const q = this.value.trim();
+        const resultsDiv = document.getElementById('custom-insert-results');
+
+        if (!q) {
+            // Если поиск пустой, показываем подсказку
+            resultsDiv.innerHTML = '<div class="text-muted">{{ t("admin_msg_search_prompt") }}</div>';
+            return;
+        }
+
+        resultsDiv.innerHTML = '{{ t("admin_msg_searching") }}';
+        fetch(`/fmadmin/api/references/search?q=${encodeURIComponent(q)}&article_id=${articleId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.length) {
+                    resultsDiv.innerHTML = '<div class="text-muted">{{ t("admin_msg_no_results") }}</div>';
+                    return;
+                }
+                resultsDiv.innerHTML = data.map(ref =>
+                    `<div class='list-group-item list-group-item-action' style='cursor:pointer' data-id='${ref.id}'>
+            <div><b>${ref.title || ''}</b></div>
+            <div class='small text-muted'>${ref.authors || ''}${ref.doi ? ' | DOI: ' + ref.doi : ''}</div>
+          </div>`
+                ).join('');
+                Array.from(resultsDiv.querySelectorAll('[data-id]')).forEach(el => {
+                    el.onclick = function () {
+                        const id = this.getAttribute('data-id');
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('customInsertModal'));
+                        if (ckeditorInstance && id) {
+                            ckeditorInstance.execute('insertText', { text: `[[${id}]]` });
+                        }
+                        modal.hide();
+                    };
+                });
+            })
+            .catch(error => {
+                console.error('Error searching references:', error);
+                resultsDiv.innerHTML = '<div class="text-danger">{{ t("admin_msg_error_search") }}</div>';
+            });
+    });
+
+    document.getElementById('custom-insert-add').onclick = function () {
+        const title = document.getElementById('custom-insert-title').value.trim();
+        const resource = document.getElementById('custom-insert-resource').value.trim();
+        const authors = document.getElementById('custom-insert-authors').value.trim();
+        const doi = document.getElementById('custom-insert-doi').value.trim();
+        const doi_link = document.getElementById('custom-insert-doi-link').value.trim();
+        const wos_link = document.getElementById('custom-insert-wos-link').value.trim();
+        const scopus_link = document.getElementById('custom-insert-scopus-link').value.trim();
+        const gscholar_link = document.getElementById('custom-insert-gscholar-link').value.trim();
+        const web_link = document.getElementById('custom-insert-web-link').value.trim();
+        const errorDiv = document.getElementById('custom-insert-add-error');
+        errorDiv.style.display = 'none';
+        if (!title) {
+            errorDiv.textContent = '{{ t("admin_msg_title_required") }}';
+            errorDiv.style.display = '';
+            return;
+        }
+        fetch('/fmadmin/api/references', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                article_id: articleId,
+                title,
+                resource,
+                authors,
+                doi,
+                doi_link,
+                wos_link,
+                scopus_link,
+                gscholar_link,
+                web_link
+            })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data && data.id) {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('customInsertModal'));
+                    if (ckeditorInstance) {
+                        ckeditorInstance.execute('insertText', { text: '[[' + String(data.id) + ']]' });
+                    }
+                    modal.hide();
+                } else {
+                    errorDiv.textContent = data && data.error ? data.error : '{{ t("admin_msg_error_add") }}';
+                    errorDiv.style.display = '';
+                }
+            })
+            .catch(() => {
+                errorDiv.textContent = '{{ t("admin_msg_error_add") }}';
+                errorDiv.style.display = '';
+            });
+    };
+
+    function renderTable() {
+        const tbody = document.getElementById('content-tbody');
+        tbody.innerHTML = '';
+
+        if (contentList.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">{{ t("admin_msg_no_content_blocks") }}</td></tr>';
+            return;
+        }
+
+        contentList.forEach((block, idx) => {
+            let typeLabel = '';
+            if (block.type === 'text') typeLabel = '{{ t("admin_label_text") }}';
+            if (block.type === 'image') typeLabel = '{{ t("admin_label_image") }}';
+            if (block.type === 'table') typeLabel = '{{ t("admin_label_table") }}';
+            let preview = '';
+            if (block.type === 'text') preview = block.text ? block.text.replace(/<[^>]+>/g, '').substring(0, 100) : '';
+            if (block.type === 'image') preview = block.image ? `<img src='${block.image}' style='max-width:80px;max-height:60px;'>` : '';
+            if (block.type === 'table') preview = block.table ? block.table.substring(0, 100) : '';
+            tbody.innerHTML += `
+        <tr>
+            <td class="align-middle text-center">${block.order_id}
+                <form method='post' style='display:inline;'>
+                    <input type='hidden' name='move_block_id' value='${block.id}'>
+                    <input type='hidden' name='move_dir' value='up'>
+                    <button type='submit' class='btn btn-link p-0' title='{{ t("admin_tooltip_up") }}' ${idx === 0 ? 'disabled' : ''}>&uarr;</button>
+                </form>
+                <form method='post' style='display:inline;'>
+                    <input type='hidden' name='move_block_id' value='${block.id}'>
+                    <input type='hidden' name='move_dir' value='down'>
+                    <button type='submit' class='btn btn-link p-0' title='{{ t("admin_tooltip_down") }}' ${idx === contentList.length - 1 ? 'disabled' : ''}>&darr;</button>
+                </form>
+            </td>
+            <td class="align-middle">${typeLabel}</td>
+            <td class="align-middle">${block.title || ''}</td>
+            <td class="align-middle">
+                <div class="d-flex">
+                    <button class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1 me-2" onclick="editBlock(${idx})" title="{{ t('admin_btn_edit') }}"><i class="ti ti-edit"></i> {{ t("admin_btn_edit") }}</button>
+                    <button class="btn btn-icon btn-outline-danger bg-danger-lt btn-sm px-2 py-1" onclick="deleteBlock(${idx})" title="{{ t('admin_btn_delete') }}"><i class="ti ti-trash"></i> {{ t("admin_btn_delete") }}</button>
+                </div>
+            </td>
+        </tr>`;
+        });
+    }
+
+    function resetModal() {
+        document.getElementById('block-form').reset();
+        document.getElementById('block-id').value = '';
+        document.getElementById('block-index').value = '';
+        document.getElementById('block-type').value = 'text';
+        document.getElementById('block-title').value = '';
+        if (ckeditorInstance) ckeditorInstance.setData('');
+        document.getElementById('block-image').value = '';
+        document.getElementById('block-image-desc').value = '';
+        document.getElementById('block-table').value = '';
+        document.getElementById('block-image-preview').innerHTML = '';
+        showBlockFields('text');
+    }
+
+    function showBlockFields(type) {
+        document.querySelectorAll('.block-field').forEach(e => e.style.display = 'none');
+        if (type === 'text') document.querySelector('.block-text').style.display = '';
+        if (type === 'image') document.querySelector('.block-image').style.display = '';
+        if (type === 'table') document.querySelector('.block-table').style.display = '';
+        if (type === 'text' && ckeditorInstance) ckeditorInstance.resize && ckeditorInstance.resize();
+    }
+
+    document.getElementById('block-type').addEventListener('change', function () {
+        showBlockFields(this.value);
+    });
+
+    document.getElementById('add-block-btn').addEventListener('click', function () {
+        resetModal();
+        var modal = new bootstrap.Modal(document.getElementById('blockModal'));
+        modal.show();
+    });
+
+    function editBlock(idx) {
+        const block = contentList[idx];
+        resetModal();
+        document.getElementById('block-index').value = idx;
+        document.getElementById('block-id').value = block.id || '';
+        document.getElementById('block-type').value = block.type;
+        document.getElementById('block-title').value = block.title || '';
+        showBlockFields(block.type);
+        if (block.type === 'text' && ckeditorInstance) ckeditorInstance.setData(block.text || '');
+        if (block.type === 'image') {
+            document.getElementById('block-image-desc').value = block.image_desc || '';
+            if (block.image) document.getElementById('block-image-preview').innerHTML = `<img src='${block.image}' style='max-width:100%;max-height:200px;'>`;
+        }
+        if (block.type === 'table') document.getElementById('block-table').value = block.table || '';
+        var modal = new bootstrap.Modal(document.getElementById('blockModal'));
+        modal.show();
+    }
+
+    function deleteBlock(idx) {
+        if (confirm('{{ t("admin_confirm_delete") }}')) {
+            const block = contentList[idx];
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '';
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'delete_block_id';
+            input.value = block.id;
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    // Функции для загрузки данных табов
+    function loadReferences() {
+        const tbody = document.getElementById('references-tbody');
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">{{ t("admin_msg_loading") }}</td></tr>';
+
+        fetch(`/fmadmin/api/articles/${articleId}/references`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">{{ t("admin_msg_no_references") }}</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.map(ref => {
+                    const doiLink = ref.doi ? `https://doi.org/${ref.doi}` : (ref.doi_link || '');
+                    return `
+                <tr>
+                    <td class="align-middle">${ref.id}</td>
+                    <td class="align-middle">${ref.title || ''}</td>
+                    <td class="align-middle">${ref.authors || ''}</td>
+                    <td class="align-middle">
+                        ${ref.doi ? `<a href="${doiLink}" target="_blank">${ref.doi}</a>` : ''}
+                    </td>
+                    <td class="align-middle">
+                        <div class="btn-group">
+                            ${doiLink ? `<a href="${doiLink}" target="_blank" class="btn btn-sm btn-outline-primary">DOI</a>` : ''}
+                            ${ref.wos_link ? `<a href="${ref.wos_link}" target="_blank" class="btn btn-sm btn-outline-info">WOS</a>` : ''}
+                            ${ref.scopus_link ? `<a href="${ref.scopus_link}" target="_blank" class="btn btn-sm btn-outline-warning">Scopus</a>` : ''}
+                            ${ref.gscholar_link ? `<a href="${ref.gscholar_link}" target="_blank" class="btn btn-sm btn-outline-success">Scholar</a>` : ''}
+                            ${ref.web_link ? `<a href="${ref.web_link}" target="_blank" class="btn btn-sm btn-outline-secondary">Web</a>` : ''}
+                        </div>
+                        <div class="btn-group ms-2">
+                            <button class="btn btn-sm btn-outline-primary" onclick="editReference(${ref.id})">{{ t("admin_btn_edit") }}</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteReference(${ref.id})">{{ t("admin_btn_delete") }}</button>
+                        </div>
+                    </td>
+                </tr>
+                `;
+                }).join('');
+            })
+            .catch(error => {
+                console.error('Error loading references:', error);
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">{{ t("admin_msg_error_loading") }}</td></tr>';
+            });
+    }
+
+    function loadCitations() {
+        const tbody = document.getElementById('citations-tbody');
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">{{ t("admin_msg_loading") }}</td></tr>';
+
+        fetch(`/fmadmin/api/articles/${articleId}/citations`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">{{ t("admin_msg_no_citations") }}</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.map(citation => {
+                    const doiLink = citation.doi ? `https://doi.org/${citation.doi}` : (citation.doi_link || '');
+                    return `
+                <tr>
+                    <td class="align-middle">${citation.id}</td>
+                    <td class="align-middle">${citation.title || ''}</td>
+                    <td class="align-middle">${citation.authors || ''}</td>
+                    <td class="align-middle">${citation.journal || ''}</td>
+                    <td class="align-middle">${citation.year || ''}</td>
+                    <td class="align-middle">
+                        <div class="btn-group">
+                            ${doiLink ? `<a href="${doiLink}" target="_blank" class="btn btn-sm btn-outline-primary">DOI</a>` : ''}
+                            ${citation.wos_link ? `<a href="${citation.wos_link}" target="_blank" class="btn btn-sm btn-outline-info">WOS</a>` : ''}
+                            ${citation.scopus_link ? `<a href="${citation.scopus_link}" target="_blank" class="btn btn-sm btn-outline-warning">Scopus</a>` : ''}
+                        </div>
+                        <div class="btn-group ms-2">
+                            <button class="btn btn-sm btn-outline-primary" onclick="editCitation(${citation.id})">{{ t("admin_btn_edit") }}</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteCitation(${citation.id})">{{ t("admin_btn_delete") }}</button>
+                        </div>
+                    </td>
+                </tr>
+                `;
+                }).join('');
+            })
+            .catch(error => {
+                console.error('Error loading citations:', error);
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">{{ t("admin_msg_error_loading") }}</td></tr>';
+            });
+    }
+
+    // Field visibility logic
+    const fieldMapping = {
+        'book': ['authors', 'publication_year', 'title', 'publication_place', 'publisher_name', 'web_of_science_url', 'google_scholar_url'],
+        'edited_book': ['authors', 'publication_year', 'title', 'publication_place', 'publisher_name', 'web_of_science_url', 'google_scholar_url'],
+        'coauthored_book': ['authors', 'publication_year', 'title', 'publication_place', 'publisher_name', 'web_of_science_url', 'google_scholar_url'],
+        'journal_article': ['authors', 'publication_year', 'title', 'source_title', 'volume', 'issue', 'page_start', 'page_end', 'web_of_science_url', 'google_scholar_url'],
+        'electronic_journal_article': ['authors', 'publication_year', 'title', 'source_title', 'volume', 'issue', 'page_start', 'page_end', 'doi', 'web_of_science_url', 'google_scholar_url'],
+        'magazine_article': ['authors', 'publication_year', 'publication_date', 'title', 'source_title', 'volume', 'issue', 'page_start', 'page_end', 'web_of_science_url', 'google_scholar_url'],
+        'electronic_magazine_article': ['authors', 'publication_year', 'publication_date', 'title', 'source_title', 'volume', 'issue', 'page_start', 'page_end', 'url', 'web_of_science_url', 'google_scholar_url'],
+        'blog': ['authors', 'publication_year', 'publication_date', 'title', 'source_title', 'url'],
+        'book_chapter': ['authors', 'publication_year', 'chapter_title', 'title', 'publication_place', 'publisher_name', 'page_start', 'page_end', 'doi', 'web_of_science_url', 'google_scholar_url'],
+        'online_dictionary': ['organization_name', 'publication_year', 'word_term', 'source_title', 'access_date', 'url'],
+        'print_dictionary': ['organization_name', 'publication_year', 'word_term', 'source_title', 'edition', 'page_start'],
+        'conference': ['authors', 'publication_year', 'publication_date', 'title', 'source_title', 'page_start', 'page_end', 'conference_country', 'conference_city', 'web_of_science_url', 'google_scholar_url'],
+        'online_conference': ['authors', 'publication_year', 'publication_date', 'title', 'source_title', 'page_start', 'page_end', 'conference_country', 'conference_city', 'doi', 'url', 'web_of_science_url', 'google_scholar_url'],
+        'thesis': ['authors', 'publication_year', 'title', 'thesis_type', 'defense_place', 'university_name', 'url', 'web_of_science_url', 'google_scholar_url']
+    };
+
+    function updateFieldsVisibility(formId, typeSelectId) {
+        const form = document.getElementById(formId);
+        const type = document.getElementById(typeSelectId).value;
+        const fields = fieldMapping[type] || [];
+
+        // Hide all fields first
+        form.querySelectorAll('.field-group').forEach(el => el.style.display = 'none');
+
+        // Show selected fields
+        fields.forEach(field => {
+            const wrapper = form.querySelector(`.field-${field.replace(/_/g, '-')}`);
+            if (wrapper) wrapper.style.display = '';
+        });
+    }
+
+    document.getElementById('reference-source-type').addEventListener('change', () => updateFieldsVisibility('reference-form', 'reference-source-type'));
+    document.getElementById('citation-source-type').addEventListener('change', () => updateFieldsVisibility('citation-form', 'citation-source-type'));
+
+
+    // Функции для работы с референсами
+    function addReference() {
+        resetReferenceModal();
+        document.getElementById('referenceModalLabel').textContent = '{{ t("admin_btn_add_reference") }}';
+        const modal = new bootstrap.Modal(document.getElementById('referenceModal'));
+        modal.show();
+    }
+
+    function editReference(referenceId) {
+        fetch(`/fmadmin/api/references/${referenceId}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('reference-id').value = data.id;
+
+                // Set values
+                const form = document.getElementById('reference-form');
+                form.querySelectorAll('input, select').forEach(input => {
+                    if (data[input.name] !== undefined) {
+                        input.value = data[input.name] || '';
+                    }
+                });
+
+                // Trigger visibility update
+                updateFieldsVisibility('reference-form', 'reference-source-type');
+
+                document.getElementById('referenceModalLabel').textContent = '{{ t("admin_btn_edit") }}';
+                const modal = new bootstrap.Modal(document.getElementById('referenceModal'));
+                modal.show();
+            })
+            .catch(error => {
+                console.error('Error loading reference:', error);
+                alert('{{ t("admin_msg_error_loading") }}');
+            });
+    }
+
+    function deleteReference(referenceId) {
+        if (!confirm('{{ t("admin_confirm_delete") }}')) return;
+
+        fetch(`/fmadmin/api/references/${referenceId}`, {
+            method: 'DELETE'
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadReferences();
+                } else {
+                    alert('Ошибка удаления: ' + (data.error || 'Неизвестная ошибка'));
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting reference:', error);
+                alert('{{ t("admin_msg_error_delete") }}');
+            });
+    }
+
+    function resetReferenceModal() {
+        document.getElementById('reference-form').reset();
+        document.getElementById('reference-id').value = '';
+        updateFieldsVisibility('reference-form', 'reference-source-type');
+    }
+
+    // Функции для работы с цитированиями
+    function addCitation() {
+        resetCitationModal();
+        document.getElementById('citationModalLabel').textContent = '{{ t("admin_btn_add_citation") }}';
+        const modal = new bootstrap.Modal(document.getElementById('citationModal'));
+        modal.show();
+    }
+
+    function editCitation(citationId) {
+        fetch(`/fmadmin/api/citations/${citationId}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('citation-id').value = data.id;
+                // Set values
+                const form = document.getElementById('citation-form');
+                form.querySelectorAll('input, select').forEach(input => {
+                    if (data[input.name] !== undefined) {
+                        input.value = data[input.name] || '';
+                    }
+                });
+
+                updateFieldsVisibility('citation-form', 'citation-source-type');
+
+                document.getElementById('citationModalLabel').textContent = '{{ t("admin_btn_edit") }}';
+                const modal = new bootstrap.Modal(document.getElementById('citationModal'));
+                modal.show();
+            })
+            .catch(error => {
+                console.error('Error loading citation:', error);
+                alert('{{ t("admin_msg_error_loading") }}');
+            });
+    }
+
+    function deleteCitation(citationId) {
+        if (!confirm('{{ t("admin_confirm_delete") }}')) return;
+
+        fetch(`/fmadmin/api/citations/${citationId}`, {
+            method: 'DELETE'
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadCitations();
+                } else {
+                    alert('Ошибка удаления: ' + (data.error || 'Неизвестная ошибка'));
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting citation:', error);
+                alert('{{ t("admin_msg_error_delete") }}');
+            });
+    }
+
+    function resetCitationModal() {
+        document.getElementById('citation-form').reset();
+        document.getElementById('citation-id').value = '';
+        updateFieldsVisibility('citation-form', 'citation-source-type');
+    }
+
+    // Обработчики событий
+    document.addEventListener('DOMContentLoaded', function () {
+        // Обработчики табов
+        const tabButtons = document.querySelectorAll('[data-bs-toggle="tab"]');
+        tabButtons.forEach(button => {
+            button.addEventListener('shown.bs.tab', function (event) {
+                const targetTab = event.target.getAttribute('href');
+                if (targetTab === '#tabs-references') {
+                    loadReferences();
+                } else if (targetTab === '#tabs-citations') {
+                    loadCitations();
+                }
+            });
+        });
+
+        // Обработчики кнопок добавления
+        document.getElementById('add-reference-btn').addEventListener('click', addReference);
+        document.getElementById('add-citation-btn').addEventListener('click', addCitation);
+
+        // Обработчики форм
+        document.getElementById('reference-form').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const referenceId = formData.get('reference_id');
+
+            // Convert FormData to JSON
+            const data = {};
+            formData.forEach((value, key) => data[key] = value);
+            data.article_id = articleId;
+
+            const url = referenceId ? `/fmadmin/api/references/${referenceId}` : '/fmadmin/api/references';
+            const method = referenceId ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('referenceModal'));
+                        modal.hide();
+                        loadReferences();
+                    } else {
+                        alert('Ошибка сохранения: ' + (data.error || 'Неизвестная ошибка'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error saving reference:', error);
+                    alert('{{ t("admin_msg_error_save") }}');
+                });
+        });
+
+        document.getElementById('citation-form').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const citationId = formData.get('citation_id');
+
+            // Convert FormData to JSON
+            const data = {};
+            formData.forEach((value, key) => data[key] = value);
+            data.article_id = articleId;
+
+            const url = citationId ? `/fmadmin/api/citations/${citationId}` : '/fmadmin/api/citations';
+            const method = citationId ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('citationModal'));
+                        modal.hide();
+                        loadCitations();
+                    } else {
+                        alert('Ошибка сохранения: ' + (data.error || 'Неизвестная ошибка'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error saving citation:', error);
+                    alert('Ошибка сохранения цитирования');
+                });
+        });
+
+        // Автогенерация DOI ссылок
+        function generateDoiLink(doi) {
+            if (doi && doi.trim()) {
+                return 'https://doi.org/' + doi.trim();
+            }
+            return '';
+        }
+
+        // Обработчики для автогенерации DOI ссылок
+        document.getElementById('reference-doi').addEventListener('input', function () {
+            const doiLink = generateDoiLink(this.value);
+            document.getElementById('reference-doi-link').value = doiLink;
+        });
+
+        document.getElementById('citation-doi').addEventListener('input', function () {
+            const doiLink = generateDoiLink(this.value);
+            document.getElementById('citation-doi-link').value = doiLink;
+        });
+    });
+
+    renderTable();
+</script>
+{% endblock %}

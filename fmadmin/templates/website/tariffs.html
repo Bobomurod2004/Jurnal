@@ -1,0 +1,312 @@
+{% extends 'basic.html' %}
+
+
+{% block content %}
+
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">{{ t("admin_tariffs_title") }}</h2>
+    </div>
+    <div class="col-auto ms-auto">
+      <div class="btn-list">
+        <a href="#" class="btn btn-primary d-none d-sm-inline-block" data-bs-toggle="modal"
+          data-bs-target="#modal-new-tariff">
+          <i class="ti ti-plus"></i>
+          {{ t("admin_btn_add_tariff") }}
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="table-responsive">
+    <table class="table card-table table-hover">
+      <thead>
+        <tr>
+          <th>{{ t("admin_label_title") }}</th>
+          <th class="text-center">{{ t("admin_label_amount_rub") }}</th>
+          <th class="text-center">{{ t("admin_label_amount_uzs") }}</th>
+          <th class="text-center">{{ t("admin_label_amount_usd") }}</th>
+          <th class="text-center">{{ t("admin_label_users") }}</th>
+          <th class="text-center">{{ t("admin_label_default") }}</th>
+          <th class="text-center">{{ t("admin_label_for_verified") }}</th>
+          <th class="w-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tariff in tariffs %}
+        <tr>
+          <td class="align-middle">{{ tariff.name }}</td>
+          <td class="align-middle text-center">{{ tariff.price_rub|int }} ₽{% if tariff.price_rub > 0 %}{{
+            t("admin_label_per_month") }}{% endif %}</td>
+          <td class="align-middle text-center">{{ tariff.price_uzs|int }} UZS{% if tariff.price_uzs > 0 %}{{
+            t("admin_label_per_month") }}{% endif %}</td>
+          <td class="align-middle text-center">{{ tariff.price_usd }} $ {% if tariff.price_usd > 0 %}{{
+            t("admin_label_per_month") }}{% endif %}</td>
+          <td class="align-middle text-center">{{ tariffs_user_count[tariff.id] }}</td>
+          <td class="align-middle text-center">
+            {% if tariff.is_default %}
+            <i class="ti ti-check text-success"></i>
+            {% endif %}
+          </td>
+          <td class="align-middle text-center">
+            {% if tariff.is_verified %}
+            <i class="ti ti-check text-info"></i>
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            <a href="#" class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1" data-bs-toggle="modal"
+              data-bs-target="#modal-edit-tariff">
+              {{ t("admin_btn_edit") }}
+            </a>
+            {% if not tariff.is_default %}
+            <a href="#" class="btn btn-icon btn-outline-danger bg-danger-lt btn-sm px-2 py-1 ms-1"
+              data-bs-toggle="modal" data-bs-target="#modal-delete-tariff">
+              {{ t("admin_btn_delete") }}
+            </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Модалка добавления тарифа -->
+<div class="modal modal-blur fade" id="modal-new-tariff" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ t("admin_title_add_tariff") }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_title") }}</label><input type="text"
+            class="form-control" id="add-name"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_title_uz") }}</label><input type="text"
+            class="form-control" id="add-name-uz"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_title_ru") }}</label><input type="text"
+            class="form-control" id="add-name-ru"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_description") }}</label><input type="text"
+            class="form-control" id="add-description"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_description_uz") }}</label><input type="text"
+            class="form-control" id="add-description-uz"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_description_ru") }}</label><input type="text"
+            class="form-control" id="add-description-ru"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_price_rub") }}</label><input type="number"
+            class="form-control" id="add-price-rub"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_price_uzs") }}</label><input type="number"
+            class="form-control" id="add-price-uzs"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_price_usd") }}</label><input type="number"
+            class="form-control" id="add-price-usd"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_user_limit") }}</label><input type="number"
+            class="form-control" id="add-user-limit"></div>
+        <div class="mb-3 form-check"><input type="checkbox" class="form-check-input" id="add-is-default"><label
+            class="form-check-label" for="add-is-default">{{ t("admin_label_default") }}</label></div>
+        <div class="mb-3 form-check"><input type="checkbox" class="form-check-input" id="add-is-verified"><label
+            class="form-check-label" for="add-is-verified">{{ t("admin_label_for_verified") }}</label></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">{{ t("admin_btn_cancel")
+          }}</button>
+        <button type="button" class="btn btn-primary ms-auto" id="save-tariff-btn">{{ t("admin_btn_save") }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка редактирования тарифа -->
+<div class="modal modal-blur fade" id="modal-edit-tariff" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ t("admin_title_edit_tariff") }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-tariff-id">
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_title") }}</label><input type="text"
+            class="form-control" id="edit-name"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_title_uz") }}</label><input type="text"
+            class="form-control" id="edit-name-uz"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_title_ru") }}</label><input type="text"
+            class="form-control" id="edit-name-ru"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_description") }}</label><input type="text"
+            class="form-control" id="edit-description"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_description_uz") }}</label><input type="text"
+            class="form-control" id="edit-description-uz"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_description_ru") }}</label><input type="text"
+            class="form-control" id="edit-description-ru"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_price_rub") }}</label><input type="number"
+            class="form-control" id="edit-price-rub"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_price_uzs") }}</label><input type="number"
+            class="form-control" id="edit-price-uzs"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_price_usd") }}</label><input type="number"
+            class="form-control" id="edit-price-usd"></div>
+        <div class="mb-3"><label class="form-label">{{ t("admin_label_user_limit") }}</label><input type="number"
+            class="form-control" id="edit-user-limit"></div>
+        <div class="mb-3 form-check"><input type="checkbox" class="form-check-input" id="edit-is-default"><label
+            class="form-check-label" for="edit-is-default">{{ t("admin_label_default") }}</label></div>
+        <div class="mb-3 form-check"><input type="checkbox" class="form-check-input" id="edit-is-verified"><label
+            class="form-check-label" for="edit-is-verified">{{ t("admin_label_for_verified") }}</label></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">{{ t("admin_btn_cancel")
+          }}</button>
+        <button type="button" class="btn btn-primary ms-auto" id="edit-tariff-btn">{{ t("admin_btn_save") }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка удаления тарифа -->
+<div class="modal modal-blur fade" id="modal-delete-tariff" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ t("admin_title_delete_tariff") }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="delete-tariff-id">
+        <div class="alert alert-warning">
+          <h4 class="alert-title">{{ t("admin_label_warning") }}</h4>
+          <div class="text-muted">{{ t("admin_msg_delete_tariff_warning").replace('{name}', '<strong
+              id="delete-tariff-name"></strong>') | safe }}</div>
+        </div>
+        <p>{{ t("admin_msg_confirm_delete_tariff") }}</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">{{ t("admin_btn_cancel")
+          }}</button>
+        <button type="button" class="btn btn-danger ms-auto" id="delete-tariff-btn">{{ t("admin_btn_delete_tariff")
+          }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.TARIFFS = {{ tariffs | tojson }};
+  document.addEventListener('DOMContentLoaded', function () {
+    // Добавление тарифа
+    document.getElementById('save-tariff-btn').onclick = function () {
+      fetch('/fmadmin/api/tariff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('add-name').value,
+          name_uz: document.getElementById('add-name-uz').value,
+          name_ru: document.getElementById('add-name-ru').value,
+          description: document.getElementById('add-description').value,
+          description_uz: document.getElementById('add-description-uz').value,
+          description_ru: document.getElementById('add-description-ru').value,
+          price_rub: parseFloat(document.getElementById('add-price-rub').value) || 0,
+          price_uzs: parseFloat(document.getElementById('add-price-uzs').value) || 0,
+          price_usd: parseFloat(document.getElementById('add-price-usd').value) || 0,
+          user_limit: parseInt(document.getElementById('add-user-limit').value) || 0,
+          is_default: document.getElementById('add-is-default').checked,
+          is_verified: document.getElementById('add-is-verified').checked
+        })
+      }).then(r => r.json()).then(data => {
+        if (data.success) location.reload();
+      });
+    };
+
+    // Открытие модалки редактирования тарифа
+    document.querySelectorAll('[data-bs-target="#modal-edit-tariff"]').forEach(function (btn, idx) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('tr');
+        var tds = row.querySelectorAll('td');
+        var name = tds[0].innerText.trim();
+        var tariff = null;
+        for (var i = 0; i < window.TARIFFS.length; i++) {
+          var t = window.TARIFFS[i];
+          if (t.name === name) tariff = t;
+        }
+        if (tariff) {
+          document.getElementById('edit-tariff-id').value = tariff.id;
+          document.getElementById('edit-name').value = tariff.name || '';
+          document.getElementById('edit-name-uz').value = tariff.name_uz || '';
+          document.getElementById('edit-name-ru').value = tariff.name_ru || '';
+          document.getElementById('edit-description').value = tariff.description || '';
+          document.getElementById('edit-description-uz').value = tariff.description_uz || '';
+          document.getElementById('edit-description-ru').value = tariff.description_ru || '';
+          document.getElementById('edit-price-rub').value = tariff.price_rub || 0;
+          document.getElementById('edit-price-uzs').value = tariff.price_uzs || 0;
+          document.getElementById('edit-price-usd').value = tariff.price_usd || 0;
+          document.getElementById('edit-user-limit').value = tariff.user_limit || 0;
+          document.getElementById('edit-is-default').checked = !!tariff.is_default;
+          document.getElementById('edit-is-verified').checked = !!tariff.is_verified;
+        }
+      });
+    });
+
+    // Сохранение изменений тарифа
+    document.getElementById('edit-tariff-btn').onclick = function () {
+      var id = document.getElementById('edit-tariff-id').value;
+      fetch('/fmadmin/api/tariff/' + id, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('edit-name').value,
+          name_uz: document.getElementById('edit-name-uz').value,
+          name_ru: document.getElementById('edit-name-ru').value,
+          description: document.getElementById('edit-description').value,
+          description_uz: document.getElementById('edit-description-uz').value,
+          description_ru: document.getElementById('edit-description-ru').value,
+          price_rub: parseFloat(document.getElementById('edit-price-rub').value) || 0,
+          price_uzs: parseFloat(document.getElementById('edit-price-uzs').value) || 0,
+          price_usd: parseFloat(document.getElementById('edit-price-usd').value) || 0,
+          user_limit: parseInt(document.getElementById('edit-user-limit').value) || 0,
+          is_default: document.getElementById('edit-is-default').checked,
+          is_verified: document.getElementById('edit-is-verified').checked
+        })
+      }).then(r => r.json()).then(data => {
+        if (data.success) location.reload();
+      });
+    };
+
+    // Открытие модалки удаления тарифа
+    document.querySelectorAll('[data-bs-target="#modal-delete-tariff"]').forEach(function (btn, idx) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('tr');
+        var tds = row.querySelectorAll('td');
+        var name = tds[0].innerText.trim();
+        var tariff = null;
+        for (var i = 0; i < window.TARIFFS.length; i++) {
+          var t = window.TARIFFS[i];
+          if (t.name === name) tariff = t;
+        }
+        if (tariff) {
+          document.getElementById('delete-tariff-id').value = tariff.id;
+          document.getElementById('delete-tariff-name').textContent = tariff.name;
+        }
+      });
+    });
+
+    // Удаление тарифа
+    document.getElementById('delete-tariff-btn').onclick = function () {
+      var id = document.getElementById('delete-tariff-id').value;
+      fetch('/fmadmin/api/tariff/' + id + '/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(r => r.json()).then(data => {
+        if (data.success) {
+          location.reload();
+        } else {
+          alert('{{ t("admin_msg_error_delete") }}' + ': ' + (data.error || '{{ t("admin_msg_unknown_error") }}'));
+        }
+      }).catch(error => {
+        alert('{{ t("admin_msg_error_delete_tariff") }}');
+      });
+    };
+  });
+</script>
+{% endblock %}

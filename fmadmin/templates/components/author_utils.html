@@ -1,0 +1,267 @@
+<script>
+    // Author utilities for fmadmin
+    (function () {
+        'use strict';
+
+        // Global author utilities
+        window.AuthorUtils = {
+            // Search for author and show in a select field or input
+            searchAndSelectAuthor: function (targetElementId, options = {}) {
+                const callback = function (author) {
+                    const targetElement = document.getElementById(targetElementId);
+                    if (!targetElement) {
+                        console.error('Target element not found:', targetElementId);
+                        return;
+                    }
+
+                    if (targetElement.tagName === 'SELECT') {
+                        // For select elements, add new option and select it
+                        const option = new Option(
+                            `${author.name} (${author.orcid})`,
+                            author.id,
+                            true,
+                            true
+                        );
+                        targetElement.add(option);
+
+                        // Trigger change event
+                        targetElement.dispatchEvent(new Event('change'));
+                    } else if (targetElement.tagName === 'INPUT') {
+                        // For input elements, set the value
+                        if (options.displayFormat === 'id') {
+                            targetElement.value = author.id;
+                        } else if (options.displayFormat === 'name_orcid') {
+                            targetElement.value = `${author.name} (${author.orcid})`;
+                        } else {
+                            targetElement.value = author.name;
+                        }
+
+                        // Store author data in data attributes
+                        targetElement.dataset.authorId = author.id;
+                        targetElement.dataset.authorName = author.name;
+                        targetElement.dataset.authorOrcid = author.orcid;
+
+                        // Trigger input event
+                        targetElement.dispatchEvent(new Event('input'));
+                    }
+
+                    // Call custom callback if provided
+                    if (options.onSelect) {
+                        options.onSelect(author);
+                    }
+                };
+
+                window.openAuthorSearchModal('select_author', callback);
+            },
+
+            // Add author to a list (for multiple authors)
+            searchAndAddToList: function (listContainerId, options = {}) {
+                const callback = function (author) {
+                    AuthorUtils.addAuthorToList(listContainerId, author, options);
+                };
+
+                window.openAuthorSearchModal('add_to_list', callback);
+            },
+
+            // Add author to a list container
+            addAuthorToList: function (listContainerId, author, options = {}) {
+                const container = document.getElementById(listContainerId);
+                if (!container) {
+                    console.error('List container not found:', listContainerId);
+                    return;
+                }
+
+                // Check if author already exists in the list
+                const existingItem = container.querySelector(`[data-author-id="${author.id}"]`);
+                if (existingItem) {
+                    // Highlight existing item
+                    existingItem.classList.add('bg-primary-lt');
+                    setTimeout(() => {
+                        existingItem.classList.remove('bg-primary-lt');
+                    }, 1000);
+                    return;
+                }
+
+                // Create author item element
+                const authorItem = document.createElement('div');
+                authorItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                authorItem.dataset.authorId = author.id;
+
+                const authorInfo = document.createElement('div');
+                authorInfo.innerHTML = `
+                <strong>${author.name}</strong><br>
+                <small class="text-muted">ORCID: ${author.orcid}</small>
+                ${author.organization ? `<br><small class="text-muted">${author.organization}</small>` : ''}
+            `;
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'btn btn-sm btn-outline-danger';
+                removeBtn.innerHTML = '<i class="ti ti-x"></i>';
+                removeBtn.title = '{{ t("admin_tooltip_delete_author") }}';
+                removeBtn.onclick = function () {
+                    authorItem.remove();
+                    if (options.onRemove) {
+                        options.onRemove(author);
+                    }
+                };
+
+                authorItem.appendChild(authorInfo);
+                authorItem.appendChild(removeBtn);
+                container.appendChild(authorItem);
+
+                // Call custom callback if provided
+                if (options.onAdd) {
+                    options.onAdd(author);
+                }
+            },
+
+            // Get all authors from a list
+            getAuthorsFromList: function (listContainerId) {
+                const container = document.getElementById(listContainerId);
+                if (!container) {
+                    console.error('List container not found:', listContainerId);
+                    return [];
+                }
+
+                const authorItems = container.querySelectorAll('[data-author-id]');
+                return Array.from(authorItems).map(item => ({
+                    id: parseInt(item.dataset.authorId),
+                    name: item.dataset.authorName || '',
+                    orcid: item.dataset.authorOrcid || ''
+                }));
+            },
+
+            // Clear all authors from a list
+            clearAuthorsList: function (listContainerId) {
+                const container = document.getElementById(listContainerId);
+                if (!container) {
+                    console.error('List container not found:', listContainerId);
+                    return;
+                }
+
+                const authorItems = container.querySelectorAll('[data-author-id]');
+                authorItems.forEach(item => item.remove());
+            },
+
+            // Load authors into a list from an array of IDs
+            loadAuthorsToList: function (listContainerId, authorIds, options = {}) {
+                if (!Array.isArray(authorIds) || authorIds.length === 0) {
+                    return;
+                }
+
+                // Fetch author details for each ID
+                const promises = authorIds.map(id =>
+                    fetch('/fmadmin/api/getauthor', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ author_id: id })
+                    })
+                        .then(response => response.json())
+                        .then(data => data.success && data.is_found ? data.author : null)
+                        .catch(error => {
+                            console.error('Error fetching author:', error);
+                            return null;
+                        })
+                );
+
+                Promise.all(promises).then(authors => {
+                    authors.forEach(author => {
+                        if (author) {
+                            AuthorUtils.addAuthorToList(listContainerId, author, options);
+                        }
+                    });
+                });
+            },
+
+            // Create a simple author search button
+            createSearchButton: function (text = '{{ t("admin_btn_find_author") }}', className = 'btn btn-primary btn-sm') {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = className;
+                button.innerHTML = `<i class="ti ti-search me-1"></i>${text}`;
+                return button;
+            },
+
+            // Create an "add author" button for lists
+            createAddButton: function (text = '{{ t("admin_btn_add_author") }}', className = 'btn btn-outline-primary btn-sm') {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = className;
+                button.innerHTML = `<i class="ti ti-plus me-1"></i>${text}`;
+                return button;
+            },
+
+            // Helper function to format author display
+            formatAuthorDisplay: function (author, format = 'name_orcid') {
+                switch (format) {
+                    case 'name_only':
+                        return author.name;
+                    case 'orcid_only':
+                        return author.orcid;
+                    case 'name_orcid':
+                    default:
+                        return `${author.name} (${author.orcid})`;
+                }
+            },
+
+            // Helper function to validate ORCID format
+            validateOrcid: function (orcid) {
+                if (!orcid || typeof orcid !== 'string') {
+                    return false;
+                }
+                const trimmed = orcid.trim();
+                return trimmed.length >= 10 && trimmed.includes('-');
+            },
+
+            // Helper function to validate author name
+            validateAuthorName: function (name) {
+                if (!name || typeof name !== 'string') {
+                    return false;
+                }
+                return name.trim().length >= 2;
+            }
+        };
+
+        // Auto-initialize search buttons with data attributes
+        document.addEventListener('DOMContentLoaded', function () {
+            // Initialize buttons with data-author-search attribute
+            document.querySelectorAll('[data-author-search]').forEach(button => {
+                const targetId = button.dataset.authorSearch;
+                const displayFormat = button.dataset.displayFormat || 'name';
+
+                button.addEventListener('click', function () {
+                    AuthorUtils.searchAndSelectAuthor(targetId, {
+                        displayFormat: displayFormat,
+                        onSelect: function (author) {
+                            // Trigger custom event
+                            const event = new CustomEvent('authorSelected', {
+                                detail: { author: author, targetId: targetId }
+                            });
+                            document.dispatchEvent(event);
+                        }
+                    });
+                });
+            });
+
+            // Initialize buttons with data-author-add-to-list attribute
+            document.querySelectorAll('[data-author-add-to-list]').forEach(button => {
+                const listId = button.dataset.authorAddToList;
+
+                button.addEventListener('click', function () {
+                    AuthorUtils.searchAndAddToList(listId, {
+                        onAdd: function (author) {
+                            // Trigger custom event
+                            const event = new CustomEvent('authorAddedToList', {
+                                detail: { author: author, listId: listId }
+                            });
+                            document.dispatchEvent(event);
+                        }
+                    });
+                });
+            });
+        });
+
+    })();
+</script>

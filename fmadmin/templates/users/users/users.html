@@ -1,0 +1,150 @@
+{% extends 'basic.html' %}
+
+
+{% block content %}
+
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">{{ t("admin_users_title") }}</h2>
+    </div>
+    <div class="col-auto ms-auto">
+      <div class="btn-list">
+        <a href="{{ url_for('user_edit', user_id=0) }}" class="btn btn-primary d-none d-sm-inline-block">
+          <i class="ti ti-plus"></i>
+          {{ t("admin_users_add_btn") }}
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<form method="get" action="{{ url_for('users') }}">
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="form-label">{{ t("admin_users_name") }}</div>
+      <input type="text" class="form-control" placeholder="{{ t('admin_users_name_placeholder') }}" name="name"
+        value="{{ search_name|default('') }}">
+    </div>
+    <div class="col-md-4">
+      <div class="form-label">{{ t("admin_users_email") }}</div>
+      <input type="text" class="form-control" placeholder="{{ t('admin_users_email_placeholder') }}" name="email"
+        value="{{ search_email|default('') }}">
+    </div>
+    <div class="col-md-4">
+      <div class="form-label">{{ t("admin_users_author_orcid") }}</div>
+      <input type="text" class="form-control" placeholder="{{ t('admin_users_orcid_placeholder') }}" name="orcid"
+        value="{{ search_orcid|default('') }}">
+    </div>
+    <div class="col-12 mt-3">
+      <div class="d-flex justify-content-end">
+        <button class="btn btn-ghost-danger me-2" type="button"
+          onclick="window.location.href='{{ url_for('users') }}';">
+          <i class="ti ti-x pe-2"></i>
+          {{ t("admin_btn_clear") }}
+        </button>
+        <button class="btn btn-primary" type="submit">
+          <i class="ti ti-search pe-2"></i>
+          {{ t("admin_btn_search") }}
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+
+
+
+<div class="card mt-4">
+  <div class="table-responsive">
+    <table class="table card-table table-hover">
+      <thead>
+        <tr>
+          <th>{{ t("admin_users_name") }}</th>
+          <th>{{ t("admin_users_email") }}</th>
+          <th>{{ t("admin_authors") }}</th>
+          <th>{{ t("admin_users_subscription") }}</th>
+          <th>{{ t("admin_users_tariff") }}</th>
+          <th>{{ t("admin_users_valid_until") }}</th>
+          <th class="w-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr>
+          <td class="align-middle">{{ user.name }} {{ user.second_name }} {{ user.father_name or '' }}</td>
+          <td class="align-middle">{{ user.email }}</td>
+          <td class="align-middle">
+            {% if user.id in author_map %}
+            {{ author_map[user.id].name }}{% if author_map[user.id].orcid %} ({{ author_map[user.id].orcid }}){% endif
+            %}
+            {% else %}
+            —
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            {# Пример: если есть поле is_paid или subscription_end_date, можно отобразить статус #}
+            {% if user.subscription_end_date and user.subscription_end_date > 0 %}
+            <span class="badge bg-success-lt">{{ t("admin_badge_premium") }}</span>
+            {% else %}
+            <span class="badge bg-secondary-lt">{{ t("admin_badge_regular") }}</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            {% if user.tariff_id and user.tariff_id in tariffs_map %}
+            {{ tariffs_map[user.tariff_id].name }}
+            {% else %}
+            —
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            {% if user.subscription_end_date %}
+            {{ user.subscription_end_date | datetimeformat }}
+            {% else %}
+            —
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            <a href="{{ url_for('user_edit', user_id=user.id) }}"
+              class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1">
+              {{ t("admin_btn_edit") }}
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer d-flex align-items-center">
+    <p class="m-0 text-secondary">{{ t("admin_pagination_showing") }} <span>{{ users|length }}</span> {{
+      t("admin_pagination_of") }} <span>{{ total_users }}</span> {{ t("admin_pagination_entries") }}</p>
+    <ul class="pagination m-0 ms-auto">
+      <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+        <a class="page-link"
+          href="{{ url_for('users', page=page-1, name=search_name, email=search_email, orcid=search_orcid) }}"
+          tabindex="-1" aria-disabled="true">
+          <i class="ti ti-chevron-left"></i>
+        </a>
+      </li>
+      {% for p in range(1, total_pages+1) %}
+      <li class="page-item {% if p == page %}active{% endif %}"><a class="page-link"
+          href="{{ url_for('users', page=p, name=search_name, email=search_email, orcid=search_orcid) }}">{{ p }}</a>
+      </li>
+      {% endfor %}
+      <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+        <a class="page-link"
+          href="{{ url_for('users', page=page+1, name=search_name, email=search_email, orcid=search_orcid) }}">
+          <i class="ti ti-chevron-right"></i>
+        </a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+
+
+
+{% endblock %}
+
+{% block scripts %}
+
+{% endblock %}

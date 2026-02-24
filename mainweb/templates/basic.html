@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Philology Matters{% endblock %}</title>
+    <link rel="icon" href="/static/favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Mulish:ital,wght@0,200..1000;1,200..1000&family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" />
+    <link href="/static/styles.css" rel="stylesheet">
+
+    <script defer src="https://cdn.jsdelivr.net/npm/iconify-icon@2.3.0/dist/iconify-icon.min.js"></script>
+
+</head>
+
+<body class="min-h-screen flex flex-col bg-[#FAFBFC]">
+
+    <main class="site-main flex-1">
+        {% block content %}
+        You cannot run directly basic.html
+        {% endblock %}
+    </main>
+
+    {% block footer %}
+    {% include 'components/footer/main.html' %}
+    {% endblock %}
+    
+    <script defer src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script defer src="https://unpkg.com/tailwindcss-intersect@2.x.x/dist/observer.min.js"></script>
+
+    {% block scripts %}{% endblock %}
+
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const dropdownTriggers = Array.from(document.querySelectorAll('.relative > button'));
+            const dropdownItems = dropdownTriggers
+                .map((button) => ({ button, panel: button.parentElement.querySelector(':scope > .absolute') }))
+                .filter((item) => item.panel);
+
+            function hideDropdown(panel) {
+                if (panel.classList.contains('hidden')) {
+                    return;
+                }
+
+                panel.classList.remove('dropdown-enter-active');
+                panel.classList.add('dropdown-leave');
+                setTimeout(function () {
+                    panel.classList.remove('dropdown-leave');
+                    panel.classList.add('dropdown-leave-active', 'hidden');
+                    panel.style.position = '';
+                    panel.style.left = '';
+                    panel.style.top = '';
+                }, 10);
+            }
+
+            function showDropdown(panel, button) {
+                var rect = button.getBoundingClientRect();
+                panel.style.position = 'fixed';
+                panel.style.left = rect.left + 'px';
+                panel.style.top = (rect.bottom + 8) + 'px';
+                panel.classList.remove('hidden', 'dropdown-leave-active');
+                panel.classList.add('dropdown-enter');
+                setTimeout(function () {
+                    panel.classList.remove('dropdown-enter');
+                    panel.classList.add('dropdown-enter-active');
+                }, 10);
+            }
+
+            dropdownItems.forEach(function (item) {
+                item.button.addEventListener('click', function (event) {
+                    event.stopPropagation();
+
+                    dropdownItems.forEach(function (otherItem) {
+                        if (otherItem.panel !== item.panel) {
+                            hideDropdown(otherItem.panel);
+                        }
+                    });
+
+                    if (item.panel.classList.contains('hidden')) {
+                        showDropdown(item.panel, item.button);
+                    } else {
+                        hideDropdown(item.panel);
+                    }
+                });
+            });
+
+            document.addEventListener('click', function (event) {
+                if (!event.target.closest('.relative')) {
+                    dropdownItems.forEach(function (item) {
+                        hideDropdown(item.panel);
+                    });
+                }
+            });
+
+            window.addEventListener('scroll', function () {
+                dropdownItems.forEach(function (item) {
+                    if (!item.panel.classList.contains('hidden')) {
+                        var rect = item.button.getBoundingClientRect();
+                        item.panel.style.left = rect.left + 'px';
+                        item.panel.style.top = (rect.bottom + 8) + 'px';
+                    }
+                });
+            }, { passive: true });
+
+            const header = document.getElementById('header');
+            const menu = document.getElementById('menu');
+            if (header && menu) {
+                window.addEventListener('scroll', function () {
+                    const menuTop = menu.getBoundingClientRect().top;
+                    header.classList.toggle('hidden', menuTop > 0);
+                }, { passive: true });
+            }
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,115 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+<div class="page-header d-print-none mb-4">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">{% if news_id == 0 %}{{ t("admin_title_create_news") }}{% else %}{{
+        t("admin_title_edit_news") }}{% endif %}</h2>
+      <a href="{{ url_for('news') }}" class="">
+        <i class="ti ti-arrow-left"></i>
+        {{ t("admin_btn_back") }}
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">
+    <div class="card-title">
+      <h5 class="card-title">{% if news_id == 0 %}{{ t("admin_title_create_news") }}{% else %}{{
+        t("admin_title_edit_news") }}{% endif %}</h5>
+    </div>
+    <div class="card-actions">
+      <div class="btn-group" role="group" aria-label="Язык">
+        <button type="button" class="btn btn-outline-primary" data-lang="all">{{ t("admin_label_all") }}</button>
+        <button type="button" class="btn btn-outline-primary" data-lang="ru">RU</button>
+        <button type="button" class="btn btn-outline-primary" data-lang="uz">UZ</button>
+        <button type="button" class="btn btn-outline-primary" data-lang="en">EN</button>
+      </div>
+    </div>
+  </div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('news_edit', news_id=news_id) }}">
+      <div class="mb-3 lang-field lang-en">
+        <label for="title_en" class="form-label">{{ t("admin_label_title") }} (en)</label>
+        <input type="text" class="form-control" id="title_en" name="title_en" value="{{ news.title }}" required>
+      </div>
+      <div class="mb-3 lang-field lang-ru">
+        <label for="title_ru" class="form-label">{{ t("admin_label_title") }} (ru)</label>
+        <input type="text" class="form-control" id="title_ru" name="title_ru" value="{{ news.title_ru }}" required>
+      </div>
+      <div class="mb-3 lang-field lang-uz">
+        <label for="title_uz" class="form-label">{{ t("admin_label_title") }} (uz)</label>
+        <input type="text" class="form-control" id="title_uz" name="title_uz" value="{{ news.title_uz }}" required>
+      </div>
+      <div class="mb-3 lang-field lang-en">
+        <label for="content_en" class="form-label">{{ t("admin_label_content_en") }}</label>
+        <textarea class="form-control" id="content_en" name="content_en" rows="10">{{ news.content }}</textarea>
+      </div>
+      <div class="mb-3 lang-field lang-ru">
+        <label for="content_ru" class="form-label">{{ t("admin_label_content_ru") }}</label>
+        <textarea class="form-control" id="content_ru" name="content_ru" rows="10">{{ news.content_ru }}</textarea>
+      </div>
+      <div class="mb-3 lang-field lang-uz">
+        <label for="content_uz" class="form-label">{{ t("admin_label_content_uz") }}</label>
+        <textarea class="form-control" id="content_uz" name="content_uz" rows="10">{{ news.content_uz }}</textarea>
+      </div>
+      <div class="mb-3">
+        <label for="status" class="form-label">{{ t("admin_label_status") }}</label>
+        <select class="form-select" id="status" name="status" required>
+          <option value="draft" {% if news.status=='draft' %}selected{% endif %}>{{ t("admin_label_status_draft") }}
+          </option>
+          <option value="published" {% if news.status=='published' %}selected{% endif %}>{{
+            t("admin_label_status_published") }}</option>
+          <option value="archived" {% if news.status=='archived' %}selected{% endif %}>{{
+            t("admin_label_status_archived") }}</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="published_at" class="form-label">{{ t("admin_label_publication_date") }}</label>
+        <input type="date" class="form-control" id="published_at" name="published_at"
+          value="{{ news.published_at|date_to_form }}" required>
+      </div>
+      <div class="mb-3">
+        <label for="cover_image" class="form-label">{{ t("admin_label_upload_cover") }}</label>
+        <input type="file" class="form-control" id="cover_image" name="cover_image" accept="image/*">
+        {% if news.cover_image %}
+        <div class="mt-2">
+          <img src="{{ news.cover_image }}" alt="{{ t('admin_label_cover') }}"
+            style="max-width: 200px; max-height: 200px; border: 1px solid #ccc;" />
+        </div>
+        {% endif %}
+      </div>
+      <div class="mt-3">
+        <button type="submit" class="btn btn-primary">{{ t("admin_btn_save") }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+<script>
+  ClassicEditor.create(document.getElementById('content_en'));
+  ClassicEditor.create(document.getElementById('content_ru'));
+  ClassicEditor.create(document.getElementById('content_uz'));
+  function setLang(lang) {
+    document.querySelectorAll('.lang-field').forEach(e => e.style.display = 'none');
+    if (lang === 'all') {
+      document.querySelectorAll('.lang-field').forEach(e => e.style.display = '');
+    } else {
+      document.querySelectorAll('.lang-' + lang).forEach(e => e.style.display = '');
+    }
+    document.querySelectorAll('.btn-group [data-lang]').forEach(btn => btn.classList.remove('active'));
+    document.querySelector('.btn-group [data-lang="' + lang + '"]').classList.add('active');
+  }
+  document.querySelectorAll('.btn-group [data-lang]').forEach(btn => {
+    btn.addEventListener('click', function () {
+      setLang(this.getAttribute('data-lang'));
+    });
+  });
+  setLang('all');
+</script>
+{% endblock %}

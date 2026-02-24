@@ -1,0 +1,607 @@
+{% extends 'basic.html' %}
+
+{% block title %}{{ article.title }} - Philology Matters{% endblock %}
+
+{% block content %}
+{% include 'components/headers/main_header.html' %}
+{% include 'components/hero/main_hero.html' %}
+
+<div class="mt-8 bg-white">
+    <div class="container py-8 mx-auto">
+        <div class="grid grid-cols-4 gap-4">
+            <div class="col-span-3">
+                <div class="flex gap-3 mb-4">
+                    <img src="static/obl.jpg" alt="Language and Health" class="w-12 h-auto rounded-sm ">
+                    <div>
+                        <h5 class="text-lg mt-2 font-medium">Philology Matters</h5>
+                        <div class="text mb-4 text-gray-600 flex"><a href=""
+                                class="flex items-center w-fit text-md text-blue-700 hover:text-blue-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400">Volume
+                                65</a>, September 2024, 101127</div>
+
+                    </div>
+                </div>
+                <h4 class="text-2xl font-medium mb-4">Getting a grip on the writing process: (Effective) approaches to
+                    write argumentative and narrative texts in L1 and L2</h4>
+
+                <div class="mb-4">
+                    <a href="javascript:;" class="border-b hover:text-gray-800 hover:border-green-500">Mark Markov</a>,
+                    <a href="javascript:;" class="border-b hover:text-gray-800 hover:border-green-500">Mark Markov</a>,
+                    <a href="javascript:;" class="border-b hover:text-gray-800 hover:border-green-500">Mark Markov</a>
+                </div>
+
+                <div class="mb-4 flex gap-4">
+                    <a href="javascript:;" class="text-blue-800 text-sm flex items-center group">
+                        <iconify-icon icon="tabler:share"
+                            class="text-lg me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                        <span
+                            class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                            Share
+                        </span>
+                    </a>
+
+                    <a href="javascript:;" class="text-blue-800 text-sm flex items-center group">
+                        <iconify-icon icon="tabler:quote"
+                            class="text-lg me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                        <span
+                            class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                            Cite
+                        </span>
+                    </a>
+
+                    <a href="javascript:;" class="text-blue-800 text-sm flex items-center group">
+                        <iconify-icon icon="tabler:arrow-up-right"
+                            class="text-lg me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                        <span
+                            class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                            DOI: 11.22.33.44/444444.444
+                        </span>
+                    </a>
+                </div>
+
+                <div class="text-xs text-gray-500">
+                    Article: 2458630 | Received 12 Aug 2024, Accepted 19 Jan 2025, Published online: 03 Feb 2025
+                </div>
+
+                <hr class="h-px my-4 bg-fmmain-bg border-0">
+
+                <div class="mb-4 intersect intersect-full" data-block-id="0">
+                    <h4 class="text-xl font-medium mb-4">Abstract</h4>
+                    <div class="mb-4">
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="font-medium mb-1">Keywords:</div>
+                    <div class="flex gap-1 flex-wrap">
+                        <div class="bg-gray-100 text-gray-900 py-1 px-2 rounded-md text-sm">Keyword 1</div>
+                        <div class="bg-gray-100 text-gray-900 py-1 px-2 rounded-md text-sm">Keyword 1</div>
+                        <div class="bg-gray-100 text-gray-900 py-1 px-2 rounded-md text-sm">Keyword 1</div>
+                        <div class="bg-gray-100 text-gray-900 py-1 px-2 rounded-md text-sm">Keyword 1</div>
+                        <div class="bg-gray-100 text-gray-900 py-1 px-2 rounded-md text-sm">Keyword 1</div>
+                        <div class="bg-gray-100 text-gray-900 py-1 px-2 rounded-md text-sm">Keyword 1</div>
+                        <div class="bg-gray-100 text-gray-900 py-1 px-2 rounded-md text-sm">Keyword 1</div>
+                        <div class="bg-gray-100 text-gray-900 py-1 px-2 rounded-md text-sm">Keywqweord 1</div>
+                        <div class="bg-gray-100 text-gray-900 py-1 px-2 rounded-md text-sm">Keyword 1</div>
+                        <div class="bg-gray-100 text-gray-900 py-1 px-2 rounded-md text-sm">Keyword 1</div>
+                        <div class="bg-gray-100 text-gray-900 py-1 px-2 rounded-md text-sm">Keyword 1</div>
+                        <div class="bg-gray-100 text-gray-900 py-1 px-2 rounded-md text-sm">Keyword 1</div>
+                        <div class="bg-gray-100 text-gray-900 py-1 px-2 rounded-md text-sm">Keyword 1</div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="font-medium mb-1">Subjects:</div>
+                    <div class="flex gap-1 flex-wrap">
+                        <div class="bg-fmmain-light text-green-900 py-1 px-2 rounded-md text-sm">Some big title for
+                            subject name</div>
+                        <div class="bg-fmmain-light text-green-900 py-1 px-2 rounded-md text-sm">Some big title
+                            fowqeqweqweqweqweqweqwr subject name</div>
+                        <div class="bg-fmmain-light text-green-900 py-1 px-2 rounded-md text-sm">Some big title
+                            foqsewqeqr subject name</div>
+                        <div class="bg-fmmain-light text-green-900 py-1 px-2 rounded-md text-sm">Some big title for
+                            subject name</div>
+                        <div class="bg-fmmain-light text-green-900 py-1 px-2 rounded-md text-sm">Some big title for
+                            weqweqwesubject name</div>
+                    </div>
+                </div>
+
+                <hr class="h-px my-8 bg-fmmain-bg border-0">
+
+                <div class="mb-8 intersect intersect-full" data-block-id="1">
+                    <h4 class="text-xl font-medium mb-4">1. Introduction</h4>
+
+                    <div class="mb-4">
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                    </div>
+
+                    <div class="mb-4">
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                    </div>
+
+                    <div class="mb-4">
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                    </div>
+
+                    <div class="border-y py-4 border-gray-200 px-3">
+                        <div class="flex flex-col gap-1">
+                            <a href="#">
+                                <img src="https://placehold.co/600x400" style="height: 150px;" alt="">
+                            </a>
+                            <div class="text-gray-600 italic text-sm">Figure 1.</div>
+                            <a href="#"
+                                class="text-sm underline text-blue-600 hover:text-blue-800 transition-colors">Show
+                                figure</a>
+                            <a href="#"
+                                class="text-sm underline text-blue-600 hover:text-blue-800 transition-colors">Download</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-8 intersect intersect-full" data-block-id="2">
+                    <h4 class="text-xl font-medium mb-4">1. Introduction</h4>
+
+                    <div class="mb-4">
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                    </div>
+
+                    <div class="mb-4">
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                    </div>
+
+                    <div class="border-y py-4 border-gray-200 px-3 my-4">
+                        <div class="flex flex-col gap-1">
+                            <a href="#">
+                                <img src="https://placehold.co/600x400" style="height: 150px;" alt="">
+                            </a>
+                            <div class="text-gray-600 italic text-sm">Figure 1.</div>
+                            <a href="#"
+                                class="text-sm underline text-blue-600 hover:text-blue-800 transition-colors">Show
+                                figure</a>
+                            <a href="#"
+                                class="text-sm underline text-blue-600 hover:text-blue-800 transition-colors">Download</a>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                    </div>
+
+                </div>
+
+                <div class="mb-8 intersect intersect-full" data-block-id="3">
+                    <h4 class="text-xl font-medium mb-4">1. Introduction</h4>
+
+                    <div class="mb-4">
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                    </div>
+
+                    <div class="border-y py-4 border-gray-200 px-3 my-4">
+                        <div class="flex flex-col gap-1">
+                            <a href="#">
+                                <img src="https://placehold.co/600x400" style="height: 150px;" alt="">
+                            </a>
+                            <div class="text-gray-600 italic text-sm">Table 1.</div>
+                            <a href="#"
+                                class="text-sm underline text-blue-600 hover:text-blue-800 transition-colors">Show
+                                table</a>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                    </div>
+
+                    <div class="border-b py-4 border-gray-200 my-4">
+                        <div class="flex flex-col gap-1">
+                            <div>
+                                <div class="relative overflow-x-auto">
+                                    <table class="w-full text-sm border-y border-gray-200  text-left">
+                                        <thead class="bg-white border-b border-gray-200 ">
+                                            <tr>
+                                                <th scope="col" class="px-6 py-4">
+                                                    Product name
+                                                </th>
+                                                <th scope="col" class="px-6 py-4">
+                                                    Color
+                                                </th>
+                                                <th scope="col" class="px-6 py-4">
+                                                    Category
+                                                </th>
+                                                <th scope="col" class="px-6 py-4">
+                                                    Price
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr
+                                                class="bg-white border-b  border-gray-200 hover:bg-gray-50 transition-colors">
+                                                <th scope="row" class="px-6 py-4 font-medium whitespace-nowrap">
+                                                    Apple MacBook Pro 17"
+                                                </th>
+                                                <td class="px-6 py-4">
+                                                    Silver
+                                                </td>
+                                                <td class="px-6 py-4">
+                                                    Laptop
+                                                </td>
+                                                <td class="px-6 py-4">
+                                                    $2999
+                                                </td>
+                                            </tr>
+                                            <tr
+                                                class="bg-white border-b  border-gray-200 hover:bg-gray-50 transition-colors">
+                                                <th scope="row" class="px-6 py-4 font-medium whitespace-nowrap">
+                                                    Microsoft Surface Pro
+                                                </th>
+                                                <td class="px-6 py-4">
+                                                    White
+                                                </td>
+                                                <td class="px-6 py-4">
+                                                    Laptop PC
+                                                </td>
+                                                <td class="px-6 py-4">
+                                                    $1999
+                                                </td>
+                                            </tr>
+                                            <tr class="bg-white hover:bg-gray-50 transition-colors">
+                                                <th scope="row" class="px-6 py-4 font-medium whitespace-nowrap">
+                                                    Magic Mouse 2
+                                                </th>
+                                                <td class="px-6 py-4">
+                                                    Black
+                                                </td>
+                                                <td class="px-6 py-4">
+                                                    Accessories
+                                                </td>
+                                                <td class="px-6 py-4">
+                                                    $99
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                            </div>
+                            <div class="text-gray-600 italic text-sm ms-2 mt-1">Table 2. Shoty desc</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus esse assumenda eligendi
+                        earum id fugiat amet nobis fuga corrupti tempora nam architecto fugit, optio maxime libero?
+                        Perspiciatis natus nobis eligendi!
+                    </div>
+
+                </div>
+
+                <div class="mb-8 intersect intersect-full" data-block-id="4">
+                    <h4 class="text-xl font-medium mb-4">Citations</h4>
+
+                    <div
+                        class=" py-3 mb-4 intersect-once intersect:animate-fade animate-duration-500 intersect:animate-delay-[50ms] animate-ease-linear">
+                        <div class="flex text-xs mb-1 me-2">
+                            <a href="" class="text-blue-600 hover:text-blue-900 me-2">Citation in article</a>
+                            <div class=" text-gray-400">Markov M., Samijonov A.</div>
+                        </div>
+                        <div class="">
+                            <a href=""
+                                class="hover:underline underline-offset-4 decoration-green-600 transition-all">Linguistic
+                                markers of story recall can help differentiate mild cognitive impairment from normal
+                                aging</a>
+                        </div>
+                        <div class="mt-1 mb-1">
+                            <div class="text-sm text-gray-400 italic">English for Specific Purposes (2022), <a href=""
+                                    class="text-blue-600 hover:text-blue-800 not-italic"> DOI: 111.22.33.44/53453254
+                                    <iconify-icon icon="tabler:arrow-up-right" class=""></iconify-icon></a></div>
+                        </div>
+                        <div class="flex flex-wrap mt-2 gap-4">
+
+                            <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                <span
+                                    class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                    View article
+                                </span>
+                                <iconify-icon icon="tabler:arrow-up-right"
+                                    class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                            </a>
+
+                            <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                <span
+                                    class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                    Publisher
+                                </span>
+                                <iconify-icon icon="tabler:arrow-up-right"
+                                    class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                            </a>
+
+                            <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                <span
+                                    class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                    Google Scholar
+                                </span>
+                                <iconify-icon icon="tabler:arrow-up-right"
+                                    class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                            </a>
+
+                            <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                <span
+                                    class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                    Scopus
+                                </span>
+                                <iconify-icon icon="tabler:arrow-up-right"
+                                    class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                            </a>
+
+                            <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                <span
+                                    class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                    CrossRef
+                                </span>
+                                <iconify-icon icon="tabler:arrow-up-right"
+                                    class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div
+                        class=" py-3 mb-4 intersect-once intersect:animate-fade animate-duration-500 intersect:animate-delay-[50ms] animate-ease-linear">
+                        <div class="flex text-xs mb-1 me-2">
+                            <a href="" class="text-blue-600 hover:text-blue-900 me-2">Citation in article</a>
+                            <div class=" text-gray-400">Markov M., Samijonov A.</div>
+                        </div>
+                        <div class="">
+                            <a href=""
+                                class="hover:underline underline-offset-4 decoration-green-600 transition-all">Linguistic
+                                markers of story recall can help differentiate mild cognitive impairment from normal
+                                aging</a>
+                        </div>
+                        <div class="mt-1 mb-1">
+                            <div class="text-sm text-gray-400 italic">English for Specific Purposes (2022), <a href=""
+                                    class="text-blue-600 hover:text-blue-800 not-italic"> DOI: 111.22.33.44/53453254
+                                    <iconify-icon icon="tabler:arrow-up-right" class=""></iconify-icon></a></div>
+                        </div>
+                        <div class="flex flex-wrap mt-2 gap-4">
+
+                            <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                <span
+                                    class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                    View article
+                                </span>
+                                <iconify-icon icon="tabler:arrow-up-right"
+                                    class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                            </a>
+
+                            <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                <span
+                                    class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                    Publisher
+                                </span>
+                                <iconify-icon icon="tabler:arrow-up-right"
+                                    class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                            </a>
+
+                            <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                <span
+                                    class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                    Google Scholar
+                                </span>
+                                <iconify-icon icon="tabler:arrow-up-right"
+                                    class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                            </a>
+
+                            <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                <span
+                                    class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                    Scopus
+                                </span>
+                                <iconify-icon icon="tabler:arrow-up-right"
+                                    class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                            </a>
+
+                            <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                <span
+                                    class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                    CrossRef
+                                </span>
+                                <iconify-icon icon="tabler:arrow-up-right"
+                                    class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                            </a>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="mb-8 intersect intersect-full" data-block-id="5">
+                    <h4 class="text-xl font-medium mb-4">Cited by</h4>
+
+                    <div
+                        class=" py-3 mb-4 intersect-once intersect:animate-fade animate-duration-500 intersect:animate-delay-[50ms] animate-ease-linear">
+                        <div class="flex text-xs mb-1 me-2">
+                            <div class=" text-gray-400">Markov M., Samijonov A.</div>
+                        </div>
+                        <div class="">
+                            <a href=""
+                                class="hover:underline underline-offset-4 decoration-green-600 transition-all">Linguistic
+                                markers of story recall can help differentiate mild cognitive impairment from normal
+                                aging</a>
+                        </div>
+                        <div class="mt-1 mb-1">
+                            <div class="text-sm text-gray-400 italic">English for Specific Purposes (2022), <a href=""
+                                    class="text-blue-600 hover:text-blue-800 not-italic"> DOI: 111.22.33.44/53453254
+                                    <iconify-icon icon="tabler:arrow-up-right" class=""></iconify-icon></a></div>
+                        </div>
+                        <div class="flex flex-wrap mt-2 gap-4">
+
+                            <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                <span
+                                    class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                    View article
+                                </span>
+                                <iconify-icon icon="tabler:arrow-up-right"
+                                    class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                            </a>
+
+                            <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                <span
+                                    class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                    Publisher
+                                </span>
+                                <iconify-icon icon="tabler:arrow-up-right"
+                                    class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                            </a>
+
+                            <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                <span
+                                    class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                    Google Scholar
+                                </span>
+                                <iconify-icon icon="tabler:arrow-up-right"
+                                    class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                            </a>
+
+                            <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                <span
+                                    class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                    Scopus
+                                </span>
+                                <iconify-icon icon="tabler:arrow-up-right"
+                                    class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                            </a>
+
+                            <a href="javascript:;" class="text-blue-800 text-xs flex items-center group">
+                                <span
+                                    class=" text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                    CrossRef
+                                </span>
+                                <iconify-icon icon="tabler:arrow-up-right"
+                                    class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                            </a>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+            <div class="border-s border-gray-100 px-4 h-full">
+                <div class="h-full">
+                    <div class="mb-6" id="section1">
+                        <h4 class="text-lg font-medium mb-2">Metrics</h4>
+
+                        <div
+                            class="flex items-center justify-between border-b border-gray-200 hover:bg-gray-50 text-sm py-2 px-1">
+                            <div>Views</div>
+                            <div>6</div>
+                        </div>
+
+                        <div
+                            class="flex items-center justify-between border-b border-gray-200 hover:bg-gray-50 text-sm py-2 px-1">
+                            <div>Altmetrics</div>
+                            <div>6</div>
+                        </div>
+
+
+
+                        <div
+                            class="flex items-center justify-between border-b border-gray-200 hover:bg-gray-50 text-sm py-2 px-1">
+                            <div>CrossRefs</div>
+                            <div>6</div>
+                        </div>
+                    </div>
+                    <div id="section2" class="sticky top-20">
+                        <h4 class="text-lg font-medium mb-6">Outline</h4>
+                        <div class="flex flex-col text-sm">
+                            <a href="" data-block-id="0"
+                                class="text-blue-600 hover:text-blue-800 bg-gray-50 px-2 py-1 border-s-2 border-fmmain mb-2">1.
+                                Lorem ipsum dolor sit amet cons </a>
+                            <a href="" data-block-id="1"
+                                class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">Abstract</a>
+                            <a href="" data-block-id="2"
+                                class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">2.
+                                Lorem ipsum dolor sit amet cons </a>
+                            <a href="" data-block-id="3"
+                                class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">3.
+                                Lorem ipsum dolor sit amet cons </a>
+                            <a href="" data-block-id="4"
+                                class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">4.
+                                Lorem ipsum dolor sit amet cons </a>
+                            <a href="" data-block-id="5"
+                                class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">4.
+                                Lorem ipsum dolor sit amet cons </a>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,290 @@
+{% extends 'basic.html' %}
+
+{% block title %}{{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }} - {{ t('website_title') }}{% endblock %}
+
+{% block content %}
+{% include 'components/headers/main_header.html' %}
+{% include 'components/hero/main_hero.html' %}
+
+<div class="mt-8">
+    <div class="container py-8 mx-auto">
+        <div class="flex items-start justify-between gap-8">
+            <div class="mb-6 flex flex-col flex-1">
+                <h4 class="text-2xl font-medium">{{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }}</h4>
+                <div class="text mt-1 mb-4 text-gray-600">{{ issue.created_at|timestamp_to_date }}</div>
+                
+                <!-- Issue Cover -->
+                <div class="mb-6">
+                    <img src="{{ issue.cover_image|cover_or_default }}" alt="{{ t('issue_cover') }}" class="w-64 h-auto rounded-lg shadow-md border border-gray-200">
+                </div>
+                
+                <!-- Тип доступа -->
+                <div class="mb-4">
+                    {% if issue.is_paid and issue.subscription_enable %}
+                        <span class="inline-flex items-center rounded-md bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                            <iconify-icon icon="tabler:crown" class="mr-1"></iconify-icon>
+                            {{ t('access_subscription_or_purchase') }}
+                        </span>
+                    {% elif issue.is_paid and not issue.subscription_enable %}
+                        <span class="inline-flex items-center rounded-md bg-orange-50 px-3 py-1 text-sm font-medium text-orange-700 ring-1 ring-inset ring-orange-700/10">
+                            <iconify-icon icon="tabler:shopping-cart" class="mr-1"></iconify-icon>
+                            {{ t('access_purchase_only') }}
+                        </span>
+                    {% elif not issue.is_paid and issue.subscription_enable %}
+                        <span class="inline-flex items-center rounded-md bg-green-50 px-3 py-1 text-sm font-medium text-green-700 ring-1 ring-inset ring-green-700/10">
+                            <iconify-icon icon="tabler:crown" class="mr-1"></iconify-icon>
+                            {{ t('access_subscription_only') }}
+                        </span>
+                    {% else %}
+                        <span class="inline-flex items-center rounded-md bg-gray-50 px-3 py-1 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-700/10">
+                            <iconify-icon icon="tabler:lock-open" class="mr-1"></iconify-icon>
+                            {{ t('access_free') }}
+                        </span>
+                    {% endif %}
+                </div>
+                
+                {% if has_access %}
+                <a href="#" class="flex items-center w-fit text-md text-blue-700 hover:text-blue-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400">
+                    <iconify-icon icon="tabler:arrow-bar-to-down" class="me-1"></iconify-icon> {{ t('download_all_issue') }}
+                </a>
+                {% endif %}
+            </div>
+            <div class="flex gap-1">
+                {% if prev_issue %}
+                <a href="{{ url_for('app__issue', issue_id=prev_issue.id) }}" class="bg-gray-100 hover:bg-gray-200 transition-colors px-6 py-3 flex items-center">
+                    <iconify-icon icon="tabler:chevron-left" class="me-1"></iconify-icon> {{ t('previous_issue') }}
+                </a>
+                {% endif %}
+                {% if next_issue %}
+                <a href="{{ url_for('app__issue', issue_id=next_issue.id) }}" class="bg-gray-100 hover:bg-gray-200 transition-colors px-6 py-3 flex items-center">
+                    {{ t('next_issue') }} <iconify-icon icon="tabler:chevron-right" class="ms-1"></iconify-icon>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if issue.title or issue.shortinfo %}
+        <div class="mb-8">
+            {% if issue.title %}
+            <h5 class="text-lg font-medium mb-2">{{ issue.title }}</h5>
+            {% endif %}
+            {% if issue.shortinfo %}
+            <p class="text-gray-600">{{ issue.shortinfo }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        {% if not has_access and (issue.is_paid or issue.subscription_enable) %}
+        <div class="border rounded-lg bg-blue-50/50 border-blue-200 px-4 py-8 mb-8">
+            <div class="flex items-start gap-4">
+                <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
+                    <iconify-icon icon="tabler:lock" class="h-6 w-6 text-blue-600" aria-hidden="true"></iconify-icon>
+                </div>
+                <div>
+                    <h4 class="text-lg font-medium text-gray-900 mb-2">{{ t('full_issue_access_required') }}</h4>
+                    
+                    {% if issue.is_paid and issue.subscription_enable %}
+                        <p class="text-gray-600 mb-4">{{ t('purchase_this_issue_or_subscribe_to_get_full_access_to_all_content') }}</p>
+                        <div class="flex gap-3">
+                            <a href="{{ url_for('app__dashboard_payments') }}" class="text-nowrap inline-flex items-center justify-center gap-x-1.5 rounded-md bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-700 hover:cursor-pointer transition-colors">
+                                <iconify-icon icon="tabler:crown" class="text-lg"></iconify-icon>
+                                {{ t('subscribe') }}
+                            </a>
+                            <button data-issue-id="{{ issue.id }}" data-issue-title="{{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }}" data-issue-price="{{ issue.price }}" class="purchase-issue-btn text-nowrap inline-flex items-center justify-center gap-x-1.5 rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 hover:cursor-pointer transition-colors">
+                                <iconify-icon icon="tabler:shopping-cart" class="text-lg"></iconify-icon>
+                                {{ t('purchase_issue') }} (${{ "%.2f"|format(issue.price) }})
+                            </button>
+                        </div>
+                    {% elif issue.is_paid and not issue.subscription_enable %}
+                        <p class="text-gray-600 mb-4">{{ t('purchase_this_issue_to_get_access') }}</p>
+                        <div class="flex gap-3">
+                            <button data-issue-id="{{ issue.id }}" data-issue-title="{{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }}" data-issue-price="{{ issue.price }}" class="purchase-issue-btn text-nowrap inline-flex items-center justify-center gap-x-1.5 rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 hover:cursor-pointer transition-colors">
+                                <iconify-icon icon="tabler:shopping-cart" class="text-lg"></iconify-icon>
+                                {{ t('purchase_issue') }} (${{ "%.2f"|format(issue.price) }})
+                            </button>
+                        </div>
+                    {% elif not issue.is_paid and issue.subscription_enable %}
+                        <p class="text-gray-600 mb-4">{{ t('subscribe_to_get_access_to_this_issue') }}</p>
+                        <div class="flex gap-3">
+                            <a href="{{ url_for('app__dashboard_payments') }}" class="text-nowrap inline-flex items-center justify-center gap-x-1.5 rounded-md bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-700 hover:cursor-pointer transition-colors">
+                                <iconify-icon icon="tabler:crown" class="text-lg"></iconify-icon>
+                                {{ t('subscribe') }}
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <h4 class="text-lg font-medium border-b border-gray-400 py-2 mb-4">{{ t('articles') }}</h4>
+        <div>
+            {% if articles %}
+                {% if has_access or not issue.is_paid %}
+                    {% for article in articles %}
+                    <div class="py-4 border-b border-gray-200">
+                        <div class="flex text-xs mb-1">
+                            <div class="me-2">{{ t('research_article') }}</div>
+                            {% if issue.is_paid %}
+                            <div class="flex items-center italic">
+                                <iconify-icon icon="solar:check-circle-bold-duotone" class="{% if has_access %}text-green-500{% else %}text-gray-300{% endif %} text-xs me-1"></iconify-icon>
+                                {% if has_access %}{{ t('open_access') }}{% else %}{{ t('closed_access') }}{% endif %}
+                            </div>
+                            {% else %}
+                            <div class="flex items-center italic">
+                                <iconify-icon icon="solar:check-circle-bold-duotone"
+                                    class="text-green-500 text-xs me-1"></iconify-icon>
+                                    {{ t('open_access') }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="">
+                            <a href="{{ url_for('app__article', article_id=article.id) }}" class="hover:underline text-xl font-medium underline-offset-4 decoration-green-600/0 hover:decoration-green-600 transition-all">
+                                {{ article.title }}
+                            </a>
+                        </div>
+                        <div class="mt-2">
+                            <div class="text-sm">{{ article.authors }}</div>
+                            <div class="text-sm italic text-gray-600">{{ t('article') }} {{ article.id }}</div>
+                        </div>
+                        {% if has_access %}
+                        <div class="mt-3">
+                            <a href="{{ url_for('app__download_article', article_id=article.id) }}" class="text-blue-800 text-xs flex items-center">
+                                <iconify-icon icon="tabler:file-type-pdf" class="text-lg"></iconify-icon>
+                                <span class="text-xs text-blue-800 hover:text-blue-900 transition-colors border-green-400/0 border-b-1 hover:border-green-600">{{ t('download_pdf') }}</span>
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-8 text-gray-500">
+                        {{ t('purchase_this_issue_or_subscribe_to_view') }} {{ articles|length }} {{ t('articles_in_this_issue') }}.
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="text-center py-8 text-gray-500">
+                    {{ t('articles_for_this_issue_will_be_available_soon') }}.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Purchase Confirmation Modal -->
+<div class="relative z-60 hidden" id="purchase_confirmation_modal" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="fixed inset-0 bg-gray-500/75 transition-opacity" aria-hidden="true"></div>
+
+    <div class="fixed inset-0 z-70 w-screen overflow-y-auto">
+        <div class="container mx-auto flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 w-full" style="max-width: 500px;">
+                <div class="px-4 sm:px-6 py-5">
+                    <div class="flex items-start gap-4">
+                        <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
+                            <iconify-icon icon="tabler:shopping-cart" class="h-5 w-5 text-blue-600"></iconify-icon>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('purchase_issue_confirmation') }}</h3>
+                            <p class="text-sm text-gray-500 mb-4">
+                                {{ t('purchase_issue_text') }}: <span id="issue-title" class="font-medium"></span>
+                            </p>
+                            <div class="text-lg font-semibold text-blue-600">
+                                {{ t('price') }}: $<span id="issue-price"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 sm:px-6 py-4 sm:flex sm:flex-row-reverse gap-3">
+                    <button type="button" id="confirm_purchase_issue" class="inline-flex w-full justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:w-auto">{{ t('confirm_purchase') }}</button>
+                    <button type="button" id="cancel_purchase_issue" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto">{{ t('cancel') }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Set user login status
+    const USER_LOGGED_IN = {% if session.user_id %}true{% else %}false{% endif %};
+    const LOGIN_URL = '{{ url_for("app__login") }}';
+    
+    $(document).ready(function() {
+        // Purchase issue functionality
+        let selectedIssueId = null;
+        
+        $('.purchase-issue-btn').click(function() {
+            selectedIssueId = $(this).data('issue-id');
+            const issueTitle = $(this).data('issue-title');
+            const issuePrice = $(this).data('issue-price');
+            
+            if (USER_LOGGED_IN) {
+                // User is logged in, show confirmation modal
+                $('#issue-title').text(issueTitle);
+                $('#issue-price').text(issuePrice.toFixed(2));
+                $('#purchase_confirmation_modal').removeClass('hidden');
+            } else {
+                // User is not logged in, redirect to login
+                window.location.href = LOGIN_URL;
+            }
+        });
+
+        // Handle purchase confirmation
+        $('#confirm_purchase_issue').click(function() {
+            if (!selectedIssueId) return;
+            
+            const btn = $(this);
+            btn.prop('disabled', true);
+            btn.text('{{ t("processing") }}...');
+            
+            $.ajax({
+                url: '/api/issue/purchase',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    issue_id: selectedIssueId
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        $('#purchase_confirmation_modal').addClass('hidden');
+                        alert('{{ t("purchase_created_successfully") }}');
+                        // Optionally redirect to payments page
+                        window.location.href = '{{ url_for("app__dashboard_payments") }}';
+                    } else {
+                        alert(response.message || '{{ t("purchase_failed") }}');
+                        btn.prop('disabled', false);
+                        btn.text('{{ t("confirm_purchase") }}');
+                    }
+                },
+                error: function() {
+                    alert('{{ t("purchase_failed") }}');
+                    btn.prop('disabled', false);
+                    btn.text('{{ t("confirm_purchase") }}');
+                }
+            });
+        });
+
+        // Handle purchase cancellation
+        $('#cancel_purchase_issue').click(function() {
+            $('#purchase_confirmation_modal').addClass('hidden');
+            selectedIssueId = null;
+        });
+    });
+
+    const header = document.getElementById('header');
+    const menu = document.getElementById('menu');
+
+    window.addEventListener('scroll', function () {
+        const menuPosition = menu.getBoundingClientRect().top;
+        const scrollPosition = window.scrollY;
+
+        if (menuPosition <= 0) {
+            header.classList.remove('hidden');
+        } else {
+            header.classList.add('hidden');
+        }
+    });
+</script>
+{% endblock %} 

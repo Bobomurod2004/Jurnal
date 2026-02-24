@@ -1,0 +1,480 @@
+<!-- Author Search Modal -->
+<div class="modal modal-blur fade" id="authorSearchModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ t("admin_author_search_title") }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Search mode selection -->
+                <div class="mb-3" id="search_mode_section">
+                    <label class="form-label">{{ t("admin_label_search_method") }}</label>
+                    <div class="form-selectgroup">
+                        <label class="form-selectgroup-item">
+                            <input type="radio" name="search_mode" value="orcid" class="form-selectgroup-input" checked>
+                            <span class="form-selectgroup-label">{{ t("admin_label_by_orcid") }}</span>
+                        </label>
+                        <label class="form-selectgroup-item">
+                            <input type="radio" name="search_mode" value="name" class="form-selectgroup-input">
+                            <span class="form-selectgroup-label">{{ t("admin_label_by_name") }}</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- ORCID search field -->
+                <div class="mb-3" id="orcid_search_field">
+                    <label for="searchauthor_orcid" class="form-label">{{ t("admin_label_author_orcid") }}</label>
+                    <input type="text" id="searchauthor_orcid" class="form-control" placeholder="0000-0000-0000-0000">
+
+                    <!-- Checkbox for author without ORCID -->
+                    <div class="form-check mt-2">
+                        <input type="checkbox" id="author_without_orcid" class="form-check-input">
+                        <label class="form-check-label" for="author_without_orcid">
+                            {{ t("admin_label_author_without_orcid") }}
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Name search field -->
+                <div class="mb-3 d-none" id="name_search_field">
+                    <label for="searchauthor_name_search" class="form-label">{{ t("admin_label_author_name") }}</label>
+                    <input type="text" id="searchauthor_name_search" class="form-control"
+                        placeholder="{{ t('admin_placeholder_author_name_example') }}">
+                </div>
+
+                <!-- Found authors list (for name search) -->
+                <div class="mb-3 d-none" id="found_authors_section">
+                    <label class="form-label">{{ t("admin_label_found_authors") }}</label>
+                    <div class="list-group" id="found_authors_list">
+                        <!-- Authors will be populated here -->
+                    </div>
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-outline-primary btn-sm"
+                            onclick="showCreateNewAuthorForm()">
+                            <i class="ti ti-plus"></i> {{ t("admin_btn_create_new_author") }}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Additional author information form (hidden by default) -->
+                <div class="d-none" id="search_additional">
+                    <hr>
+                    <div class="mb-3">
+                        <div class="alert alert-info">
+                            {{ t("admin_msg_author_not_found_create") }}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="searchauthor_name" class="form-label">{{ t("admin_label_author_full_name")
+                                    }} <span class="text-danger">*</span></label>
+                                <input type="text" id="searchauthor_name" class="form-control"
+                                    placeholder="Иван Иванович Иванов" required>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="searchauthor_organization" class="form-label">{{
+                                    t("admin_label_organization") }}</label>
+                                <input type="text" id="searchauthor_organization" class="form-control"
+                                    placeholder="Название организации">
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="searchauthor_department" class="form-label">{{ t("admin_label_department")
+                                    }}</label>
+                                <input type="text" id="searchauthor_department" class="form-control"
+                                    placeholder="Название отдела">
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="searchauthor_position" class="form-label">{{ t("admin_label_position")
+                                    }}</label>
+                                <input type="text" id="searchauthor_position" class="form-control"
+                                    placeholder="Профессор, доцент и т.д.">
+                            </div>
+                        </div>
+
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="searchauthor_street" class="form-label">{{ t("admin_label_address")
+                                    }}</label>
+                                <input type="text" id="searchauthor_street" class="form-control"
+                                    placeholder="Улица, дом">
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="searchauthor_city" class="form-label">{{ t("admin_label_city") }}</label>
+                                <input type="text" id="searchauthor_city" class="form-control" placeholder="Город">
+                            </div>
+                        </div>
+
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="searchauthor_country" class="form-label">{{ t("admin_label_country")
+                                    }}</label>
+                                <input type="text" id="searchauthor_country" class="form-control" placeholder="Страна">
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="searchauthor_postal_code" class="form-label">{{ t("admin_label_zip")
+                                    }}</label>
+                                <input type="text" id="searchauthor_postal_code" class="form-control"
+                                    placeholder="123456">
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="searchauthor_phone" class="form-label">{{ t("admin_label_phone") }}</label>
+                                <input type="text" id="searchauthor_phone" class="form-control"
+                                    placeholder="+7 (123) 456-78-90">
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="searchauthor_email" class="form-label">{{ t("admin_label_email") }}</label>
+                                <input type="email" id="searchauthor_email" class="form-control"
+                                    placeholder="author@example.com">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ t("admin_btn_cancel")
+                    }}</button>
+                <button type="button" id="author_search_btn" class="btn btn-primary">
+                    <span class="search-text">{{ t("admin_btn_find_author") }}</span>
+                    <span class="create-text d-none">{{ t("admin_btn_create_author") }}</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Author search modal functionality
+    (function () {
+        let searchReason = '';
+        let authorSearchCallback = null;
+
+        // Initialize modal functionality
+        function initAuthorSearchModal() {
+            const modal = document.getElementById('authorSearchModal');
+            const searchBtn = document.getElementById('author_search_btn');
+            const additionalForm = document.getElementById('search_additional');
+            const foundAuthorsSection = document.getElementById('found_authors_section');
+
+            // In fmadmin, all users can search by name (it's admin panel)
+            // Name search is always available
+
+            // Handle search mode change
+            document.querySelectorAll('input[name="search_mode"]').forEach(radio => {
+                radio.addEventListener('change', function () {
+                    const orcidField = document.getElementById('orcid_search_field');
+                    const nameField = document.getElementById('name_search_field');
+
+                    if (this.value === 'name') {
+                        orcidField.classList.add('d-none');
+                        nameField.classList.remove('d-none');
+                    } else {
+                        orcidField.classList.remove('d-none');
+                        nameField.classList.add('d-none');
+                    }
+
+                    // Hide additional forms when switching modes
+                    additionalForm.classList.add('d-none');
+                    foundAuthorsSection.classList.add('d-none');
+                    updateSearchButton(false);
+                });
+            });
+
+            // Handle "author without ORCID" checkbox
+            document.getElementById('author_without_orcid').addEventListener('change', function () {
+                const orcidInput = document.getElementById('searchauthor_orcid');
+                if (this.checked) {
+                    orcidInput.disabled = true;
+                    orcidInput.value = '';
+                    // Show create form immediately for authors without ORCID
+                    additionalForm.classList.remove('d-none');
+                    foundAuthorsSection.classList.add('d-none');
+                    updateSearchButton(true);
+                } else {
+                    orcidInput.disabled = false;
+                    additionalForm.classList.add('d-none');
+                    foundAuthorsSection.classList.add('d-none');
+                    updateSearchButton(false);
+                }
+            });
+
+            // Handle search button click
+            searchBtn.addEventListener('click', function () {
+                if (additionalForm.classList.contains('d-none')) {
+                    // First click - search for author
+                    performAuthorSearch();
+                } else {
+                    // Second click - create new author
+                    createNewAuthor();
+                }
+            });
+
+            // Reset modal when closed
+            modal.addEventListener('hidden.bs.modal', function () {
+                resetModal();
+            });
+        }
+
+        function updateSearchButton(showCreate) {
+            const searchText = document.querySelector('#author_search_btn .search-text');
+            const createText = document.querySelector('#author_search_btn .create-text');
+
+            if (showCreate) {
+                searchText.classList.add('d-none');
+                createText.classList.remove('d-none');
+            } else {
+                searchText.classList.remove('d-none');
+                createText.classList.add('d-none');
+            }
+        }
+
+        function resetModal() {
+            // Clear all inputs
+            document.querySelectorAll('#authorSearchModal input').forEach(input => {
+                if (input.type === 'radio' || input.type === 'checkbox') {
+                    input.checked = input.value === 'orcid'; // Reset to ORCID search
+                } else {
+                    input.value = '';
+                    input.disabled = false;
+                }
+            });
+
+            // Reset visibility
+            document.getElementById('orcid_search_field').classList.remove('d-none');
+            document.getElementById('name_search_field').classList.add('d-none');
+            document.getElementById('search_additional').classList.add('d-none');
+            document.getElementById('found_authors_section').classList.add('d-none');
+
+            // Clear found authors list
+            document.getElementById('found_authors_list').innerHTML = '';
+
+            updateSearchButton(false);
+        }
+
+        function performAuthorSearch() {
+            const searchMode = document.querySelector('input[name="search_mode"]:checked').value;
+            const searchData = {};
+
+            if (searchMode === 'name') {
+                const authorName = document.getElementById('searchauthor_name_search').value.trim();
+                if (!authorName) {
+                    alert('{{ t("admin_js_msg_enter_author_name") }}');
+                    return;
+                }
+                if (authorName.length < 2) {
+                    alert('{{ t("admin_js_msg_author_name_min") }}');
+                    return;
+                }
+                searchData.name = authorName;
+                searchData.search_by_name = true;
+                searchData.search_multiple = true; // Flag to get multiple results
+            } else {
+                const withoutOrcid = document.getElementById('author_without_orcid').checked;
+                const orcidValue = document.getElementById('searchauthor_orcid').value.trim();
+
+                if (withoutOrcid) {
+                    // Author without ORCID - form is already shown
+                    return;
+                }
+
+                if (!orcidValue) {
+                    alert('{{ t("admin_js_msg_enter_orcid") }}');
+                    return;
+                }
+                if (orcidValue.length < 10 || !orcidValue.includes('-')) {
+                    alert('{{ t("admin_js_msg_invalid_orcid") }}');
+                    return;
+                }
+                searchData.orcid = orcidValue;
+            }
+
+            // Perform search
+            fetch('/fmadmin/api/getauthor', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(searchData)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (searchMode === 'name' && data.authors && data.authors.length > 0) {
+                            // Multiple authors found for name search - show list
+                            showFoundAuthors(data.authors);
+                        } else if (data.is_found) {
+                            // Single author found - call callback
+                            if (authorSearchCallback) {
+                                authorSearchCallback(data.author);
+                            }
+                            // Close modal
+                            bootstrap.Modal.getInstance(document.getElementById('authorSearchModal')).hide();
+                        } else {
+                            // Author not found - show creation form
+                            document.getElementById('search_additional').classList.remove('d-none');
+                            document.getElementById('found_authors_section').classList.add('d-none');
+                            updateSearchButton(true);
+                        }
+                    } else {
+                        alert('{{ t("admin_js_msg_search_error") }}' + ': ' + (data.message || '{{ t("admin_msg_unknown_error") }}'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('{{ t("admin_js_msg_network_error_search") }}');
+                });
+        }
+
+        function createNewAuthor() {
+            const withoutOrcid = document.getElementById('author_without_orcid').checked;
+            const searchMode = document.querySelector('input[name="search_mode"]:checked').value;
+
+            const data = {
+                name: document.getElementById('searchauthor_name').value.trim(),
+                organization: document.getElementById('searchauthor_organization').value.trim(),
+                department: document.getElementById('searchauthor_department').value.trim(),
+                position: document.getElementById('searchauthor_position').value.trim(),
+                address_street: document.getElementById('searchauthor_street').value.trim(),
+                address_city: document.getElementById('searchauthor_city').value.trim(),
+                address_country: document.getElementById('searchauthor_country').value.trim(),
+                address_zip: document.getElementById('searchauthor_postal_code').value.trim(),
+                phone: document.getElementById('searchauthor_phone').value.trim(),
+                email: document.getElementById('searchauthor_email').value.trim(),
+                without_orcid: withoutOrcid
+            };
+
+            // Add ORCID only if not without ORCID
+            if (!withoutOrcid) {
+                data.orcid = document.getElementById('searchauthor_orcid').value.trim();
+            }
+
+            // Validation
+            if (!data.name) {
+                alert('{{ t("admin_js_msg_fill_author_name") }}');
+                return;
+            }
+            if (data.name.length < 2) {
+                alert('{{ t("admin_js_msg_author_name_min") }}');
+                return;
+            }
+            if (!withoutOrcid && (!data.orcid || data.orcid.length < 10 || !data.orcid.includes('-'))) {
+                alert('{{ t("admin_js_msg_invalid_orcid") }}');
+                return;
+            }
+            if (data.email && !data.email.includes('@')) {
+                alert('{{ t("admin_js_msg_invalid_email") }}');
+                return;
+            }
+
+            // Create author
+            fetch('/fmadmin/api/createauthor', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Author created - call callback
+                        if (authorSearchCallback) {
+                            authorSearchCallback(data.author);
+                        }
+                        // Close modal
+                        bootstrap.Modal.getInstance(document.getElementById('authorSearchModal')).hide();
+                    } else {
+                        alert('{{ t("admin_js_msg_create_error") }}' + ': ' + (data.message || '{{ t("admin_msg_unknown_error") }}'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('{{ t("admin_js_msg_network_error_create") }}');
+                });
+        }
+
+        // Function to show found authors list
+        function showFoundAuthors(authors) {
+            const foundAuthorsSection = document.getElementById('found_authors_section');
+            const foundAuthorsList = document.getElementById('found_authors_list');
+
+            // Clear previous results
+            foundAuthorsList.innerHTML = '';
+
+            // Add each author to the list
+            authors.forEach(author => {
+                const authorItem = document.createElement('a');
+                authorItem.className = 'list-group-item list-group-item-action';
+                authorItem.href = '#';
+                authorItem.innerHTML = `
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1">${author.name}</h6>
+                    <small>${author.orcid || '{{ t("admin_label_no_orcid") }}'}</small>
+                </div>
+                <p class="mb-1">${author.organization || ''}</p>
+                <small>${author.email || ''}</small>
+            `;
+
+                authorItem.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    if (authorSearchCallback) {
+                        authorSearchCallback(author);
+                    }
+                    bootstrap.Modal.getInstance(document.getElementById('authorSearchModal')).hide();
+                });
+
+                foundAuthorsList.appendChild(authorItem);
+            });
+
+            // Show the section
+            foundAuthorsSection.classList.remove('d-none');
+            document.getElementById('search_additional').classList.add('d-none');
+            updateSearchButton(false);
+        }
+
+        // Function to show create new author form
+        window.showCreateNewAuthorForm = function () {
+            document.getElementById('found_authors_section').classList.add('d-none');
+            document.getElementById('search_additional').classList.remove('d-none');
+            updateSearchButton(true);
+        };
+
+        // Global function to open author search modal
+        window.openAuthorSearchModal = function (reason, callback) {
+            searchReason = reason;
+            authorSearchCallback = callback;
+            const modal = new bootstrap.Modal(document.getElementById('authorSearchModal'));
+            modal.show();
+        };
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initAuthorSearchModal);
+        } else {
+            initAuthorSearchModal();
+        }
+    })();
+</script>

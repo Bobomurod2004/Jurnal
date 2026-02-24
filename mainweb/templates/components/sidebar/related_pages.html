@@ -1,0 +1,11 @@
+<div class="">
+    <h4 class="text-lg font-medium mb-6">{{ t('sidebar_other_pages') }}</h4>
+    <div class="flex flex-col text-sm">
+        {% for item in related_pages %}
+        <a href="{{ item.url }}"
+            class="text-blue-600 hover:text-blue-800 px-2 py-1 border-s-2 mb-2 {% if item.active %}bg-gray-50 border-fmmain{% else %}bg-gray-50/0 border-fmmain/0{% endif %}">
+            {{ item.title }}
+        </a>
+        {% endfor %}
+    </div>
+</div>

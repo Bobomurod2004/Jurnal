@@ -1,0 +1,1149 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Mulish:ital,wght@0,200..1000;1,200..1000&family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/iconify-icon@2.3.0/dist/iconify-icon.min.js"></script>
+    <link href="/static/styles.css" rel="stylesheet">
+
+</head>
+
+<body>
+    <header id="header" class="top-0 fixed hidden  w-full z-50 bg-white border-b border-fmmain animate-fade animate-duration-200 animate-ease-out">
+        <div class="border-b border-gray-200 bg-fmmain-bg">
+            <div class="container mx-auto px-4 py-3 ">
+                <div class="flex items-center justify-between ">
+                    <div class="pb-0">
+                        <a href="" class="flex items-center content-center">
+                            <img src="static/logo.png" style="height: 40px;" alt="">
+                            <div class="text-xl font-medium ms-4 font-serif">Philology Matters</div>
+                        </a>
+    
+                    </div>
+                    <div class="flex space-x-6">
+                        <div class="pb-1">
+    
+                        </div>
+                        <a href="#" class="border-b-1 border-green-400/0 hover:border-b-1 pb-1 hover:border-green-400 transition-colors group">
+                            <iconify-icon icon="tabler:search" class="-mb-0.5 group-hover:text-green-600 transition-colors"></iconify-icon> Search
+                        </a>
+                        <a href="#" class="border-b-1 border-green-400/0 hover:border-b-1 pb-1 hover:border-green-400 transition-colors group">
+                            <iconify-icon icon="solar:user-bold-duotone" class="-mb-0.5 group-hover:text-green-600 transition-colors"></iconify-icon> My account
+                        </a>
+                        <a href="#" class="border-b-1 border-green-400/0 hover:border-b-1 pb-1 hover:border-green-400 transition-colors group">
+                            <iconify-icon icon="solar:login-3-bold-duotone" class="-mb-0.5 text-gray-500 group-hover:text-green-600 transition-colors"></iconify-icon> Log in
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <div class="">
+            <div class="container mx-auto py-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex">
+                        <div class="relative inline-block text-left">
+                            <div>
+                                <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                    Submit Article
+                                    <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                                </button>
+                            </div>
+    
+                            <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                                <div class="py-1" role="none">
+                                    <a href="/page/submission_guidelines" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Submission Guidelines</a>
+                                    <a href="/page/author_instructions" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Instructions for Authors</a>
+                                    <a href="/page/editorial_policy" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Editorial Policy</a>
+                                    <a href="/page/site_editing_services" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Site Editing Services</a>
+                                </div>
+                            </div>
+                        </div>
+    
+                        <div class="relative inline-block text-left">
+                            <div>
+                                <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                    About the Journal
+                                    <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                                </button>
+                            </div>
+    
+                            <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                                <div class="py-1" role="none">
+                                    <a href="/page/journal_metrics" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Journal Metrics</a>
+                                    <a href="/page/aims_scope" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Aims and Scope</a>
+                                    <a href="/page/journal_info" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Journal Information</a>
+                                    <a href="/page/editorial_board" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Editorial Board</a>
+                                    <a href="/page/news_calls" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">News and Calls for Papers</a>
+                                    <a href="/page/conferences" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Conferences</a>
+                                </div>
+                            </div>
+                        </div>
+    
+                        <div class="relative inline-block text-left">
+                            <div>
+                                <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                    View All Articles and Issues
+                                    <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                                </button>
+                            </div>
+    
+                            <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                                <div class="py-1" role="none">
+                                    <a href="/page/latest_articles" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Latest Articles</a>
+                                    <a href="/page/current_issue" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Current Issue</a>
+                                    <a href="/page/all_issues" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">All Issues</a>
+                                    <a href="/page/special_issues" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Special Issues</a>
+                                    <a href="/page/collections" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Collections</a>
+                                    <a href="/page/most_read_articles" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Most Read Articles</a>
+                                    <a href="/page/most_cited_articles" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Most Cited Articles</a>
+                                </div>
+                            </div>
+                        </div>
+    
+                        <div class="relative inline-block text-left">
+                            <div>
+                                <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                    Subscribe
+                                    <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                                </button>
+                            </div>
+    
+                            <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                                <div class="py-1" role="none">
+                                    <a href="/page/for_uzgumya_researchers" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">For UzGUMya Researchers</a>
+                                    <a href="/page/for_all_researchers" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">For All Researchers</a>
+                                </div>
+                            </div>
+                        </div>
+    
+                    </div>
+                    <div class="flex gap-2">
+                        <a href="/" class="inline-flex w-full text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 transition-colors hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                            Save as draft
+                        </a>
+                        <a href="/" class="inline-flex w-full text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-green-50 border border-green-300 px-4 py-2 text-sm font-semibold text-green-900 hover:bg-green-200 transition-colors hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                            Review article
+                            <iconify-icon icon="tabler:check" class="text-lg text-gren-800"></iconify-icon>
+                        </a>
+
+                    </div>
+                </div>
+    
+            </div>
+        </div>
+    </header>
+    <div class="container mx-auto px-4 py-3 ">
+        <div class="flex items-center justify-between ">
+            <div class="pb-0">
+                <a href="">
+                    <img src="static/logo.png" style="height: 32px;" alt="">
+                </a>
+    
+            </div>
+            <div class="flex space-x-6">
+                <div class="pb-1">
+    
+                </div>
+
+                <a href="#" class="border-b-1 border-green-400/0 hover:border-b-1 pb-1 hover:border-green-400 transition-colors group">
+                    <iconify-icon icon="solar:user-bold-duotone" class="-mb-0.5 group-hover:text-green-600 transition-colors"></iconify-icon> My account
+                </a>
+                <a href="#" class="border-b-1 border-red-400/0 hover:border-b-1 pb-1 hover:border-red-400 transition-colors group">
+                    <iconify-icon icon="solar:login-3-bold-duotone" class="-mb-0.5 text-gray-500 group-hover:text-red-600 transition-colors"></iconify-icon> Log out
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-fmmain-bg mt-20">
+        <div class="container mx-auto">
+            <div class=" p-8 flex items-start">
+                <div class="flex-shrink-0 -mt-20">
+                    <img src="static/obl.jpg" alt="Language and Health" class="w-36 h-auto rounded shadow mb-20n">
+                </div>
+                <div class="ml-6 mt-3">
+                    <h1 class="text-3xl font-medium mb-2 font-serif">Philology Problems</h1>
+                    <p class="text-black/75 text-lg">Open access</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="border-b border-gray-200 " id="menu">
+        <div class="container mx-auto py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex">
+                    <div class="relative inline-block text-left">
+                        <div>
+                            <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                Submit Article
+                                <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                            </button>
+                        </div>
+    
+                        <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                            <div class="py-1" role="none">
+                                <a href="/page/submission_guidelines" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Submission Guidelines</a>
+                                <a href="/page/author_instructions" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Instructions for Authors</a>
+                                <a href="/page/editorial_policy" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Editorial Policy</a>
+                                <a href="/page/site_editing_services" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Site Editing Services</a>
+                            </div>
+                        </div>
+                    </div>
+    
+                    <div class="relative inline-block text-left">
+                        <div>
+                            <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                About the Journal
+                                <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                            </button>
+                        </div>
+    
+                        <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                            <div class="py-1" role="none">
+                                <a href="/page/journal_metrics" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Journal Metrics</a>
+                                <a href="/page/aims_scope" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Aims and Scope</a>
+                                <a href="/page/journal_info" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Journal Information</a>
+                                <a href="/page/editorial_board" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Editorial Board</a>
+                                <a href="/page/news_calls" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">News and Calls for Papers</a>
+                                <a href="/page/conferences" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Conferences</a>
+                            </div>
+                        </div>
+                    </div>
+    
+                    <div class="relative inline-block text-left">
+                        <div>
+                            <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                View All Articles and Issues
+                                <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                            </button>
+                        </div>
+    
+                        <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                            <div class="py-1" role="none">
+                                <a href="/page/latest_articles" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Latest Articles</a>
+                                <a href="/page/current_issue" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Current Issue</a>
+                                <a href="/page/all_issues" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">All Issues</a>
+                                <a href="/page/special_issues" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Special Issues</a>
+                                <a href="/page/collections" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Collections</a>
+                                <a href="/page/most_read_articles" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Most Read Articles</a>
+                                <a href="/page/most_cited_articles" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">Most Cited Articles</a>
+                            </div>
+                        </div>
+                    </div>
+    
+                    <div class="relative inline-block text-left">
+                        <div>
+                            <button type="button" class="inline-flex w-full items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                Subscribe
+                                <iconify-icon icon="tabler:chevron-down" class="text-lg text-fmmain"></iconify-icon>
+                            </button>
+                        </div>
+    
+                        <div class="absolute left-0 z-10 mt-2 hidden w-56 origin-top-right rounded-md bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                            <div class="py-1" role="none">
+                                <a href="/page/for_uzgumya_researchers" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">For UzGUMya Researchers</a>
+                                <a href="/page/for_all_researchers" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1">For All Researchers</a>
+                            </div>
+                        </div>
+                    </div>
+    
+                </div>
+                <div class="flex">
+                    <a href="/" class="inline-flex w-full text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                        Submit your article
+                        <iconify-icon icon="tabler:arrow-up-right" class="text-lg text-fmmain"></iconify-icon>
+                    </a>
+                    <a href="/" class="inline-flex w-full text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                        Guide for authors
+                        <iconify-icon icon="tabler:arrow-up-right" class="text-lg text-fmmain"></iconify-icon>
+                    </a>
+    
+                </div>
+            </div>
+    
+        </div>
+    </div>
+
+    <div class="mt-8 bg-white">
+        <div class="container py-8 mx-auto">
+            <div class="pb-12">
+                <h4 class="text-2xl font-medium mb-8">Submit new article</h4>
+
+                <div class="grid grid-cols-4 gap-4 mb-16">
+                    <div class="col border-e border-gray-200 py-5">
+                        <div class="flex justify-start sticky top-40">
+                            <div class="border-s border-gray-400 ps-4 absolute top-0 left-5 h-full"></div>
+                            <div class="z-25 step">
+                                
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group" data-visible-section="1">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors">
+                                        1
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors">Basic information</h5>
+                                        <div class="text-sm text-gray-600">All your information</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group" data-visible-section="2">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors">
+                                        2
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors">Data Availability</h5>
+                                        <div class="text-sm text-gray-600">All your information</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group" data-visible-section="3">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors">
+                                        3
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors">Copyright</h5>
+                                        <div class="text-sm text-gray-600">All your information</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group" data-visible-section="4">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors">
+                                        4
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors">File Upload</h5>
+                                        <div class="text-sm text-gray-600">All your information</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group" data-visible-section="5">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors">
+                                        5
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors">Ethical Standards</h5>
+                                        <div class="text-sm text-gray-600">All your information</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group" data-visible-section="6">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors">
+                                        6
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors">Consent for Publication</h5>
+                                        <div class="text-sm text-gray-600">All your information</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group" data-visible-section="7">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors">
+                                        7
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors">Acknowledgements</h5>
+                                        <div class="text-sm text-gray-600">All your information</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group" data-visible-section="8">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors">
+                                        8
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors">Permissions</h5>
+                                        <div class="text-sm text-gray-600">All your information</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group" data-visible-section="9">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors">
+                                        9
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors">Word Count</h5>
+                                        <div class="text-sm text-gray-600">All your information</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group" data-visible-section="10">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors">
+                                        10
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors">Authors Information</h5>
+                                        <div class="text-sm text-gray-600">All your information</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group" data-visible-section="11">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors">
+                                        11
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors">Competing Interests</h5>
+                                        <div class="text-sm text-gray-600">All your information</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group" data-visible-section="12">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors">
+                                        12
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors">Keywords</h5>
+                                        <div class="text-sm text-gray-600">All your information</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group" data-visible-section="13">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors">
+                                        13
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors">Classification</h5>
+                                        <div class="text-sm text-gray-600">All your information</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group" data-visible-section="14">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors">
+                                        14
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors">Open Access and Editorial Services</h5>
+                                        <div class="text-sm text-gray-600">All your information</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        
+                        
+
+                    </div>
+                    <div class="col-span-3 py-5">
+                        <div class="intersect intersect-full" id="section_1" data-section-id="1">
+                            
+                        
+                            <div class="mb-4  px-2">
+                                <h4 class="text-xl font-medium ">Basic information</h4>
+                            </div>
+                            
+                            <div class="mb-6  px-2">
+                                <label for="email" class="block mb-2 text-sm font-medium text-gray-900 ">Title</label>
+                                <input type="email" id="email" class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 " placeholder="" required />
+                            </div>
+
+                            <div class="mb-6  px-2">
+                                <label for="email" class="block mb-2 text-sm font-medium text-gray-900 ">Abstract</label>
+                                <textarea name="" rows="6" id="" class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 "></textarea>
+                            </div>
+
+                            <div class="mb-6  px-2">
+                                <div class="block mb-2 text-sm font-medium text-gray-900 ">Is this submission for a special issue or collection of articles?</div>
+                                <div class="flex gap-6">
+                                    <div class="flex items-center">
+                                        <input id="default-radio-1" type="radio" value="" name="default-radio" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="default-radio-1" class="ms-2 text-sm font-medium text-gray-700">Yes</label>
+                                    </div>
+
+                                    <div class="flex items-center">
+                                        <input id="default-radio-2" type="radio" value="" name="default-radio" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="default-radio-2" class="ms-2 text-sm font-medium text-gray-700">No</label>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6">
+                        <div class="intersect intersect-full" id="section_2" data-section-id="2">
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">Data Availability</h4>
+                            </div>
+
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                Authors are encouraged to share their research data and include a statement on the availability of data in their manuscript. For more information, please refer to our data sharing policy.
+                            </div>
+
+                            <div class="mb-6  px-2">
+                                <div class="block mb-2 text-sm font-semibold text-gray-900 ">Is there a data set associated with this submission?</div>
+                                <div class="flex gap-6">
+                                    <div class="flex items-center">
+                                        <input id="default-radio-1" type="radio" value="" name="default-radio" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="default-radio-1" class="ms-2 text-sm font-medium text-gray-700">Yes</label>
+                                    </div>
+                            
+                                    <div class="flex items-center">
+                                        <input id="default-radio-2" type="radio" value="" name="default-radio" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="default-radio-2" class="ms-2 text-sm font-medium text-gray-700">No</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6 ">
+                        
+                        <div class="intersect intersect-full" id="section_3" data-section-id="3">
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">Copyright</h4>
+                            </div>
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                Confirm that you have seen, read, and understood the publisher's guidelines on copyright and authorship rights.
+                            </div>
+
+                            <div class="flex items-center mb-6 px-2">
+                                <div class="flex items-center h-5">
+                                    <input id="remember" type="checkbox" value="" class="w-4 h-4 border border-gray-300 accent-fmmain rounded-sm bg-gray-50 focus:ring-3 focus:ring-fmmain-light" required />
+                                </div>
+                                <label for="remember" class="ms-2 text-sm font-medium text-gray-900">I confirm</label>
+                            </div>
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6">
+
+                        <div class="intersect intersect-full" id="section_4" data-section-id="4">
+                        
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">File Upload</h4>
+                            </div>
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                The files required for submission to this journal are listed below. You may also provide images, tables, supplementary materials, and other relevant materials that comply with the file guidelines.
+                            </div>
+
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                Why do I need two versions of my manuscript? The journal performs double-blind peer review, meaning your identity is not disclosed to the reviewers. To achieve this, we need a version of your manuscript without any identifying details. We also need a version with author details to expedite publication if your manuscript is accepted. Even if your manuscript is submitted as a preprint, we still require both files, but we cannot guarantee anonymous review in that case.
+                            </div>
+
+                            <div class="my-4 text-sm px-2">
+                                <div class="flex flex-col gap-2 w-full justify-center">
+                                    <div>
+                                        Uploaded file (with author details) - <a href="" class="text-blue-600 hover:text-blue-800">Download</a>
+                                    </div>
+                                    <div>
+                                        Uploaded file (without author details) - <a href="" class="text-blue-600 hover:text-blue-800">Download</a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="my-6 px-2">
+                                
+                                <div class="flex gap-4">
+                                    <a href="/" class="flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-gray-50 border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100 hover:cursor-pointer transition-colors" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                        Update file (with author details)
+                                        <iconify-icon icon="tabler:paperclip" class="text-lg text-fmmain"></iconify-icon>
+                                    </a>
+        
+                                    <a href="/" class="flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-gray-50 border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100 hover:cursor-pointer transition-colors" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                        Update file (without author details)
+                                        <iconify-icon icon="tabler:paperclip" class="text-lg text-fmmain"></iconify-icon>
+                                    </a>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6 ">
+
+                        <div class="intersect intersect-full" id="section_5" data-section-id="5">
+                        
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">Ethical Standards</h4>
+                            </div>
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                The files required for submission to this journal are listed below. You may also provide images, tables, supplementary materials, and other relevant materials that comply with the file guidelines.
+                            </div>
+                            
+                            <div class="flex items-center mb-6 px-2">
+                                <div class="flex items-center h-5">
+                                    <input id="remember" type="checkbox" value="" class="w-4 h-4 border border-gray-300 accent-fmmain rounded-sm bg-gray-50 focus:ring-3 focus:ring-fmmain-light" required />
+                                </div>
+                                <label for="remember" class="ms-2 text-sm font-medium text-gray-900">I confirm</label>
+                            </div>
+                        </div>
+
+                        <div class="intersect intersect-full" id="section_6" data-section-id="6">
+
+                        
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">Consent for Publication</h4>
+                            </div>
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                I confirm that all participants identifiable from the manuscript (e.g., in case reports) have given written consent for the manuscript and publication, or their guardians or next of kin have been given the opportunity to review the final statement if they are unable to give consent themselves or are deceased.
+                            </div>
+                            
+                            <div class="flex items-center mb-6 px-2">
+                                <div class="flex items-center h-5">
+                                    <input id="remember" type="checkbox" value="" class="w-4 h-4 border border-gray-300 accent-fmmain rounded-sm bg-gray-50 focus:ring-3 focus:ring-fmmain-light" required />
+                                </div>
+                                <label for="remember" class="ms-2 text-sm font-medium text-gray-900">I confirm</label>
+                            </div>
+                        </div>
+
+                        <div class="intersect intersect-full" id="section_7" data-section-id="7">
+
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">Acknowledgements</h4>
+                            </div>
+
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                I confirm that everyone listed in the 'Acknowledgements' section of the manuscript has been informed of their inclusion and has approved it.
+                            </div>
+                            
+                            <div class="flex items-center mb-6 px-2">
+                                <div class="flex items-center h-5">
+                                    <input id="remember" type="checkbox" value="" class="w-4 h-4 border border-gray-300 accent-fmmain rounded-sm bg-gray-50 focus:ring-3 focus:ring-fmmain-light" required />
+                                </div>
+                                <label for="remember" class="ms-2 text-sm font-medium text-gray-900">I confirm</label>
+                            </div>
+                        </div>
+                        
+                        <hr class="text-gray-300 h-1px my-6 ">
+                        
+                        <div class="intersect intersect-full" id="section_8" data-section-id="8">
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">Permissions</h4>
+                            </div>
+
+                            <div class="mb-6  px-2">
+                                <div class="block mb-2 text-sm font-semibold text-gray-900 ">Are you using any previously published material in this article?</div>
+                                <div class="flex gap-6">
+                                    <div class="flex items-center">
+                                        <input id="default-radio-1" type="radio" value="" name="default-radio" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="default-radio-1" class="ms-2 text-sm font-medium text-gray-700">Yes</label>
+                                    </div>
+                            
+                                    <div class="flex items-center">
+                                        <input id="default-radio-2" type="radio" value="" name="default-radio" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="default-radio-2" class="ms-2 text-sm font-medium text-gray-700">No</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                        </div>
+                        <hr class="text-gray-300 h-1px my-6 ">
+
+                        <div class="intersect intersect-full" id="section_9" data-section-id="9">
+
+                            <div class="mb-4  px-2">
+                                <h4 class="text-xl font-medium ">Word Count</h4>
+                            </div>
+
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                Please indicate the word count of your manuscript.
+                            </div>
+                            
+                            <div class="mb-6  px-2">
+                                <label for="email" class="block mb-2 text-sm font-medium text-gray-900 ">Word Count</label>
+                                <input type="email" id="email" class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 " placeholder="" required />
+                            </div>
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6">
+                        
+                        <div class="intersect intersect-full" id="section_10" data-section-id="10">
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">Authors Information</h4>
+                            </div>
+
+                            <div class="my-6 px-2">
+                                <h4 class="text-md font-medium mb-4">Corresponding author:</h4>
+                                <div class="text-sm mb-2 text-gray-600">
+                                    Currect corresponding author:
+                                </div>
+                                <div class="text-sm font-semibold mb-2">
+                                    Mark Markov, ORCID: 0000-0000-0000-0000
+                                </div>
+                                <div class="flex gap-2">
+                                    <a href="/" class="flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-100 hover:cursor-pointer transition-colors" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                        Change corresponding author
+                                    </a>
+
+                                    <a href="/" class="flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-gray-50 border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-100 hover:cursor-pointer transition-colors" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                        I am corresponding author 
+                                    </a>
+                                </div>
+                            </div>
+                            
+
+                            <div class="my-6 px-2">
+                                <h4 class="text-md font-medium mb-4">Subauthors:</h4>
+                                <div class="text-sm mb-2 text-gray-600">
+                                    Currect subauthors list:
+                                </div>
+                                <div class="mb-4 flex flex-col gap-3">
+
+                                    <div class="flex items-center gap-2 flex-row-reverse w-fit">
+                                        <!-- Button with peer class -->
+                                        <a href="/" class="flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-red-50/0 border border-red-100/75 px-2 py-1 text-xs font-semibold text-red-400 hover:bg-red-100 hover:cursor-pointer transition-colors peer">
+                                            Delete this author
+                                        </a>
+                                        <!-- Peer element (text) -->
+                                        <div class="text-sm font-medium peer-hover:text-gray-400 line-through decoration-gray-400/0 peer-hover:decoration-gray-400 transition-colors">
+                                            Mark Markov, ORCID: 0000-0000-0000-0000
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center gap-2 flex-row-reverse w-fit">
+                                        <!-- Button with peer class -->
+                                        <a href="/" class="flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-red-50/0 border border-red-100/75 px-2 py-1 text-xs font-semibold text-red-400 hover:bg-red-100 hover:cursor-pointer transition-colors peer">
+                                            Delete this author
+                                        </a>
+                                        <!-- Peer element (text) -->
+                                        <div class="text-sm font-medium peer-hover:text-gray-400 line-through decoration-gray-400/0 peer-hover:decoration-gray-400 transition-colors">
+                                            Mark Markov, ORCID: 0000-0000-0000-0000
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center gap-2 flex-row-reverse w-fit">
+                                        <!-- Button with peer class -->
+                                        <a href="/" class="flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-red-50/0 border border-red-100/75 px-2 py-1 text-xs font-semibold text-red-400 hover:bg-red-100 hover:cursor-pointer transition-colors peer">
+                                            Delete this author
+                                        </a>
+                                        <!-- Peer element (text) -->
+                                        <div class="text-sm font-medium peer-hover:text-gray-400 line-through decoration-gray-400/0 peer-hover:decoration-gray-400 transition-colors">
+                                            Mark Markov, ORCID: 0000-0000-0000-0000
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center gap-2 flex-row-reverse w-fit">
+                                        <!-- Button with peer class -->
+                                        <a href="/" class="flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-red-50/0 border border-red-100/75 px-2 py-1 text-xs font-semibold text-red-400 hover:bg-red-100 hover:cursor-pointer transition-colors peer">
+                                            Delete this author
+                                        </a>
+                                        <!-- Peer element (text) -->
+                                        <div class="text-sm font-medium peer-hover:text-gray-400 line-through decoration-gray-400/0 peer-hover:decoration-gray-400 transition-colors">
+                                            Mark Markov, ORCID: 0000-0000-0000-0000
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center gap-2 flex-row-reverse w-fit">
+                                        <!-- Button with peer class -->
+                                        <a href="/" class="flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-red-50/0 border border-red-100/75 px-2 py-1 text-xs font-semibold text-red-400 hover:bg-red-100 hover:cursor-pointer transition-colors peer">
+                                            Delete this author
+                                        </a>
+                                        <!-- Peer element (text) -->
+                                        <div class="text-sm font-medium peer-hover:text-gray-400 line-through decoration-gray-400/0 peer-hover:decoration-gray-400 transition-colors">
+                                            Mark Markov, ORCID: 0000-0000-0000-0000
+                                        </div>
+                                    </div>
+
+                                </div>
+                                <div class="flex gap-2">
+                                    <a href="/" class="flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-100 hover:cursor-pointer transition-colors" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                        <iconify-icon icon="tabler:plus"></iconify-icon> Add new author
+                                    </a>
+                            
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr class="text-gray-300 h-1px my-6 ">
+                        
+                        <div class="intersect intersect-full" id="section_11" data-section-id="11">
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">Competing Interests</h4>
+                            </div>
+
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                Do you or any of your co-authors have any relevant financial or non-financial competing interests? Even if you have nothing to declare, you must always include a disclosure statement in your manuscript.
+                            </div>
+                            
+                            <div class="mb-6  px-2">
+                                <div class="flex gap-6">
+                                    <div class="flex items-center">
+                                        <input id="default-radio-1" type="radio" value="" name="default-radio" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="default-radio-1" class="ms-2 text-sm font-medium text-gray-700">Yes</label>
+                                    </div>
+                            
+                                    <div class="flex items-center">
+                                        <input id="default-radio-2" type="radio" value="" name="default-radio" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="default-radio-2" class="ms-2 text-sm font-medium text-gray-700">No</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr class="text-gray-300 h-1px my-6 ">
+                        
+                        <div class="intersect intersect-full" id="section_12" data-section-id="12">
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">Keywords</h4>
+                            </div>
+
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                Enter keywords below. Press Enter or comma after each keyword. Keywords can contain multiple words, e.g. "blended learning" or "linguistic worldview".
+                            </div>
+
+                            <div class="my-4 px-2">
+                                <h4 class="text-md font-medium mb-4">Subauthors:</h4>
+                                <div class="text-sm mb-2 text-gray-600">
+                                    Current keywords list:
+                                </div>
+                                <div class="flex flex-wrap gap-1">
+
+                                    <div class="bg-blue-50 border text-nowrap border-blue-200 text-blue-700 hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-xs px-2 py-0.5 rounded-sm flex items-center justify-center group/item pointer-events-none transition-colors">
+                                        Keyword 1
+                                        <a href="javascript:;" class="text-xs flex items-center justify-center ms-1 text-red-400 pointer-events-auto">
+                                            <iconify-icon icon="tabler:x"></iconify-icon>
+                                        </a>
+                                    </div>
+
+                                    <div class="bg-blue-50 border text-nowrap border-blue-200 text-blue-700 hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-xs px-2 py-0.5 rounded-sm flex items-center justify-center group/item pointer-events-none transition-colors">
+                                        Keyword 2
+                                        <a href="javascript:;" class="text-xs flex items-center justify-center ms-1 text-red-400 pointer-events-auto">
+                                            <iconify-icon icon="tabler:x"></iconify-icon>
+                                        </a>
+                                    </div>
+
+                                    <div class="bg-blue-50 border text-nowrap border-blue-200 text-blue-700 hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-xs px-2 py-0.5 rounded-sm flex items-center justify-center group/item pointer-events-none transition-colors">
+                                        Keyword 3
+                                        <a href="javascript:;" class="text-xs flex items-center justify-center ms-1 text-red-400 pointer-events-auto">
+                                            <iconify-icon icon="tabler:x"></iconify-icon>
+                                        </a>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+
+                            <div class="mb-6  px-2">
+                                <label for="email" class="block mb-2 text-sm font-medium text-gray-900 ">New keyword:</label>
+                                <input type="email" id="email"
+                                class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 "
+                                placeholder="Type a keyword and press Enter / Type them over comma"
+                                required />
+                            </div>
+                        </div>
+                        
+                        <hr class="text-gray-300 h-1px my-6 ">
+                        
+                        <div class="intersect intersect-full" id="section_13" data-section-id="13">
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">Classification</h4>
+                            </div>
+                            
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                Select up to 3 classifications to make it easier for researchers to find your work when it is published.
+                            </div>
+
+                            <div class="mb-6  px-2">
+                                <label for="email" class="block mb-2 text-sm font-medium text-gray-900 ">Search classifications:</label>
+                                <input type="email" id="email" class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 " placeholder="Start typing..." required />
+                            </div>
+
+                            <div class="mb-6 px-2">
+                                <div class="text-sm mb-2 text-gray-800">
+                                    Selected classifications:
+                                </div>
+
+                                <div class="flex gap-2 items-center flex-wrap classifier">
+                                    <button type="button" class="px-4 py-2 not-[.checked]:bg-gray-50 not-[.checked]:border-gray-200 not-[.checked]:text-gray-900 bg-green-50 border-green-700 text-green-700 border rounded-lg text-sm font-medium flex items-center justify-center transition-colors group checked">
+                                        <iconify-icon icon="tabler:check" class="me-1 w-4 flex items-center content-center opacity-0 group-hover:opacity-100 group-[.checked]:opacity-100 transition-opacity"></iconify-icon>
+                                        <div class="-translate-x-2 group-hover:translate-x-0 transition-transform group-[.checked]:translate-x-0">Classification</div>
+                                    </button>
+
+                                    <button type="button" class="px-4 py-2 not-[.checked]:bg-gray-50 not-[.checked]:border-gray-200 not-[.checked]:text-gray-900 bg-green-50 border-green-700 text-green-700 border rounded-lg text-sm font-medium flex items-center justify-center transition-colors group">
+                                        <iconify-icon icon="tabler:check" class="me-1 w-4 flex items-center content-center opacity-0 group-hover:opacity-100 group-[.checked]:opacity-100 transition-opacity"></iconify-icon>
+                                        <div class="-translate-x-2 group-hover:translate-x-0 transition-transform group-[.checked]:translate-x-0">Classification</div>
+                                    </button>
+
+                                    <button type="button" class="px-4 py-2 not-[.checked]:bg-gray-50 not-[.checked]:border-gray-200 not-[.checked]:text-gray-900 bg-green-50 border-green-700 text-green-700 border rounded-lg text-sm font-medium flex items-center justify-center transition-colors group">
+                                        <iconify-icon icon="tabler:check" class="me-1 w-4 flex items-center content-center opacity-0 group-hover:opacity-100 group-[.checked]:opacity-100 transition-opacity"></iconify-icon>
+                                        <div class="-translate-x-2 group-hover:translate-x-0 transition-transform group-[.checked]:translate-x-0">Classification</div>
+                                    </button>
+
+                                    <button type="button" class="px-4 py-2 not-[.checked]:bg-gray-50 not-[.checked]:border-gray-200 not-[.checked]:text-gray-900 bg-green-50 border-green-700 text-green-700 border rounded-lg text-sm font-medium flex items-center justify-center transition-colors group">
+                                        <iconify-icon icon="tabler:check" class="me-1 w-4 flex items-center content-center opacity-0 group-hover:opacity-100 group-[.checked]:opacity-100 transition-opacity"></iconify-icon>
+                                        <div class="-translate-x-2 group-hover:translate-x-0 transition-transform group-[.checked]:translate-x-0">Classification</div>
+                                    </button>
+
+                                    <button type="button" class="px-4 py-2 not-[.checked]:bg-gray-50 not-[.checked]:border-gray-200 not-[.checked]:text-gray-900 bg-green-50 border-green-700 text-green-700 border rounded-lg text-sm font-medium flex items-center justify-center transition-colors group">
+                                        <iconify-icon icon="tabler:check" class="me-1 w-4 flex items-center content-center opacity-0 group-hover:opacity-100 group-[.checked]:opacity-100 transition-opacity"></iconify-icon>
+                                        <div class="-translate-x-2 group-hover:translate-x-0 transition-transform group-[.checked]:translate-x-0">Classification</div>
+                                    </button>
+
+                                    <button type="button" class="px-4 py-2 not-[.checked]:bg-gray-50 not-[.checked]:border-gray-200 not-[.checked]:text-gray-900 bg-green-50 border-green-700 text-green-700 border rounded-lg text-sm font-medium flex items-center justify-center transition-colors group">
+                                        <iconify-icon icon="tabler:check" class="me-1 w-4 flex items-center content-center opacity-0 group-hover:opacity-100 group-[.checked]:opacity-100 transition-opacity"></iconify-icon>
+                                        <div class="-translate-x-2 group-hover:translate-x-0 transition-transform group-[.checked]:translate-x-0">Classification</div>
+                                    </button>
+
+                                    <button type="button" class="px-4 py-2 not-[.checked]:bg-gray-50 not-[.checked]:border-gray-200 not-[.checked]:text-gray-900 bg-green-50 border-green-700 text-green-700 border rounded-lg text-sm font-medium flex items-center justify-center transition-colors group">
+                                        <iconify-icon icon="tabler:check" class="me-1 w-4 flex items-center content-center opacity-0 group-hover:opacity-100 group-[.checked]:opacity-100 transition-opacity"></iconify-icon>
+                                        <div class="-translate-x-2 group-hover:translate-x-0 transition-transform group-[.checked]:translate-x-0">Classification</div>
+                                    </button>
+
+                                    <a href="" class="text-nowrap text-sm px-4 py-2 text-gray-400 hover:text-gray-600 transition-colors">Show all classifications...</a>
+                                    
+                                </div>
+                                
+                            </div>
+
+                        </div>
+                        
+                        <hr class="text-gray-300 h-1px my-6 ">
+                        
+                        <div class="intersect intersect-full" id="section_14" data-section-id="14">
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">Open Access and Editorial Services</h4>
+                            </div>
+                            
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                If your article is accepted for publication, you will have the option to publish it as open access. If your manuscript requires significant technical revisions, we will provide information about relevant editorial services. For more details, please refer to the author guidelines.
+                            </div>
+
+                            <div class="my-4 px-2">
+                                <a href="" class="text-sm text-blue-600 hover:text-blue-700 flex items-center justify-center gap-x-1 w-fit">Open author guidelines <iconify-icon icon="tabler:link"></iconify-icon></a>
+                            </div>
+                            
+
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6 ">
+                        
+                        <div class="my-6 px-2">
+                            <div class="flex gap-2">
+                                <a href="/" class="inline-flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-red-50 border border-red-100 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 transition-colors hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                    <iconify-icon icon="tabler:x" class="text-lg text-gren-800"></iconify-icon>
+                                    Delete article
+                                </a>
+
+                                <a href="javascript:;" class="savedraft  ms-auto inline-flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-gray-50 border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-200 transition-colors hover:cursor-pointer group" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                    <div class="opacity-100 group-[.processing]:opacity-0 group-[.saved]:opacity-0 transition-opacity">Save as draft</div>
+                                    <iconify-icon icon="svg-spinners:90-ring" class="absolute text-gray-400 opacity-0 group-[.processing]:opacity-100  transition-opacity"></iconify-icon>
+                                    <div class="absolute text-green-700 opacity-0 group-[.saved]:opacity-100 transition-opacity">Saved!</div>
+                                </a>
+
+                                <a href="/" class="inline-flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-green-50 border border-green-300 px-4 py-2 text-sm font-semibold text-green-900 hover:bg-green-200 transition-colors hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                    Review article
+                                    <iconify-icon icon="tabler:check" class="text-lg text-gren-800"></iconify-icon>
+                                </a>
+
+                            </div>
+                        </div>
+
+                        <div class="my-6 px-2">
+                            <div>
+                                <h5 class="text-md font-medium mb-4 text-gray-700">There is errors on form:</h5>
+
+                                <a href="#" class="bg-red-50 px-3 py-2 text-xs text-red-600 rounded-md hover:bg-red-100 transition-colors my-2 flex items-center justify-between">
+                                    <div>Fill main information</div>
+                                    <div>Jump to section</div>
+                                </a>
+
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+
+
+            
+            
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+
+    <div class=" bg-gray-100 text-gray-600 mt-8">
+        <div class="container mx-auto py-12">
+            <div class="flex text-sm mb-12">
+                <div class="border-e text-nowrap border-gray-300 py-2 pe-8">
+                    <div>Crossref DOI: 10.36078</div>
+                    <div>E-ISSN: 2181-1237</div>
+                </div>
+                <div class="ms-8 w-sm py-2" >
+                    <div>Copyright © 2024 Shandong University.</div>
+                    <div>Published by Elsevier B.V. All rights are reserved, including those for text and data mining, AI training, and similar technologies.</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-16 pb-4">
+                <div>
+                    <div class="border-b-2 pb-2 mb-4 border-gray-400 text-gray-600">Submit Article</div>
+                    <div class="flex flex-col gap-2 items-start">
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="border-b-2 pb-2 mb-4 border-gray-400 text-gray-600">Submit Article</div>
+                    <div class="flex flex-col gap-2 items-start">
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="border-b-2 pb-2 mb-4 border-gray-400 text-gray-600">Submit Article</div>
+                    <div class="flex flex-col gap-2 items-start">
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                        <a class="text-sm text-gray-600 hover:text-gray-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400" href="">Learn more about aims and goals</a>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script defer src="https://unpkg.com/tailwindcss-intersect@2.x.x/dist/observer.min.js"></script>
+    <script>
+        $(document).ready(function () {
+                // Handle dropdown toggle for each button
+                $('.relative').on('click', 'button', function (event) {
+                    event.stopPropagation(); // Prevent the document click handler from firing
+
+                    const dropdown = $(this).closest('.relative').find('.absolute');
+
+                    // Hide all other active dropdowns
+                    $('.relative').not($(this).closest('.relative')).each(function () {
+                        const otherDropdown = $(this).find('.absolute');
+                        if (!otherDropdown.hasClass('hidden')) {
+                            otherDropdown.removeClass('dropdown-enter-active').addClass('dropdown-leave');
+                            setTimeout(() => {
+                                otherDropdown.removeClass('dropdown-leave').addClass('dropdown-leave-active hidden');
+                            }, 10); // Small delay to allow the browser to apply the initial state
+                        }
+                    });
+
+                    // Toggle the clicked dropdown
+                    if (dropdown.hasClass('hidden')) {
+                        // Entering state
+                        dropdown.removeClass('hidden dropdown-leave-active').addClass('dropdown-enter');
+                        setTimeout(() => {
+                            dropdown.removeClass('dropdown-enter').addClass('dropdown-enter-active');
+                        }, 10); // Small delay to allow the browser to apply the initial state
+                    } else {
+                        // Leaving state
+                        dropdown.removeClass('dropdown-enter-active').addClass('dropdown-leave');
+                        setTimeout(() => {
+                            dropdown.removeClass('dropdown-leave').addClass('dropdown-leave-active hidden');
+                        }, 10); // Small delay to allow the browser to apply the initial state
+                    }
+                });
+
+                // Hide dropdown when clicking outside of it
+                $(document).click(function (event) {
+                    if (!$(event.target).closest('.relative').length) {
+                        $('.relative').each(function () {
+                            const dropdown = $(this).find('.absolute');
+                            if (!dropdown.hasClass('hidden')) {
+                                dropdown.removeClass('dropdown-enter-active').addClass('dropdown-leave');
+                                setTimeout(() => {
+                                    dropdown.removeClass('dropdown-leave').addClass('dropdown-leave-active hidden');
+                                }, 10); // Small delay to allow the browser to apply the initial state
+                            }
+                        });
+                    }
+                });
+            });
+    </script>
+
+    <script>
+        const header = document.getElementById('header'); // Get the header element
+        const menu = document.getElementById('menu'); // Get the #menu element
+
+        window.addEventListener('scroll', function () {
+            const menuPosition = menu.getBoundingClientRect().top; // Get the position of #menu relative to the viewport
+            const scrollPosition = window.scrollY; // Current scroll position
+
+            if (menuPosition <= 0) {
+                header.classList.remove('hidden');
+            } else {
+                header.classList.add('hidden');
+            }
+        });
+    </script>
+
+    <script>
+        $(document).ready(function () {
+            $('.issue_item').on('click', '.issue_collapse', function () {
+                const $clickedIssueVolumes = $(this).closest('.issue_item').find('.issue_volumes');
+                $('.issue_item').not($(this).closest('.issue_item')).find('.issue_volumes').addClass('hidden');
+                $clickedIssueVolumes.toggleClass('hidden');
+            });
+            $('.issue_item .issue_collapse').first().click();
+        });
+    </script>
+
+    <script>
+        $(document).ready(function () {
+            $('.toggler_item').on('click', '.toggler_button', function () {
+                const $clickedItem = $(this).closest('.toggler_item').find('.toggler_data');
+                $clickedItem.toggleClass('hidden');
+                var chtext = $(this).find('span');
+                var chicon = $(this).find('iconify-icon');
+                console.log( chicon.data('on'))
+                if ($clickedItem.hasClass('hidden')) {
+                    chtext.text(chtext.data('off'))
+                    chicon.attr('icon', chicon.data('icon-off'))
+                } else {
+                    chtext.text(chtext.data('on'))
+                    chicon.attr('icon', chicon.data('icon-on'))
+                }
+            });
+        });
+    </script>
+
+    <script>
+        
+
+        window.addEventListener('scroll', function () {
+            const firstNonIntersect = $('.intersect[data-section-id]:not([no-intersect])').first()
+            var sectionId = firstNonIntersect.data('section-id');
+            console.log(sectionId)
+            $('.step .blue:not([data-visible-section="' + sectionId + '"])').removeClass('blue');
+            $('.step [data-visible-section="' + sectionId + '"]').addClass('blue');
+        })
+
+        $('.classifier button').click(function() {
+            $(this).toggleClass('checked')
+        })
+        $('.savedraft').click(function() {
+            const btn = $(this);
+            btn.addClass('processing')
+            setTimeout(function(){
+                btn.removeClass('processing');
+                setSaved();
+
+            }, 500);
+
+            function setSaved() {
+                btn.addClass('saved');
+                setTimeout(function () {
+                    btn.removeClass('saved');
+                }, 3000);
+            }
+
+            
+        })
+    </script>
+
+
+
+
+</body>
+
+</html>

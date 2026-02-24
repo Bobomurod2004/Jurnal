@@ -1,0 +1,206 @@
+{% extends 'basic.html' %}
+
+
+{% block content %}
+
+<div class="page-header d-print-none mb-4">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">{{ t("admin_translations_title") }}</h2>
+    </div>
+    <div class="col-auto">
+      <button type="button" class="btn btn-success" id="sync-translations-btn">
+        <i class="ti ti-refresh"></i>
+        {{ t("admin_btn_sync_translations") }}
+      </button>
+    </div>
+  </div>
+</div>
+<form method="get" action="/fmadmin/website/translations" class="mb-3">
+  <div class="input-group">
+    <input type="text" class="form-control" name="search" placeholder="{{ t('admin_placeholder_search_translations') }}"
+      value="{{ search|default('') }}">
+    <button class="btn btn-primary" type="submit"><i class="ti ti-search"></i> {{ t("admin_btn_find") }}</button>
+  </div>
+</form>
+<div class="card mt-4">
+  <div class="table-responsive">
+    <table class="table card-table table-hover">
+      <thead>
+        <tr>
+          <th>{{ t("admin_label_alias") }}</th>
+          <th>{{ t("admin_label_uzbek") }}</th>
+          <th>{{ t("admin_label_russian") }}</th>
+          <th>{{ t("admin_label_english") }}</th>
+          <th class="w-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for translation in translations %}
+        <tr>
+          <td class="align-middle">{{ translation.alias }}</td>
+          <td class="align-middle">{% if translation.content_uz%}{{ translation.content_uz[:120] }}{% if
+            translation.content_uz|length > 120 %}...{%
+            endif %}{% else %}-{% endif %}</td>
+          <td class="align-middle">{% if translation.content_ru%}{{ translation.content_ru[:120] }}{% if
+            translation.content_ru|length > 120 %}...{%
+            endif %}{% else %}-{% endif %}</td>
+          <td class="align-middle">{% if translation.content%}{{ translation.content[:120] }}{% if
+            translation.content|length > 120 %}...{% endif %}{%
+            else %}-{% endif %}</td>
+          <td class="align-middle">
+            <a href="#" class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1" data-bs-toggle="modal"
+              data-bs-target="#modal-edit-translation" data-alias="{{ translation.alias }}">
+              {{ t("admin_btn_edit") }}
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal modal-blur fade" id="modal-edit-translation" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ t("admin_title_edit_translation") }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">{{ t("admin_label_alias") }}</label>
+          <input type="text" class="form-control" id="edit-alias" readonly>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">{{ t("admin_label_uzbek") }}</label>
+          <input type="text" class="form-control" id="edit-content-uz">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">{{ t("admin_label_russian") }}</label>
+          <input type="text" class="form-control" id="edit-content-ru">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">{{ t("admin_label_english") }}</label>
+          <input type="text" class="form-control" id="edit-content">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">
+          {{ t("admin_btn_cancel") }}
+        </button>
+        <button type="button" class="btn btn-primary ms-auto" id="save-translation-btn">
+          {{ t("admin_btn_save") }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const editModal = document.getElementById('modal-edit-translation');
+    let currentAlias = null;
+    editModal.addEventListener('show.bs.modal', function (event) {
+      const button = event.relatedTarget;
+      const alias = button.getAttribute('data-alias');
+      currentAlias = alias;
+      fetch(`/fmadmin/api/translation/${alias}`)
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('edit-alias').value = data.alias || '';
+          document.getElementById('edit-content-uz').value = data.content_uz || '';
+          document.getElementById('edit-content-ru').value = data.content_ru || '';
+          document.getElementById('edit-content').value = data.content || '';
+        });
+    });
+    document.getElementById('save-translation-btn').onclick = function () {
+      fetch(`/fmadmin/api/translation/${currentAlias}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content_uz: document.getElementById('edit-content-uz').value,
+          content_ru: document.getElementById('edit-content-ru').value,
+          content: document.getElementById('edit-content').value
+        })
+      }).then(r => r.json()).then(data => {
+        if (data.success) {
+          location.reload();
+        }
+      });
+    };
+
+    // Обработчик кнопки синхронизации
+    document.getElementById('sync-translations-btn').onclick = function () {
+      const btn = this;
+      const originalText = btn.innerHTML;
+
+      // Показываем индикатор загрузки
+      btn.innerHTML = '<i class="ti ti-loader-2 ti-spin"></i> {{ t("admin_msg_synchronizing") }}';
+      btn.disabled = true;
+
+      fetch('/fmadmin/api/sync-translations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            // Показываем успешное сообщение
+            btn.innerHTML = '<i class="ti ti-check"></i> {{ t("admin_msg_synchronized") }}';
+            btn.className = 'btn btn-success';
+
+            // Показываем toast уведомление если есть
+            if (typeof showToast === 'function') {
+              showToast('{{ t("admin_msg_sync_success") }}', 'success');
+            }
+
+            // Возвращаем кнопку в исходное состояние через 3 секунды
+            setTimeout(() => {
+              btn.innerHTML = originalText;
+              btn.disabled = false;
+            }, 3000);
+          } else {
+            // Показываем ошибку
+            btn.innerHTML = '<i class="ti ti-x"></i> {{ t("admin_label_error") }}';
+            btn.className = 'btn btn-danger';
+
+            if (typeof showToast === 'function') {
+              showToast(data.message || '{{ t("admin_msg_sync_error") }}', 'error');
+            }
+
+            // Возвращаем кнопку в исходное состояние через 3 секунды
+            setTimeout(() => {
+              btn.innerHTML = originalText;
+              btn.className = 'btn btn-success';
+              btn.disabled = false;
+            }, 3000);
+          }
+        })
+        .catch(error => {
+          console.error('Ошибка синхронизации:', error);
+          btn.innerHTML = '<i class="ti ti-x"></i> {{ t("admin_msg_network_error") }}';
+          btn.className = 'btn btn-danger';
+
+          if (typeof showToast === 'function') {
+            showToast('{{ t("admin_msg_network_error_sync") }}', 'error');
+          }
+
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.className = 'btn btn-success';
+            btn.disabled = false;
+          }, 3000);
+        });
+    };
+  });
+</script>
+
+
+{% endblock %}

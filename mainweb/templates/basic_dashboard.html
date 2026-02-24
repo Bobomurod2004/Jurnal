@@ -1,0 +1,113 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+{% include 'components/headers/main_header.html' %}
+{% include 'components/hero/main_hero.html' %}
+
+<div class="dashboard-layout">
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex flex-col lg:flex-row gap-8">
+            <!-- Left Sidebar Navigation -->
+            <aside class="dashboard-sidebar lg:w-72 shrink-0">
+                <div class="lg:sticky lg:top-24">
+                    <!-- User Info Card -->
+                    <div class="sidebar-user-card mb-6">
+                        <div class="flex items-center gap-3">
+                            <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-fmmain to-fmmain/70 flex items-center justify-center text-white text-lg font-bold shadow-sm">
+                                {% if session.user and session.user.name %}
+                                {{ session.user.name[0] }}
+                                {% else %}
+                                U
+                                {% endif %}
+                            </div>
+                            <div class="min-w-0">
+                                <div class="font-semibold text-gray-900 text-sm truncate">
+                                    {% if session.user %}{{ session.user.name }} {{ session.user.second_name }}{% endif %}
+                                </div>
+                                <div class="text-xs text-gray-500 truncate">
+                                    {% if session.user %}{{ session.user.email }}{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Navigation Links -->
+                    <nav class="sidebar-nav">
+                        <div class="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-400 px-3 mb-2">{{ t('menu') if t else 'Menu' }}</div>
+                        
+                        <a href="{{ url_for('app__dashboard') }}" 
+                           class="sidebar-nav-item {% if request.endpoint == 'app__dashboard' %}active{% endif %}">
+                            <iconify-icon icon="solar:home-smile-bold-duotone" class="text-lg"></iconify-icon>
+                            <span>{{ t('dashboard') }}</span>
+                        </a>
+
+                        <a href="{{ url_for('app__dashboard_articles') }}" 
+                           class="sidebar-nav-item {% if request.endpoint == 'app__dashboard_articles' %}active{% endif %}">
+                            <iconify-icon icon="solar:paperclip-rounded-2-bold-duotone" class="text-lg"></iconify-icon>
+                            <span>{{ t('my_articles') }}</span>
+                        </a>
+
+                        <a href="{{ url_for('app__dashboard_new_article') }}" 
+                           class="sidebar-nav-item {% if request.endpoint == 'app__dashboard_new_article' %}active{% endif %}">
+                            <iconify-icon icon="solar:document-add-bold-duotone" class="text-lg"></iconify-icon>
+                            <span>{{ t('submit_article') }}</span>
+                        </a>
+
+                        <a href="{{ url_for('app__dashboard_purchases') }}" 
+                           class="sidebar-nav-item {% if request.endpoint == 'app__dashboard_purchases' %}active{% endif %}">
+                            <iconify-icon icon="solar:cart-check-bold-duotone" class="text-lg"></iconify-icon>
+                            <span>{{ t('my_purchases') }}</span>
+                        </a>
+
+                        <a href="{{ url_for('app__dashboard_payments') }}" 
+                           class="sidebar-nav-item {% if request.endpoint == 'app__dashboard_payments' %}active{% endif %}">
+                            <iconify-icon icon="solar:wallet-money-bold-duotone" class="text-lg"></iconify-icon>
+                            <span>{{ t('my_payments') }}</span>
+                        </a>
+
+                        <div class="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-400 px-3 mb-2 mt-5">{{ t('other') if t else 'Other' }}</div>
+
+                        <a href="{{ url_for('app__dashboard_guides') }}" 
+                           class="sidebar-nav-item {% if request.endpoint == 'app__dashboard_guides' %}active{% endif %}">
+                            <iconify-icon icon="solar:checklist-minimalistic-bold-duotone" class="text-lg"></iconify-icon>
+                            <span>{{ t('guides') }}</span>
+                        </a>
+
+                        <a href="{{ url_for('app__dashboard_profile') }}" 
+                           class="sidebar-nav-item {% if request.endpoint == 'app__dashboard_profile' %}active{% endif %}">
+                            <iconify-icon icon="solar:user-id-bold-duotone" class="text-lg"></iconify-icon>
+                            <span>{{ t('my_profile') }}</span>
+                        </a>
+
+                        <a href="{{ url_for('app__contact') }}" 
+                           class="sidebar-nav-item">
+                            <iconify-icon icon="solar:question-circle-bold-duotone" class="text-lg"></iconify-icon>
+                            <span>{{ t('contact') }}</span>
+                        </a>
+
+                        <hr class="my-3 border-gray-100">
+
+                        <a href="{{ url_for('app__logout') }}" 
+                           class="sidebar-nav-item text-red-500 hover:text-red-600 hover:bg-red-50">
+                            <iconify-icon icon="solar:logout-3-bold-duotone" class="text-lg"></iconify-icon>
+                            <span>{{ t('logout') }}</span>
+                        </a>
+                    </nav>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="dashboard-main flex-1 min-w-0">
+                {% include 'components/notifications/flash_messages.html' %}
+                {% block dashboard_content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% block dashboard_scripts %}{% endblock %}
+{% endblock %}
