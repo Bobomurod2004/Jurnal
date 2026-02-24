@@ -2,11 +2,11 @@
 # SSL Certificate Setup Script for Let's Encrypt
 # Run this ONCE on the production server to obtain initial SSL certificates
 #
-# Usage: ./scripts/init-ssl.sh philologymatters.uz your@email.com
+# Usage: ./scripts/init-ssl.sh philmatt.uzswlu.uz your@email.com
 
 set -e
 
-DOMAIN=${1:-"philologymatters.uz"}
+DOMAIN=${1:-"philmatt.uzswlu.uz"}
 EMAIL=${2:-"admin@$DOMAIN"}
 
 echo "=========================================="
@@ -14,6 +14,22 @@ echo " SSL Certificate Setup"
 echo " Domain: $DOMAIN"
 echo " Email:  $EMAIL"
 echo "=========================================="
+
+# Check if certificate already exists on this server
+if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+    echo ""
+    echo "SSL sertifikat allaqachon mavjud!"
+    echo "  /etc/letsencrypt/live/$DOMAIN/fullchain.pem"
+    echo ""
+    echo "To'g'ridan-to'g'ri ishga tushiring:"
+    echo "  docker compose up -d --build"
+    echo ""
+    read -p "Yangi sertifikat olishni xohlaysizmi? (y/N): " RENEW
+    if [ "$RENEW" != "y" ] && [ "$RENEW" != "Y" ]; then
+        echo "Mavjud sertifikat ishlatiladi. docker compose up -d --build buyrug'ini ishga tushiring."
+        exit 0
+    fi
+fi
 
 # Step 1: Start nginx with HTTP-only config first
 echo ""
@@ -50,10 +66,10 @@ cp /tmp/nginx_temp.conf ./nginx/nginx.conf
 echo "[2/4] Starting services with temporary config..."
 docker compose up -d nginx
 
-sleep 3
+sleep 5
 
 echo "[3/4] Obtaining SSL certificate from Let's Encrypt..."
-docker compose run --rm certbot certonly \
+certbot certonly \
     --webroot \
     --webroot-path=/var/www/certbot \
     --email "$EMAIL" \
