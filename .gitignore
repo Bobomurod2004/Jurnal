@@ -1,0 +1,52 @@
+# Environment & secrets
+.env
+*.env.local
+*.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+package-lock.json
+
+# Logs
+*.log
+
+# Database backups (keep only in secure storage)
+*.sql
+!db_backup.sql
+
+# Uploads (managed by Docker volume)
+static/uploads/
+mainweb/static/uploads/
+fmadmin/static/uploads/
+
+# Docker volumes
+postgres_data/
+uploads_data/
+
+# SSL certificates
+certbot/
