@@ -1,0 +1,361 @@
+{% extends 'basic.html' %}
+
+{% block title %}{{ t('all_articles') }} - {{ t('website_title') }}{% endblock %}
+
+{% block content %}
+{% include 'components/headers/page_header.html' %}
+
+<div class="mt-8">
+    <div class="container py-8 mx-auto">
+        <!-- Page Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ t('all_articles') }}</h1>
+            <p class="text-gray-600">{{ t('all_articles_description') }}</p>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <form method="GET" action="{{ url_for('app__articles') }}" id="filters-form">
+                <!-- Search Bar -->
+                <div class="mb-6">
+                    <label for="search" class="block text-sm font-medium text-gray-700 mb-2">{{ t('search_articles') }}</label>
+                    <div class="relative">
+                        <input type="text" 
+                               id="search" 
+                               name="search" 
+                               value="{{ current_filters.search }}"
+                               placeholder="{{ t('search_placeholder') }}"
+                               class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <iconify-icon icon="tabler:search" class="h-5 w-5 text-gray-400"></iconify-icon>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter Row -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <!-- Issue Filter -->
+                    <div>
+                        <label for="issue" class="block text-sm font-medium text-gray-700 mb-2">{{ t('filter_by_issue') }}</label>
+                        <select id="issue" name="issue" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">{{ t('all_issues') }}</option>
+                            {% for issue in all_issues %}
+                                <option value="{{ issue.id }}" {% if current_filters.issue == issue.id|string %}selected{% endif %}>
+                                    {{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }} ({{ issue.year }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Volume Filter -->
+                    <div>
+                        <label for="volume" class="block text-sm font-medium text-gray-700 mb-2">{{ t('filter_by_volume') }}</label>
+                        <select id="volume" name="volume" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">{{ t('all_volumes') }}</option>
+                            {% for volume in all_volumes %}
+                                <option value="{{ volume }}" {% if current_filters.volume == volume %}selected{% endif %}>
+                                    {{ t('volume') }} {{ volume }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Year Filter -->
+                    <div>
+                        <label for="year" class="block text-sm font-medium text-gray-700 mb-2">{{ t('filter_by_year') }}</label>
+                        <select id="year" name="year" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">{{ t('all_years') }}</option>
+                            {% for year in all_years %}
+                                <option value="{{ year }}" {% if current_filters.year == year|string %}selected{% endif %}>
+                                    {{ year }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Access Type Filter -->
+                    <div>
+                        <label for="access" class="block text-sm font-medium text-gray-700 mb-2">{{ t('filter_by_access') }}</label>
+                        <select id="access" name="access" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">{{ t('all_access_types') }}</option>
+                            <option value="open" {% if current_filters.access == 'open' %}selected{% endif %}>{{ t('open_access_filter') }}</option>
+                            <option value="paid" {% if current_filters.access == 'paid' %}selected{% endif %}>{{ t('paid_access_filter') }}</option>
+                            <option value="subscription" {% if current_filters.access == 'subscription' %}selected{% endif %}>{{ t('subscription_access_filter') }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Sort and Action Buttons -->
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div class="flex items-center gap-4">
+                        <div>
+                            <label for="sort" class="block text-sm font-medium text-gray-700 mb-1">{{ t('sort_by') }}</label>
+                            <select id="sort" name="sort" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="newest" {% if current_filters.sort == 'newest' %}selected{% endif %}>{{ t('sort_newest') }}</option>
+                                <option value="oldest" {% if current_filters.sort == 'oldest' %}selected{% endif %}>{{ t('sort_oldest') }}</option>
+                                <option value="title_az" {% if current_filters.sort == 'title_az' %}selected{% endif %}>{{ t('sort_title_az') }}</option>
+                                <option value="title_za" {% if current_filters.sort == 'title_za' %}selected{% endif %}>{{ t('sort_title_za') }}</option>
+                                <option value="most_viewed" {% if current_filters.sort == 'most_viewed' %}selected{% endif %}>{{ t('sort_most_viewed') }}</option>
+                                <option value="most_cited" {% if current_filters.sort == 'most_cited' %}selected{% endif %}>{{ t('sort_most_cited') }}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button type="button" 
+                                onclick="clearFilters()" 
+                                class="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                            {{ t('clear_filters') }}
+                        </button>
+                        <button type="submit" 
+                                class="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors">
+                            {{ t('apply_filters') }}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Results Summary -->
+        <div class="flex items-center justify-between mb-6">
+            <div class="text-gray-600">
+                <span class="font-medium">{{ total_results }}</span> {{ t('results_found') }}
+            </div>
+        </div>
+
+        <!-- Articles List -->
+        {% if publications %}
+            <div class="space-y-6">
+                {% for article in publications %}
+                <article class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex-1">
+                            <!-- Access Type Badge -->
+                            <div class="mb-3">
+                                {% if not article.is_paid %}
+                                    <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-700/10">
+                                        <iconify-icon icon="tabler:lock-open" class="mr-1"></iconify-icon>
+                                        {{ t('open_access_filter') }}
+                                    </span>
+                                {% elif article.is_paid and article.subscription_enable %}
+                                    <span class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                                        <iconify-icon icon="tabler:crown" class="mr-1"></iconify-icon>
+                                        {{ t('subscription_access_filter') }}
+                                    </span>
+                                {% elif article.is_paid %}
+                                    <span class="inline-flex items-center rounded-md bg-orange-50 px-2 py-1 text-xs font-medium text-orange-700 ring-1 ring-inset ring-orange-700/10">
+                                        <iconify-icon icon="tabler:shopping-cart" class="mr-1"></iconify-icon>
+                                        {{ t('paid_access_filter') }}
+                                    </span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Title -->
+                            <h2 class="text-xl font-semibold text-gray-900 mb-2">
+                                <a href="{{ url_for('app__article', article_id=article.id) }}" 
+                                   class="hover:text-blue-600 transition-colors">
+                                    {{ article.title }}
+                                </a>
+                            </h2>
+
+                            <!-- Authors -->
+                            <div class="text-gray-600 mb-2">
+                                {{ article.authors }}
+                            </div>
+
+                            <!-- Publication Info -->
+                            <div class="flex items-center gap-4 text-sm text-gray-500 mb-3">
+                                {% if article.issue %}
+                                    <span>
+                                        {{ t('published_in') }} 
+                                        <a href="{{ url_for('app__issue', issue_id=article.issue.id) }}" 
+                                           class="text-blue-600 hover:text-blue-800">
+                                            {{ t('volume') }} {{ article.issue.vol_no }}, {{ t('issue') }} {{ article.issue.issue_no }} ({{ article.issue.year }})
+                                        </a>
+                                    </span>
+                                {% endif %}
+                                {% if article.date_publish %}
+                                    <span>{{ article.date_publish|timestamp_to_date }}</span>
+                                {% endif %}
+                                {% if article.doi %}
+                                    <span>{{ t('doi_label') }}: {{ article.doi }}</span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Abstract Preview -->
+                            {% if article.abstract %}
+                                <div class="text-gray-700 mb-3">
+                                    <div class="abstract-preview" data-full-text="{{ article.abstract }}">
+                                        <span class="preview-text">{{ article.abstract[:200] }}{% if article.abstract|length > 200 %}...{% endif %}</span>
+                                        {% if article.abstract|length > 200 %}
+                                            <button type="button" 
+                                                    class="show-more-btn text-blue-600 hover:text-blue-800 text-sm ml-1"
+                                                    onclick="toggleAbstract(this)">
+                                                {{ t('show_more') }}
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            <!-- Keywords -->
+                            {% if article.keywords %}
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    {% for keyword in article.keywords[:5] %}
+                                        <span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
+                                            {{ keyword }}
+                                        </span>
+                                    {% endfor %}
+                                    {% if article.keywords|length > 5 %}
+                                        <span class="text-gray-500 text-xs">+{{ article.keywords|length - 5 }} more</span>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Article Stats -->
+                        <div class="ml-6 text-right">
+                            <div class="text-sm text-gray-500 space-y-1">
+                                <div>{{ t('views') }}: {{ article.stat_views }}</div>
+                                <div>{{ t('cited_by') }}: {{ article.citations_count }}</div>
+                                <div>{{ t('references') }}: {{ article.references_count }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+                        <div class="flex gap-3">
+                            <a href="{{ url_for('app__article', article_id=article.id) }}" 
+                               class="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+                                <iconify-icon icon="tabler:eye" class="mr-2"></iconify-icon>
+                                {{ t('view_article') }}
+                            </a>
+                            {% if not article.is_paid %}
+                                <a href="{{ url_for('app__download_article', article_id=article.id) }}" 
+                                   class="inline-flex items-center px-4 py-2 text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
+                                    <iconify-icon icon="tabler:download" class="mr-2"></iconify-icon>
+                                    {{ t('download_pdf') }}
+                                </a>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="flex items-center gap-2">
+                            <button type="button" 
+                                    class="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                    title="{{ t('share') }}">
+                                <iconify-icon icon="tabler:share"></iconify-icon>
+                            </button>
+                            <button type="button" 
+                                    class="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                    title="{{ t('cite') }}">
+                                <iconify-icon icon="tabler:quote"></iconify-icon>
+                            </button>
+                        </div>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if total_results > per_page %}
+                <div class="mt-8 flex justify-center">
+                    <nav class="flex items-center gap-2">
+                        {% if page > 1 %}
+                            <a href="{{ url_for('app__articles', page=page-1, **current_filters) }}" 
+                               class="px-3 py-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                                {{ t('previous') }}
+                            </a>
+                        {% endif %}
+                        
+                        {% for p in range(max(1, page-2), min(page+3, (total_results // per_page) + 2)) %}
+                            {% if p <= (total_results // per_page) + 1 %}
+                                <a href="{{ url_for('app__articles', page=p, **current_filters) }}" 
+                                   class="px-3 py-2 {% if p == page %}bg-blue-600 text-white{% else %}text-gray-500 hover:text-gray-700 hover:bg-gray-100{% endif %} rounded-lg transition-colors">
+                                    {{ p }}
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page < (total_results // per_page) + 1 %}
+                            <a href="{{ url_for('app__articles', page=page+1, **current_filters) }}" 
+                               class="px-3 py-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                                {{ t('next') }}
+                            </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            {% endif %}
+        {% else %}
+            <!-- No Results -->
+            <div class="text-center py-12">
+                <div class="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                    <iconify-icon icon="tabler:article-off" class="w-12 h-12 text-gray-400"></iconify-icon>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">{{ t('no_articles_found') }}</h3>
+                <p class="text-gray-500 mb-6">{{ t('no_articles_found_desc') }}</p>
+                <button type="button" 
+                        onclick="clearFilters()" 
+                        class="inline-flex items-center px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors">
+                    {{ t('clear_filters') }}
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function clearFilters() {
+        // Clear all form inputs
+        document.getElementById('search').value = '';
+        document.getElementById('issue').value = '';
+        document.getElementById('volume').value = '';
+        document.getElementById('year').value = '';
+        document.getElementById('access').value = '';
+        document.getElementById('sort').value = 'newest';
+        
+        // Submit the form to apply cleared filters
+        document.getElementById('filters-form').submit();
+    }
+
+    function toggleAbstract(button) {
+        const preview = button.closest('.abstract-preview');
+        const previewText = preview.querySelector('.preview-text');
+        const fullText = preview.dataset.fullText;
+        
+        if (button.textContent.trim() === '{{ t("show_more") }}') {
+            previewText.textContent = fullText;
+            button.textContent = '{{ t("show_less") }}';
+        } else {
+            previewText.textContent = fullText.substring(0, 200) + (fullText.length > 200 ? '...' : '');
+            button.textContent = '{{ t("show_more") }}';
+        }
+    }
+
+    // Auto-submit form when filters change
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('filters-form');
+        const selects = form.querySelectorAll('select');
+        
+        selects.forEach(select => {
+            select.addEventListener('change', function() {
+                form.submit();
+            });
+        });
+
+        // Handle search input with debounce
+        const searchInput = document.getElementById('search');
+        let searchTimeout;
+        
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                form.submit();
+            }, 500);
+        });
+    });
+</script>
+{% endblock %} 

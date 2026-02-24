@@ -1,0 +1,1987 @@
+{% extends 'basic_dashboard.html' %}
+
+{% block title %}{{ t('submit_article') }} - {{ t('website_title') }}{% endblock %}
+
+
+{% block dashboard_content %}
+    <div class="pb-12">
+                <h4 class="text-2xl font-medium mb-8" id="page_header">{{ t('submit_new_article') }}</h4>
+
+                <div class="grid grid-cols-4 gap-4 mb-16">
+                    <div class="col border-e border-gray-200 py-5">
+                        <div class="flex justify-start sticky top-40">
+                            <div class="border-s border-gray-400 ps-4 absolute top-0 left-5 h-full"></div>
+                            <div class="z-25 step">
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group cursor-pointer" data-visible-section="1">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-hover:bg-gray-200 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors">
+                                        1
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-hover:text-blue-600 group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors">{{ t('basic_information') }}</h5>
+                                        <div class="text-sm text-gray-600">{{ t('basic_info_desc') }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group cursor-pointer" data-visible-section="2">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors group-hover:bg-gray-200">
+                                        2
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors group-hover:text-blue-600">{{ t('data_availability') }}</h5>
+                                        <div class="text-sm text-gray-600">{{ t('data_availability_desc') }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group cursor-pointer" data-visible-section="3">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors group-hover:bg-gray-200">
+                                        3
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors group-hover:text-blue-600">{{ t('copyright') }}</h5>
+                                        <div class="text-sm text-gray-600">{{ t('copyright_desc') }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group cursor-pointer" data-visible-section="4">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors group-hover:bg-gray-200">
+                                        4
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors group-hover:text-blue-600">{{ t('file_upload') }}</h5>
+                                        <div class="text-sm text-gray-600">{{ t('file_upload_desc') }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group cursor-pointer" data-visible-section="5">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors group-hover:bg-gray-200">
+                                        5
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors group-hover:text-blue-600">{{ t('ethical_standards') }}</h5>
+                                        <div class="text-sm text-gray-600">{{ t('ethical_standards_desc') }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group cursor-pointer" data-visible-section="6">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors group-hover:bg-gray-200">
+                                        6
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors group-hover:text-blue-600">{{ t('consent_for_publication') }}</h5>
+                                        <div class="text-sm text-gray-600">{{ t('consent_publication_desc') }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group cursor-pointer" data-visible-section="7">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors group-hover:bg-gray-200">
+                                        7
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors group-hover:text-blue-600">{{ t('acknowledgements') }}</h5>
+                                        <div class="text-sm text-gray-600">{{ t('acknowledgements_desc') }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group cursor-pointer" data-visible-section="8">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors group-hover:bg-gray-200">
+                                        8
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors group-hover:text-blue-600">{{ t('permissions') }}</h5>
+                                        <div class="text-sm text-gray-600">{{ t('permissions_desc') }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group cursor-pointer" data-visible-section="9">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors group-hover:bg-gray-200">
+                                        9
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors group-hover:text-blue-600">{{ t('word_count') }}</h5>
+                                        <div class="text-sm text-gray-600">{{ t('word_count_desc') }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group cursor-pointer" data-visible-section="10">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors group-hover:bg-gray-200">
+                                        10
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors group-hover:text-blue-600">{{ t('authors_information') }}</h5>
+                                        <div class="text-sm text-gray-600">{{ t('authors_information_desc') }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group cursor-pointer" data-visible-section="11">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors group-hover:bg-gray-200">
+                                        11
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors group-hover:text-blue-600">{{ t('competing_interests') }}</h5>
+                                        <div class="text-sm text-gray-600">{{ t('competing_interests_desc') }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group cursor-pointer" data-visible-section="12">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors group-hover:bg-gray-200">
+                                        12
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors group-hover:text-blue-600">{{ t('keywords') }}</h5>
+                                        <div class="text-sm text-gray-600">{{ t('keywords_desc') }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group cursor-pointer" data-visible-section="13">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors group-hover:bg-gray-200">
+                                        13
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors group-hover:text-blue-600">{{ t('classification') }}</h5>
+                                        <div class="text-sm text-gray-600">{{ t('classification_desc') }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex my-6 last:bg-white last:mb-0 first:mt-0 group cursor-pointer" data-visible-section="14">
+                                    <div class="bg-gray-50 border border-gray-300 text-gray-700 group-[.error]:bg-red-50 group-[.error]:border-red-400  group-[.error]:text-red-700 group-[.success]:text-green-700 group-[.success]:bg-green-50 group-[.success]:border-green-400 group-[.blue]:text-blue-700 group-[.blue]:bg-blue-50 group-[.blue]:border-blue-400  font-semibold w-10 h-10 min-w-10 rounded-full flex items-center justify-center me-4  transition-colors group-hover:bg-gray-200">
+                                        14
+                                    </div>
+                                    <div class="pt-2.5">
+                                        <h5 class="font-medium group-[.error]:text-red-700 group-[.blue]:text-blue-700 group-[.success]:text-green-700  transition-colors group-hover:text-blue-600">{{ t('open_access_editorial') }}</h5>
+                                        <div class="text-sm text-gray-600">{{ t('open_access_editorial_desc') }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+
+
+
+                    </div>
+                    <div class="col-span-3 py-5">
+                        <div class="intersect intersect-full" id="section_1" data-section-id="1">
+
+
+                            <div class="mb-4 px-2">
+                                <h4 class="text-xl font-medium ">{{ t('basic_information') }}</h4>
+                            </div>
+
+                            <div class="mb-6 px-2 group" data-input-group="title">
+                                <label for="title" class="block mb-2 text-sm font-medium text-gray-900 group-[.error]:text-red-500">{{ t('title') }}</label>
+                                <input type="text" id="title" name="title" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="" required />
+                                <div class="text-red-500 text-sm ps-1 mt-1 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('fill_required_field') }}</div>
+                            </div>
+
+                            <div class="mb-6 px-2 group" data-input-group="abstract">
+                                <label for="abstract" class="block mb-2 text-sm font-medium text-gray-900 group-[.error]:text-red-500">{{ t('abstract') }}</label>
+                                <textarea name="abstract" rows="6" id="abstract" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors"></textarea>
+                                <div class="text-red-500 text-sm ps-1 mt-1 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('fill_required_field') }}</div>
+                            </div>
+
+                            <div class="mb-6 px-2 group" data-input-group="is_special_issue">
+                                <div class="block mb-2 text-sm font-semibold text-gray-900 group-[.error]:text-red-500">{{ t('special_issue_question') }}</div>
+                                <div class="flex gap-6">
+                                    <div class="flex items-center">
+                                        <input id="is_special_issue_yes" type="radio" value="1" name="is_special_issue" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="is_special_issue_yes" class="ms-2 text-sm font-medium text-gray-700 group-[.error]:text-red-500">{{ t('yes') }}</label>
+                                    </div>
+
+                                    <div class="flex items-center">
+                                        <input id="is_special_issue_no" type="radio" value="0" name="is_special_issue" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="is_special_issue_no" class="ms-2 text-sm font-medium text-gray-700 group-[.error]:text-red-500">{{ t('no') }}</label>
+                                    </div>
+                                </div>
+                                <div class="text-red-500 text-sm ps-1 mt-2 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('select_one_option') }}</div>
+                            </div>
+
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6">
+                        <div class="intersect intersect-full" id="section_2" data-section-id="2">
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">{{ t('data_availability') }}</h4>
+                            </div>
+
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                {{ t('data_sharing_policy_text') }}
+                            </div>
+
+                            <div class="mb-6 px-2 group" data-input-group="is_dataset">
+                                <div class="block mb-2 text-sm font-semibold text-gray-900 group-[.error]:text-red-500">{{ t('dataset_question') }}</div>
+                                <div class="flex gap-6">
+                                    <div class="flex items-center">
+                                        <input id="is_dataset_yes" type="radio" value="1" name="is_dataset" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="is_dataset_yes" class="ms-2 text-sm font-medium text-gray-700 group-[.error]:text-red-500">{{ t('yes') }}</label>
+                                    </div>
+
+                                    <div class="flex items-center">
+                                        <input id="is_dataset_no" type="radio" value="0" name="is_dataset" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="is_dataset_no" class="ms-2 text-sm font-medium text-gray-700 group-[.error]:text-red-500">{{ t('no') }}</label>
+                                    </div>
+                                </div>
+                                <div class="text-red-500 text-sm ps-1 mt-2 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('select_one_option') }}</div>
+                            </div>
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6 ">
+
+                        <div class="intersect intersect-full " id="section_3" data-section-id="3">
+                            <div class="mb-6  px-2 ">
+                                <h4 class="text-xl font-medium ">{{ t('copyright') }}</h4>
+                            </div>
+                            <div class="group my-6 px-2" data-input-group="is_copyright_accept">
+                                <div class="my-4 text-sm text-gray-600">
+                                    {{ t('copyright_confirmation_text') }}
+                                </div>
+
+                                <div class="flex items-center mb-1 ">
+                                    <div class="flex items-center h-5">
+                                        <input id="is_copyright_accept" type="checkbox" value="1" name="is_copyright_accept" class="w-4 h-4 border border-gray-300 accent-fmmain rounded-sm bg-gray-50 focus:ring-3 focus:ring-fmmain-light" required />
+                                    </div>
+                                    <label for="is_copyright_accept" class="ms-2 text-sm font-medium text-gray-900 group-[.error]:text-red-600">{{ t('i_confirm') }}</label>
+
+                                </div>
+                                <div class="text-red-500 text-sm ps-0 mt-2 h-0 opacity-0 hidden group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('you_should_confirm') }}</div>
+                            </div>
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6">
+
+                        <div class="intersect intersect-full" id="section_4" data-section-id="4">
+
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">{{ t('file_upload') }}</h4>
+                            </div>
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                {{ t('file_upload_requirements_text') }}
+                            </div>
+
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                {{ t('double_blind_review_explanation') }}
+                            </div>
+
+                            <div class="my-4 text-sm px-2">
+                                <div class="flex flex-col gap-2 w-full justify-center" id="upload_files">
+                                    <div class="file_authors hidden" data-file-authors>
+                                        {{ t('file_with_author_details') }} - <a href="" class="text-blue-600 hover:text-blue-800 download">{{ t('download') }}</a>
+                                    </div>
+                                    <div class="file_anonymized hidden" data-file-anonymized>
+                                        {{ t('file_without_author_details') }} - <a href="" class="text-blue-600 hover:text-blue-800 download">{{ t('download') }}</a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="my-6 px-2 group" data-input-group="files">
+                                <div class="flex gap-4" id="upload_buttons">
+                                    <input type="file" id="file_authors" name="file_authors" accept=".pdf,.doc,.docx" class="hidden" />
+                                    <input type="hidden" id="file_authors_path" name="file_authors_path" value="" />
+                                    <button type="button" class="upload_authors flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-gray-50 border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100 hover:cursor-pointer transition-colors group">
+                                        <span class="opacity-100 group-[.processing]:opacity-0 group-[.uploaded]:opacity-0">{{ t('update_file_with_author_details') }}</span>
+                                        <iconify-icon icon="svg-spinners:90-ring" class="absolute text-gray-400 opacity-0 group-[.processing]:opacity-100"></iconify-icon>
+                                        <span class="absolute text-green-700 opacity-0 group-[.uploaded]:opacity-100">{{ t('uploaded') }}!</span>
+                                        <iconify-icon icon="tabler:paperclip" class="text-lg text-fmmain opacity-100 group-[.processing]:opacity-0 group-[.uploaded]:opacity-0"></iconify-icon>
+                                    </button>
+
+                                    <input type="file" id="file_anonymized" name="file_anonymized" accept=".pdf,.doc,.docx" class="hidden" />
+                                    <input type="hidden" id="file_anonymized_path" name="file_anonymized_path" value="" />
+                                    <button type="button" class="upload_anonymized flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-gray-50 border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100 hover:cursor-pointer transition-colors group">
+                                        <span class="opacity-100 group-[.processing]:opacity-0 group-[.uploaded]:opacity-0">{{ t('update_file_without_author_details') }}</span>
+                                        <iconify-icon icon="svg-spinners:90-ring" class="absolute text-gray-400 opacity-0 group-[.processing]:opacity-100"></iconify-icon>
+                                        <span class="absolute text-green-700 opacity-0 group-[.uploaded]:opacity-100">{{ t('uploaded') }}!</span>
+                                        <iconify-icon icon="tabler:paperclip" class="text-lg text-fmmain opacity-100 group-[.processing]:opacity-0 group-[.uploaded]:opacity-0"></iconify-icon>
+                                    </button>
+                                </div>
+                                <div class="text-red-500 text-sm ps-1 mt-2 h-0 opacity-0 hidden group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('you_should_upload_files') }}</div>
+                            </div>
+
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6 ">
+
+                        <div class="intersect intersect-full" id="section_5" data-section-id="5">
+
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">{{ t('ethical_standards') }}</h4>
+                            </div>
+
+                            <div class="group my-6 px-2" data-input-group="is_ethical_accept">
+                                <div class="my-4 text-sm text-gray-600">
+                                    {{ t('ethical_standards_text') }}
+                                </div>
+
+                                <div class="flex items-center mb-1 ">
+                                    <div class="flex items-center h-5">
+                                        <input id="is_ethical_accept" type="checkbox" value="1" name="is_ethical_accept" class="w-4 h-4 border border-gray-300 accent-fmmain rounded-sm bg-gray-50 focus:ring-3 focus:ring-fmmain-light" required />
+                                    </div>
+                                    <label for="is_ethical_accept" class="ms-2 text-sm font-medium text-gray-900 group-[.error]:text-red-600">{{ t('i_confirm') }}</label>
+
+                                </div>
+                                <div class="text-red-500 text-sm ps-0 mt-2 h-0 opacity-0 hidden group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('you_should_confirm') }}</div>
+                            </div>
+                        </div>
+
+                        <div class="intersect intersect-full" id="section_6" data-section-id="6">
+
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">{{ t('consent_for_publication') }}</h4>
+                            </div>
+
+                            <div class="group my-6 px-2" data-input-group="is_consent_accept">
+                                <div class="my-4 text-sm text-gray-600">
+                                    {{ t('consent_for_publication_text') }}
+                                </div>
+
+                                <div class="flex items-center mb-1 ">
+                                    <div class="flex items-center h-5">
+                                        <input id="is_consent_accept" type="checkbox" value="1" name="is_consent_accept" class="w-4 h-4 border border-gray-300 accent-fmmain rounded-sm bg-gray-50 focus:ring-3 focus:ring-fmmain-light" required />
+                                    </div>
+                                    <label for="is_consent_accept" class="ms-2 text-sm font-medium text-gray-900 group-[.error]:text-red-600">{{ t('i_confirm') }}</label>
+
+                                </div>
+                                <div class="text-red-500 text-sm ps-0 mt-2 h-0 opacity-0 hidden group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('you_should_confirm') }}</div>
+                            </div>
+                        </div>
+
+                        <div class="intersect intersect-full" id="section_7" data-section-id="7">
+
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">{{ t('acknowledgements') }}</h4>
+                            </div>
+
+                            <div class="group my-6 px-2" data-input-group="is_acknowledgements_accept">
+                                <div class="my-4 text-sm text-gray-600">
+                                    {{ t('acknowledgements_text') }}
+                                </div>
+
+                                <div class="flex items-center mb-1 ">
+                                    <div class="flex items-center h-5">
+                                        <input id="is_acknowledgements_accept" type="checkbox" value="1" name="is_acknowledgements_accept" class="w-4 h-4 border border-gray-300 accent-fmmain rounded-sm bg-gray-50 focus:ring-3 focus:ring-fmmain-light" required />
+                                    </div>
+                                    <label for="is_acknowledgements_accept" class="ms-2 text-sm font-medium text-gray-900 group-[.error]:text-red-600">{{ t('i_confirm') }}</label>
+
+                                </div>
+                                <div class="text-red-500 text-sm ps-0 mt-2 h-0 opacity-0 hidden group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('you_should_confirm') }}</div>
+                            </div>
+
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6 ">
+
+                        <div class="intersect intersect-full" id="section_8" data-section-id="8">
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">{{ t('permissions') }}</h4>
+                            </div>
+
+                            <div class="mb-6 px-2 group" data-input-group="is_previously">
+                                <div class="block mb-2 text-sm font-semibold text-gray-900 group-[.error]:text-red-500">{{ t('previously_published_question') }}</div>
+                                <div class="flex gap-6">
+                                    <div class="flex items-center">
+                                        <input id="is_previously_yes" type="radio" value="1" name="is_previously" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="is_previously_yes" class="ms-2 text-sm font-medium text-gray-700 group-[.error]:text-red-500">{{ t('yes') }}</label>
+                                    </div>
+
+                                    <div class="flex items-center">
+                                        <input id="is_previously_no" type="radio" value="0" name="is_previously" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="is_previously_no" class="ms-2 text-sm font-medium text-gray-700 group-[.error]:text-red-500">{{ t('no') }}</label>
+                                    </div>
+                                </div>
+                                <div class="text-red-500 text-sm ps-1 mt-2 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('select_one_option') }}</div>
+                            </div>
+
+                        </div>
+                        <hr class="text-gray-300 h-1px my-6 ">
+
+                        <div class="intersect intersect-full" id="section_9" data-section-id="9">
+
+                            <div class="mb-4  px-2">
+                                <h4 class="text-xl font-medium ">{{ t('word_count') }}</h4>
+                            </div>
+
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                {{ t('word_count_instruction') }}
+                            </div>
+
+                            <div class="mb-6 px-2 group" data-input-group="word_count">
+                                <label for="word_count" class="block mb-2 text-sm font-medium text-gray-900 group-[.error]:text-red-500">{{ t('word_count') }}</label>
+                                <input type="text" id="word_count" name="word_count" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="" required />
+                                <div class="text-red-500 text-sm ps-1 mt-1 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('word_count_field_required') }}</div>
+                            </div>
+
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6">
+
+                        <div class="intersect intersect-full" id="section_10" data-section-id="10">
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">{{ t('authors_information') }}</h4>
+                            </div>
+
+                            <div class="my-6 px-2">
+                                <h4 class="text-md font-medium mb-4">{{ t('corresponding_author') }}:</h4>
+                                <div class="text-sm mb-2 text-gray-600">
+                                    {{ t('current_corresponding_author') }}:
+                                </div>
+                                <div class="text-sm font-semibold mb-2" id="current_corresponding_author">
+                                    Mark Markov, ORCID: 0000-0000-0000-0000
+                                </div>
+                                <div class="flex gap-2">
+                                    <a href="javascript:;" data-set-cauthor="search" class="flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-100 hover:cursor-pointer transition-colors" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                        {{ t('change_corresponding_author') }}
+                                    </a>
+
+                                    <a href="javascript:;" data-set-cauthor="me" class="flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-gray-50 border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-100 hover:cursor-pointer transition-colors" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                        {{ t('i_am_corresponding_author') }}
+                                    </a>
+                                </div>
+                            </div>
+
+
+                            <div class="my-6 px-2" id="subauthors_section">
+                                <h4 class="text-md font-medium mb-4">Subauthors:</h4>
+                                <div class="text-sm mb-2 text-gray-600">
+                                    Current subauthors list:
+                                </div>
+                                <div class="mb-4 flex flex-col gap-3" id="subauthor_list">
+
+                                    <div data-example data-author-id="$id" class="hidden flex items-center gap-2 flex-row-reverse w-fit transition-colors">
+                                        <a href="javascript:;" data-delete-subauthor="delete" class="flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-red-50/0 border border-red-100/75 px-2 py-1 text-xs font-semibold text-red-400 hover:bg-red-100 hover:cursor-pointer transition-colors peer">
+                                            {{ t('delete_this_author') }}
+                                        </a>
+                                        <!-- Peer element (text) -->
+                                        <div class="text-sm font-medium peer-hover:text-gray-400 line-through decoration-gray-400/0 peer-hover:decoration-gray-400 transition-colors">
+                                            $name, ORCID: $orcid
+                                        </div>
+                                    </div>
+
+                                    <div class="text-sm text-gray-500 italic" id="no_subauthors_message">
+                                        {{ t('no_subauthors_added_yet') }}
+                                    </div>
+
+                                </div>
+                                <div class="flex gap-2">
+                                    <a href="javascript:;" data-add-subauthor="search" class="flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-100 hover:cursor-pointer transition-colors" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                        <iconify-icon icon="tabler:plus"></iconify-icon> {{ t('add_new_author') }}
+                                    </a>
+
+                                </div>
+                            </div>
+
+                            <div class="group" data-input-group="author">
+                                <div class="text-red-500 text-sm ps-1 mt-2 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('select_corresponding_author') }}</div>
+                            </div>
+
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6 ">
+
+                        <div class="intersect intersect-full" id="section_11" data-section-id="11">
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">{{ t('competing_interests') }}</h4>
+                            </div>
+
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                {{ t('competing_interests_text') }}
+                            </div>
+
+                            <div class="mb-6 px-2 group" data-input-group="is_competing">
+                                <div class="flex gap-6">
+                                    <div class="flex items-center">
+                                        <input id="is_competing_yes" type="radio" value="1" name="is_competing" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="is_competing_yes" class="ms-2 text-sm font-medium text-gray-700 group-[.error]:text-red-500">{{ t('yes') }}</label>
+                                    </div>
+
+                                    <div class="flex items-center">
+                                        <input id="is_competing_no" type="radio" value="0" name="is_competing" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 ">
+                                        <label for="is_competing_no" class="ms-2 text-sm font-medium text-gray-700 group-[.error]:text-red-500">{{ t('no') }}</label>
+                                    </div>
+                                </div>
+                                <div class="text-red-500 text-sm ps-1 mt-2 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('select_one_option') }}</div>
+                            </div>
+
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6 ">
+
+                        <div class="intersect intersect-full" id="section_12" data-section-id="12">
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">{{ t('keywords') }}</h4>
+                            </div>
+
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                {{ t('keywords_instruction') }}
+                            </div>
+
+                            <div class="my-4 px-2">
+                                <h4 class="text-md font-medium mb-4">{{ t('keywords') }}:</h4>
+                                <div class="text-sm mb-2 text-gray-600">
+                                    {{ t('current_keywords_list') }}:
+                                </div>
+                                <div class="flex flex-wrap gap-1" id="list_keywords">
+
+                                    <div data-example data-keyword="$data" class="hidden bg-blue-50 border text-nowrap border-blue-200 text-blue-700 hover:bg-red-50 hover:border-red-200 hover:text-red-700 text-xs px-2 py-0.5 rounded-sm flex items-center justify-center group/item pointer-events-none transition-colors">
+                                        $data
+                                        <a href="javascript:;" class="text-xs flex items-center justify-center ms-1 text-red-400 pointer-events-auto" data-delete-keyword-button>
+                                            <iconify-icon icon="tabler:x" data-delete-keyword="keyword"></iconify-icon>
+                                        </a>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            <div class="mb-6 px-2" id="new_keyword_section">
+                                <label for="keywords" class="block mb-2 text-sm font-medium text-gray-900 ">{{ t('new_keyword') }}:</label>
+                                <input type="text" id="keywords" name="keywords" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="{{ t('keyword_placeholder') }}" required />
+                            </div>
+
+                            <div class="group" data-input-group="keywods">
+                                <div class="text-red-500 text-sm ps-1 mt-2 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('add_at_least_keywords') }}</div>
+                            </div>
+
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6 ">
+
+                        <div class="intersect intersect-full" id="section_13" data-section-id="13">
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">{{ t('classification') }}</h4>
+                            </div>
+
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                {{ t('classification_instruction') }}
+                            </div>
+
+                            <div class="mb-6  px-2">
+                                <label for="classifications" class="block mb-2 text-sm font-medium text-gray-900 ">{{ t('search_classifications') }}:</label>
+                                <input type="text" id="classifications" name="find_classification" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="{{ t('start_typing') }}..." required />
+                            </div>
+
+                            <div class="mb-6 px-2">
+                                <div class="text-sm mb-2 text-gray-800">
+                                    {{ t('selected_classifications') }}:
+                                </div>
+
+                                <div class="flex gap-2 items-center flex-wrap classifier" id="classifier">
+                                    <button type="button" data-id="$cl_id" data-cl_text="$cl_text" data-example class="hidden px-4 py-2 not-[.checked]:bg-gray-50 not-[.checked]:border-gray-200 not-[.checked]:text-gray-900 bg-green-50 border-green-700 text-green-700 border rounded-lg text-sm font-medium flex items-center justify-center transition-colors group">
+                                        <iconify-icon icon="tabler:check" class="me-1 w-4 flex items-center content-center opacity-0 group-hover:opacity-100 group-[.checked]:opacity-100 transition-opacity"></iconify-icon>
+                                        <div class="-translate-x-2 group-hover:translate-x-0 transition-transform group-[.checked]:translate-x-0">$cl_text</div>
+                                    </button>
+
+                                </div>
+
+                                <div class="group mt-2" data-input-group="classifications">
+                                    <div class="text-red-500 text-sm ps-1 mt-2 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('add_at_least_classification') }}</div>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6 ">
+
+                        <div class="intersect intersect-full" id="section_14" data-section-id="14">
+                            <div class="mb-6  px-2">
+                                <h4 class="text-xl font-medium ">{{ t('open_access_editorial') }}</h4>
+                            </div>
+
+                            <div class="my-4 text-sm text-gray-600  px-2">
+                                {{ t('open_access_editorial_text') }}
+                            </div>
+                            <div class="my-4 px-2">
+                                <a href="" class="text-sm text-blue-600 hover:text-blue-700 flex items-center justify-center gap-x-1 w-fit">{{ t('open_author_guidelines') }} <iconify-icon icon="tabler:link"></iconify-icon></a>
+                            </div>
+
+                        </div>
+
+                        <hr class="text-gray-300 h-1px my-6 ">
+
+                        <div class="my-6 px-2" id="article_actions">
+                            <div class="flex gap-2">
+                                <a href="javascript:;" class="deletearticle inline-flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-red-50 border border-red-100 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 transition-colors hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                    <iconify-icon icon="tabler:x" class="text-lg text-gren-800"></iconify-icon>
+                                    {{ t('delete_article') }}
+                                </a>
+
+                                <a href="javascript:;" class="savedraft ms-auto inline-flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-gray-50 border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-200 transition-colors hover:cursor-pointer group" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                    <div class="opacity-100 group-[.processing]:opacity-0 group-[.saved]:opacity-0 transition-opacity">{{ t('save_as_draft') }}</div>
+                                    <iconify-icon icon="svg-spinners:90-ring" class="absolute text-gray-400 opacity-0 group-[.processing]:opacity-100  transition-opacity"></iconify-icon>
+                                    <div class="absolute text-green-700 opacity-0 group-[.saved]:opacity-100 transition-opacity">{{ t('saved') }}!</div>
+                                </a>
+
+                                <a href="javascript:;" class="submit inline-flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-green-50 border border-green-300 px-4 py-2 text-sm font-semibold text-green-900 hover:bg-green-200 transition-colors hover:cursor-pointer group" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                    <div class="opacity-100 group-[.processing]:opacity-0 group-[.submitted]:opacity-0 transition-opacity">{{ t('review_article') }}</div>
+                                    <iconify-icon icon="svg-spinners:90-ring" class="absolute text-gray-400 opacity-0 group-[.processing]:opacity-100 transition-opacity"></iconify-icon>
+                                    <div class="absolute text-green-700 opacity-0 group-[.submitted]:opacity-100 transition-opacity">{{ t('submitted') }}!</div>
+                                    <iconify-icon icon="tabler:check" class="text-lg text-gren-800 opacity-100 group-[.processing]:opacity-0 group-[.submitted]:opacity-0 transition-opacity"></iconify-icon>
+                                </a>
+
+                            </div>
+                        </div>
+
+                        <div class="my-6 px-2">
+                            <h5 class="text-md font-medium mb-4 text-gray-700">{{ t('form_errors_title') }}:</h5>
+                            <div id="errors_list">
+                                <a href="javascript:;" data-visible-section="$section_id" data-example class="hidden opacity-0 bg-red-50 px-3 py-2 text-xs text-red-600 rounded-md hover:bg-red-100 transition-all duration-300 my-2 flex items-center justify-between">
+                                    <div>$error</div>
+                                    <div>{{ t('jump_to_section') }}</div>
+                                </a>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+    <div class="relative z-60 hidden" id="author_search_model" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-500/75 transition-opacity" aria-hidden="true"></div>
+
+        <div class="fixed inset-0 z-70 w-screen overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <h4 class="text-lg font-medium mb-4">{{ t('choose_author') }}</h4>
+
+                        <!-- Search mode selection (name search only for admins) -->
+                        <div class="mb-4">
+                            <div class="flex items-center space-x-4">
+                                <label class="flex items-center">
+                                    <input type="radio" name="search_mode" value="orcid" id="search_by_orcid" class="mr-2" checked>
+                                    <span class="text-sm font-medium text-gray-900">{{ t('search_by_orcid') }}</span>
+                                </label>
+                                <label class="flex items-center" id="name_search_option">
+                                    <input type="radio" name="search_mode" value="name" id="search_by_name" class="mr-2">
+                                    <span class="text-sm font-medium text-gray-900">{{ t('search_by_name') }}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- ORCID search field -->
+                        <div class="mb-4" id="orcid_search_field">
+                            <label for="searchauthor_orcid" class="block mb-2 text-sm font-medium text-gray-900 ">{{ t('author_orcid') }}:</label>
+                            <input type="text" id="searchauthor_orcid" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="0000-0000-0000-0000" />
+
+                            <!-- Checkbox for author without ORCID -->
+                            <div class="mt-2">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="author_without_orcid" class="mr-2">
+                                    <span class="text-sm text-gray-700">{{ t('author_without_orcid') }}</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Name search field -->
+                        <div class="mb-4 hidden" id="name_search_field">
+                            <label for="searchauthor_name_search" class="block mb-2 text-sm font-medium text-gray-900 ">{{ t('author_name') }}:</label>
+                            <input type="text" id="searchauthor_name_search" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="John Doe" />
+                        </div>
+
+                        <div class="grid grid-cols-6 gap-4 my-4 hidden" id="search_additional">
+                            <div class="col-span-6">
+                                <div class="my-2 text-gray-600 text-sm">
+                                    {{ t('author_not_found_message') }}
+                                </div>
+                            </div>
+                            <div class="col-span-6">
+                                <label for="searchauthor_name" class="block mb-2 text-sm font-medium text-gray-900 ">{{ t('full_author_name') }}</label>
+                                <input type="text" id="searchauthor_name" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="John Doe" required="">
+                            </div>
+
+                            <div class="col-span-6">
+                                <label for="searchauthor_organization" class="block mb-2 text-sm font-medium text-gray-900 ">{{ t('organization') }}</label>
+                                <input type="text" id="searchauthor_organization" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="" required="">
+                            </div>
+
+                            <div class="col-span-3">
+                                <label for="searchauthor_department" class="block mb-2 text-sm font-medium text-gray-900 ">{{ t('department') }}</label>
+                                <input type="text" id="searchauthor_department" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="" required="">
+                            </div>
+                            <div class="col-span-3">
+                                <label for="searchauthor_position" class="block mb-2 text-sm font-medium text-gray-900 ">{{ t('position') }}</label>
+                                <input type="text" id="searchauthor_position" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="" required="">
+                            </div>
+                            
+                            <div class="col-span-4">
+                                <label for="searchauthor_street" class="block mb-2 text-sm font-medium text-gray-900 ">{{ t('street') }}</label>
+                                <input type="text" id="searchauthor_street" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="" required="">
+                            </div>
+                            <div class="col-span-2">
+                                <label for="searchauthor_city" class="block mb-2 text-sm font-medium text-gray-900 ">{{ t('city') }}</label>
+                                <input type="text" id="searchauthor_city" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="" required="">
+                            </div>
+                            
+                            <div class="col-span-4">
+                                <label for="searchauthor_country" class="block mb-2 text-sm font-medium text-gray-900 ">{{ t('country') }}</label>
+                                <input type="text" id="searchauthor_country" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="" required="">
+                            </div>
+                            <div class="col-span-2">
+                                <label for="searchauthor_postal_code" class="block mb-2 text-sm font-medium text-gray-900 ">{{ t('postal_code') }}</label>
+                                <input type="text" id="searchauthor_postal_code" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="" required="">
+                            </div>
+                            
+                            <div class="col-span-3">
+                                <label for="searchauthor_phone" class="block mb-2 text-sm font-medium text-gray-900 ">{{ t('phone') }}</label>
+                                <input type="text" id="searchauthor_phone" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="" required="">
+                            </div>
+                            <div class="col-span-3">
+                                <label for="searchauthor_email" class="block mb-2 text-sm font-medium text-gray-900 ">{{ t('email') }}</label>
+                                <input type="email" id="searchauthor_email" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="" required="">
+                            </div>
+
+                        </div>
+
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                        <button type="button" id="author_search" class="cursor-pointer inline-flex w-full justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-blue-500 sm:ml-3 sm:w-auto">
+                            <span class="search-text">{{ t('choose_author') }}</span>
+                            <span class="create-text hidden">{{ t('create_author') }}</span>
+                        </button>
+                        <button type="button" id="close_author_search" class="cursor-pointer mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 shadow-xs ring-gray-300 ring-inset hover:bg-gray-50 sm:mt-0 sm:w-auto">{{ t('cancel') }}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+{% endblock %}
+{% block dashboard_scripts %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    // JavaScript translations for dynamic content
+    const TRANSLATIONS = {
+        viewArticle: '{{ t("view_article") }}',
+        editArticle: '{{ t("edit_article") }}',
+        submitNewArticle: '{{ t("submit_new_article") }}',
+        failedToLoadSubmission: '{{ t("failed_to_load_submission") }}',
+        failedToSaveDraft: '{{ t("failed_to_save_draft") }}',
+        failedToSubmitArticle: '{{ t("failed_to_submit_article") }}',
+        deleteConfirmation: '{{ t("are_you_sure_delete_draft") }}',
+        failedToDeleteSubmission: '{{ t("failed_to_delete_submission") }}',
+        tryAgain: '{{ t("try_again") }}',
+        completeAuthorProfile: '{{ t("complete_author_profile_first") }}',
+        pleaseEnterOrcid: '{{ t("please_enter_orcid") }}',
+        invalidOrcidFormat: '{{ t("invalid_orcid_format") }}',
+        fillRequiredFields: '{{ t("fill_required_fields_colon") }}',
+        authorNameTooShort: '{{ t("author_name_too_short") }}',
+        validEmailRequired: '{{ t("valid_email_required") }}',
+        failedToCreateAuthor: '{{ t("failed_to_create_author") }}',
+        unknownError: '{{ t("unknown_error") }}'
+    };
+
+    // User role information for JavaScript
+    window.userRole = '{{ session.user.rolename if session.user else "user" }}';
+
+    // Global variables for submission management
+
+    let submission_data = null;
+    let is_ready_submit = false;
+
+    const error_data = {
+        "title": { 'title': '{{ t("error_title_required") }}', 'section': 1 },
+        "abstract": { 'title': '{{ t("error_abstract_too_short") }}', 'section': 1 },
+        "is_special_issue": { 'title': '{{ t("error_specify_special_issue") }}', 'section': 2 },
+        "is_dataset": { 'title': '{{ t("error_specify_dataset") }}', 'section': 3 },
+        "is_copyright_accept": { 'title': '{{ t("error_accept_copyright") }}', 'section': 4 },
+        "files": { 'title': '{{ t("error_upload_required_files") }}', 'section': 4 },
+        "is_ethical_accept": { 'title': '{{ t("error_address_ethical") }}', 'section': 5 },
+        "is_consent_accept": { 'title': '{{ t("error_consent_required") }}', 'section': 6 },
+        "is_acknowledgements_accept": { 'title': '{{ t("error_provide_acknowledgments") }}', 'section': 7 },
+        "is_previously": { 'title': '{{ t("error_specify_previously_published") }}', 'section': 8 },
+        "word_count": { 'title': '{{ t("error_word_count_exceeds") }}', 'section': 9 },
+        "author": { 'title': '{{ t("error_author_details_incomplete") }}', 'section': 10 },
+        "is_competing": { 'title': '{{ t("error_disclose_competing_interests") }}', 'section': 11 },
+        "keywords": { 'title': '{{ t("error_keywords_required") }}', 'section': 12 },
+        "classifications": { 'title': '{{ t("error_select_classifications") }}', 'section': 13 }
+    };
+
+    // Initialize intersection observer for section highlighting
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const sectionId = $(entry.target).data('section-id');
+                $('.step .blue:not([data-visible-section="' + sectionId + '"])').removeClass('blue');
+                $('.step [data-visible-section="' + sectionId + '"]').addClass('blue');
+            }
+        });
+    }, {
+        root: null,
+        rootMargin: '-142px 0px 0px 0px', // Account for sticky header
+        threshold: 0.1
+    });
+
+    // Observe all sections
+    $('.intersect').each(function() {
+        observer.observe(this);
+    });
+
+    function process_data(data) {
+        submission_data = data.submission;
+        is_ready_submit = data.is_ready_submit;
+        const viewOnly = new URLSearchParams(window.location.search).get('view') === 'true';
+
+        // Fill form fields with submission data
+        $('[name="title"]').val(submission_data.title || '');
+        $('[name="abstract"]').val(submission_data.abstract || '');
+        $('[name="word_count"]').val(submission_data.word_count || '');
+
+        // Handle radio buttons
+        change_radio_state("is_special_issue", submission_data.is_special_issue);
+        change_radio_state("is_dataset", submission_data.is_dataset);
+        change_radio_state("is_previously", submission_data.is_used_previous);
+        change_radio_state("is_competing", submission_data.is_competing_interests);
+
+        // Handle checkboxes
+        change_checkbox_state('is_copyright_accept', submission_data.check_copyright);
+        change_checkbox_state('is_ethical_accept', submission_data.check_ethical);
+        change_checkbox_state('is_consent_accept', submission_data.check_consent);
+        change_checkbox_state('is_acknowledgements_accept', submission_data.check_acknowledgements);
+
+        // Set corresponding author
+        if (submission_data.main_author_id && data.author_profiles && data.author_profiles[submission_data.main_author_id]) {
+            const author = data.author_profiles[submission_data.main_author_id];
+            set_corresponding({
+                id: author.id,
+                name: author.name,
+                orcid: author.orcid
+            });
+        }
+
+        // Add subauthors
+        if (submission_data.sub_author_ids && data.author_profiles) {
+            // Reset subauthors section state
+            $('#no_subauthors_message').show();
+            
+            submission_data.sub_author_ids.forEach(authorId => {
+                if (data.author_profiles[authorId]) {
+                    const author = data.author_profiles[authorId];
+                    add_author(author.id, author.name, author.orcid);
+                }
+            });
+        } else {
+            // Show message if no subauthors
+            $('#no_subauthors_message').show();
+        }
+
+        // Add keywords
+        if (submission_data.keywords) {
+            submission_data.keywords.forEach(keyword => {
+                add_keyword(keyword);
+            });
+        }
+
+        // Mark selected classifications as checked (if classification buttons are already created)
+        if (submission_data.classifications) {
+            submission_data.classifications.forEach(classificationId => {
+                const idStr = String(classificationId);
+                $(`#classifier [data-id="${idStr}"]`).addClass('checked');
+            });
+        }
+
+        if (viewOnly) {
+            // Disable all form inputs
+            $('input, textarea, select, button').prop('disabled', true);
+            
+            // Make all sections non-clickable
+            $('.step [data-visible-section]').addClass('cursor-default').off('click');
+            
+            // Hide file upload buttons
+            $('#upload_buttons').addClass('hidden');
+            
+            // Hide author-related buttons
+            $('[data-set-cauthor="search"]').addClass('hidden');
+            $('[data-set-cauthor="me"]').addClass('hidden');
+            $('[data-add-subauthor="search"]').addClass('hidden');
+            $('[data-delete-subauthor="delete"]').addClass('hidden');
+            
+            // Hide keyword-related elements
+            $('[data-delete-keyword-button]').addClass('hidden');
+            $('#new_keyword_section').addClass('hidden');
+            
+            // Hide classification search field and make buttons non-clickable
+            $('[name="find_classification"]').parent().addClass('hidden');
+            $('.classifier button').addClass('cursor-default').off('click');
+            
+            // Hide delete, draft, and review buttons
+            $('#article_actions').addClass('hidden');
+            
+            // Hide errors list label text
+            $('.my-6.px-2 h5.text-md.font-medium.mb-4.text-gray-700').addClass('hidden');
+            
+            // Make sure classifications are properly displayed
+            if (submission_data.classifications) {
+                // Hide all classification buttons first
+                $('.classifier button:not([data-example])').addClass('hidden');
+                // Show only the selected classifications
+                submission_data.classifications.forEach(classificationId => {
+                    const idStr = String(classificationId);
+                    $(`#classifier [data-id="${idStr}"]`).removeClass('hidden').addClass('checked');
+                });
+            }
+        }
+
+        // Show errors if any
+        if (data.errors && data.errors.length > 0) {
+            show_errors(data.errors);
+        }
+
+        // Handle file displays if they exist
+        if (submission_data.file_authors) {
+            // Update file author display
+            $('[data-file-authors]').removeClass('hidden')
+                .find('.download').attr('href', submission_data.file_authors.download);
+            // Fill hidden field
+            $('#file_authors_path').val(submission_data.file_authors.title);
+        }
+
+        if (submission_data.file_anonymized) {
+            // Update anonymized file display
+            $('[data-file-anonymized]').removeClass('hidden')
+                .find('.download').attr('href', submission_data.file_anonymized.download);
+            // Fill hidden field
+            $('#file_anonymized_path').val(submission_data.file_anonymized.title);
+        }
+    }
+
+    function change_radio_state(item_name, state) {
+        // First clear any existing selection
+        $(`[name='${item_name}']`).prop("checked", false);
+        
+        // Then set the appropriate radio button based on state
+        if (state === true) {
+            $(`[name='${item_name}'][value='1']`).prop("checked", true);
+        } else if (state === false) {
+            $(`[name='${item_name}'][value='0']`).prop("checked", true);
+        }
+        // If state is null, no radio button will be selected
+    }
+
+    function change_checkbox_state(item_name, state) {
+        $(`[name='${item_name}']`).prop("checked", state === true);
+    }
+
+    function getRadioValue(name) {
+        const checked = $(`[name='${name}']:checked`);
+        if (checked.length === 0) return null;
+        return checked.val() === '1';
+    }
+
+    function save_as_draft() {
+        // Show processing state
+        const btn = $('.savedraft');
+        btn.addClass('processing');
+
+        // Get title value
+        const title = $('[name="title"]').val().trim();
+        
+        // Validate title
+        if (!title) {
+            btn.removeClass('processing');
+            $('[data-input-group="title"]').addClass('error');
+            show_errors(['title']);
+            return;
+        }
+
+        // Collect form data
+        const formData = {
+            submission_id: submission_data ? submission_data.id : null,
+            title: title,
+            abstract: $('[name="abstract"]').val(),
+            is_special_issue: getRadioValue('is_special_issue'),
+            is_dataset: getRadioValue('is_dataset'),
+            is_copyright_accept: $('[name="is_copyright_accept"]').is(':checked'),
+            is_ethical_accept: $('[name="is_ethical_accept"]').is(':checked'),
+            is_consent_accept: $('[name="is_consent_accept"]').is(':checked'),
+            is_acknowledgements_accept: $('[name="is_acknowledgements_accept"]').is(':checked'),
+            is_previously: getRadioValue('is_previously'),
+            word_count: parseInt($('[name="word_count"]').val()) || 0,
+            is_competing: getRadioValue('is_competing'),
+            keywords: $('#list_keywords [data-keyword]').map(function() {
+                return $(this).attr('data-keyword');
+            }).get(),
+            classifications: $('#classifier .checked').map(function() {
+                return parseInt($(this).attr('data-id'));
+            }).get().filter(id => !isNaN(id)),
+            main_author_id: parseInt(corresponding_author_id) || null,
+            sub_author_ids: $('#subauthor_list [data-author-id]').map(function() {
+                return parseInt($(this).attr('data-author-id'));
+            }).get().filter(id => !isNaN(id)),
+            file_authors: $('#file_authors_path').val() || null,
+            file_anonymized: $('#file_anonymized_path').val() || null
+        };
+
+        // Send to API
+        $.ajax({
+            url: '/api/article/save',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                btn.removeClass('processing');
+                if (response.success) {
+                    process_data(response);
+                    // Show success message
+                    btn.addClass('saved');
+                    setTimeout(() => {
+                        btn.removeClass('saved');
+                    }, 3000);
+                } else {
+                    alert(response.message || TRANSLATIONS.failedToSaveDraft);
+                }
+            },
+            error: function(xhr) {
+                btn.removeClass('processing');
+                alert(xhr.responseJSON?.message || TRANSLATIONS.failedToSaveDraft);
+            }
+        });
+    }
+
+    function submit_for_review() {
+        // Show processing state
+        const btn = $('.submit');
+        btn.addClass('processing');
+
+        // Clear existing errors before submission
+        $('#errors_list > *:not([data-example])').remove();
+        $('[data-visible-section]').removeClass('error');
+        $('[data-input-group]').removeClass('error');
+
+        // Get title value
+        const title = $('[name="title"]').val().trim();
+        
+        // Validate title
+        if (!title) {
+            btn.removeClass('processing');
+            $('[data-input-group="title"]').addClass('error');
+            show_errors(['title']);
+            return;
+        }
+
+        // Collect form data
+        const formData = {
+            submission_id: submission_data ? submission_data.id : null,
+            title: title,
+            abstract: $('[name="abstract"]').val(),
+            is_special_issue: getRadioValue('is_special_issue'),
+            is_dataset: getRadioValue('is_dataset'),
+            is_copyright_accept: $('[name="is_copyright_accept"]').is(':checked'),
+            is_ethical_accept: $('[name="is_ethical_accept"]').is(':checked'),
+            is_consent_accept: $('[name="is_consent_accept"]').is(':checked'),
+            is_acknowledgements_accept: $('[name="is_acknowledgements_accept"]').is(':checked'),
+            is_previously: getRadioValue('is_previously'),
+            word_count: parseInt($('[name="word_count"]').val()) || 0,
+            is_competing: getRadioValue('is_competing'),
+            keywords: $('#list_keywords [data-keyword]').map(function() {
+                return $(this).attr('data-keyword');
+            }).get(),
+            classifications: $('#classifier .checked').map(function() {
+                return parseInt($(this).attr('data-id'));
+            }).get().filter(id => !isNaN(id)),
+            main_author_id: parseInt(corresponding_author_id) || null,
+            sub_author_ids: $('#subauthor_list [data-author-id]').map(function() {
+                return parseInt($(this).attr('data-author-id'));
+            }).get().filter(id => !isNaN(id)),
+            file_authors: $('#file_authors_path').val() || null,
+            file_anonymized: $('#file_anonymized_path').val() || null
+        };
+
+        // First save as draft
+        $.ajax({
+            url: '/api/article/save',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(saveResponse) {
+                if (saveResponse.success) {
+                    process_data(saveResponse);
+                    
+                    // Now proceed with submission
+                    $.ajax({
+                        url: '/api/article/submit',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ submission_id: saveResponse.submission.id }),
+                        success: function(submitResponse) {
+                            btn.removeClass('processing');
+                            if (submitResponse.success) {
+                                // Show success message
+                                btn.addClass('submitted');
+                                setTimeout(() => {
+                                    window.location.href = '/dashboard/articles';
+                                }, 1500);
+                            } else if (submitResponse.errors) {
+                                show_errors(submitResponse.errors);
+                            }
+                        },
+                        error: function(xhr) {
+                            btn.removeClass('processing');
+                            alert(xhr.responseJSON?.message || TRANSLATIONS.failedToSubmitArticle);
+                        }
+                    });
+                } else {
+                    btn.removeClass('processing');
+                    alert(saveResponse.message || TRANSLATIONS.failedToSaveDraft);
+                }
+            },
+            error: function(xhr) {
+                btn.removeClass('processing');
+                alert(xhr.responseJSON?.message || TRANSLATIONS.failedToSaveDraft);
+            }
+        });
+    }
+
+    // Initialize page
+    $(document).ready(function() {
+        // Initialize subauthors section state
+        $('#no_subauthors_message').show();
+        
+        // Get current user's author profile
+        $.ajax({
+            url: '/api/getcurrentauthor',
+            type: 'GET',
+            success: function(response) {
+                if (response.success && response.author) {
+                    CURRENT_USER_AUTHOR_DATA = response.author;
+                    update_set_me();
+                }
+            }
+        });
+
+        // Get submission ID from URL and update page header
+        const urlParams = new URLSearchParams(window.location.search);
+        const submissionId = urlParams.get('id');
+        const viewOnly = urlParams.get('view') === 'true';
+
+        // Update page header based on URL parameters
+        if (submissionId) {
+            if (viewOnly) {
+                $('#page_header').text(TRANSLATIONS.viewArticle);
+            } else {
+                $('#page_header').text(TRANSLATIONS.editArticle);
+            }
+        } else {
+            $('#page_header').text(TRANSLATIONS.submitNewArticle);
+        }
+
+        if (submissionId) {
+            // Load submission data from API
+            $.ajax({
+                url: `/api/article/load/${submissionId}`,
+                type: 'GET',
+                success: function(response) {
+                    if (response.success) {
+                        process_data(response);
+                        
+                        if (viewOnly) {
+                            // Disable all form inputs
+                            $('input, textarea, select, button').prop('disabled', true);
+                            $('.step [data-visible-section]').addClass('cursor-default').off('click');
+                            // Hide file upload buttons in view mode
+                            $('#upload_buttons').addClass('hidden');
+                            // Hide author-related buttons
+                            $('[data-set-cauthor="search"]').addClass('hidden');
+                            $('[data-set-cauthor="me"]').addClass('hidden');
+                            $('[data-add-subauthor="search"]').addClass('hidden');
+                            // Hide delete buttons for existing authors
+                            $('[data-delete-subauthor="delete"]').addClass('hidden');
+                            // Hide keyword-related elements in view mode
+                            $('[data-delete-keyword-button]').addClass('hidden');
+                            $('#new_keyword_section').addClass('hidden');
+                            // Hide classification search field and make buttons non-clickable
+                            $('[name="find_classification"]').parent().addClass('hidden');
+                            $('.classifier button').addClass('cursor-default').off('click');
+                        }
+                    }
+                },
+                error: function() {
+                    alert(TRANSLATIONS.failedToLoadSubmission);
+                    window.location.href = '/dashboard/articles';
+                }
+            });
+        }
+
+        // Handle save draft button
+        $('.savedraft').click(function() {
+            save_as_draft();
+        });
+
+        // Handle submit button
+        $('.submit').click(function() {
+            submit_for_review();
+        });
+
+        // Handle delete article button
+        $('.deletearticle').click(function() {
+            if (!submission_data || !submission_data.id) {
+                window.location.href = '/dashboard/articles';
+                return;
+            }
+
+            if (confirm(TRANSLATIONS.deleteConfirmation)) {
+                $.ajax({
+                    url: '/dashboard/articles/delete/' + submission_data.id,
+                    type: 'POST',
+                    success: function(response) {
+                        if (response.success) {
+                            window.location.href = '/dashboard/articles';
+                        } else {
+                            alert(response.message || TRANSLATIONS.failedToDeleteSubmission);
+                        }
+                    },
+                    error: function() {
+                        alert(TRANSLATIONS.failedToDeleteSubmission + '. ' + TRANSLATIONS.tryAgain);
+                    }
+                });
+            }
+        });
+
+        // Handle author events
+        $('[data-set-cauthor="me"]').click(function() {
+            if (CURRENT_USER_AUTHOR_DATA) {
+                set_corresponding(CURRENT_USER_AUTHOR_DATA);
+            } else {
+                alert(TRANSLATIONS.completeAuthorProfile);
+                window.location.href = '/dashboard/profile';
+            }
+        });
+
+        $('[data-set-cauthor="search"]').click(function() {
+            activate_author_search('set_corresponding');
+        });
+
+        $('[data-add-subauthor="search"]').click(function() {
+            activate_author_search('add_author');
+        });
+
+        $('#close_author_search').click(function() {
+            $('#author_search_model').addClass('hidden');
+            $('#search_additional').addClass('hidden');
+            $('#author_search_model input').val('');
+            $('#author_without_orcid').prop('checked', false);
+            $('#search_by_orcid').prop('checked', true);
+            $('#orcid_search_field').removeClass('hidden');
+            $('#name_search_field').addClass('hidden');
+        });
+
+        // Hide name search option for non-admin users
+        if (window.userRole !== 'admin' && window.userRole !== 'editor') {
+            $('#name_search_option').hide();
+        }
+
+        // Handle search mode change
+        $('input[name="search_mode"]').change(function() {
+            if ($(this).val() === 'name') {
+                $('#orcid_search_field').addClass('hidden');
+                $('#name_search_field').removeClass('hidden');
+            } else {
+                $('#orcid_search_field').removeClass('hidden');
+                $('#name_search_field').addClass('hidden');
+            }
+            $('#search_additional').addClass('hidden');
+        });
+
+        // Handle "author without ORCID" checkbox
+        $('#author_without_orcid').change(function() {
+            if ($(this).is(':checked')) {
+                $('#searchauthor_orcid').prop('disabled', true).val('');
+                // Show create form immediately for authors without ORCID
+                $('#search_additional').removeClass('hidden');
+                updateSearchButton(true);
+            } else {
+                $('#searchauthor_orcid').prop('disabled', false);
+                $('#search_additional').addClass('hidden');
+                updateSearchButton(false);
+            }
+        });
+
+        // Function to update search button text
+        function updateSearchButton(showCreate) {
+            const searchText = $('#author_search .search-text');
+            const createText = $('#author_search .create-text');
+
+            if (showCreate) {
+                searchText.addClass('hidden');
+                createText.removeClass('hidden');
+            } else {
+                searchText.removeClass('hidden');
+                createText.addClass('hidden');
+            }
+        }
+
+        $('#author_search').click(function() {
+            if ($('#search_additional').hasClass('hidden')) {
+                // Первый клик - поиск автора
+                var search_mode = $('input[name="search_mode"]:checked').val();
+                var search_data = {};
+
+                if (search_mode === 'name') {
+                    // Поиск по имени
+                    var author_name = $('#searchauthor_name_search').val().trim();
+                    if (!author_name) {
+                        alert('Please enter author name');
+                        return;
+                    }
+
+                    if (author_name.length < 2) {
+                        alert('Author name must be at least 2 characters long');
+                        return;
+                    }
+
+                    search_data = {
+                        name: author_name,
+                        search_by_name: true
+                    };
+                } else {
+                    // Поиск по ORCID или создание автора без ORCID
+                    var without_orcid = $('#author_without_orcid').is(':checked');
+                    var orc_id = $('#searchauthor_orcid').val().trim();
+
+                    if (!without_orcid) {
+                        if (!orc_id) {
+                            alert(TRANSLATIONS.pleaseEnterOrcid);
+                            return;
+                        }
+
+                        // Валидация формата ORCID
+                        if (orc_id.length < 10 || !orc_id.includes('-')) {
+                            alert(TRANSLATIONS.invalidOrcidFormat);
+                            return;
+                        }
+
+                        search_data = { orcid: orc_id };
+                    } else {
+                        // Автор без ORCID - форма уже показана
+                        return;
+                    }
+                }
+
+                get_author_by_data(search_data, function(response) {
+                    if (response == 'not_found') {
+                        $('#search_additional').removeClass('hidden');
+                    } else if (response == 'error') {
+                        // Ошибка уже показана в функции get_author_by_data
+                        console.log('Error fetching author data');
+                    } else {
+                        // Автор найден - добавляем его
+                        if (search_reason == 'add_author') {
+                            add_author(response.id, response.name, response.orcid);
+                        } else if (search_reason == 'set_corresponding') {
+                            set_corresponding(response);
+                        }
+                        $('#close_author_search').click();
+                    }
+                });
+            } else {
+                // Второй клик - создание нового автора с введенными данными
+                var without_orcid = $('#author_without_orcid').is(':checked');
+                var search_mode = $('input[name="search_mode"]:checked').val();
+
+                const data = {
+                    'name': $('#searchauthor_name').val().trim(),
+                    'organization': $('#searchauthor_organization').val().trim(),
+                    'department': $('#searchauthor_department').val().trim(),
+                    'position': $('#searchauthor_position').val().trim(),
+                    'address_street': $('#searchauthor_street').val().trim(),
+                    'address_city': $('#searchauthor_city').val().trim(),
+                    'address_country': $('#searchauthor_country').val().trim(),
+                    'address_zip': $('#searchauthor_postal_code').val().trim(),
+                    'phone': $('#searchauthor_phone').val().trim(),
+                    'email': $('#searchauthor_email').val().trim(),
+                    'without_orcid': without_orcid
+                };
+
+                // Добавляем ORCID только если автор не без ORCID
+                if (!without_orcid) {
+                    data.orcid = $('#searchauthor_orcid').val().trim();
+                }
+
+                // Валидация обязательных полей
+                const missingFields = [];
+                if (!data.name) missingFields.push('Full author name');
+                if (!without_orcid && !data.orcid) missingFields.push('ORCID');
+
+                if (missingFields.length > 0) {
+                    alert(TRANSLATIONS.fillRequiredFields + ' ' + missingFields.join(', '));
+                    return;
+                }
+
+                // Валидация формата ORCID (только если не "без ORCID")
+                if (!without_orcid && data.orcid && (data.orcid.length < 10 || !data.orcid.includes('-'))) {
+                    alert(TRANSLATIONS.invalidOrcidFormat);
+                    return;
+                }
+
+                // Валидация имени
+                if (data.name.length < 2) {
+                    alert(TRANSLATIONS.authorNameTooShort);
+                    return;
+                }
+
+                // Валидация email если указан
+                if (data.email && !data.email.includes('@')) {
+                    alert(TRANSLATIONS.validEmailRequired);
+                    return;
+                }
+
+                // Создаем нового автора
+                create_new_author(data, function(response) {
+                    if (response && response.id) {
+                        if (search_reason == 'add_author') {
+                            add_author(response.id, response.name, response.orcid);
+                        } else if (search_reason == 'set_corresponding') {
+                            set_corresponding(response);
+                        }
+                        $('#close_author_search').click();
+                    }
+                    // Ошибка уже показана в функции create_new_author
+                });
+            }
+        });
+
+        // Handle subauthor deletion
+        $(document).on('click', '[data-delete-subauthor="delete"]', function() {
+            $(this).closest('[data-author-id]').remove();
+            
+            // Show "no subauthors" message if no subauthors left
+            if ($('#subauthor_list [data-author-id]:not([data-example])').length === 0) {
+                $('#no_subauthors_message').show();
+            }
+        });
+
+        // Load classifications
+        $.ajax({
+            url: '/api/getclassifications',
+            type: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    window.classifications = response.classifications;
+                    
+                    // Populate classification buttons
+                    Object.entries(response.classifications).forEach(([id, name]) => {
+                        add_classification(parseInt(id), name);
+                    });
+                    
+                    // If we have submission data with classifications, mark them as checked
+                    if (submission_data && submission_data.classifications) {
+                        submission_data.classifications.forEach(classificationId => {
+                            const idStr = String(classificationId);
+                            $(`#classifier [data-id="${idStr}"]`).addClass('checked');
+                        });
+                    }
+                }
+            }
+        });
+    });
+
+    // Helper functions
+    function add_keyword(keyword) {
+        if (keyword == '') {
+            return;
+        }
+        is_exists = $('[data-keyword="' + keyword + '"]');
+        if (is_exists.length != 0) {
+            is_exists.addClass('bg-blue-300');
+            setTimeout(function () {
+                is_exists.removeClass('bg-blue-300');
+            }, 300);
+        } else {
+            const example = $('#list_keywords [data-example]');
+            var new_keyword = example.clone().removeClass('hidden');
+            new_keyword = $(new_keyword).prop('outerHTML').replace(/\$data/g, keyword);
+            new_keyword = $(new_keyword).removeAttr('data-example');
+            $('#list_keywords').append(new_keyword);
+            new_keyword = $('#list_keywords').find('[data-keyword="' + keyword + '"]');
+            new_keyword.addClass('bg-blue-300');
+            
+            // Hide delete button if in view-only mode
+            if (new URLSearchParams(window.location.search).get('view') === 'true') {
+                new_keyword.find('[data-delete-keyword-button]').addClass('hidden');
+            }
+            
+            setTimeout(function () {
+                new_keyword.removeClass('bg-blue-300');
+            }, 300);
+        }
+    }
+
+    function add_classification(cl_id, cl_text) {
+        // Check if we already have this classification
+        if ($(`#classifier [data-id="${cl_id}"]`).length > 0) {
+            return;
+        }
+
+        // Create and append the new classification button
+        const example = $('#classifier [data-example]');
+        var new_item = example.clone().removeClass('hidden');
+        new_item = $(new_item).prop('outerHTML')
+            .replace(/\$cl_id/g, cl_id)
+            .replace(/\$cl_text/g, cl_text);
+        new_item = $(new_item).removeAttr('data-example');
+        
+        $('#classifier').append(new_item);
+    }
+
+    function add_classifications(data) {
+        // Use classifications from API data
+        for (const key in data.classifications) {
+            const value = data.classifications[key];
+            add_classification(key, value);
+        }
+    }
+
+    function show_errors(errors_list) {
+        // Clear existing errors
+        $('#errors_list > *:not([data-example])').remove();
+        $('[data-visible-section]').removeClass('error');
+        $('[data-input-group]').removeClass('error');
+
+        // Add all errors at once with opacity-0
+        errors_list.forEach(function (item) {
+            var error_info = error_data[item];
+            if (error_info) {
+                add_error(item, error_info.title, error_info.section);
+            }
+        });
+
+        // Remove opacity-0 class one by one with delay
+        $('#errors_list > *:not([data-example])').each(function(index) {
+            setTimeout(() => {
+                $(this).removeClass('opacity-0');
+            }, index * 100); // 100ms delay between each error
+        });
+
+        // Jump to errors list without animation
+        no_animation_jump_to_errors_list();
+    }
+
+    function add_error(error_input_group, error, section_id) {
+        const example = $('#errors_list [data-example]');
+        var new_item = example.clone().removeClass('hidden');
+        new_item = $(new_item).prop('outerHTML').replace(/\$error/g, error).replace(/\$section_id/g, section_id);
+        new_item = $(new_item).removeAttr('data-example');
+        
+        // Add to errors list
+        const $newItem = $(new_item);
+        $('#errors_list').append($newItem);
+        
+        // Add error classes to sections
+        $(`[data-visible-section=${section_id}]`).addClass('error');
+        $(`[data-input-group=${error_input_group}]`).addClass('error');
+    }
+
+    // Event handlers for keywords
+    $(document).ready(function() {
+        const $input = $('[name="keywords"]');
+
+        // Handle input events (typing or pasting)
+        $input.on('input', function(event) {
+            const value = $(this).val();
+            if (value.endsWith(',')) {
+                const keyword = value.slice(0, -1).trim();
+                if (keyword) {
+                    add_keyword(keyword);
+                }
+                $(this).val('');
+            }
+        });
+
+        // Handle paste events
+        $input.on('paste', function(event) {
+            event.preventDefault();
+            const pastedText = (event.originalEvent.clipboardData || window.clipboardData).getData('text');
+            const keywords = pastedText.split(',');
+            keywords.forEach(keyword => {
+                const trimmed = keyword.trim();
+                if (trimmed) {
+                    add_keyword(trimmed);
+                }
+            });
+            $(this).val('');
+        });
+
+        // Handle Enter key
+        $input.on('keydown', function(event) {
+            if (event.key === 'Enter' || event.keyCode === 13) {
+                event.preventDefault();
+                const value = $(this).val().trim();
+                if (value) {
+                    add_keyword(value);
+                    $(this).val('');
+                }
+            }
+        });
+
+        // Handle keyword deletion
+        $('#list_keywords').on('click', '[data-delete-keyword="keyword"]', function() {
+            $(this).closest('div').remove();
+        });
+
+        // Handle classification selection
+        $('.classifier').on('click', 'button:not([data-example])', function() {
+            if ($(this).hasClass('checked')) {
+                $(this).removeClass('checked');
+            } else if ($('.classifier > .checked').length < 3) {
+                $(this).addClass('checked');
+            }
+            
+            if ($('.classifier > .checked').length >= 3) {
+                $(".classifier > button:not(.checked)").removeClass('group');
+            } else {
+                $(".classifier > button").addClass('group');
+            }
+        });
+    });
+
+    // ... rest of existing code ...
+
+    // Author handling
+    var CURRENT_USER_AUTHOR_DATA = null;
+    var corresponding_author_id = null;
+    var corresponding_author = null;
+
+    function update_set_me() {
+        if (!CURRENT_USER_AUTHOR_DATA) {
+            $('[data-set-cauthor="me"]').addClass('hidden');
+            return;
+        }
+        
+        if (corresponding_author_id == CURRENT_USER_AUTHOR_DATA.id) {
+            $('[data-set-cauthor="me"]').addClass('hidden');
+        } else {
+            $('[data-set-cauthor="me"]').removeClass('hidden');
+        }
+    }
+
+    function add_author(id, name, orcid) {
+        const is_exists = $('[data-author-id="' + id + '"]');
+        if (is_exists.length != 0) {
+            is_exists.addClass('bg-blue-200');
+            setTimeout(function () {
+                is_exists.removeClass('bg-blue-200');
+            }, 300);
+        } else {
+            const example = $('#subauthor_list [data-example]');
+            var new_item = example.clone().removeClass('hidden');
+            new_item = $(new_item).prop('outerHTML').replace(/\$id/g, id).replace(/\$name/g, name).replace(/\$orcid/g, orcid);
+            new_item = $(new_item).removeAttr('data-example');
+            $('#subauthor_list > *').last().before(new_item);
+            
+            // Hide "no subauthors" message when adding first author
+            $('#no_subauthors_message').hide();
+        }
+    }
+
+    var search_reason = '';
+    function activate_author_search(reason) {
+        search_reason = reason;
+        $('#author_search_model').removeClass('hidden');
+        $('#search_additional').addClass('hidden');
+    }
+
+    function get_author(orcid, callback) {
+        $.ajax({
+            url: '/api/getauthor',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ orcid: orcid }),
+            success: function(response) {
+                if (response.success) {
+                    if (response.is_found) {
+                        callback(response.author);
+                        return;
+                    }
+                    callback('not_found');
+                } else {
+                    // Показываем конкретную причину ошибки от сервера
+                    alert('Error: ' + (response.message || 'Unknown server error'));
+                    callback('error');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error fetching author data:', error);
+                let errorMessage = 'Network error occurred';
+                
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMessage = xhr.responseJSON.message;
+                } else if (xhr.status === 0) {
+                    errorMessage = 'Network connection failed. Please check your internet connection.';
+                } else if (xhr.status === 404) {
+                    errorMessage = 'API endpoint not found. Please contact support.';
+                } else if (xhr.status === 500) {
+                    errorMessage = 'Server error occurred. Please try again later.';
+                } else if (xhr.status === 403) {
+                    errorMessage = 'Access denied. Please log in again.';
+                } else {
+                    errorMessage = `HTTP Error ${xhr.status}: ${error}`;
+                }
+                
+                alert('Error fetching author data: ' + errorMessage);
+                callback('error');
+            }
+        });
+    }
+
+    function get_author_by_data(searchData, callback) {
+        $.ajax({
+            url: '/api/getauthor',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(searchData),
+            success: function(response) {
+                if (response.success) {
+                    if (response.is_found) {
+                        callback(response.author);
+                        return;
+                    }
+                    callback('not_found');
+                } else {
+                    // Показываем конкретную причину ошибки от сервера
+                    alert('Error: ' + (response.message || 'Unknown server error'));
+                    callback('error');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error fetching author data:', error);
+                let errorMessage = 'Network error occurred';
+
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMessage = xhr.responseJSON.message;
+                } else if (xhr.status === 0) {
+                    errorMessage = 'Network connection failed. Please check your internet connection.';
+                } else if (xhr.status === 404) {
+                    errorMessage = 'API endpoint not found. Please contact support.';
+                } else if (xhr.status === 500) {
+                    errorMessage = 'Server error occurred. Please try again later.';
+                } else if (xhr.status === 403) {
+                    errorMessage = 'Access denied. Please log in again.';
+                } else {
+                    errorMessage = `HTTP Error ${xhr.status}: ${error}`;
+                }
+
+                alert('Error fetching author data: ' + errorMessage);
+                callback('error');
+            }
+        });
+    }
+
+    function create_new_author(data, callback) {
+        $.ajax({
+            url: '/api/createauthor',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function(response) {
+                if (response.success) {
+                    callback(response.author);
+                } else {
+                    alert(TRANSLATIONS.failedToCreateAuthor + ': ' + (response.message || TRANSLATIONS.unknownError));
+                    callback(null);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error creating author:', error);
+                
+                let errorMessage = 'Network error occurred';
+                
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMessage = xhr.responseJSON.message;
+                } else if (xhr.status === 0) {
+                    errorMessage = 'Network connection failed. Please check your internet connection.';
+                } else if (xhr.status === 404) {
+                    errorMessage = 'API endpoint not found. Please contact support.';
+                } else if (xhr.status === 500) {
+                    errorMessage = 'Server error occurred. Please try again later.';
+                } else if (xhr.status === 403) {
+                    errorMessage = 'Access denied. Please log in again.';
+                } else if (xhr.status === 400) {
+                    errorMessage = 'Invalid data provided. Please check your input.';
+                } else {
+                    errorMessage = `HTTP Error ${xhr.status}: ${error}`;
+                }
+                
+                alert('Error creating author: ' + errorMessage);
+                callback(null);
+            }
+        });
+    }
+
+    function add_coauthor(data, callback) {
+        $.ajax({
+            url: '/api/getauthor',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function(response) {
+                if (response.success) {
+                    if (response.is_found) {
+                        callback(response.author);
+                        return;
+                    }
+                    callback('not_found');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error fetching author data:', error);
+                alert('Error fetching author data');
+                callback('error');
+            }
+        });
+    }
+
+    function set_corresponding(author_data) {
+        corresponding_author = author_data;
+        corresponding_author_id = author_data.id;
+        $('#current_corresponding_author').text(`${corresponding_author.name}, ORCID: ${corresponding_author.orcid}`);
+        update_set_me();
+    }
+
+    // Sticky header functionality
+    const header = document.getElementById('header');
+    const menu = document.getElementById('menu');
+
+    window.addEventListener('scroll', function () {
+        const menuPosition = menu.getBoundingClientRect().top;
+        const scrollPosition = window.scrollY;
+
+        if (menuPosition <= 0) {
+            header.classList.remove('hidden');
+        } else {
+            header.classList.add('hidden');
+        }
+    });
+
+    $('html').on('click', '[data-visible-section]', function (e) {
+        e.preventDefault();
+        
+        const blockId = $(this).data('visible-section');
+        const target = $(`#section_${blockId}`);
+        
+        if (target.length) {
+            const headerHeight = 142;
+            const offset = 20; // Additional offset to prevent exact edge positioning
+            
+            // Get the target's position relative to the document
+            const targetPosition = target.offset().top;
+            
+            // Calculate the final scroll position
+            const scrollPosition = targetPosition - headerHeight - offset;
+            
+            // Animate scroll
+            $('html, body').animate({
+                scrollTop: scrollPosition
+            }, {
+                duration: 500,
+                easing: 'swing'
+            });
+        }
+    });
+
+    $(document).ready(function () {
+        window.addEventListener('scroll', function () {
+            const firstNonIntersect = $('.intersect[data-section-id]:not([no-intersect])').first()
+            var sectionId = firstNonIntersect.data('section-id');
+            $('.step .blue:not([data-visible-section="' + sectionId + '"])').removeClass('blue');
+            $('.step [data-visible-section="' + sectionId + '"]').addClass('blue');
+        })
+    });
+
+    function no_animation_jump_to_errors_list() {
+        const element = $('#errors_list');
+        window.scrollTo({
+            top: element.offset().top - 184,
+            behavior: 'instant'
+        });
+    }
+
+    // File upload handling
+    $('.upload_authors').on('click', function() {
+        $('#file_authors').click();
+    });
+
+    $('.upload_anonymized').on('click', function() {
+        $('#file_anonymized').click();
+    });
+
+    function uploadFile(fileInput, type) {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const btn = type === 'authors' ? $('.upload_authors') : $('.upload_anonymized');
+        btn.addClass('processing');
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', type);
+        if (submission_data && submission_data.id) {
+            formData.append('submission_id', submission_data.id);
+        }
+
+        $.ajax({
+            url: '/api/article/upload',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                btn.removeClass('processing');
+                if (response.success) {
+                    // Show success state
+                    btn.addClass('uploaded');
+                    setTimeout(() => {
+                        btn.removeClass('uploaded');
+                    }, 2000);
+
+                    // Update file display
+                    const fileDisplay = $(`[data-file-${type}]`);
+                    fileDisplay.removeClass('hidden')
+                        .find('.download')
+                        .attr('href', response.download);
+
+                    // Save file path to hidden field
+                    $(`#file_${type}_path`).val(response.filename);
+
+                    // Update submission data
+                    if (!submission_data) submission_data = {};
+                    submission_data[`file_${type}`] = {
+                        filename: response.filename,
+                        download: response.download
+                    };
+
+                    // Remove error state if both files are uploaded
+                    if (submission_data.file_authors && submission_data.file_anonymized) {
+                        $('[data-input-group="files"]').removeClass('error');
+                    }
+                } else {
+                    alert(response.message || 'Upload failed');
+                }
+            },
+            error: function() {
+                btn.removeClass('processing');
+                alert('Upload failed. Please try again.');
+            }
+        });
+    }
+
+    $('#file_authors').on('change', function() {
+        uploadFile(this, 'authors');
+    });
+
+    $('#file_anonymized').on('change', function() {
+        uploadFile(this, 'anonymized');
+    });
+
+    // Handle classification search
+    $('[name="find_classification"]').on('input', function() {
+        const searchTerm = $(this).val().toLowerCase();
+        $('#classifier button:not([data-example])').each(function() {
+            const text = $(this).find('div').text().toLowerCase();
+            if (text.includes(searchTerm)) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    });
+</script>
+{% endblock %}

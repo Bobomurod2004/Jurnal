@@ -1,0 +1,256 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">{{ t("admin_submissions_title") }}</h2>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">
+    <div class="card-title">{{ t("admin_filter_title") }}</div>
+  </div>
+  <div class="card-body">
+    <form method="get" class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">{{ t("admin_label_status") }}</label>
+        <select class="form-select" name="status">
+          <option value="">{{ t("admin_option_all_statuses") }}</option>
+          <option value="draft" {% if status_filter=='draft' %}selected{% endif %}>{{ t("admin_status_draft") }}
+          </option>
+          <option value="in_process" {% if status_filter=='in_process' %}selected{% endif %}>{{
+            t("admin_status_in_process") }}</option>
+          <option value="published" {% if status_filter=='published' %}selected{% endif %}>{{
+            t("admin_status_published") }}</option>
+          <option value="rejected" {% if status_filter=='rejected' %}selected{% endif %}>{{ t("admin_status_rejected")
+            }}</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">{{ t("admin_label_user_id") }}</label>
+        <input type="number" class="form-control" name="user" value="{{ user_filter }}"
+          placeholder="{{ t('admin_placeholder_user_id') }}">
+      </div>
+      <div class="col-md-4 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary">{{ t("admin_btn_apply") }}</button>
+        <a href="{{ url_for('submissions') }}" class="btn btn-secondary ms-2">{{ t("admin_btn_reset") }}</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="table-responsive">
+    <table class="table card-table table-hover">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>{{ t("admin_submissions_col_user") }}</th>
+          <th>{{ t("admin_submissions_col_title") }}</th>
+          <th>{{ t("admin_label_status") }}</th>
+          <th>{{ t("admin_submissions_col_author") }}</th>
+          <th>{{ t("admin_submissions_col_date") }}</th>
+          <th>{{ t("admin_submissions_col_review_status") }}</th>
+          <th>{{ t("admin_col_actions") }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for submission in submissions_list %}
+        <tr>
+          <td class="align-middle">{{ submission.id }}</td>
+          <td class="align-middle">
+            {% if users_map.get(submission.user_id) %}
+            {{ users_map[submission.user_id].name }}
+            {% else %}
+            ID: {{ submission.user_id or t("admin_label_not_specified") }}
+            {% endif %}
+          </td>
+          <td class="align-middle">{{ submission.title or t("admin_label_no_title") }}</td>
+          <td class="align-middle">
+            {% if submission.status == 'draft' %}
+            <span class="badge bg-secondary-lt">{{ t("admin_status_draft") }}</span>
+            {% elif submission.status == 'published' %}
+            <span class="badge bg-success-lt">{{ t("admin_status_published") }}</span>
+            {% elif submission.status == 'in_process' %}
+            <span class="badge bg-warning-lt">{{ t("admin_status_in_process") }}</span>
+            {% elif submission.status == 'rejected' %}
+            <span class="badge bg-danger-lt">{{ t("admin_status_rejected") }}</span>
+            {% else %}
+            <span class="badge bg-light">{{ submission.status or t("admin_label_not_specified") }}</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            {% if authors_map.get(submission.main_author_id) %}
+            {{ authors_map[submission.main_author_id].name }}
+            {% else %}
+            ID: {{ submission.main_author_id or t("admin_label_not_specified") }}
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            {% if submission.created_date %}
+            {{ submission.created_date | timestamp_to_date }}
+            {% else %}
+            {{ t("admin_label_not_specified") }}
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            {% if submission.editor_review_status == 'not_assigned' %}
+            <span class="badge bg-secondary-lt">{{ t("admin_review_status_not_assigned") }}</span>
+            {% elif submission.editor_review_status == 'assigned' %}
+            <span class="badge bg-warning-lt">{{ t("admin_review_status_assigned") }}</span>
+            {% elif submission.editor_review_status == 'in_review' %}
+            <span class="badge bg-info-lt">{{ t("admin_review_status_in_review") }}</span>
+            {% elif submission.editor_review_status == 'reviewed' %}
+            <span class="badge bg-success-lt">{{ t("admin_review_status_reviewed") }}</span>
+            {% elif submission.editor_review_status == 'approved' %}
+            <span class="badge bg-success-lt">{{ t("admin_review_status_approved") }}</span>
+            {% elif submission.editor_review_status == 'rejected' %}
+            <span class="badge bg-danger-lt">{{ t("admin_review_status_rejected") }}</span>
+            {% else %}
+            <span class="badge bg-light">{{ submission.editor_review_status or t("admin_review_status_not_assigned")
+              }}</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            <div class="btn-group" role="group">
+              <a href="{{ url_for('submission_detail', submission_id=submission.id) }}"
+                class="btn btn-sm btn-outline-primary">
+                {{ t("admin_btn_view") }}
+              </a>
+              <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal"
+                data-bs-target="#editSubmissionModal" data-submission-id="{{ submission.id }}"
+                data-submission-status="{{ submission.status or '' }}"
+                data-submission-notes="{{ submission.notes or '' }}">
+                <i class="ti ti-edit"></i>
+              </button>
+              {% if submission.status in ['submitted', 'in_process'] and submission.file_anonymized %}
+              <a href="{{ url_for('assign_editors', submission_id=submission.id) }}"
+                class="btn btn-sm btn-outline-success">
+                <i class="ti ti-user-check"></i>
+                {{ t("admin_btn_assign_editors") }}
+              </a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer d-flex align-items-center">
+    {% set start_idx = (page - 1) * 20 + 1 %}
+    {% set end_idx = (page - 1) * 20 + submissions_list|length %}
+    <p class="m-0 text-secondary">{{ t("admin_pagination_showing") }} <span>{{ start_idx }}-{{ end_idx }}</span> {{
+      t("admin_pagination_of") }} <span>{{ total_submissions }}</span> {{ t("admin_pagination_entries") }}</p>
+    <ul class="pagination m-0 ms-auto">
+      <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('submissions', page=page-1, status=status_filter, user=user_filter) }}"
+          tabindex="-1" aria-disabled="true">
+          <i class="ti ti-chevron-left"></i>
+        </a>
+      </li>
+      {% for p in range(1, total_pages+1) %}
+      <li class="page-item {% if p == page %}active{% endif %}"><a class="page-link"
+          href="{{ url_for('submissions', page=p, status=status_filter, user=user_filter) }}">{{ p }}</a></li>
+      {% endfor %}
+      <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('submissions', page=page+1, status=status_filter, user=user_filter) }}">
+          <i class="ti ti-chevron-right"></i>
+        </a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<!-- Модальное окно для редактирования подачи -->
+<div class="modal modal-blur fade" id="editSubmissionModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ t("admin_submissions_edit_title") }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="editSubmissionForm" method="post" action="{{ url_for('submission_edit') }}">
+        <div class="modal-body">
+          <input type="hidden" id="submission_id" name="submission_id">
+
+          <div class="mb-3">
+            <label class="form-label">{{ t("admin_label_status") }}</label>
+            <select class="form-select" id="submission_status" name="status" required>
+              <option value="draft">{{ t("admin_status_draft") }}</option>
+              <option value="in_process">{{ t("admin_status_in_process") }}</option>
+              <option value="published">{{ t("admin_status_published") }}</option>
+              <option value="rejected">{{ t("admin_status_rejected") }}</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">{{ t("admin_label_notes") }}</label>
+            <textarea class="form-control" id="submission_notes" name="notes" rows="5"
+              placeholder="{{ t('admin_placeholder_notes') }}"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <a href="#" class="btn btn-link link-secondary" data-bs-dismiss="modal">{{ t("admin_btn_cancel") }}</a>
+          <button type="submit" class="btn btn-primary ms-auto">{{ t("admin_btn_save_changes") }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // Обработка показа модального окна
+    const modal = document.getElementById('editSubmissionModal');
+    if (modal) {
+      modal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+
+        const submissionId = button.getAttribute('data-submission-id');
+        const submissionStatus = button.getAttribute('data-submission-status');
+        const submissionNotes = button.getAttribute('data-submission-notes');
+
+        // Заполняем форму
+        document.getElementById('submission_id').value = submissionId;
+        document.getElementById('submission_status').value = submissionStatus;
+        document.getElementById('submission_notes').value = submissionNotes;
+      });
+    }
+
+    // Обработка отправки формы
+    const form = document.getElementById('editSubmissionForm');
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+
+        fetch('{{ url_for('submission_edit') }}', {
+          method: 'POST',
+          body: formData
+        })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              location.reload();
+            } else {
+              alert('{{ t("admin_js_error_saving") }} ' + (data.error || 'Unknown error'));
+            }
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            alert("{{ t('admin_js_error_request') }}");
+          });
+      });
+    }
+  });
+</script>
+{% endblock %}

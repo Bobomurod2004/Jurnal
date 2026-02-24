@@ -1,0 +1,328 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+
+<div class="page-header d-print-none">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">{{ t("admin_submissions_detail_title") }} {{ submission.id }}</h2>
+            <a href="{{ url_for('submissions') }}" class="">
+                <i class="ti ti-arrow-left"></i>
+                {{ t("admin_btn_back_to_list") }}
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">{{ t("admin_section_basic_info") }}</h3>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-sm-3">
+                        <strong>{{ t("admin_label_id") }}:</strong>
+                    </div>
+                    <div class="col-sm-9">
+                        {{ submission.id }}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3">
+                        <strong>{{ t("admin_label_status") }}:</strong>
+                    </div>
+                    <div class="col-sm-9">
+                        {% if submission.status == 'draft' %}
+                        <span class="badge bg-secondary-lt">{{ t("admin_status_draft") }}</span>
+                        {% elif submission.status == 'published' %}
+                        <span class="badge bg-success-lt">{{ t("admin_status_published") }}</span>
+                        {% elif submission.status == 'in_process' %}
+                        <span class="badge bg-warning-lt">{{ t("admin_status_in_process") }}</span>
+                        {% elif submission.status == 'rejected' %}
+                        <span class="badge bg-danger-lt">{{ t("admin_status_rejected") }}</span>
+                        {% else %}
+                        <span class="badge bg-light">{{ submission.status or t("admin_label_not_specified") }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3">
+                        <strong>{{ t("admin_submissions_col_title") }}:</strong>
+                    </div>
+                    <div class="col-sm-9">
+                        {{ submission.title or t("admin_label_not_specified") }}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3">
+                        <strong>{{ t("admin_label_abstract") }}:</strong>
+                    </div>
+                    <div class="col-sm-9">
+                        {% if submission.abstract %}
+                        <div class="text-pre-wrap">{{ submission.abstract }}</div>
+                        {% else %}
+                        <span class="text-muted">{{ t("admin_label_not_specified") }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3">
+                        <strong>{{ t("admin_label_keywords") }}:</strong>
+                    </div>
+                    <div class="col-sm-9">
+                        {% if submission.keywords %}
+                        {% for keyword in submission.keywords %}
+                        <span class="badge bg-light me-1">{{ keyword }}</span>
+                        {% endfor %}
+                        {% else %}
+                        <span class="text-muted">{{ t("admin_label_not_specified") }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3">
+                        <strong>{{ t("admin_label_word_count") }}:</strong>
+                    </div>
+                    <div class="col-sm-9">
+                        {{ submission.word_count or t("admin_label_not_specified") }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title">{{ t("admin_section_admin_response") }}</h3>
+            </div>
+            <div class="card-body">
+                <form id="adminResponseForm" method="post" action="/fmadmin/submissions/edit">
+                    <input type="hidden" name="submission_id" value="{{ submission.id }}">
+
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_status") }}</label>
+                        <select class="form-select" name="status" required>
+                            <option value="draft" {% if submission.status=='draft' %}selected{% endif %}>{{
+                                t("admin_status_draft") }}</option>
+                            <option value="in_process" {% if submission.status=='in_process' %}selected{% endif %}>{{
+                                t("admin_status_in_process") }}</option>
+                            <option value="published" {% if submission.status=='published' %}selected{% endif %}>{{
+                                t("admin_status_published") }}</option>
+                            <option value="rejected" {% if submission.status=='rejected' %}selected{% endif %}>{{
+                                t("admin_status_rejected") }}</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_admin_notes") }}</label>
+                        <textarea class="form-control" name="notes" rows="4"
+                            placeholder="{{ t('admin_placeholder_notes') }}">{{ submission.notes or '' }}</textarea>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">{{ t("admin_btn_save_changes") }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title">{{ t("admin_section_extra_properties") }}</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" {% if submission.is_special %}checked{%
+                                endif %} disabled>
+                            <label class="form-check-label">{{ t("admin_prop_special") }}</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" {% if submission.is_dataset %}checked{%
+                                endif %} disabled>
+                            <label class="form-check-label">{{ t("admin_prop_dataset") }}</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" {% if submission.check_copyright %}checked{%
+                                endif %} disabled>
+                            <label class="form-check-label">{{ t("admin_prop_copyright_check") }}</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" {% if submission.check_ethical %}checked{%
+                                endif %} disabled>
+                            <label class="form-check-label">{{ t("admin_prop_ethical_check") }}</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" {% if submission.check_consent %}checked{%
+                                endif %} disabled>
+                            <label class="form-check-label">{{ t("admin_prop_consent_obtained") }}</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" {% if submission.check_acknowledgements
+                                %}checked{% endif %} disabled>
+                            <label class="form-check-label">{{ t("admin_prop_acknowledgements") }}</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" {% if submission.is_used_previous
+                                %}checked{% endif %} disabled>
+                            <label class="form-check-label">{{ t("admin_prop_prior_works") }}</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" {% if submission.is_corresponding_author
+                                %}checked{% endif %} disabled>
+                            <label class="form-check-label">{{ t("admin_prop_corr_author") }}</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" {% if submission.is_competing_interests
+                                %}checked{% endif %} disabled>
+                            <label class="form-check-label">{{ t("admin_prop_competing_interests") }}</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title">{{ t("admin_section_dates") }}</h3>
+            </div>
+            <div class="card-body">
+                {% if submission.created_date %}
+                <p><strong>{{ t("admin_users_created_at") }}:</strong> {{ submission.created_date | timestamp_to_date }}
+                </p>
+                {% endif %}
+                {% if submission.updated_at %}
+                <p><strong>{{ t("admin_authors_updated_at") }}:</strong> {{ submission.updated_at | timestamp_to_date }}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">{{ t("admin_section_submission_author") }}</h3>
+            </div>
+            <div class="card-body">
+                {% if user %}
+                <p><strong>{{ t("admin_users_name") }}:</strong> {{ user.name }}</p>
+                <p><strong>{{ t("admin_users_email") }}:</strong> {{ user.email or t("admin_label_not_specified") }}</p>
+                <p><strong>{{ t("admin_label_id") }}:</strong> {{ user.id }}</p>
+                {% else %}
+                <p class="text-muted">{{ t("admin_user_not_found_msg") }} {{ submission.user_id }})</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title">{{ t("admin_section_article_authors") }}</h3>
+            </div>
+            <div class="card-body">
+                {% if main_author %}
+                <div class="mb-3">
+                    <strong>{{ t("admin_label_main_author") }}:</strong>
+                    <div class="ms-3">
+                        <p class="mb-1">{{ main_author.name }}</p>
+                        {% if main_author.orcid %}
+                        <p class="mb-0 text-muted small">ORCID: {{ main_author.orcid }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if sub_authors %}
+                <div>
+                    <strong>{{ t("admin_label_co_authors") }}:</strong>
+                    <div class="ms-3">
+                        {% for author in sub_authors %}
+                        <div class="mb-2">
+                            <p class="mb-1">{{ author.name }}</p>
+                            {% if author.orcid %}
+                            <p class="mb-0 text-muted small">ORCID: {{ author.orcid }}</p>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if not main_author and not sub_authors %}
+                <p class="text-muted">{{ t("admin_authors_not_specified") }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title">{{ t("admin_section_files") }}</h3>
+            </div>
+            <div class="card-body">
+                {% if submission.file_authors %}
+                <div class="mb-2">
+                    <a href="{{ submission.file_authors }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <i class="ti ti-file"></i> {{ t("admin_file_authors") }}
+                    </a>
+                </div>
+                {% endif %}
+
+                {% if submission.file_anonymized %}
+                <div class="mb-2">
+                    <a href="{{ submission.file_anonymized }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <i class="ti ti-file"></i> {{ t("admin_file_anonymized") }}
+                    </a>
+                </div>
+                {% endif %}
+
+                {% if not submission.file_authors and not submission.file_anonymized %}
+                <p class="text-muted">{{ t("admin_files_not_uploaded") }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Обработка отправки формы
+        const form = document.getElementById('adminResponseForm');
+        if (form) {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                const formData = new FormData(this);
+
+                fetch('/fmadmin/submissions/edit', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            alert("{{ t('admin_js_error_saving') }}" + (data.error || 'Unknown error'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert("{{ t('admin_js_error_request') }}");
+                    });
+            });
+        }
+    });
+</script>
+{% endblock %}

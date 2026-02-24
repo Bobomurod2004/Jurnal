@@ -1,0 +1,179 @@
+{% extends "basic.html" %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <h2 class="page-title">
+          {{ t("admin_assign_editors_title") }}
+        </h2>
+        <div class="page-subtitle">
+          {{ t("admin_col_article") }}: {{ submission.title }}
+        </div>
+      </div>
+      <div class="col-auto ms-auto d-print-none">
+        <div class="btn-list">
+          <a href="{{ url_for('submissions') }}" class="btn btn-secondary">
+            <i class="ti ti-arrow-left"></i>
+            {{ t("admin_btn_back_to_submissions") }}
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-body">
+  <div class="container-xl">
+    <div class="row row-deck row-cards">
+      <div class="col-md-8">
+        <form method="POST" action="{{ url_for('assign_editors', submission_id=submission.id) }}">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">{{ t("admin_title_select_editors") }}</h3>
+            </div>
+            <div class="card-body">
+              <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column">
+                {% for editor in editors %}
+                <label class="form-selectgroup-item flex-fill">
+                  <input type="checkbox" name="editor_ids" value="{{ editor.id }}" class="form-selectgroup-input" {% if
+                    editor.id in assigned_editor_ids %}checked disabled{% endif %}>
+                  <div class="form-selectgroup-label d-flex align-items-center p-3">
+                    <div class="me-3">
+                      <span class="avatar">{{ editor.name[0] if editor.name else 'E' }}</span>
+                    </div>
+                    <div class="form-selectgroup-label-content d-flex flex-column align-items-start">
+                      <span class="form-selectgroup-title strong">{{ editor.name }} {{ editor.second_name or ''
+                        }}</span>
+                      <span class="text-secondary">{{ editor.email }}</span>
+                      {% if editor.editor_specialization %}
+                      <span class="badge bg-blue-lt mt-1">{{ editor.editor_specialization }}</span>
+                      {% endif %}
+                      {% if editor.id in assigned_editor_ids %}
+                      <span class="badge bg-success-lt mt-1">{{ t("admin_badge_already_assigned") }}</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                </label>
+                {% endfor %}
+              </div>
+
+              {% if not editors %}
+              <div class="empty">
+                <div class="empty-img"><img src="/dist/img/undraw_printing_invoices_5r4r.svg" height="128" alt=""></div>
+                <p class="empty-title">{{ t("admin_msg_no_editors_found") }}</p>
+                <p class="empty-subtitle text-secondary">
+                  {{ t("admin_msg_no_editors_desc") }}
+                </p>
+                <div class="empty-action">
+                  <a href="{{ url_for('editor_edit', editor_id=0) }}" class="btn btn-primary">
+                    <i class="ti ti-plus"></i>
+                    {{ t("admin_btn_add_editor") }}
+                  </a>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+
+            {% if editors %}
+            <div class="card-footer text-end">
+              <div class="d-flex">
+                <a href="{{ url_for('submissions') }}" class="btn btn-link">{{ t("admin_btn_cancel") }}</a>
+                <button type="submit" class="btn btn-primary ms-auto">
+                  <i class="ti ti-check"></i>
+                  {{ t("admin_btn_assign_selected") }}
+                </button>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">{{ t("admin_section_article_info") }}</h3>
+          </div>
+          <div class="card-body">
+            <div class="datagrid">
+              <div class="datagrid-item">
+                <div class="datagrid-title">ID</div>
+                <div class="datagrid-content">{{ submission.id }}</div>
+              </div>
+              <div class="datagrid-item">
+                <div class="datagrid-title">{{ t("admin_label_title") }}</div>
+                <div class="datagrid-content">{{ submission.title }}</div>
+              </div>
+              <div class="datagrid-item">
+                <div class="datagrid-title">{{ t("admin_label_status") }}</div>
+                <div class="datagrid-content">
+                  {% if submission.status == 'draft' %}
+                  <span class="badge bg-secondary-lt">Черновик</span>
+                  {% elif submission.status == 'submitted' %}
+                  <span class="badge bg-primary-lt">Подано</span>
+                  {% elif submission.status == 'under_review' %}
+                  <span class="badge bg-warning-lt">На рассмотрении</span>
+                  {% elif submission.status == 'accepted' %}
+                  <span class="badge bg-success-lt">Принято</span>
+                  {% elif submission.status == 'rejected' %}
+                  <span class="badge bg-danger-lt">Отклонено</span>
+                  {% else %}
+                  <span class="badge bg-secondary-lt">{{ submission.status }}</span>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="datagrid-item">
+                <div class="datagrid-title">{{ t("admin_label_submitted_at") }}</div>
+                <div class="datagrid-content">
+                  {% if submission.created_date %}
+                  {{ submission.created_date | timestamp_to_date }}
+                  {% else %}
+                  -
+                  {% endif %}
+                </div>
+              </div>
+              {% if submission.file_anonymized %}
+              <div class="datagrid-item">
+                <div class="datagrid-title">{{ t("admin_label_anonymized_file") }}</div>
+                <div class="datagrid-content">
+                  <a href="{{ submission.file_anonymized }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                    <i class="ti ti-download"></i>
+                    {{ t("admin_btn_download") }}
+                  </a>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        {% if assigned_editor_ids %}
+        <div class="card mt-3">
+          <div class="card-header">
+            <h3 class="card-title">{{ t("admin_title_assigned_editors") }}</h3>
+          </div>
+          <div class="card-body">
+            {% for editor in editors %}
+            {% if editor.id in assigned_editor_ids %}
+            <div class="d-flex align-items-center mb-2">
+              <span class="avatar me-2">{{ editor.name[0] if editor.name else 'E' }}</span>
+              <div>
+                <div class="font-weight-medium">{{ editor.name }} {{ editor.second_name or '' }}</div>
+                <div class="text-secondary small">{{ editor.editor_specialization or
+                  t("admin_editor_spec_not_specified") }}</div>
+              </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+
+{% endblock %}

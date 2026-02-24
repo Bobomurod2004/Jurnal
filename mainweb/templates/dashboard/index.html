@@ -1,0 +1,90 @@
+{% extends 'basic_dashboard.html' %}
+
+{% block title %}{{ t('website_title') }} - {{ t('dashboard') }}{% endblock %}
+
+
+{% block dashboard_content %}
+
+    <!-- Welcome Section -->
+    <div class="rounded-2xl bg-gradient-to-r from-fmmain-light/40 to-white border border-fmmain/10 px-8 py-8 mb-8">
+        <div class="flex items-center gap-4 mb-3">
+            <div class="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-fmmain text-2xl">
+                <iconify-icon icon="solar:hand-shake-bold-duotone"></iconify-icon>
+            </div>
+            <div>
+                <h4 class="text-2xl font-bold text-gray-900">{{ t('welcome') }}, {{ session.user.name }} {{ session.user.second_name }}!</h4>
+                <p class="text-gray-600 text-sm mt-1">{{ t('control_info') }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <a href="{{ url_for('app__dashboard_articles') }}" class="dashboard-card group relative overflow-hidden" aria-label="{{ t('my_articles') }}">
+            <div class="card-icon bg-blue-50 text-blue-600">
+                <iconify-icon icon="solar:paperclip-rounded-2-bold-duotone"></iconify-icon>
+            </div>
+            <div class="card-title group-hover:text-fmmain transition-colors">{{ t('my_articles') }}</div>
+            <div class="card-desc">{{ t('control_info') }}</div>
+            <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl text-fmmain"></iconify-icon>
+            </div>
+        </a>
+
+        <a href="{{ url_for('app__dashboard_purchases') }}" class="dashboard-card group relative overflow-hidden" aria-label="{{ t('my_purchases') }}">
+            <div class="card-icon bg-green-50 text-green-600">
+                <iconify-icon icon="solar:cart-check-bold-duotone"></iconify-icon>
+            </div>
+            <div class="card-title group-hover:text-fmmain transition-colors">{{ t('my_purchases') }}</div>
+            <div class="card-desc">{{ t('control_info') }}</div>
+            <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl text-fmmain"></iconify-icon>
+            </div>
+        </a>
+
+        <a href="{{ url_for('app__dashboard_new_article') }}" class="dashboard-card group relative overflow-hidden" aria-label="{{ t('submit_article') }}">
+            <div class="card-icon bg-amber-50 text-amber-600">
+                <iconify-icon icon="solar:document-add-bold-duotone"></iconify-icon>
+            </div>
+            <div class="card-title group-hover:text-fmmain transition-colors">{{ t('submit_article') }}</div>
+            <div class="card-desc">{{ t('control_info') }}</div>
+            <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl text-fmmain"></iconify-icon>
+            </div>
+        </a>
+
+        <a href="{{ url_for('app__dashboard_payments') }}" class="dashboard-card group relative overflow-hidden" aria-label="{{ t('my_payments') }}">
+            <div class="card-icon bg-orange-50 text-orange-600">
+                <iconify-icon icon="solar:wallet-money-bold-duotone"></iconify-icon>
+            </div>
+            <div class="card-title group-hover:text-fmmain transition-colors">{{ t('my_payments') }}</div>
+            <div class="card-desc">{{ t('control_info') }}</div>
+            <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl text-fmmain"></iconify-icon>
+            </div>
+        </a>
+
+        <a href="{{ url_for('app__dashboard_guides') }}" class="dashboard-card group relative overflow-hidden" aria-label="{{ t('guides') }}">
+            <div class="card-icon bg-indigo-50 text-indigo-600">
+                <iconify-icon icon="solar:checklist-minimalistic-bold-duotone"></iconify-icon>
+            </div>
+            <div class="card-title group-hover:text-fmmain transition-colors">{{ t('guides') }}</div>
+            <div class="card-desc">{{ t('control_info') }}</div>
+            <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl text-fmmain"></iconify-icon>
+            </div>
+        </a>
+
+        <a href="{{ url_for('app__dashboard_profile') }}" class="dashboard-card group relative overflow-hidden" aria-label="{{ t('my_profile') }}">
+            <div class="card-icon bg-rose-50 text-rose-600">
+                <iconify-icon icon="solar:user-id-bold-duotone"></iconify-icon>
+            </div>
+            <div class="card-title group-hover:text-fmmain transition-colors">{{ t('my_profile') }}</div>
+            <div class="card-desc">{{ t('control_info') }}</div>
+            <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl text-fmmain"></iconify-icon>
+            </div>
+        </a>
+    </div>
+
+{% endblock %}

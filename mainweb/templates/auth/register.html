@@ -1,0 +1,199 @@
+{% extends 'basic.html' %}
+
+{% block title %}{{ t('website_title') }}{% endblock %}
+
+
+{% block content %}
+{% include 'components/headers/main_header.html' %}
+{% include 'components/hero/main_hero.html' %}
+<div class="mt-8">
+    <div class="container py-10 mx-auto px-4">
+        <div class="max-w-2xl mx-auto">
+            <div class="auth-card" style="max-width: 100%;">
+                <div class="text-center mb-8">
+                    <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-fmmain-light text-fmmain text-2xl mb-4">
+                        <iconify-icon icon="solar:user-plus-bold-duotone"></iconify-icon>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-900">{{ t('register_title') }}</h2>
+                    <p class="text-gray-500 text-sm mt-2">{{ t('website_title') }}</p>
+                </div>
+
+                <form action="{{ url_for('app__register') }}" method="post">
+                    <div class="grid grid-cols-6 gap-5">
+                        <div class="col-span-6 md:col-span-2">
+                            <label for="first_name" class="block mb-1.5 text-sm font-medium text-gray-700">{{ t('first_name') }}</label>
+                            <input type="text" id="first_name"
+                                class="bg-white border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-fmmain focus:border-fmmain block w-full p-3"
+                                placeholder="{{ t('first_name_placeholder') }}" name="first_name"
+                                value="{{ request.form.get('first_name', '') }}" required />
+                        </div>
+
+                        <div class="col-span-6 md:col-span-2">
+                            <label for="last_name" class="block mb-1.5 text-sm font-medium text-gray-700">{{ t('last_name') }}</label>
+                            <input type="text" value="{{ request.form.get('last_name', '') }}" id="last_name"
+                                name="last_name"
+                                class="bg-white border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-fmmain focus:border-fmmain block w-full p-3"
+                                placeholder="{{ t('last_name_placeholder') }}" required />
+                        </div>
+
+                        <div class="col-span-6 md:col-span-2">
+                            <label for="father_name" class="block mb-1.5 text-sm font-medium text-gray-700">{{ t('patronymic') }}</label>
+                            <input type="text" value="{{ request.form.get('father_name', '') }}" id="father_name"
+                                name="father_name"
+                                class="bg-white border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-fmmain focus:border-fmmain block w-full p-3"
+                                placeholder="" />
+                        </div>
+
+                        <div class="col-span-6">
+                            <label for="countries" class="block mb-1.5 text-sm font-medium text-gray-700">{{ t('country') }}</label>
+                            <select id="countries" name="country"
+                                class="bg-white border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-fmmain focus:border-fmmain block w-full p-3"
+                                required>
+                                <option value="" {{ 'selected' if not request.form.get('country') }} disabled>{{ t('choose_country') }}</option>
+                                {% for each in fix_country[::-1] %}
+                                <option value="{{ each.id }}" {{ 'selected' if request.form.get('country')==each.id|string }}>{{ each.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-span-6 md:col-span-3">
+                            <label for="email" class="block mb-1.5 text-sm font-medium text-gray-700">{{ t('email') }}</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                    <iconify-icon icon="solar:letter-bold-duotone" class="text-gray-400"></iconify-icon>
+                                </div>
+                                <input type="email" id="email" name="email" value="{{ request.form.get('email', '') }}"
+                                    class="pl-10 bg-white border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-fmmain focus:border-fmmain block w-full p-3"
+                                    placeholder="{{ t('email_placeholder') }}" required />
+                            </div>
+                        </div>
+
+                        <div class="col-span-6 md:col-span-3">
+                            <label for="email_confirm" class="block mb-1.5 text-sm font-medium text-gray-700">{{ t('email_confirm') }}</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                    <iconify-icon icon="solar:letter-bold-duotone" class="text-gray-400"></iconify-icon>
+                                </div>
+                                <input type="email" id="email_confirm" name="email_confirm"
+                                    class="pl-10 bg-white border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-fmmain focus:border-fmmain block w-full p-3"
+                                    placeholder="{{ t('email_placeholder') }}" required />
+                            </div>
+                        </div>
+
+                        <div class="col-span-6 md:col-span-3">
+                            <label for="password" class="block mb-1.5 text-sm font-medium text-gray-700">{{ t('password') }}</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                    <iconify-icon icon="solar:lock-keyhole-bold-duotone" class="text-gray-400"></iconify-icon>
+                                </div>
+                                <input type="password" id="password" name="password"
+                                    class="pl-10 bg-white border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-fmmain focus:border-fmmain block w-full p-3"
+                                    placeholder="" required />
+                            </div>
+                        </div>
+
+                        <div class="col-span-6 md:col-span-3">
+                            <label for="password_confirm" class="block mb-1.5 text-sm font-medium text-gray-700">{{ t('password_confirm') }}</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                    <iconify-icon icon="solar:lock-keyhole-bold-duotone" class="text-gray-400"></iconify-icon>
+                                </div>
+                                <input type="password" id="password_confirm" name="password_confirm"
+                                    class="pl-10 bg-white border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-fmmain focus:border-fmmain block w-full p-3"
+                                    placeholder="" required />
+                            </div>
+                        </div>
+
+                        <div class="col-span-6 pt-2">
+                            <div class="flex items-start gap-3">
+                                <input id="agree_terms" name="agree_terms" type="checkbox" value="1"
+                                    class="w-4 h-4 mt-0.5 border border-gray-300 accent-fmmain rounded bg-gray-50 focus:ring-2 focus:ring-fmmain-light cursor-pointer"
+                                    required />
+                                <label for="agree_terms" class="text-sm text-gray-600 cursor-pointer mb-0">{{ t('agree_terms') }}</label>
+                            </div>
+                        </div>
+
+                        <div class="col-span-6">
+                            <div class="flex items-start gap-3">
+                                <input id="is_notify" name="is_notify" type="checkbox" value="1"
+                                    class="w-4 h-4 mt-0.5 border border-gray-300 accent-fmmain rounded bg-gray-50 focus:ring-2 focus:ring-fmmain-light cursor-pointer" />
+                                <label for="is_notify" class="text-sm text-gray-600 cursor-pointer mb-0">{{ t('agree_notifications') }}</label>
+                            </div>
+                        </div>
+
+                        <div class="col-span-6">
+                            <div class="rounded-xl bg-gray-50 border border-gray-100 p-4 space-y-2">
+                                <div class="text-sm text-gray-500 flex items-start gap-2">
+                                    <iconify-icon icon="solar:info-circle-line-duotone" class="text-base mt-0.5 text-gray-400 flex-shrink-0"></iconify-icon>
+                                    {{ t('register_info_1') }}
+                                </div>
+                                <div class="text-sm text-gray-500 flex items-start gap-2">
+                                    <iconify-icon icon="solar:info-circle-line-duotone" class="text-base mt-0.5 text-gray-400 flex-shrink-0"></iconify-icon>
+                                    {{ t('register_info_2') }}
+                                </div>
+                                <div class="text-sm text-gray-500 flex items-start gap-2">
+                                    <iconify-icon icon="solar:info-circle-line-duotone" class="text-base mt-0.5 text-gray-400 flex-shrink-0"></iconify-icon>
+                                    {{ t('register_info_3') }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-span-6">
+                            {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                            {% for category, message in messages %}
+                            <div class="flex items-center gap-2 {% if category == 'error' %}bg-red-50 border border-red-100 text-red-700{% else %}bg-gray-50 border border-gray-100 text-gray-700{% endif %} px-4 py-3 rounded-xl mb-3 text-sm">
+                                <iconify-icon icon="{% if category == 'error' %}solar:danger-circle-bold-duotone{% else %}solar:info-circle-bold-duotone{% endif %}" class="text-lg flex-shrink-0"></iconify-icon>
+                                {{ message }}
+                            </div>
+                            {% endfor %}
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+
+                        <div class="col-span-6 pt-2">
+                            <button type="submit"
+                                class="w-full flex items-center justify-center gap-2 rounded-xl bg-fmmain px-6 py-3 text-sm font-semibold text-white hover:bg-fmmain/90 transition-all duration-200 shadow-sm hover:shadow-md">
+                                <iconify-icon icon="solar:user-plus-bold-duotone" class="text-base"></iconify-icon>
+                                {{ t('register_button') }}
+                            </button>
+                            
+                            <div class="mt-4 text-center">
+                                <span class="text-sm text-gray-500">{{ t('login_to_account') }}?</span>
+                                <a href="{{ url_for('app__login') }}"
+                                    class="text-sm font-semibold text-fmmain hover:text-fmmain/80 transition-colors ml-1">
+                                    {{ t('login') }}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+
+
+
+<script>
+    const header = document.getElementById('header'); // Get the header element
+    const menu = document.getElementById('menu'); // Get the #menu element
+
+    window.addEventListener('scroll', function () {
+        const menuPosition = menu.getBoundingClientRect().top; // Get the position of #menu relative to the viewport
+        const scrollPosition = window.scrollY; // Current scroll position
+
+        if (menuPosition <= 0) {
+            // If #menu is in or above the viewport, show the header
+            header.classList.remove('hidden');
+        } else {
+            // If #menu is below the viewport, hide the header
+            header.classList.add('hidden');
+        }
+    });
+</script>
+
+{% endblock %}

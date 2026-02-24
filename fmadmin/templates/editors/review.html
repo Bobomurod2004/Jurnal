@@ -1,0 +1,227 @@
+{% extends "basic.html" %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <h2 class="page-title">
+          {% if assignment.status == 'pending' %}
+          {{ t("admin_review_title_pending") }}
+          {% else %}
+          {{ t("admin_review_title_view") }}
+          {% endif %}
+        </h2>
+        <div class="page-subtitle">
+          {{ t("admin_col_article") }}: {{ submission.title }}
+        </div>
+      </div>
+      <div class="col-auto ms-auto d-print-none">
+        <div class="btn-list">
+          <a href="{{ url_for('editor_assignments') }}" class="btn btn-secondary">
+            <i class="ti ti-arrow-left"></i>
+            {{ t("admin_btn_back_to_assignments") }}
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-body">
+  <div class="container-xl">
+    <div class="row row-deck row-cards">
+      <div class="col-md-8">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">{{ t("admin_section_article_info") }}</h3>
+          </div>
+          <div class="card-body">
+            <div class="datagrid">
+              <div class="datagrid-item">
+                <div class="datagrid-title">{{ t("admin_label_title") }}</div>
+                <div class="datagrid-content">{{ submission.title }}</div>
+              </div>
+              {% if submission.abstract %}
+              <div class="datagrid-item">
+                <div class="datagrid-title">{{ t("admin_label_abstract") }}</div>
+                <div class="datagrid-content">{{ submission.abstract }}</div>
+              </div>
+              {% endif %}
+              {% if submission.keywords %}
+              <div class="datagrid-item">
+                <div class="datagrid-title">{{ t("admin_label_keywords") }}</div>
+                <div class="datagrid-content">
+                  {% for keyword in submission.keywords %}
+                  <span class="badge bg-blue-lt me-1">{{ keyword }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+              {% if submission.file_anonymized %}
+              <div class="datagrid-item">
+                <div class="datagrid-title">{{ t("admin_label_anonymized_file") }}</div>
+                <div class="datagrid-content">
+                  <a href="{{ submission.file_anonymized }}" class="btn btn-primary" target="_blank">
+                    <i class="ti ti-download"></i>
+                    {{ t("admin_btn_download") }}
+                  </a>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        {% if assignment.status == 'pending' %}
+        <form method="POST" action="{{ url_for('review_assignment', assignment_id=assignment.id) }}"
+          enctype="multipart/form-data">
+          <div class="card mt-3">
+            <div class="card-header">
+              <h3 class="card-title">{{ t("admin_section_your_review") }}</h3>
+            </div>
+            <div class="card-body">
+              <div class="mb-3">
+                <label class="form-label">{{ t("admin_label_decision") }}</label>
+                <div class="form-selectgroup">
+                  <label class="form-selectgroup-item">
+                    <input type="radio" name="status" value="reviewed" class="form-selectgroup-input" checked>
+                    <span class="form-selectgroup-label">
+                      <i class="ti ti-check text-success me-1"></i>
+                      {{ t("admin_decision_approve") }}
+                    </span>
+                  </label>
+                  <label class="form-selectgroup-item">
+                    <input type="radio" name="status" value="rejected" class="form-selectgroup-input">
+                    <span class="form-selectgroup-label">
+                      <i class="ti ti-x text-danger me-1"></i>
+                      {{ t("admin_decision_reject") }}
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">{{ t("admin_label_comment") }}</label>
+                <textarea class="form-control" name="editor_comment" rows="6"
+                  placeholder="{{ t('admin_placeholder_comment') }}">{{ assignment.editor_comment or '' }}</textarea>
+                <small class="form-hint">{{ t("admin_hint_comment") }}</small>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">{{ t("admin_label_attach_file") }}</label>
+                <input type="file" class="form-control" name="editor_file" accept=".pdf,.doc,.docx,.txt">
+                <small class="form-hint">{{ t("admin_hint_attach_file") }}</small>
+                {% if assignment.editor_file %}
+                <div class="mt-2">
+                  <span class="text-success">
+                    <i class="ti ti-file"></i>
+                    {{ t("admin_label_current_file") }}: <a href="{{ assignment.editor_file }}" target="_blank">{{
+                      t("admin_btn_download") }}</a>
+                  </span>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="card-footer text-end">
+              <div class="d-flex">
+                <a href="{{ url_for('editor_assignments') }}" class="btn btn-link">{{ t("admin_btn_cancel") }}</a>
+                <button type="submit" class="btn btn-primary ms-auto">
+                  <i class="ti ti-check"></i>
+                  {{ t("admin_btn_save_review") }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+        {% else %}
+        <div class="card mt-3">
+          <div class="card-header">
+            <h3 class="card-title">{{ t("admin_section_review_result") }}</h3>
+          </div>
+          <div class="card-body">
+            <div class="datagrid">
+              <div class="datagrid-item">
+                <div class="datagrid-title">{{ t("admin_label_decision") }}</div>
+                <div class="datagrid-content">
+                  {% if assignment.status == 'reviewed' %}
+                  <span class="badge bg-success-lt">{{ t("admin_decision_approve") }}</span>
+                  {% elif assignment.status == 'rejected' %}
+                  <span class="badge bg-danger-lt">{{ t("admin_stats_rejected") }}</span>
+                  {% else %}
+                  <span class="badge bg-secondary-lt">{{ assignment.status }}</span>
+                  {% endif %}
+                </div>
+              </div>
+              {% if assignment.reviewed_at %}
+              <div class="datagrid-item">
+                <div class="datagrid-title">{{ t("admin_label_reviewed_at") }}</div>
+                <div class="datagrid-content">{{ assignment.reviewed_at | timestamp_to_date }}</div>
+              </div>
+              {% endif %}
+              {% if assignment.editor_comment %}
+              <div class="datagrid-item">
+                <div class="datagrid-title">{{ t("admin_label_comment") }}</div>
+                <div class="datagrid-content">{{ assignment.editor_comment }}</div>
+              </div>
+
+              {% endif %}
+              {% if assignment.editor_file %}
+              <div class="datagrid-item">
+                <div class="datagrid-title">{{ t("admin_label_attached_file") }}</div>
+                <div class="datagrid-content">
+                  <a href="{{ assignment.editor_file }}" class="btn btn-outline-primary btn-sm" target="_blank">
+                    <i class="ti ti-download"></i>
+                    {{ t("admin_tooltip_download_file") }}
+                  </a>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">{{ t("admin_section_assignment_details") }}</h3>
+          </div>
+          <div class="card-body">
+            <div class="datagrid">
+              <div class="datagrid-item">
+                <div class="datagrid-title">{{ t("admin_label_assignment_id") }}</div>
+                <div class="datagrid-content">{{ assignment.id }}</div>
+              </div>
+              <div class="datagrid-item">
+                <div class="datagrid-title">{{ t("admin_label_assigned_at") }}</div>
+                <div class="datagrid-content">{{ assignment.assigned_at | timestamp_to_date }}</div>
+              </div>
+              <div class="datagrid-item">
+                <div class="datagrid-title">{{ t("admin_label_status") }}</div>
+                <div class="datagrid-content">
+                  {% if assignment.status == 'pending' %}
+                  <span class="badge bg-warning-lt">{{ t("admin_stats_pending_assignments") }}</span>
+                  {% elif assignment.status == 'reviewed' %}
+                  <span class="badge bg-success-lt">{{ t("admin_stats_reviewed") }}</span>
+                  {% elif assignment.status == 'rejected' %}
+                  <span class="badge bg-danger-lt">{{ t("admin_stats_rejected") }}</span>
+                  {% else %}
+                  <span class="badge bg-secondary-lt">{{ assignment.status }}</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+{% endblock %}

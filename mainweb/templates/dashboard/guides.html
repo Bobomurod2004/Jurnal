@@ -1,0 +1,132 @@
+{% extends 'basic_dashboard.html' %}
+
+{% block title %}{{ t('guides') }} - {{ t('website_title') }}{% endblock %}
+
+{% block dashboard_content %}
+        <div class="pb-8">
+            <h4 class="text-2xl font-medium mb-8">{{ t('guides') }}</h4>
+            
+            {% include 'components/notifications/flash_messages.html' %}
+
+            <!-- Submission Guidelines Section -->
+            <div class="mb-8">
+                <h5 class="text-xl font-medium mb-4">{{ t('submission_guidelines') }}</h5>
+                <div class="grid grid-cols-3 gap-4">
+                    <a href="{{ url_for('app__page_alias', alias='submission_guidelines') }}" class="border border-gray-100 group hover:border-gray-300 rounded-lg bg-gray-50 px-6 py-6 transition-colors hover:cursor-pointer sticky">
+                        <div>
+                            <h4 class="text-lg font-semibold mb-2">{{ t('menu_submission_guidelines') }}</h4>
+                            <p class="text-gray-600 text-sm">{{ t('submission_guidelines_desc') }}</p>
+                        </div>
+                        <div class="absolute top-0 right-0 overflow-hidden w-32 h-32">
+                            <iconify-icon icon="solar:document-text-bold-duotone" class="text-8xl text-blue-300/25 group-hover:text-blue-300/50 relative h-32 w-32 -top-5 -right-8 rotate-12 group-hover:rotate-36 transition-transform transition-colors"></iconify-icon>
+                        </div>
+                    </a>
+
+                    <a href="{{ url_for('app__page_alias', alias='author_instructions') }}" class="border border-gray-100 group hover:border-gray-300 rounded-lg bg-gray-50 px-6 py-6 transition-colors hover:cursor-pointer sticky">
+                        <div>
+                            <h4 class="text-lg font-semibold mb-2">{{ t('menu_author_instructions') }}</h4>
+                            <p class="text-gray-600 text-sm">{{ t('author_instructions_desc') }}</p>
+                        </div>
+                        <div class="absolute top-0 right-0 overflow-hidden w-32 h-32">
+                            <iconify-icon icon="solar:notebook-bold-duotone" class="text-8xl text-green-400/25 group-hover:text-green-400/50 relative h-32 w-32 -top-5 -right-8 rotate-12 group-hover:rotate-36 transition-transform transition-colors"></iconify-icon>
+                        </div>
+                    </a>
+
+                    <a href="{{ url_for('app__page_alias', alias='editorial_policy') }}" class="border border-gray-100 group hover:border-gray-300 rounded-lg bg-gray-50 px-6 py-6 transition-colors hover:cursor-pointer sticky">
+                        <div>
+                            <h4 class="text-lg font-semibold mb-2">{{ t('menu_editorial_policy') }}</h4>
+                            <p class="text-gray-600 text-sm">{{ t('editorial_policy_desc') }}</p>
+                        </div>
+                        <div class="absolute top-0 right-0 overflow-hidden w-32 h-32">
+                            <iconify-icon icon="solar:checklist-minimalistic-bold-duotone" class="text-8xl text-amber-300/25 group-hover:text-amber-300/50 relative h-32 w-32 -top-5 -right-8 rotate-12 group-hover:rotate-36 transition-transform transition-colors"></iconify-icon>
+                        </div>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Journal Information Section -->
+            <div class="mb-8">
+                <h5 class="text-xl font-medium mb-4">{{ t('menu_journal_info') }}</h5>
+                <div class="grid grid-cols-3 gap-4">
+                    <a href="{{ url_for('app__page_alias', alias='aims_scope') }}" class="border border-gray-100 group hover:border-gray-300 rounded-lg bg-gray-50 px-6 py-6 transition-colors hover:cursor-pointer sticky">
+                        <div>
+                            <h4 class="text-lg font-semibold mb-2">{{ t('menu_aims_scope') }}</h4>
+                            <p class="text-gray-600 text-sm">{{ t('aims_scope_desc') }}</p>
+                        </div>
+                        <div class="absolute top-0 right-0 overflow-hidden w-32 h-32">
+                            <iconify-icon icon="solar:target-bold-duotone" class="text-8xl text-indigo-300/25 group-hover:text-indigo-300/50 relative h-32 w-32 -top-5 -right-8 rotate-12 group-hover:rotate-36 transition-transform transition-colors"></iconify-icon>
+                        </div>
+                    </a>
+
+                    <a href="{{ url_for('app__page_alias', alias='journal_metrics') }}" class="border border-gray-100 group hover:border-gray-300 rounded-lg bg-gray-50 px-6 py-6 transition-colors hover:cursor-pointer sticky">
+                        <div>
+                            <h4 class="text-lg font-semibold mb-2">{{ t('menu_journal_metrics') }}</h4>
+                            <p class="text-gray-600 text-sm">{{ t('journal_metrics_desc') }}</p>
+                        </div>
+                        <div class="absolute top-0 right-0 overflow-hidden w-32 h-32">
+                            <iconify-icon icon="solar:graph-bold-duotone" class="text-8xl text-orange-300/25 group-hover:text-orange-300/50 relative h-32 w-32 -top-5 -right-8 rotate-12 group-hover:rotate-36 transition-transform transition-colors"></iconify-icon>
+                        </div>
+                    </a>
+
+                    <a href="{{ url_for('app__page_alias', alias='editorial_board') }}" class="border border-gray-100 group hover:border-gray-300 rounded-lg bg-gray-50 px-6 py-6 transition-colors hover:cursor-pointer sticky">
+                        <div>
+                            <h4 class="text-lg font-semibold mb-2">{{ t('menu_editorial_board') }}</h4>
+                            <p class="text-gray-600 text-sm">{{ t('editorial_board_desc') }}</p>
+                        </div>
+                        <div class="absolute top-0 right-0 overflow-hidden w-32 h-32">
+                            <iconify-icon icon="solar:users-group-rounded-bold-duotone" class="text-8xl text-amber-300/25 group-hover:text-amber-300/50 relative h-32 w-32 -top-5 -right-8 rotate-12 group-hover:rotate-36 transition-transform transition-colors"></iconify-icon>
+                        </div>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Subscription and Payment Section -->
+            <div class="mb-8">
+                <h5 class="text-xl font-medium mb-4">{{ t('menu_subscribe') }}</h5>
+                <div class="grid grid-cols-3 gap-4">
+                    <a href="{{ url_for('app__page_alias', alias='subscription_guide') }}" class="border border-gray-100 group hover:border-gray-300 rounded-lg bg-gray-50 px-6 py-6 transition-colors hover:cursor-pointer sticky">
+                        <div>
+                            <h4 class="text-lg font-semibold mb-2">{{ t('subscription_guide') }}</h4>
+                            <p class="text-gray-600 text-sm">{{ t('subscription_guide_desc') }}</p>
+                        </div>
+                        <div class="absolute top-0 right-0 overflow-hidden w-32 h-32">
+                            <iconify-icon icon="solar:card-bold-duotone" class="text-8xl text-blue-300/25 group-hover:text-blue-300/50 relative h-32 w-32 -top-5 -right-8 rotate-12 group-hover:rotate-36 transition-transform transition-colors"></iconify-icon>
+                        </div>
+                    </a>
+
+                    <a href="{{ url_for('app__page_alias', alias='payment_guide') }}" class="border border-gray-100 group hover:border-gray-300 rounded-lg bg-gray-50 px-6 py-6 transition-colors hover:cursor-pointer sticky">
+                        <div>
+                            <h4 class="text-lg font-semibold mb-2">{{ t('payment_guide') }}</h4>
+                            <p class="text-gray-600 text-sm">{{ t('payment_guide_desc') }}</p>
+                        </div>
+                        <div class="absolute top-0 right-0 overflow-hidden w-32 h-32">
+                            <iconify-icon icon="solar:wallet-money-bold-duotone" class="text-8xl text-green-400/25 group-hover:text-green-400/50 relative h-32 w-32 -top-5 -right-8 rotate-12 group-hover:rotate-36 transition-transform transition-colors"></iconify-icon>
+                        </div>
+                    </a>
+
+                    <a href="{{ url_for('app__page_alias', alias='subscription_benefits') }}" class="border border-gray-100 group hover:border-gray-300 rounded-lg bg-gray-50 px-6 py-6 transition-colors hover:cursor-pointer sticky">
+                        <div>
+                            <h4 class="text-lg font-semibold mb-2">{{ t('subscription_benefits') }}</h4>
+                            <p class="text-gray-600 text-sm">{{ t('subscription_benefits_desc') }}</p>
+                        </div>
+                        <div class="absolute top-0 right-0 overflow-hidden w-32 h-32">
+                            <iconify-icon icon="solar:star-bold-duotone" class="text-8xl text-amber-300/25 group-hover:text-amber-300/50 relative h-32 w-32 -top-5 -right-8 rotate-12 group-hover:rotate-36 transition-transform transition-colors"></iconify-icon>
+                        </div>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="col-span-full">
+                <div class="flex justify-between">
+                    <a href="{{ url_for('app__contact') }}" class="flex w-fit items-center justify-center gap-2 text-gray-400 hover:text-cyan-600 transition-colors" aria-label="{{ t('contact') }}">
+                        <iconify-icon icon="tabler:help-circle" aria-hidden="true"></iconify-icon> {{ t('contact') }}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+{% endblock %}
+
+{% block dashboard_scripts %}
+{% endblock %} 

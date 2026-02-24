@@ -1,0 +1,148 @@
+{% extends 'basic.html' %}
+
+
+{% block content %}
+
+<div class="page-header d-print-none mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">{{ t("admin_users_edit_title") }}</h2>
+            <a href="{{ url_for('users') }}" class="">
+                <i class="ti ti-arrow-left"></i>
+                {{ t("admin_btn_back") }}
+            </a>
+        </div>
+        <div class="col-auto ms-auto">
+            <div class="btn-list">
+                <button id="save-user-btn-top" type="button" class="btn btn-primary d-none d-sm-inline-block">
+                    <i class="ti ti-check icon icon-1"></i>
+                    {{ t("admin_btn_save") }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="main-user-form" method="post" enctype="multipart/form-data">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_id") }}</label>
+                        <input type="text" class="form-control" value="{{ user.id }}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_name") }}</label>
+                        <input type="text" class="form-control" name="name" value="{{ user.name }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_surname") }}</label>
+                        <input type="text" class="form-control" name="second_name" value="{{ user.second_name }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_patronymic") }}</label>
+                        <input type="text" class="form-control" name="father_name" value="{{ user.father_name or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_email") }}</label>
+                        <input type="email" class="form-control" name="email" value="{{ user.email }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_country") }}</label>
+                        <select class="form-select" name="country_id">
+                            <option value="">{{ t("admin_option_not_selected") }}</option>
+                            {% for country in countries %}
+                            <option value="{{ country.id }}" {% if user.country_id==country.id %}selected{% endif %}>{{
+                                country.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_region") }}</label>
+                        <input type="text" class="form-control" name="region" value="{{ user.region or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_role") }}</label>
+                        <select class="form-select" name="rolename">
+                            <option value="user" {% if user.rolename=='user' %}selected{% endif %}>{{
+                                t("admin_role_user") }}</option>
+                            <option value="admin" {% if user.rolename=='admin' %}selected{% endif %}>{{
+                                t("admin_role_admin") }}</option>
+                            <option value="editor" {% if user.rolename=='editor' %}selected{% endif %}>{{
+                                t("admin_role_editor") }}</option>
+                        </select>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="is_blocked" id="is_blocked" {% if
+                            user.is_blocked %}checked{% endif %}>
+                        <label class="form-check-label" for="is_blocked">{{ t("admin_users_blocked") }}</label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="is_notify" id="is_notify" {% if
+                            user.is_notify %}checked{% endif %}>
+                        <label class="form-check-label" for="is_notify">{{ t("admin_users_notifications") }}</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_rules_accepted") }}</label>
+                        <input type="datetime-local" class="form-control"
+                            value="{{ user.accept_rules_time | date_to_form_full }}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_last_online") }}</label>
+                        <input type="datetime-local" class="form-control"
+                            value="{{ user.last_online | date_to_form_full }}" readonly>
+                    </div>
+                    {% if user.id != 0 %}
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_created_at") }}</label>
+                        <input type="datetime-local" class="form-control"
+                            value="{{ user.created_at | date_to_form_full }}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_registered_at") }}</label>
+                        <input type="datetime-local" class="form-control"
+                            value="{{ user.register_time | date_to_form_full }}" readonly>
+                    </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_tariff") }}</label>
+                        <select class="form-select" name="tariff_id">
+                            <option value="">{{ t("admin_option_not_selected") }}</option>
+                            {% for tariff in tariffs %}
+                            <option value="{{ tariff.id }}" {% if user.tariff_id==tariff.id %}selected{% endif %}>
+                                {{ tariff.name }}
+                                {% if tariff.is_verified %} 🔒 {{ t("admin_tariff_verified_only") }}{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">🔒 {{ t("admin_tariff_verified_hint") }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_sub_end_date") }}</label>
+                        <input type="date" class="form-control" name="subscription_end_date"
+                            value="{{ user.subscription_end_date | date_to_form }}">
+                    </div>
+                    {% if user.id == 0 and password %}
+                    <div class="alert alert-info">{{ t("admin_users_new_password_msg") }} <b>{{ password }}</b></div>
+                    <input type="hidden" name="password" value="{{ password }}">
+                    {% endif %}
+                    <div class="d-flex justify-content-end">
+                        <button id="save-user-btn" type="submit" class="btn btn-primary">{{ t("admin_btn_save")
+                            }}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('save-user-btn-top').addEventListener('click', function () {
+        document.getElementById('save-user-btn').click();
+    });
+</script>
+{% endblock %}

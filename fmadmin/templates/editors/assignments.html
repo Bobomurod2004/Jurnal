@@ -1,0 +1,195 @@
+{% extends "basic.html" %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">
+        {% if current_user.rolename == 'editor' %}
+        {{ t("admin_my_assignments_title") }}
+        {% else %}
+        {{ t("admin_editor_assignments_title") }}
+        {% endif %}
+      </h2>
+    </div>
+  </div>
+</div>
+
+<form method="GET" action="{{ url_for('editor_assignments') }}">
+  <div class="row mb-3">
+    <div class="col-md-3">
+      <div class="form-label">{{ t("admin_label_status") }}</div>
+      <select class="form-select" name="status">
+        <option value="">{{ t("admin_filter_all_status") }}</option>
+        <option value="pending" {% if status_filter=='pending' %}selected{% endif %}>{{
+          t("admin_stats_pending_assignments") }}</option>
+        <option value="reviewed" {% if status_filter=='reviewed' %}selected{% endif %}>{{ t("admin_stats_reviewed") }}
+        </option>
+        <option value="rejected" {% if status_filter=='rejected' %}selected{% endif %}>{{ t("admin_stats_rejected") }}
+        </option>
+      </select>
+    </div>
+    {% if current_user.rolename == 'admin' %}
+    <div class="col-md-3">
+      <div class="form-label">{{ t("admin_label_editor") }}</div>
+      <select class="form-select" name="editor">
+        <option value="">{{ t("admin_option_all_editors") }}</option>
+        {% for editor in editors %}
+        <option value="{{ editor.id }}" {% if editor_filter==editor.id|string %}selected{% endif %}>
+          {{ editor.name }} {{ editor.second_name or '' }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <div class="form-label">{{ t("admin_label_submission_id") }}</div>
+      <input type="text" class="form-control" placeholder="{{ t('admin_users_id_placeholder') }}..."
+        name="submission_id" value="{{ submission_id_filter|default('') }}">
+    </div>
+    <div class="col-md-3">
+      <div class="form-label">{{ t("admin_label_submission_title") }}</div>
+      <input type="text" class="form-control" placeholder="{{ t('admin_placeholder_search_title') }}..."
+        name="submission_title" value="{{ submission_title_filter|default('') }}">
+    </div>
+    {% endif %}
+    <div class="col-12 mt-3">
+      <div class="d-flex justify-content-end">
+        <button class="btn btn-ghost-danger me-2" type="button"
+          onclick="window.location.href='{{ url_for('editor_assignments') }}';">
+          <i class="ti ti-x pe-2"></i>
+          {{ t("admin_btn_clear") }}
+        </button>
+        <button class="btn btn-primary" type="submit">
+          <i class="ti ti-search pe-2"></i>
+          {{ t("admin_btn_search") }}
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="card mt-4">
+  <div class="table-responsive">
+    <table class="table card-table table-hover">
+      <thead>
+        <tr>
+          <th>{{ t("admin_col_article") }}</th>
+          {% if current_user.rolename == 'admin' %}
+          <th>{{ t("admin_label_editor") }}</th>
+          {% endif %}
+          <th>{{ t("admin_col_assigned_at") }}</th>
+          <th>{{ t("admin_label_status") }}</th>
+          <th>{{ t("admin_col_reviewed_at") }}</th>
+          <th class="w-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for assignment in assignments %}
+        {% set submission = submissions_map.get(assignment.submission_id) %}
+        {% set editor = editors_map.get(assignment.editor_id) %}
+        {% set assigned_by_user = users_map.get(assignment.assigned_by) %}
+        <tr>
+          <td class="align-middle">
+            <div class="d-flex flex-column">
+              <div class="font-weight-medium">{{ submission.title if submission else t("admin_msg_article_not_found") }}
+              </div>
+              {% if submission %}
+              <div class="text-secondary small">ID: {{ submission.id }}</div>
+              {% endif %}
+            </div>
+          </td>
+          {% if current_user.rolename == 'admin' %}
+          <td class="align-middle">
+            {% if editor %}
+            <div class="d-flex py-1 align-items-center">
+              <span class="avatar me-2">{{ editor.name[0] if editor.name else 'E' }}</span>
+              <div class="flex-fill">
+                <div class="font-weight-medium">{{ editor.name }} {{ editor.second_name or '' }}</div>
+                <div class="text-secondary small">{{ editor.editor_specialization or
+                  t("admin_editor_spec_not_specified") }}</div>
+              </div>
+            </div>
+            {% else %}
+            <span class="text-secondary">{{ t("admin_msg_editor_not_found") }}</span>
+            {% endif %}
+          </td>
+          {% endif %}
+          <td class="align-middle">
+            <div class="d-flex flex-column">
+              <div class="text-secondary small">
+                {{ assignment.assigned_at | timestamp_to_date if assignment.assigned_at else '-' }}
+              </div>
+              {% if assigned_by_user and current_user.rolename == 'admin' %}
+              <div class="text-secondary small">
+                {{ assigned_by_user.name }} {{ assigned_by_user.second_name or '' }}
+              </div>
+              {% endif %}
+            </div>
+          </td>
+          <td class="align-middle">
+            {% if assignment.status == 'pending' %}
+            <span class="badge bg-warning-lt">{{ t("admin_stats_pending_assignments") }}</span>
+            {% elif assignment.status == 'reviewed' %}
+            <span class="badge bg-success-lt">{{ t("admin_stats_reviewed") }}</span>
+            {% elif assignment.status == 'rejected' %}
+            <span class="badge bg-danger-lt">{{ t("admin_stats_rejected") }}</span>
+            {% else %}
+            <span class="badge bg-secondary-lt">{{ assignment.status }}</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            {% if assignment.reviewed_at %}
+            <div class="text-secondary small">
+              {{ assignment.reviewed_at | timestamp_to_date }}
+            </div>
+            {% else %}
+            <span class="text-secondary">-</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            {% if current_user.rolename == 'editor' and assignment.editor_id == current_user.id and assignment.status ==
+            'pending' %}
+            <a href="{{ url_for('review_assignment', assignment_id=assignment.id) }}"
+              class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1">
+              {{ t("admin_review_title_pending") }}
+            </a>
+            {% elif assignment.status != 'pending' %}
+            <a href="{{ url_for('review_assignment', assignment_id=assignment.id) }}"
+              class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1">
+              {{ t("admin_btn_view") }}
+            </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer d-flex align-items-center">
+    <p class="m-0 text-secondary">{{ t("admin_pagination_showing") }} <span>{{ assignments|length }}</span> {{
+      t("admin_pagination_of") }} <span>{{ total_assignments }}</span> {{ t("admin_pagination_entries") }}</p>
+    <ul class="pagination m-0 ms-auto">
+      <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+        <a class="page-link"
+          href="{{ url_for('editor_assignments', page=page-1, status=status_filter, editor=editor_filter, submission_id=submission_id_filter, submission_title=submission_title_filter) }}"
+          tabindex="-1" aria-disabled="true">
+          <i class="ti ti-chevron-left"></i>
+        </a>
+      </li>
+      {% for p in range(1, total_pages+1) %}
+      <li class="page-item {% if p == page %}active{% endif %}"><a class="page-link"
+          href="{{ url_for('editor_assignments', page=p, status=status_filter, editor=editor_filter, submission_id=submission_id_filter, submission_title=submission_title_filter) }}">{{
+          p }}</a></li>
+      {% endfor %}
+      <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+        <a class="page-link"
+          href="{{ url_for('editor_assignments', page=page+1, status=status_filter, editor=editor_filter, submission_id=submission_id_filter, submission_title=submission_title_filter) }}">
+          <i class="ti ti-chevron-right"></i>
+        </a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+
+{% endblock %}

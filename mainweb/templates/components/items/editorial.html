@@ -1,0 +1,29 @@
+{% macro editor(editor_info) %}
+    <div class="flex gap-4 mb-8">
+        {% if editor_info.image %}
+        <img src="{{ url_for( 'static', filename = editor_info.image ) }}" class="h-24 rounded-md" alt="">
+        {% else %}
+        <img src="{{ url_for( 'static', filename = 'person.png' ) }}" class="h-24 rounded-md" alt="">
+        {% endif %}
+        <div>
+            <div class="font-semibold text-gray-600">
+                {{ editor_info.title }}
+            </div>
+            <h4 class="text-xl  font-medium mb-1">{{ editor_info.full_name }}</h4>
+            <div class="text-sm text-gray-600 mb-2">
+                {{ editor_info.organization }}
+            </div>
+            {% if editor_info.biography %}
+            <div class="toggler_item">
+                <a href="javascript:;" class="inline-flex toggler_button text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                    <span data-off="{{ t('show_biography') }}" data-on="{{ t('hide_biography') }}">{{ t('show_biography') }}</span>
+                    <iconify-icon icon="tabler:chevron-down" data-icon-off="tabler:chevron-down" data-icon-on="tabler:chevron-up" class="text-lg text-fmmain"></iconify-icon>
+                </a>
+                <div class="ps-2 me-2 bg-gray-50 py-2 my-1 rounded hidden toggler_data">
+                    {{ editor_info.biography }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+{% endmacro %}

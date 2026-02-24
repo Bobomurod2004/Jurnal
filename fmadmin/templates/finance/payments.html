@@ -1,0 +1,230 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">{{ t("admin_payments_title") }}</h2>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">
+    <div class="card-title">{{ t("admin_label_filters") }}</div>
+  </div>
+  <div class="card-body">
+    <form method="get" class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">{{ t("admin_label_status") }}</label>
+        <select class="form-select" name="status">
+          <option value="">{{ t("admin_label_all_statuses") }}</option>
+          <option value="pending" {% if status_filter=='pending' %}selected{% endif %}>{{
+            t("admin_label_status_pending") }}</option>
+          <option value="paid" {% if status_filter=='paid' %}selected{% endif %}>{{ t("admin_label_status_paid") }}
+          </option>
+          <option value="rejected" {% if status_filter=='rejected' %}selected{% endif %}>{{
+            t("admin_label_status_rejected") }}</option>
+        </select>
+      </div>
+      <div class="col-md-4 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary">{{ t("admin_btn_apply") }}</button>
+        <a href="{{ url_for('payments') }}" class="btn btn-secondary ms-2">{{ t("admin_btn_reset") }}</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="table-responsive">
+    <table class="table card-table table-hover">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>{{ t("admin_label_user") }}</th>
+          <th>{{ t("admin_label_amount") }}</th>
+          <th>{{ t("admin_label_status") }}</th>
+          <th>{{ t("admin_label_created_at") }}</th>
+          <th>{{ t("admin_label_updated_at") }}</th>
+          <th>{{ t("admin_label_file") }}</th>
+          <th>{{ t("admin_label_actions") }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for payment in payments_list %}
+        <tr>
+          <td class="align-middle">{{ payment.id }}</td>
+          <td class="align-middle">
+            {% if users_map.get(payment.user_id) %}
+            {{ users_map[payment.user_id].name }}
+            {% else %}
+            ID: {{ payment.user_id }}
+            {% endif %}
+          </td>
+          <td class="align-middle">{{ payment.amount }}</td>
+          <td class="align-middle">
+            {% if payment.status == 'paid' %}
+            <span class="badge bg-success-lt">{{ t("admin_label_status_paid") }}</span>
+            {% elif payment.status == 'pending' %}
+            <span class="badge bg-warning-lt">{{ t("admin_label_status_pending") }}</span>
+            {% elif payment.status == 'rejected' %}
+            <span class="badge bg-danger-lt">{{ t("admin_label_status_rejected") }}</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">{{ payment.created_at | datetimeformat }}</td>
+          <td class="align-middle">{{ payment.updated_at | datetimeformat }}</td>
+          <td class="align-middle">
+            {% if payment.confirmation_file %}
+            <a href="{{ payment.confirmation_file }}" target="_blank" class="btn btn-sm btn-outline-primary">
+              <i class="ti ti-file"></i> {{ t("admin_btn_view") }}
+            </a>
+            {% else %}
+            <span class="text-muted">{{ t("admin_msg_no_file") }}</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editPaymentModal"
+              data-payment-id="{{ payment.id }}" data-payment-status="{{ payment.status }}"
+              data-payment-amount="{{ payment.amount }}" data-payment-file="{{ payment.confirmation_file or '' }}">
+              <i class="ti ti-edit"></i> {{ t("admin_btn_edit") }}
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer d-flex align-items-center">
+    {% set start_idx = (page - 1) * 20 + 1 %}
+    {% set end_idx = (page - 1) * 20 + payments_list|length %}
+    <p class="m-0 text-secondary">{{ t("admin_pagination_showing") }} <span>{{ start_idx }}-{{ end_idx }}</span> {{
+      t("admin_pagination_of") }} <span>{{ total_payments }}</span> {{ t("admin_pagination_entries") }}</p>
+    <ul class="pagination m-0 ms-auto">
+      <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('payments', page=page-1, status=status_filter) }}" tabindex="-1"
+          aria-disabled="true">
+          <i class="ti ti-chevron-left"></i>
+        </a>
+      </li>
+      {% for p in range(1, total_pages+1) %}
+      <li class="page-item {% if p == page %}active{% endif %}"><a class="page-link"
+          href="{{ url_for('payments', page=p, status=status_filter) }}">{{ p }}</a></li>
+      {% endfor %}
+      <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('payments', page=page+1, status=status_filter) }}">
+          <i class="ti ti-chevron-right"></i>
+        </a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<!-- Модальное окно для редактирования платежа -->
+<div class="modal modal-blur fade" id="editPaymentModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ t("admin_title_edit_payment") }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="editPaymentForm" method="post" action="{{ url_for('payment_edit') }}">
+        <div class="modal-body">
+          <input type="hidden" id="payment_id" name="payment_id">
+
+          <div class="mb-3">
+            <label class="form-label">{{ t("admin_label_status") }}</label>
+            <select class="form-select" id="payment_status" name="status" required>
+              <option value="pending">{{ t("admin_label_status_pending") }}</option>
+              <option value="paid">{{ t("admin_label_status_paid") }}</option>
+              <option value="rejected">{{ t("admin_label_status_rejected") }}</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">{{ t("admin_label_amount") }}</label>
+            <input type="number" class="form-control" id="payment_amount" name="amount" step="0.01" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">{{ t("admin_label_current_file") }}</label>
+            <div id="current_file_display"></div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">{{ t("admin_label_comment") }}</label>
+            <textarea class="form-control" id="payment_comment" name="comment" rows="3"
+              placeholder="{{ t('admin_placeholder_comment') }}"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <a href="#" class="btn btn-link link-secondary" data-bs-dismiss="modal">{{ t("admin_btn_cancel") }}</a>
+          <button type="submit" class="btn btn-primary ms-auto">{{ t("admin_btn_save_changes") }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // Обработка показа модального окна
+    const modal = document.getElementById('editPaymentModal');
+    if (modal) {
+      modal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+
+        const paymentId = button.getAttribute('data-payment-id');
+        const paymentStatus = button.getAttribute('data-payment-status');
+        const paymentAmount = button.getAttribute('data-payment-amount');
+        const paymentFile = button.getAttribute('data-payment-file');
+
+        // Заполняем форму
+        document.getElementById('payment_id').value = paymentId;
+        document.getElementById('payment_status').value = paymentStatus;
+        document.getElementById('payment_amount').value = paymentAmount;
+
+        // Отображение текущего файла
+        const fileDisplay = document.getElementById('current_file_display');
+        if (paymentFile && paymentFile.trim() !== '') {
+          fileDisplay.innerHTML = `<a href="${paymentFile}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="ti ti-file"></i> {{ t("admin_btn_view_current_file") }}</a>`;
+        } else {
+          fileDisplay.innerHTML = '<span class="text-muted">{{ t("admin_msg_file_not_uploaded") }}</span>';
+        }
+      });
+    }
+
+    // Обработка отправки формы
+    const form = document.getElementById('editPaymentForm');
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+
+        fetch("{{ url_for('payment_edit') }}", {
+          method: 'POST',
+          body: formData
+        })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              location.reload();
+            } else {
+              alert('{{ t("admin_msg_error_saving") }}' + ': ' + (data.error || '{{ t("admin_msg_unknown_error") }}'));
+            }
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            alert('{{ t("admin_msg_request_error") }}');
+          });
+      });
+    }
+  });
+</script>
+{% endblock %}

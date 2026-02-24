@@ -1,0 +1,281 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+<!-- Page header -->
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <h2 class="page-title">{{ t("admin_dashboard_title") }}</h2>
+        <div class="text-secondary mt-1">{{ t("admin_dashboard_subtitle") }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Page body -->
+<div class="page-body">
+  <div class="container-xl">
+
+    <!-- Key Metrics -->
+    <div class="row row-deck row-cards mb-4">
+      <div class="col-sm-6 col-lg-3">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="subheader">{{ t("admin_stats_total_articles") }}</div>
+            </div>
+            <div class="h1 mb-3">{{ stats.total_articles }}</div>
+            <div class="d-flex mb-2">
+              <div class="flex-fill">
+                <div class="progress progress-sm">
+                  <div class="progress-bar bg-primary" style="width: 100%" role="progressbar"></div>
+                </div>
+              </div>
+            </div>
+            <div class="text-secondary">{{ t("admin_stats_total_articles_desc") }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-sm-6 col-lg-3">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="subheader">{{ t("admin_stats_active_submissions") }}</div>
+            </div>
+            <div class="h1 mb-3">{{ stats.active_submissions }}</div>
+            <div class="d-flex mb-2">
+              <div class="flex-fill">
+                <div class="progress progress-sm">
+                  <div class="progress-bar bg-warning" style="width: 75%" role="progressbar"></div>
+                </div>
+              </div>
+            </div>
+            <div class="text-secondary">{{ t("admin_stats_active_submissions_desc") }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-sm-6 col-lg-3">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="subheader">{{ t("admin_stats_total_views") }}</div>
+            </div>
+            <div class="h1 mb-3">{{ stats.total_views | number_format }}</div>
+            <div class="d-flex mb-2">
+              <div class="flex-fill">
+                <div class="progress progress-sm">
+                  <div class="progress-bar bg-success" style="width: 85%" role="progressbar"></div>
+                </div>
+              </div>
+            </div>
+            <div class="text-secondary">{{ t("admin_stats_total_views_desc") }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-sm-6 col-lg-3">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="subheader">{{ t("admin_stats_total_users") }}</div>
+            </div>
+            <div class="h1 mb-3">{{ stats.total_users }}</div>
+            <div class="d-flex mb-2">
+              <div class="flex-fill">
+                <div class="progress progress-sm">
+                  <div class="progress-bar bg-info" style="width: 60%" role="progressbar"></div>
+                </div>
+              </div>
+            </div>
+            <div class="text-secondary">{{ t("admin_stats_total_users_desc") }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row row-deck row-cards mb-4">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">{{ t("admin_chart_submissions_by_status") }}</h3>
+          </div>
+          <div class="card-body">
+            <div style="height: 300px;">
+              <canvas id="submissionsChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">{{ t("admin_chart_published_articles_6m") }}</h3>
+          </div>
+          <div class="card-body">
+            <div style="height: 300px;">
+              <canvas id="articlesChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Activity & Top Articles -->
+    <div class="row row-deck row-cards">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">{{ t("admin_recent_submissions") }}</h3>
+          </div>
+          <div class="card-body p-0">
+            <div class="list-group list-group-flush">
+              {% for submission in recent_submissions %}
+              <div class="list-group-item">
+                <div class="row align-items-center">
+                  <div class="col-auto">
+                    <span class="status-dot 
+                      {% if submission.status == 'published' %}status-dot-animated bg-green
+                      {% elif submission.status == 'under_review' %}status-dot-animated bg-yellow
+                      {% elif submission.status == 'rejected' %}status-dot bg-red
+                      {% else %}status-dot bg-gray{% endif %}"></span>
+                  </div>
+                  <div class="col text-truncate">
+                    <div class="text-reset d-block">{{ submission.title[:50] }}{% if submission.title|length > 50
+                      %}...{% endif %}</div>
+                    <div class="d-block text-secondary text-truncate mt-n1">
+                      {% if submission.author_name %}{{ submission.author_name }}{% else %}{{ t("admin_unknown_author")
+                      }}{% endif %}
+                    </div>
+                  </div>
+                  <div class="col-auto">
+                    <span class="badge 
+                      {% if submission.status == 'published' %}bg-green
+                      {% elif submission.status == 'under_review' %}bg-yellow
+                      {% elif submission.status == 'rejected' %}bg-red
+                      {% else %}bg-gray{% endif %}">
+                      {{ submission.status.replace('_', ' ').title() }}
+                    </span>
+                    <div class="text-secondary small mt-1">{{ submission.created_at|timestamp_to_date }}</div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">{{ t("admin_top_articles") }}</h3>
+          </div>
+          <div class="card-body p-0">
+            <div class="list-group list-group-flush">
+              {% for article in top_articles %}
+              <div class="list-group-item">
+                <div class="row align-items-center">
+                  <div class="col-auto">
+                    <span class="avatar bg-blue text-white">
+                      <i class="ti ti-eye"></i>
+                    </span>
+                  </div>
+                  <div class="col text-truncate">
+                    <div class="text-reset d-block">{{ article.title[:50] }}{% if article.title|length > 50 %}...{%
+                      endif %}</div>
+                    <div class="d-block text-secondary text-truncate mt-n1">
+                      {% if article.author_name %}{{ article.author_name }}{% else %}{{ t("admin_unknown_author") }}{%
+                      endif %}
+                      {% if article.doi %} • DOI: {{ article.doi }}{% endif %}
+                    </div>
+                  </div>
+                  <div class="col-auto">
+                    <span class="badge bg-blue">{{ article.stat_views or 0 }} {{ t("admin_views_short") }}</span>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // Submissions by Status Chart
+  const submissionsCtx = document.getElementById('submissionsChart').getContext('2d');
+  new Chart(submissionsCtx, {
+    type: 'doughnut',
+    data: {
+      labels: {{ submissions_stats.labels | tojson }},
+    datasets: [{
+      data: {{ submissions_stats.data | tojson }},
+    backgroundColor: [
+      '#10B981', // green
+      '#F59E0B', // yellow
+      '#EF4444', // red
+      '#6B7280', // gray
+      '#3B82F6'  // blue
+    ],
+    borderWidth: 2,
+    borderColor: '#fff'
+            }]
+        },
+    options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom'
+      }
+    }
+  }
+    });
+
+  // Monthly Articles Chart
+  const articlesCtx = document.getElementById('articlesChart').getContext('2d');
+  new Chart(articlesCtx, {
+    type: 'line',
+    data: {
+      labels: {{ monthly_stats.labels | tojson }},
+    datasets: [{
+      label: '{{ t("admin_chart_published_articles_label") }}',
+      data: {{ monthly_stats.data | tojson }},
+    borderColor: '#3B82F6',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderWidth: 2,
+    fill: true,
+    tension: 0.4
+            }]
+        },
+    options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          stepSize: 1
+        }
+      }
+    },
+    plugins: {
+      legend: {
+        display: false
+      }
+    }
+  }
+    });
+</script>
+{% endblock %}

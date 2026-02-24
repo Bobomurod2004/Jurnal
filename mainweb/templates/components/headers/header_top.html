@@ -1,0 +1,53 @@
+<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <a href="/" class="flex items-center gap-3 min-w-0">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ t('website_title') }}" height="{{ logo_height|default(40) }}" class="h-9 w-auto shrink-0 object-contain md:h-10">
+        {% if show_title|default(true) %}
+        <div class="min-w-0">
+            <div class="truncate text-lg md:text-xl font-semibold font-serif text-gray-900">{{ t('website_title') }}</div>
+            <div class="text-xs text-gray-500">{{ t('hero_subtitle') }}</div>
+        </div>
+        {% endif %}
+    </a>
+
+    <div class="flex flex-wrap items-center gap-2 text-sm">
+        <div class="relative inline-block text-left">
+            <button type="button" class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 font-medium text-gray-700 hover:border-fmmain/40 hover:text-gray-900 transition-colors" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                <span class="fi fi-{% if session.get('language') == 'uz' %}uz{% elif session.get('language') == 'ru' %}ru{% else %}gb{% endif %} max-h-3"></span>
+                <iconify-icon icon="tabler:chevron-down" class="text-sm text-gray-500"></iconify-icon>
+            </button>
+
+            <div class="absolute right-0 z-10 mt-2 hidden w-56 origin-top-right rounded-lg bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                <div class="py-1" role="none">
+                    <a href="{{ url_for('app__change_language', lang='uz') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors {% if session.get('language') == 'uz' %}bg-fmmain-light/30 font-semibold{% endif %}" role="menuitem" tabindex="-1">
+                        <span class="fi fi-uz max-h-3"></span> {{ t('language_uz') }}
+                        {% if session.get('language') == 'uz' %}<span class="float-right text-fmmain">✓</span>{% endif %}
+                    </a>
+                    <a href="{{ url_for('app__change_language', lang='ru') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors {% if session.get('language') == 'ru' %}bg-fmmain-light/30 font-semibold{% endif %}" role="menuitem" tabindex="-1">
+                        <span class="fi fi-ru max-h-3"></span> {{ t('language_ru') }}
+                        {% if session.get('language') == 'ru' %}<span class="float-right text-fmmain">✓</span>{% endif %}
+                    </a>
+                    <a href="{{ url_for('app__change_language', lang='en') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors {% if session.get('language') == 'en' %}bg-fmmain-light/30 font-semibold{% endif %}" role="menuitem" tabindex="-1">
+                        <span class="fi fi-gb max-h-3"></span> {{ t('language_en') }}
+                        {% if session.get('language') == 'en' %}<span class="float-right text-fmmain">✓</span>{% endif %}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        {% if session.get('user_id') %}
+        <a href="{{ url_for('app__dashboard') }}" class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 font-medium text-gray-700 hover:border-fmmain/40 hover:text-gray-900 transition-colors">
+            <iconify-icon icon="solar:user-bold-duotone" class="text-base"></iconify-icon>
+            {{ t('my_account') }}
+        </a>
+        <a href="{{ url_for('app__logout') }}" class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 font-medium text-gray-700 hover:border-red-300 hover:text-red-600 transition-colors">
+            <iconify-icon icon="solar:logout-3-bold-duotone" class="text-base"></iconify-icon>
+            {{ t('logout') }}
+        </a>
+        {% else %}
+        <a href="{{ url_for('app__login') }}" class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 font-medium text-gray-700 hover:border-fmmain/40 hover:text-gray-900 transition-colors">
+            <iconify-icon icon="solar:login-3-bold-duotone" class="text-base"></iconify-icon>
+            {{ t('login') }}
+        </a>
+        {% endif %}
+    </div>
+</div>

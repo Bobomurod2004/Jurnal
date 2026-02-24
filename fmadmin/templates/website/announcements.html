@@ -1,0 +1,90 @@
+{% extends 'basic.html' %}
+
+
+{% block content %}
+
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">{{ t("admin_announcements_title") }}</h2>
+    </div>
+    <div class="col-auto ms-auto">
+      <div class="btn-list">
+        <a href="{{ url_for('announcement_edit', announcement_id=0) }}"
+          class="btn btn-primary d-none d-sm-inline-block">
+          <i class="ti ti-plus"></i>
+          {{ t("admin_btn_add_announcement") }}
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="table-responsive">
+    <table class="table card-table table-hover">
+      <thead>
+        <tr>
+          <th>{{ t("admin_announcement_title_col") }}</th>
+          <th>{{ t("admin_announcement_published_at") }}</th>
+          <th>{{ t("admin_label_status") }}</th>
+          <th class="w-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ann in announcements_list %}
+        <tr>
+          <td class="align-middle">
+            <div>{{ ann.title }}</div>
+          </td>
+          <td class="align-middle">{{ ann.published_at | datetimeformat }}</td>
+          <td class="align-middle">
+            {% if ann.status == 'published' %}
+            <span class="badge bg-success-lt">{{ t("admin_stats_published") }}</span>
+            {% elif ann.status == 'archived' %}
+            <span class="badge bg-secondary-lt">{{ t("admin_stats_archived") }}</span>
+            {% else %}
+            <span class="badge bg-warning-lt">{{ t("admin_stats_pending") }}</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            <a href="{{ url_for('announcement_edit', announcement_id=ann.id) }}"
+              class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1">
+              {{ t("admin_btn_edit") }}
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer d-flex align-items-center">
+    {% set start_idx = (page - 1) * 20 + 1 %}
+    {% set end_idx = (page - 1) * 20 + announcements_list|length %}
+    <p class="m-0 text-secondary">{{ t("admin_pagination_showing") }} <span>{{ start_idx }}-{{ end_idx }}</span> {{
+      t("admin_pagination_of") }} <span>{{ total_announcements }}</span> {{ t("admin_pagination_entries") }}</p>
+    <ul class="pagination m-0 ms-auto">
+      <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('announcements', page=page-1) }}" tabindex="-1" aria-disabled="true">
+          <i class="ti ti-chevron-left"></i>
+        </a>
+      </li>
+      {% for p in range(1, total_pages+1) %}
+      <li class="page-item {% if p == page %}active{% endif %}"><a class="page-link"
+          href="{{ url_for('announcements', page=p) }}">{{ p }}</a></li>
+      {% endfor %}
+      <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('announcements', page=page+1) }}">
+          <i class="ti ti-chevron-right"></i>
+        </a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+
+{% endblock %}

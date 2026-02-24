@@ -1,0 +1,87 @@
+<footer class="mt-auto border-t border-gray-100 text-gray-600" style="background: linear-gradient(180deg, #F8FAFB 0%, #F3F5F4 100%);">
+    <div class="container mx-auto px-4 py-14">
+        <div class="grid grid-cols-1 gap-10 pb-10 md:grid-cols-3 md:gap-12">
+            <div>
+                <div class="mb-5 text-xs font-bold uppercase tracking-[0.12em] text-gray-900 flex items-center gap-2">
+                    <div class="w-1 h-4 rounded-full bg-fmmain"></div>
+                    {{ t('footer_about_journal') }}
+                </div>
+                <div class="flex flex-col gap-3 items-start">
+                    <a class="text-sm text-gray-500 hover:text-fmmain transition-colors duration-200 inline-flex items-center gap-1.5"
+                        href="{{ url_for('app__page_alias', alias='aims_scope') }}">
+                        <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs opacity-0 -ml-4 transition-all duration-200"></iconify-icon>
+                        {{ t('menu_aims_scope') }}
+                    </a>
+                    <a class="text-sm text-gray-500 hover:text-fmmain transition-colors duration-200 inline-flex items-center gap-1.5"
+                        href="{{ url_for('app__editorial') }}">
+                        <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs opacity-0 -ml-4 transition-all duration-200"></iconify-icon>
+                        {{ t('menu_editorial_board') }}
+                    </a>
+                    <a class="text-sm text-gray-500 hover:text-fmmain transition-colors duration-200 inline-flex items-center gap-1.5"
+                        href="{{ url_for('app__page_alias', alias='journal_metrics') }}">
+                        <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs opacity-0 -ml-4 transition-all duration-200"></iconify-icon>
+                        {{ t('menu_journal_metrics') }}
+                    </a>
+                    <a class="text-sm text-gray-500 hover:text-fmmain transition-colors duration-200 inline-flex items-center gap-1.5"
+                        href="{{ url_for('app__page_alias', alias='journal_info') }}">
+                        <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs opacity-0 -ml-4 transition-all duration-200"></iconify-icon>
+                        {{ t('menu_journal_info') }}
+                    </a>
+                </div>
+            </div>
+
+            <div>
+                <div class="mb-5 text-xs font-bold uppercase tracking-[0.12em] text-gray-900 flex items-center gap-2">
+                    <div class="w-1 h-4 rounded-full bg-fmmain"></div>
+                    {{ t('footer_articles_issues') }}
+                </div>
+                <div class="flex flex-col gap-3 items-start">
+                    <a class="text-sm text-gray-500 hover:text-fmmain transition-colors duration-200"
+                        href="{{ url_for('app__issues') }}">{{ t('menu_latest_articles') }}</a>
+                    <a class="text-sm text-gray-500 hover:text-fmmain transition-colors duration-200"
+                        href="{{ url_for('app__issue', issue_id=latest_issue.id) if latest_issue else url_for('app__issues') }}">{{
+                        t('menu_current_issue') }}</a>
+                    <a class="text-sm text-gray-500 hover:text-fmmain transition-colors duration-200"
+                        href="{{ url_for('app__issues') }}">{{ t('menu_all_issues') }}</a>
+                    <a class="text-sm text-gray-500 hover:text-fmmain transition-colors duration-200"
+                        href="{{ url_for('app__issues') }}">{{ t('menu_special_issues') }}</a>
+                </div>
+            </div>
+
+            <div>
+                <div class="mb-5 text-xs font-bold uppercase tracking-[0.12em] text-gray-900 flex items-center gap-2">
+                    <div class="w-1 h-4 rounded-full bg-fmmain"></div>
+                    {{ t('footer_submit_subscribe') }}
+                </div>
+                <div class="flex flex-col gap-3 items-start">
+                    <a class="text-sm text-gray-500 hover:text-fmmain transition-colors duration-200"
+                        href="{{ url_for('app__page_alias', alias='submission_guidelines') }}">{{
+                        t('menu_submission_guidelines') }}</a>
+                    <a class="text-sm text-gray-500 hover:text-fmmain transition-colors duration-200"
+                        href="{{ url_for('app__page_alias', alias='author_instructions') }}">{{
+                        t('menu_author_instructions') }}</a>
+                    <a class="text-sm text-gray-500 hover:text-fmmain transition-colors duration-200"
+                        href="{{ url_for('app__dashboard_payments') }}">{{ t('footer_subscribe_journal') }}</a>
+                    <a class="text-sm text-gray-500 hover:text-fmmain transition-colors duration-200"
+                        href="{{ url_for('app__contact') }}">{{ t('footer_contact') }}</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="border-t border-gray-200 pt-8">
+            <div class="flex flex-col gap-5 text-sm md:flex-row md:flex-wrap md:items-center md:gap-8">
+                <div class="shrink-0">
+                    <img src="{{ url_for('static', filename='logo.png') }}" alt="O'zbekiston Davlat Jahon tillari universiteti" class="h-10 w-auto object-contain opacity-80">
+                </div>
+                <div class="py-1 md:border-e md:text-nowrap md:border-gray-200 md:pe-8 text-gray-500">
+                    <div>{{ t('footer_crossref') }}: <span class="font-medium text-gray-700">{{ t('footer_doi_value') }}</span></div>
+                    <div>{{ t('footer_eissn') }}: <span class="font-medium text-gray-700">{{ t('footer_eissn_value') }}</span></div>
+                </div>
+                <div class="py-1 text-gray-400 text-xs">
+                    <div>{{ t('footer_copyright') }}</div>
+                    <div>{{ t('footer_rights') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</footer>

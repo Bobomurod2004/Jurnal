@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <title>{{ t("admin_login_page_title") }}</title>
+  <link href="/dist/css/tabler.min.css?1740918423" rel="stylesheet" />
+  <link href="/dist/css/tabler-flags.min.css?1740918423" rel="stylesheet" />
+  <link href="/dist/css/tabler-payments.min.css?1740918423" rel="stylesheet" />
+  <link href="/dist/css/tabler-vendors.min.css?1740918423" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.28.1/tabler-icons.min.css"
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+    body {
+      font-feature-settings: "cv03", "cv04", "cv11";
+    }
+  </style>
+</head>
+
+<body class="d-flex flex-column">
+  <div class="page page-center">
+    <div class="container container-tight py-4">
+      <div class="text-center mb-4">
+        <a href="{{ url_for('index') }}" class="navbar-brand navbar-brand-autodark">
+          <h1 class="text-primary">{{ t("admin_sidebar_logo_text") }}</h1>
+        </a>
+      </div>
+      <div class="card card-md">
+        <div class="card-body">
+          <h2 class="h2 text-center mb-4">{{ t("admin_login_header") }}</h2>
+
+          {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+          {% for category, message in messages %}
+          <div
+            class="alert alert-{{ 'danger' if category == 'danger' else 'success' if category == 'success' else 'info' }} alert-dismissible"
+            role="alert">
+            <div class="d-flex">
+              <div>
+                {% if category == 'danger' %}
+                <i class="ti ti-alert-circle"></i>
+                {% elif category == 'success' %}
+                <i class="ti ti-check"></i>
+                {% else %}
+                <i class="ti ti-info-circle"></i>
+                {% endif %}
+              </div>
+              <div class="ms-2">
+                {{ message }}
+              </div>
+            </div>
+            <a class="btn-close" data-bs-dismiss="alert" aria-label="close"></a>
+          </div>
+          {% endfor %}
+          {% endif %}
+          {% endwith %}
+
+          <form action="{{ url_for('login') }}" method="post" autocomplete="off" novalidate>
+            <div class="mb-3">
+              <label class="form-label">{{ t("admin_login_email_label") }}</label>
+              <input type="email" class="form-control" name="email"
+                placeholder="{{ t('admin_login_email_placeholder') }}" autocomplete="off" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label">
+                {{ t("admin_login_password_label") }}
+                <span class="form-label-description">
+                  <a href="#" tabindex="-1">{{ t("admin_login_forgot_password") }}</a>
+                </span>
+              </label>
+              <div class="input-group input-group-flat">
+                <input type="password" class="form-control" name="password"
+                  placeholder="{{ t('admin_login_password_placeholder') }}" autocomplete="off" required>
+                <span class="input-group-text">
+                  <a href="#" class="link-secondary" title="{{ t('admin_login_show_password') }}"
+                    data-bs-toggle="tooltip" onclick="togglePassword()">
+                    <i class="ti ti-eye" id="password-icon"></i>
+                  </a>
+                </span>
+              </div>
+            </div>
+            <div class="mb-2">
+              <label class="form-check">
+                <input type="checkbox" class="form-check-input" />
+                <span class="form-check-label">{{ t("admin_login_remember_me") }}</span>
+              </label>
+            </div>
+            <div class="form-footer">
+              <button type="submit" class="btn btn-primary w-100">{{ t("admin_login") }}</button>
+            </div>
+          </form>
+        </div>
+
+      </div>
+      <div class="text-center text-secondary mt-3">
+        {{ t("admin_login_no_account") }} <a href="#" tabindex="-1">{{ t("admin_login_register") }}</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Libs JS -->
+  <script src="/dist/js/tabler.min.js?1740918423" defer></script>
+
+  <script>
+    function togglePassword() {
+      const passwordInput = document.querySelector('input[name="password"]');
+      const passwordIcon = document.getElementById('password-icon');
+
+      if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        passwordIcon.className = 'ti ti-eye-off';
+      } else {
+        passwordInput.type = 'password';
+        passwordIcon.className = 'ti ti-eye';
+      }
+    }
+
+    // Автофокус на поле email
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelector('input[name="email"]').focus();
+    });
+  </script>
+</body>
+
+</html>

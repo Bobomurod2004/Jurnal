@@ -1,0 +1,347 @@
+{% extends "basic.html" %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">
+        {% if editor.id == 0 %}
+        {{ t("admin_editor_new_title") }}
+        {% else %}
+        {{ editor.name }} {{ editor.second_name or '' }}
+        {% endif %}
+      </h2>
+      {% if editor.id != 0 %}
+      <div class="page-subtitle">
+        <div class="row">
+          <div class="col-auto">
+            <span class="badge bg-blue-lt">{{ editor.editor_specialization or t("admin_editor_spec_not_specified")
+              }}</span>
+          </div>
+          <div class="col-auto">
+            <span class="text-secondary">{{ editor.email }}</span>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="col-auto ms-auto">
+      <div class="btn-list">
+        <a href="{{ url_for('editors') }}" class="btn btn-secondary">
+          <i class="ti ti-arrow-left"></i>
+          {{ t("admin_btn_back_to_list") }}
+        </a>
+        {% if editor.id != 0 %}
+        <a href="#" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editEditorModal">
+          <i class="ti ti-edit"></i>
+          {{ t("admin_btn_edit") }}
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if editor.id == 0 %}
+<!-- Форма создания нового редактора -->
+<form method="POST" action="{{ url_for('editor_edit', editor_id=editor.id) }}">
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">{{ t("admin_section_basic_info") }}</h3>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          <div class="mb-3">
+            <label class="form-label required">{{ t("admin_users_name") }}</label>
+            <input type="text" class="form-control" name="name" value="{{ editor.name or '' }}" required>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="mb-3">
+            <label class="form-label">{{ t("admin_users_second_name") }}</label>
+            <input type="text" class="form-control" name="second_name" value="{{ editor.second_name or '' }}">
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-6">
+          <div class="mb-3">
+            <label class="form-label">{{ t("admin_users_father_name") }}</label>
+            <input type="text" class="form-control" name="father_name" value="{{ editor.father_name or '' }}">
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="mb-3">
+            <label class="form-label required">{{ t("admin_users_email") }}</label>
+            <input type="email" class="form-control" name="email" value="{{ editor.email or '' }}" required>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-6">
+          <div class="mb-3">
+            <label class="form-label">{{ t("admin_label_specialization") }}</label>
+            <input type="text" class="form-control" name="editor_specialization"
+              value="{{ editor.editor_specialization or '' }}"
+              placeholder="{{ t('admin_placeholder_specialization_examples') }}">
+            <small class="form-hint">{{ t("admin_hint_specialization") }}</small>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="mb-3">
+            <label class="form-label">{{ t("admin_label_password") }}</label>
+            <input type="text" class="form-control" name="password" value="{{ password or '' }}" readonly>
+            <small class="form-hint">{{ t("admin_hint_auto_password") }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-footer text-end">
+      <div class="d-flex">
+        <a href="{{ url_for('editors') }}" class="btn btn-link">{{ t("admin_btn_cancel") }}</a>
+        <button type="submit" class="btn btn-primary ms-auto">
+          {{ t("admin_btn_create_editor") }}
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% else %}
+<!-- Просмотр существующего редактора -->
+<div class="row row-deck row-cards">
+  <!-- Статистические карточки -->
+  <div class="col-sm-6 col-lg-3">
+    <div class="card card-sm">
+      <div class="card-body">
+        <div class="row align-items-center">
+          <div class="col-auto">
+            <span class="bg-primary text-white avatar">
+              <i class="ti ti-files"></i>
+            </span>
+          </div>
+          <div class="col">
+            <div class="font-weight-medium">
+              {{ t("admin_stats_total_assignments") }}
+            </div>
+            <div class="text-secondary">
+              {{ editor_stats.total or 0 }} {{ t("admin_label_articles_count") }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card card-sm">
+      <div class="card-body">
+        <div class="row align-items-center">
+          <div class="col-auto">
+            <span class="bg-warning text-white avatar">
+              <i class="ti ti-clock"></i>
+            </span>
+          </div>
+          <div class="col">
+            <div class="font-weight-medium">
+              {{ t("admin_stats_pending_assignments") }}
+            </div>
+            <div class="text-secondary">
+              {{ editor_stats.pending or 0 }} {{ t("admin_label_articles_count") }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card card-sm">
+      <div class="card-body">
+        <div class="row align-items-center">
+          <div class="col-auto">
+            <span class="bg-success text-white avatar">
+              <i class="ti ti-check"></i>
+            </span>
+          </div>
+          <div class="col">
+            <div class="font-weight-medium">
+              {{ t("admin_stats_reviewed") }}
+            </div>
+            <div class="text-secondary">
+              {{ editor_stats.reviewed or 0 }} {{ t("admin_label_articles_count") }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card card-sm">
+      <div class="card-body">
+        <div class="row align-items-center">
+          <div class="col-auto">
+            <span class="bg-danger text-white avatar">
+              <i class="ti ti-x"></i>
+            </span>
+          </div>
+          <div class="col">
+            <div class="font-weight-medium">
+              {{ t("admin_stats_rejected") }}
+            </div>
+            <div class="text-secondary">
+              {{ editor_stats.rejected or 0 }} {{ t("admin_label_articles_count") }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Таблица назначений -->
+<div class="card mt-4">
+  <div class="card-header">
+    <h3 class="card-title">{{ t("admin_section_editor_assignments") }}</h3>
+  </div>
+  {% if editor_assignments %}
+  <div class="table-responsive">
+    <table class="table card-table table-hover">
+      <thead>
+        <tr>
+          <th>{{ t("admin_col_article") }}</th>
+          <th>{{ t("admin_col_assigned_at") }}</th>
+          <th>{{ t("admin_label_status") }}</th>
+          <th>{{ t("admin_col_reviewed_at") }}</th>
+          <th class="w-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for assignment in editor_assignments %}
+        {% set submission = submissions_map.get(assignment.submission_id) %}
+        <tr>
+          <td class="align-middle">
+            <div class="font-weight-medium">{{ submission.title if submission else t("admin_msg_article_not_found") }}
+            </div>
+            {% if submission %}
+            <div class="text-secondary small">ID: {{ submission.id }}</div>
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            <div class="text-secondary small">
+              {{ assignment.assigned_at | timestamp_to_date if assignment.assigned_at else '-' }}
+            </div>
+          </td>
+          <td class="align-middle">
+            {% if assignment.status == 'pending' %}
+            <span class="badge bg-warning-lt">{{ t("admin_stats_pending_assignments") }}</span>
+            {% elif assignment.status == 'reviewed' %}
+            <span class="badge bg-success-lt">{{ t("admin_stats_reviewed") }}</span>
+            {% elif assignment.status == 'rejected' %}
+            <span class="badge bg-danger-lt">{{ t("admin_stats_rejected") }}</span>
+            {% else %}
+            <span class="badge bg-secondary-lt">{{ assignment.status }}</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            {% if assignment.reviewed_at %}
+            <div class="text-secondary small">
+              {{ assignment.reviewed_at | timestamp_to_date }}
+            </div>
+            {% else %}
+            <span class="text-secondary">-</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            <a href="{{ url_for('review_assignment', assignment_id=assignment.id) }}"
+              class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1">
+              {% if assignment.status == 'pending' %}{{ t("admin_review_title_pending") }}{% else %}{{
+              t("admin_btn_view") }}{% endif %}
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body">
+    <div class="empty">
+      <div class="empty-img"><img src="/dist/img/undraw_printing_invoices_5r4r.svg" height="128" alt=""></div>
+      <p class="empty-title">Нет назначений</p>
+      <p class="empty-subtitle text-secondary">
+        {{ t("admin_msg_no_assignments_desc") }}
+      </p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endif %}
+
+<!-- Модальное окно редактирования -->
+{% if editor.id != 0 %}
+<div class="modal modal-blur fade" id="editEditorModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('editor_edit', editor_id=editor.id) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">{{ t("admin_editor_edit_title") }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label required">{{ t("admin_users_name") }}</label>
+                <input type="text" class="form-control" name="name" value="{{ editor.name or '' }}" required>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">{{ t("admin_users_second_name") }}</label>
+                <input type="text" class="form-control" name="second_name" value="{{ editor.second_name or '' }}">
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">{{ t("admin_users_father_name") }}</label>
+                <input type="text" class="form-control" name="father_name" value="{{ editor.father_name or '' }}">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label required">{{ t("admin_users_email") }}</label>
+                <input type="email" class="form-control" name="email" value="{{ editor.email or '' }}" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">{{ t("admin_label_specialization") }}</label>
+            <input type="text" class="form-control" name="editor_specialization"
+              value="{{ editor.editor_specialization or '' }}"
+              placeholder="{{ t('admin_placeholder_specialization_examples') }}">
+            <small class="form-hint">{{ t("admin_hint_specialization") }}</small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <a href="#" class="btn btn-link link-secondary" data-bs-dismiss="modal">
+            {{ t("admin_btn_cancel") }}
+          </a>
+          <button type="submit" class="btn btn-primary ms-auto">
+            {{ t("admin_btn_save_changes") }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+{% endblock %}

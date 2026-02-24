@@ -1,0 +1,152 @@
+{% extends 'basic.html' %}
+
+
+{% block content %}
+
+<div class="page-header d-print-none mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">{% if author.id == 0 %}{{ t("admin_authors_create_title") }}{% else %}{{
+                t("admin_authors_edit_title") }}{% endif %}</h2>
+            <a href="/fmadmin/users/authors" class="">
+                <i class="ti ti-arrow-left"></i>
+                {{ t("admin_btn_back") }}
+            </a>
+        </div>
+        <div class="col-auto ms-auto">
+            <div class="btn-list">
+                <button id="save-author-btn-top" type="button" class="btn btn-primary d-none d-sm-inline-block">
+                    <i class="ti ti-check icon icon-1"></i>
+                    {{ t("admin_btn_save") }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="main-author-form" method="post" enctype="multipart/form-data">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    {% if author.id != 0 %}
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_id") }}</label>
+                        <input type="text" class="form-control" value="{{ author.id }}" readonly>
+                    </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_name") }}</label>
+                        <input type="text" class="form-control" name="name" value="{{ author.name or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_authors_organization") }}</label>
+                        <input type="text" class="form-control" name="organization"
+                            value="{{ author.organization or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_email") }}</label>
+                        <input type="email" class="form-control" name="email" value="{{ author.email or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_authors_position") }}</label>
+                        <input type="text" class="form-control" name="position" value="{{ author.position or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_country") }}</label>
+                        <input type="text" class="form-control" name="address_country"
+                            value="{{ author.address_country or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_authors_city") }}</label>
+                        <input type="text" class="form-control" name="address_city"
+                            value="{{ author.address_city or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_authors_street") }}</label>
+                        <input type="text" class="form-control" name="address_street"
+                            value="{{ author.address_street or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_authors_zip") }}</label>
+                        <input type="text" class="form-control" name="address_zip"
+                            value="{{ author.address_zip or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_authors_phone") }}</label>
+                        <input type="text" class="form-control" name="phone" value="{{ author.phone or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_orcid") }}</label>
+                        <input type="text" class="form-control" name="orcid" value="{{ author.orcid or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_authors_department") }}</label>
+                        <input type="text" class="form-control" name="department" value="{{ author.department or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_users_created_at") }}</label>
+                        <input type="datetime-local" class="form-control" name="created_at"
+                            value="{{ author.created_at | date_to_form_full }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_authors_updated_at") }}</label>
+                        <input type="datetime-local" class="form-control" name="updated_at"
+                            value="{{ author.updated_at | date_to_form_full }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_user") }}</label>
+                        <div class="input-group">
+                            <select class="form-select" name="user_id" id="user_id_select">
+                                <option value="">{{ t("admin_option_not_selected_m") }}</option>
+                                {% for user in users %}
+                                <option value="{{ user.id }}" {% if author.user_id==user.id %}selected{% endif %}>{{
+                                    user.name }} {{ user.second_name }} ({{ user.email }})</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="btn btn-outline-primary" onclick="searchUser()"
+                                title="{{ t('admin_authors_search_user_title') }}">
+                                <i class="ti ti-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button id="save-author-btn" type="submit" class="btn btn-primary">{{ t("admin_btn_save")
+                            }}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('save-author-btn-top').addEventListener('click', function () {
+        document.getElementById('save-author-btn').click();
+    });
+
+    // Function to search for user (placeholder - would need user search API)
+    function searchUser() {
+        // For now, we'll use a simple prompt to search by email
+        const email = prompt("{{ t('admin_js_search_user_prompt') }}");
+        if (!email) return;
+
+        // Search through existing options first
+        const select = document.getElementById('user_id_select');
+        const options = select.querySelectorAll('option');
+
+        for (let option of options) {
+            if (option.textContent.toLowerCase().includes(email.toLowerCase())) {
+                option.selected = true;
+                select.dispatchEvent(new Event('change'));
+                return;
+            }
+        }
+
+        alert("{{ t('admin_js_search_user_not_found') }}");
+    }
+</script>
+{% endblock %}

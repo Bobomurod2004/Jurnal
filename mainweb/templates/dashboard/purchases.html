@@ -1,0 +1,187 @@
+{% extends 'basic_dashboard.html' %}
+{% from 'components/modals/subscription_modal.html' import subscription_modal %}
+
+{% block title %}{{ t('my_purchases') }} - {{ t('website_title') }}{% endblock %}
+
+{% block dashboard_content %}
+        <div class="pb-12">
+            <div class="mb-2 flex items-start justify-between">
+                <h4 class="text-2xl font-medium">{{ t('my_purchases_title') }}</h4>
+            </div>
+            <div class="mb-4">
+                {{ t('my_purchases_desc') }}
+            </div>
+
+            {% if subscription_active %}
+            <div class="mb-8 text-lg font-medium text-gray-900">
+                {{ t('active_subscription') }} {{ subscription_end_date|timestamp_to_date }} ({{ days_left }} {{ t('days_left') }})
+            </div>
+            {% else %}
+            <div class="mb-8 border rounded-lg bg-blue-50/50 border-blue-200 px-4 py-8 sm:px-8">
+                <div class="flex items-start gap-4">
+                    <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
+                        <iconify-icon icon="tabler:star" class="h-6 w-6 text-blue-600"></iconify-icon>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-medium text-gray-900 mb-2">{{ t('subscription_banner_title') }}</h4>
+                        <p class="text-gray-600 mb-4">{{ t('subscription_banner_text') }}</p>
+                        <button id="subscribe_now" class="text-nowrap inline-flex items-center justify-center gap-x-1.5 rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 hover:cursor-pointer transition-colors">
+                            {{ t('subscribe_now') }}
+                            <iconify-icon icon="tabler:arrow-right" class="text-lg"></iconify-icon>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="mb-8">
+                <h4 class="text-md font-semibold mb-4">{{ t('articles_section') }}</h4>
+                <div class="flex flex-col gap-4">
+                    {% set has_articles = false %}
+                    {% for payment in payments %}
+                        {% if payment.payment_type == 'article' and payment.status == 'paid' and payment.articles %}
+                            {% set has_articles = true %}
+                            {% for article in payment.articles %}
+                            <div class="border border-blue-200 rounded-lg p-4 bg-blue-50/10">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <a href="/article/{{ article.id }}" class="text-blue-600 hover:text-blue-700 text-lg font-medium">{{ article.title }}</a>
+                                        <div class="text-gray-600">{{ article.author }}</div>
+                                        <div class="text-sm text-gray-500">{{ t('volume') }} {{ article.volume }}, {{ t('issue') }} {{ article.issue }}, {{ article.year }}</div>
+                                    </div>
+                                    <div>
+                                        <a href="/article/{{ article.id }}/download" class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 hover:cursor-pointer transition-colors">
+                                            <iconify-icon icon="tabler:download" class="text-lg"></iconify-icon>
+                                            {{ t('download_pdf') }}
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if not has_articles %}
+                    <div class="text-gray-500 text-center py-8">
+                        {{ t('no_purchased_articles') }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mb-8">
+                <h4 class="text-md font-semibold mb-4">{{ t('issues_section') }}</h4>
+                <div class="flex flex-col gap-4">
+                    {% if subscription_active %}
+                    <div class="text-gray-500 text-center py-8">
+                        {{ t('subscription_access_all_content') }}
+                        <br>
+                        <a href="/issues" class="text-blue-600 hover:text-blue-700 underline">{{ t('browse_all_issues') }}</a>
+                    </div>
+                    {% else %}
+                    {% set has_issues = false %}
+                    {% for payment in payments %}
+                        {% if payment.payment_type == 'issue' and payment.status == 'paid' and payment.ids %}
+                            {% set has_issues = true %}
+                            {% for issue_id in payment.ids %}
+                            {% set issue = payment.issues[loop.index0] if payment.issues and payment.issues[loop.index0] else None %}
+                            {% if issue %}
+                            <div class="border border-blue-200 rounded-lg p-4 bg-blue-50/10">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <a href="/issue/{{ issue.id }}" class="text-blue-600 hover:text-blue-700 text-lg font-medium">{{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }}</a>
+                                        <div class="text-gray-600">{{ issue.title if issue.title else issue.year }}</div>
+                                        <div class="text-sm text-gray-500">{{ issue.created_at|timestamp_to_date }}</div>
+                                    </div>
+                                    <div>
+                                        <a href="/issue/{{ issue.id }}" class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 hover:cursor-pointer transition-colors">
+                                            <iconify-icon icon="tabler:book-2" class="text-lg"></iconify-icon>
+                                            {{ t('view_issue') }}
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if not has_issues %}
+                    <div class="text-gray-500 text-center py-8">
+                        {{ t('no_purchased_issues') }}
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+{{ subscription_modal(tariffs, currency, is_verified, t) }}
+
+{% endblock %}
+
+{% block dashboard_scripts %}
+<script>
+    $(document).ready(function() {
+        let selectedSubscription = null;
+
+        // Open subscription modal
+        $('#subscribe_now').click(function() {
+            $('#subscription_modal').removeClass('hidden');
+            selectedSubscription = null;
+            updateSubscriptionButton();
+            $('.subscription-option').removeClass('border-green-500 bg-green-50/50').addClass('border-gray-200');
+        });
+
+        // Close subscription modal
+        $('#close_subscription_modal').click(function() {
+            $('#subscription_modal').addClass('hidden');
+        });
+
+        // Handle subscription option selection
+        $('.subscription-option').click(function() {
+            // Skip if this is a free plan (no data attributes)
+            if (!$(this).data('tariff-id')) {
+                return;
+            }
+            
+            $('.subscription-option').removeClass('border-green-300 bg-green-50/50').addClass('border-gray-200');
+            $(this).removeClass('border-gray-200').addClass('border-green-300 bg-green-50/50');
+            selectedSubscription = {
+                tariff_id: $(this).data('tariff-id'),
+                amount: $(this).data('amount')
+            };
+            updateSubscriptionButton();
+        });
+
+        function updateSubscriptionButton() {
+            const btn = $('#proceed_subscription');
+            if (selectedSubscription) {
+                btn.prop('disabled', false);
+            } else {
+                btn.prop('disabled', true);
+            }
+        }
+
+        // Handle subscription proceed button
+        $('#proceed_subscription').click(function() {
+            if (!selectedSubscription) return;
+
+            $.ajax({
+                url: '/api/payment/create_subscription',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(selectedSubscription),
+                success: function(response) {
+                    if (response.success) {
+                        window.location.reload();
+                    } else {
+                        alert(response.message || 'Failed to create subscription');
+                    }
+                },
+                error: function() {
+                    alert('Failed to create subscription. Please try again.');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %} 
