@@ -30,13 +30,17 @@ def app__login():
                     return redirect(url_for('app__login'))
 
                 password_valid = False
-                if user['password'] and ('pbkdf2:sha256:' in user['password'] or 'scrypt:' in user['password']):
-                    password_valid = check_password_hash(user['password'], password)
-                else:
-                    password_valid = (user['password'] == password)
+                stored_pw = user.get('password', '')
+                if stored_pw and ('pbkdf2:sha256:' in stored_pw or 'scrypt:' in stored_pw):
+                    password_valid = check_password_hash(stored_pw, password)
+                elif stored_pw:
+                    # Legacy plaintext comparison — migrate to hash immediately
+                    password_valid = (stored_pw == password)
                     if password_valid:
                         hashed = generate_password_hash(password)
                         dbc.users.get(id=user['id']).update(password=hashed).exec()
+                else:
+                    password_valid = False
 
                 if password_valid:
                     session['user'] = user
