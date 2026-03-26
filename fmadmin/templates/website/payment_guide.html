@@ -1,0 +1,45 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">To'lov yo'riqnomasi</h2>
+      <p class="text-secondary mb-0">Bu matnlar saytning "To'lov yo'riqnomasi" sahifasida ko'rsatiladi. HTML ishlatish mumkin.</p>
+    </div>
+  </div>
+</div>
+
+<form method="post" class="mt-4">
+  <div class="card mb-4">
+    <div class="card-header">
+      <div class="card-title">O'zbekcha matn</div>
+    </div>
+    <div class="card-body">
+      <textarea class="form-control" name="payment_guide_uz" rows="14">{{ guide_values.get('uz') or guide_defaults.get('uz') }}</textarea>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header">
+      <div class="card-title">Ruscha matn</div>
+    </div>
+    <div class="card-body">
+      <textarea class="form-control" name="payment_guide_ru" rows="14">{{ guide_values.get('ru') or guide_defaults.get('ru') }}</textarea>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header">
+      <div class="card-title">Inglizcha matn</div>
+    </div>
+    <div class="card-body">
+      <textarea class="form-control" name="payment_guide_en" rows="14">{{ guide_values.get('en') or guide_defaults.get('en') }}</textarea>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary">Saqlash</button>
+  </div>
+</form>
+{% endblock %}

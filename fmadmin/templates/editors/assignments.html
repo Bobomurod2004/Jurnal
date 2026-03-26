@@ -23,13 +23,14 @@
         <option value="">{{ t("admin_filter_all_status") }}</option>
         <option value="pending" {% if status_filter=='pending' %}selected{% endif %}>{{
           t("admin_stats_pending_assignments") }}</option>
+        <option value="in_review" {% if status_filter=='in_review' %}selected{% endif %}>Jarayonda</option>
         <option value="reviewed" {% if status_filter=='reviewed' %}selected{% endif %}>{{ t("admin_stats_reviewed") }}
         </option>
         <option value="rejected" {% if status_filter=='rejected' %}selected{% endif %}>{{ t("admin_stats_rejected") }}
         </option>
       </select>
     </div>
-    {% if current_user.rolename == 'admin' %}
+    {% if current_user.rolename in ['admin', 'superadmin'] %}
     <div class="col-md-3">
       <div class="form-label">{{ t("admin_label_editor") }}</div>
       <select class="form-select" name="editor">
@@ -74,11 +75,13 @@
       <thead>
         <tr>
           <th>{{ t("admin_col_article") }}</th>
-          {% if current_user.rolename == 'admin' %}
+          {% if current_user.rolename in ['admin', 'superadmin'] %}
           <th>{{ t("admin_label_editor") }}</th>
           {% endif %}
           <th>{{ t("admin_col_assigned_at") }}</th>
+          <th>Muddatlar</th>
           <th>{{ t("admin_label_status") }}</th>
+          <th>Admin qarori</th>
           <th>{{ t("admin_col_reviewed_at") }}</th>
           <th class="w-1"></th>
         </tr>
@@ -98,7 +101,7 @@
               {% endif %}
             </div>
           </td>
-          {% if current_user.rolename == 'admin' %}
+          {% if current_user.rolename in ['admin', 'superadmin'] %}
           <td class="align-middle">
             {% if editor %}
             <div class="d-flex py-1 align-items-center">
@@ -119,7 +122,7 @@
               <div class="text-secondary small">
                 {{ assignment.assigned_at | timestamp_to_date if assignment.assigned_at else '-' }}
               </div>
-              {% if assigned_by_user and current_user.rolename == 'admin' %}
+              {% if assigned_by_user and current_user.rolename in ['admin', 'superadmin'] %}
               <div class="text-secondary small">
                 {{ assigned_by_user.name }} {{ assigned_by_user.second_name or '' }}
               </div>
@@ -127,14 +130,54 @@
             </div>
           </td>
           <td class="align-middle">
+            <div class="d-flex flex-column">
+              <div class="text-secondary small">
+                Qabul: {{ assignment.acceptance_deadline_at | timestamp_to_datetime if assignment.acceptance_deadline_at else '-' }}
+              </div>
+              <div class="text-secondary small">
+                Topshirish: {{ assignment.completion_deadline_at | timestamp_to_datetime if assignment.completion_deadline_at else '-' }}
+              </div>
+              {% if assignment.status == 'pending' and assignment.acceptance_deadline_at %}
+              <div class="mt-1">
+                {% if assignment.acceptance_remaining_seconds is not none and assignment.acceptance_remaining_seconds > 0 %}
+                <span class="badge bg-warning-lt">Qabulga: {{ assignment.acceptance_remaining_label }}</span>
+                {% else %}
+                <span class="badge bg-danger-lt">Qabul muddati o'tgan</span>
+                {% endif %}
+              </div>
+              {% elif assignment.status in ['pending', 'in_review'] and assignment.completion_deadline_at %}
+              <div class="mt-1">
+                {% if assignment.completion_remaining_seconds is not none and assignment.completion_remaining_seconds > 0 %}
+                <span class="badge bg-azure-lt">Topshirishga: {{ assignment.completion_remaining_label }}</span>
+                {% else %}
+                <span class="badge bg-danger-lt">Topshirish muddati o'tgan</span>
+                {% endif %}
+              </div>
+              {% endif %}
+            </div>
+          </td>
+          <td class="align-middle">
             {% if assignment.status == 'pending' %}
             <span class="badge bg-warning-lt">{{ t("admin_stats_pending_assignments") }}</span>
+            {% elif assignment.status == 'in_review' %}
+            <span class="badge bg-info-lt">Jarayonda</span>
             {% elif assignment.status == 'reviewed' %}
             <span class="badge bg-success-lt">{{ t("admin_stats_reviewed") }}</span>
             {% elif assignment.status == 'rejected' %}
             <span class="badge bg-danger-lt">{{ t("admin_stats_rejected") }}</span>
             {% else %}
             <span class="badge bg-secondary-lt">{{ assignment.status }}</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            {% if assignment.admin_decision == 'accepted' %}
+            <span class="badge bg-success-lt">Qabul qilingan</span>
+            {% elif assignment.admin_decision == 'revision_requested' %}
+            <span class="badge bg-warning-lt">Qayta ishlash so'ralgan</span>
+            {% elif assignment.status in ['reviewed', 'rejected'] %}
+            <span class="badge bg-blue-lt">Admin javobi kutilmoqda</span>
+            {% else %}
+            <span class="text-secondary">-</span>
             {% endif %}
           </td>
           <td class="align-middle">
@@ -147,13 +190,12 @@
             {% endif %}
           </td>
           <td class="align-middle">
-            {% if current_user.rolename == 'editor' and assignment.editor_id == current_user.id and assignment.status ==
-            'pending' %}
+            {% if current_user.rolename == 'editor' and assignment.editor_id == current_user.id and assignment.status in ['pending', 'in_review'] %}
             <a href="{{ url_for('review_assignment', assignment_id=assignment.id) }}"
               class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1">
               {{ t("admin_review_title_pending") }}
             </a>
-            {% elif assignment.status != 'pending' %}
+            {% else %}
             <a href="{{ url_for('review_assignment', assignment_id=assignment.id) }}"
               class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1">
               {{ t("admin_btn_view") }}

@@ -1,22 +1,72 @@
 # flake8: noqa
 import os
-from flask import Flask
+import logging
+from flask import Flask, jsonify
 from flasgger import Swagger
+from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.security import generate_password_hash
 import settings
+import hooks
+from extensions import dbc
 from utils.filters import register_filters
 from utils.uploads import init_uploads
 from routes import auth, public, dashboard, api, context
 
+logger = logging.getLogger(__name__)
+
+def _configure_logging(app):
+    level_name = (settings.LOG_LEVEL or 'INFO').upper()
+    level = getattr(logging, level_name, logging.INFO)
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(message)s'))
+    app.logger.handlers = []
+    app.logger.addHandler(handler)
+    app.logger.setLevel(level)
+    app.logger.propagate = False
+
+
+def _migrate_legacy_password_hashes():
+    try:
+        users = dbc.users.get().exec()
+    except Exception:
+        logger.exception('Unable to inspect existing mainweb users for password migration')
+        return
+
+    migrated = 0
+    for user in users:
+        stored_password = user.get('password')
+        if not stored_password or not isinstance(stored_password, str):
+            continue
+        if stored_password.startswith(('pbkdf2:', 'scrypt:')):
+            continue
+        try:
+            dbc.users.get(id=user['id']).update(
+                password=generate_password_hash(stored_password)
+            ).exec()
+            migrated += 1
+        except Exception:
+            logger.exception('Failed to migrate password hash for user_id=%s', user.get('id'))
+
+    if migrated:
+        logger.warning('Migrated %s legacy plaintext password(s) in mainweb', migrated)
+
 
 def create_app():
     app = Flask(__name__)
+    _configure_logging(app)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
     app.secret_key = settings.SECRET_KEY
+    app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
 
     # Session security
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV') == 'production'
     app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
+
+    @app.get('/healthz')
+    def healthz():
+        return jsonify({'status': 'ok', 'service': 'mainweb', 'version': settings.APP_VERSION}), 200
 
     swagger_config = {
         "headers": [],
@@ -67,7 +117,9 @@ def create_app():
 
     init_uploads(app)
     register_filters(app)
+    hooks.register(app)
     context.register_context_processors(app)
+    _migrate_legacy_password_hashes()
 
     auth.register(app)
     public.register(app)

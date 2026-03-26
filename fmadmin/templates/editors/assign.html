@@ -34,11 +34,53 @@
               <h3 class="card-title">{{ t("admin_title_select_editors") }}</h3>
             </div>
             <div class="card-body">
+              {% if not is_antiplag_ready %}
+              <div class="alert alert-danger mb-3" role="alert">
+                Antiplagiat tekshiruvi fayli yuklanmagan. Avval maqola sahifasida tekshirilgan faylni yuklang.
+              </div>
+              {% endif %}
+
+              <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                  <label class="form-label">Qabul qilish muddati</label>
+                  <input
+                    type="datetime-local"
+                    name="acceptance_deadline"
+                    class="form-control"
+                    min="{{ min_deadline_datetime }}"
+                    value="{{ default_acceptance_deadline }}"
+                    required
+                  >
+                  <small class="form-hint">Tahrirchi topshiriqni ochib qabul qilishi kerak bo'lgan vaqt</small>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Topshirish muddati</label>
+                  <input
+                    type="datetime-local"
+                    name="completion_deadline"
+                    class="form-control"
+                    min="{{ min_deadline_datetime }}"
+                    value="{{ default_completion_deadline }}"
+                    required
+                  >
+                  <small class="form-hint">Tahriz yuborilishi kerak bo'lgan oxirgi vaqt</small>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Tahrirchi uchun izoh</label>
+                  <textarea
+                    name="assignment_note"
+                    rows="3"
+                    class="form-control"
+                    placeholder="Masalan: metodologiya va xulosani alohida tekshiring"
+                  ></textarea>
+                </div>
+              </div>
+
               <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column">
                 {% for editor in editors %}
                 <label class="form-selectgroup-item flex-fill">
                   <input type="checkbox" name="editor_ids" value="{{ editor.id }}" class="form-selectgroup-input" {% if
-                    editor.id in assigned_editor_ids %}checked disabled{% endif %}>
+                    editor.id in assigned_editor_ids %}checked{% endif %}>
                   <div class="form-selectgroup-label d-flex align-items-center p-3">
                     <div class="me-3">
                       <span class="avatar">{{ editor.name[0] if editor.name else 'E' }}</span>
@@ -80,7 +122,7 @@
             <div class="card-footer text-end">
               <div class="d-flex">
                 <a href="{{ url_for('submissions') }}" class="btn btn-link">{{ t("admin_btn_cancel") }}</a>
-                <button type="submit" class="btn btn-primary ms-auto">
+                <button type="submit" class="btn btn-primary ms-auto" {% if not is_antiplag_ready %}disabled{% endif %}>
                   <i class="ti ti-check"></i>
                   {{ t("admin_btn_assign_selected") }}
                 </button>
@@ -113,6 +155,8 @@
                   <span class="badge bg-secondary-lt">Черновик</span>
                   {% elif submission.status == 'submitted' %}
                   <span class="badge bg-primary-lt">Подано</span>
+                  {% elif submission.status == 'in_process' %}
+                  <span class="badge bg-warning-lt">Jarayonda</span>
                   {% elif submission.status == 'under_review' %}
                   <span class="badge bg-warning-lt">На рассмотрении</span>
                   {% elif submission.status == 'accepted' %}
@@ -138,13 +182,26 @@
               <div class="datagrid-item">
                 <div class="datagrid-title">{{ t("admin_label_anonymized_file") }}</div>
                 <div class="datagrid-content">
-                  <a href="{{ submission.file_anonymized }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                  <a href="{{ upload_access_url(submission.file_anonymized) }}" class="btn btn-sm btn-outline-primary" target="_blank">
                     <i class="ti ti-download"></i>
                     {{ t("admin_btn_download") }}
                   </a>
                 </div>
               </div>
               {% endif %}
+              <div class="datagrid-item">
+                <div class="datagrid-title">Antiplagiat</div>
+                <div class="datagrid-content">
+                  {% if anti_plagiarism_file %}
+                  <a href="{{ upload_access_url(anti_plagiarism_file) }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                    <i class="ti ti-download"></i>
+                    Tekshirilgan fayl
+                  </a>
+                  {% else %}
+                  <span class="text-danger">Yuklanmagan</span>
+                  {% endif %}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -157,12 +214,30 @@
           <div class="card-body">
             {% for editor in editors %}
             {% if editor.id in assigned_editor_ids %}
+            {% set assignment = (assigned_editors | selectattr('editor_id', 'equalto', editor.id) | list | first) %}
             <div class="d-flex align-items-center mb-2">
               <span class="avatar me-2">{{ editor.name[0] if editor.name else 'E' }}</span>
-              <div>
+              <div class="w-100">
                 <div class="font-weight-medium">{{ editor.name }} {{ editor.second_name or '' }}</div>
                 <div class="text-secondary small">{{ editor.editor_specialization or
                   t("admin_editor_spec_not_specified") }}</div>
+                <div class="mt-1">
+                  {% if assignment and assignment.status == 'pending' %}
+                  <span class="badge bg-warning-lt">Kutilmoqda</span>
+                  {% elif assignment and assignment.status == 'in_review' %}
+                  <span class="badge bg-info-lt">Ko'rib chiqmoqda</span>
+                  {% elif assignment and assignment.status == 'reviewed' %}
+                  <span class="badge bg-success-lt">Yuborilgan</span>
+                  {% elif assignment and assignment.status == 'rejected' %}
+                  <span class="badge bg-danger-lt">Rad etish tavsiyasi</span>
+                  {% endif %}
+                  {% if assignment and assignment.acceptance_deadline_at %}
+                  <span class="badge bg-azure-lt">Qabul: {{ assignment.acceptance_deadline_at | timestamp_to_datetime }}</span>
+                  {% endif %}
+                  {% if assignment and assignment.completion_deadline_at %}
+                  <span class="badge bg-blue-lt">Topshirish: {{ assignment.completion_deadline_at | timestamp_to_datetime }}</span>
+                  {% endif %}
+                </div>
               </div>
             </div>
             {% endif %}

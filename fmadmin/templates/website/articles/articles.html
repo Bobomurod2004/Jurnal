@@ -84,7 +84,7 @@
         <tr>
           <td class="align-middle">
             <div class="d-flex flex-column">
-              <div>{{ article.title }}</div>
+              <div>{{ article.title_display or article.title }}</div>
               <div class="text-muted small">
                 {% set author_links = [] %}
                 {% if article.main_author_id and article.main_author_id in authors_map %}

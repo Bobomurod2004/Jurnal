@@ -1,0 +1,122 @@
+{% extends "basic.html" %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">Tahrizchi paneli</h2>
+      <div class="text-secondary mt-1">
+        Sizga biriktirilgan maqolalar va joriy holat
+      </div>
+    </div>
+    <div class="col-auto ms-auto d-print-none">
+      <a href="{{ url_for('editor_assignments') }}" class="btn btn-primary">
+        <i class="ti ti-clipboard-check me-1"></i>
+        Mening topshiriqlarim
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="row row-deck row-cards mb-4">
+  <div class="col-sm-6 col-lg-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="subheader">Jami biriktirilgan</div>
+        <div class="h1 mb-0">{{ stats.total }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="subheader">Kutilmoqda</div>
+        <div class="h1 mb-0 text-warning">{{ stats.pending }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="subheader">Ko'rib chiqilgan</div>
+        <div class="h1 mb-0 text-success">{{ stats.reviewed }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card">
+      <div class="card-body">
+        <div class="subheader">Rad etilgan</div>
+        <div class="h1 mb-0 text-danger">{{ stats.rejected }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row row-cards">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Oxirgi biriktirilgan maqolalar</h3>
+        <div class="card-actions text-secondary">
+          O'qilmagan bildirishnomalar: <strong>{{ unread_notifications }}</strong>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table card-table table-vcenter">
+          <thead>
+            <tr>
+              <th>Maqola</th>
+              <th>Holat</th>
+              <th>Biriktirilgan sana</th>
+              <th>Ko'rib chiqilgan sana</th>
+              <th class="w-1">Amal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if recent_assignments %}
+            {% for assignment in recent_assignments %}
+            <tr>
+              <td>
+                <div class="d-flex flex-column">
+                  <div class="font-weight-medium">{{ assignment.submission_title }}</div>
+                  <div class="text-secondary small">ID: {{ assignment.submission_id }}</div>
+                </div>
+              </td>
+              <td>
+                {% if assignment.status == 'pending' %}
+                <span class="badge bg-warning-lt">Kutilmoqda</span>
+                {% elif assignment.status == 'in_review' %}
+                <span class="badge bg-info-lt">Jarayonda</span>
+                {% elif assignment.status == 'reviewed' %}
+                <span class="badge bg-success-lt">Ko'rib chiqilgan</span>
+                {% elif assignment.status == 'rejected' %}
+                <span class="badge bg-danger-lt">Rad etilgan</span>
+                {% else %}
+                <span class="badge bg-secondary-lt">{{ assignment.status }}</span>
+                {% endif %}
+              </td>
+              <td>{{ assignment.assigned_at | timestamp_to_date if assignment.assigned_at else '-' }}</td>
+              <td>{{ assignment.reviewed_at | timestamp_to_date if assignment.reviewed_at else '-' }}</td>
+              <td>
+                <a href="{{ url_for('review_assignment', assignment_id=assignment.id) }}"
+                  class="btn btn-sm btn-outline-primary">
+                  Ochish
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr>
+              <td colspan="5" class="text-center text-secondary py-4">
+                Hozircha sizga biriktirilgan maqolalar mavjud emas.
+              </td>
+            </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

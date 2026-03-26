@@ -48,7 +48,7 @@
                         <input type="text" class="form-control" value="{{ article.id }}" readonly>
                     </div>
                     <div class="mb-3 lang-field lang-en">
-                        <label class="form-label">{{ t("admin_label_title") }}</label>
+                        <label class="form-label">{{ t("admin_label_title") }} (en)</label>
                         <input type="text" class="form-control" name="title" value="{{ article.title or '' }}">
                     </div>
                     <div class="mb-3 lang-field lang-uz">
@@ -60,7 +60,7 @@
                         <input type="text" class="form-control" name="title_ru" value="{{ article.title_ru or '' }}">
                     </div>
                     <div class="mb-3 lang-field lang-en">
-                        <label class="form-label">{{ t("admin_label_abstract") }}</label>
+                        <label class="form-label">{{ t("admin_label_abstract") }} (en)</label>
                         <textarea class="form-control" name="abstract" rows="4">{{ article.abstract or '' }}</textarea>
                     </div>
                     <div class="mb-3 lang-field lang-uz">
@@ -74,7 +74,7 @@
                             rows="4">{{ article.abstract_ru or '' }}</textarea>
                     </div>
                     <div class="mb-3 lang-field lang-en">
-                        <label class="form-label">{{ t("admin_label_keywords") }}</label>
+                        <label class="form-label">{{ t("admin_label_keywords") }} (en)</label>
                         <input type="text" class="form-control" name="keywords"
                             value="{{ article.keywords|join(', ') if article.keywords else '' }}"
                             placeholder="{{ t('admin_placeholder_keywords_sep') }}">
@@ -182,13 +182,24 @@
                         <input type="file" class="form-control" name="pdf_files" accept=".pdf" multiple>
                         <small class="form-hint">{{ t("admin_hint_pdf_upload") }}</small>
                     </div>
-                    <div class="form-check form-switch mb-3">
+                    <div class="mb-3">
+                        <label class="form-label">Maqola turi</label>
+                        <div class="btn-group" role="group" aria-label="Article access type">
+                            <input type="radio" class="btn-check" name="access_type" id="access_free" value="free"
+                                {% if not article.is_paid %}checked{% endif %}>
+                            <label class="btn btn-outline-success" for="access_free">Ochiq maqola</label>
+                            <input type="radio" class="btn-check" name="access_type" id="access_paid" value="paid"
+                                {% if article.is_paid %}checked{% endif %}>
+                            <label class="btn btn-outline-primary" for="access_paid">To'lovli maqola</label>
+                        </div>
+                    </div>
+                    <div class="form-check form-switch mb-3" id="subscription-toggle">
                         <input class="form-check-input" type="checkbox" name="subscription_enable"
                             id="subscription_enable" {% if article.subscription_enable %}checked{% endif %}>
                         <label class="form-check-label" for="subscription_enable">{{
                             t("admin_label_subscription_enable") }}</label>
                     </div>
-                    <div class="form-check form-switch mb-3">
+                    <div class="form-check form-switch mb-3 d-none">
                         <input class="form-check-input" type="checkbox" name="is_paid" id="is_paid" {% if
                             article.is_paid %}checked{% endif %}>
                         <label class="form-check-label" for="is_paid">{{ t("admin_label_is_paid") }}</label>
@@ -288,13 +299,25 @@
         }
         mainAuthorSelect.addEventListener('change', updateSubAuthors);
         updateSubAuthors();
-        // Скрывать/показывать поля цены в зависимости от чекбокса "Платная статья"
-        function togglePriceFields() {
-            var isPaid = document.getElementById('is_paid').checked;
-            document.getElementById('price-fields').style.display = isPaid ? '' : 'none';
+        // Sync access type buttons with hidden is_paid + price/subscription fields
+        function syncAccessType() {
+            var isPaid = document.getElementById('access_paid').checked;
+            var isPaidCheckbox = document.getElementById('is_paid');
+            if (isPaidCheckbox) isPaidCheckbox.checked = isPaid;
+            var priceFields = document.getElementById('price-fields');
+            if (priceFields) priceFields.style.display = isPaid ? '' : 'none';
+            var subscriptionToggle = document.getElementById('subscription-toggle');
+            if (subscriptionToggle) subscriptionToggle.style.display = isPaid ? '' : 'none';
+            if (!isPaid) {
+                var subscriptionCheckbox = document.getElementById('subscription_enable');
+                if (subscriptionCheckbox) subscriptionCheckbox.checked = false;
+            }
         }
-        document.getElementById('is_paid').addEventListener('change', togglePriceFields);
-        togglePriceFields();
+        var accessFree = document.getElementById('access_free');
+        var accessPaid = document.getElementById('access_paid');
+        if (accessFree) accessFree.addEventListener('change', syncAccessType);
+        if (accessPaid) accessPaid.addEventListener('change', syncAccessType);
+        syncAccessType();
     });
 
     // Function to search and add coauthor

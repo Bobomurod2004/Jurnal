@@ -1,0 +1,22 @@
+{{ subject }}
+
+{{ intro }}
+{% if details %}
+
+{% for item in details %}
+{{ item.label }}: {{ item.value }}
+{% endfor %}
+{% endif %}
+{% if body_lines %}
+
+{% for line in body_lines %}
+{{ line }}
+
+{% endfor %}
+{% endif %}
+{% if cta_url %}
+{{ cta_label }}: {{ cta_url }}
+
+{% endif %}
+{{ signature_name }}
+{{ app_base_url }}

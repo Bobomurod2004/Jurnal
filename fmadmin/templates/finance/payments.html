@@ -43,6 +43,8 @@
         <tr>
           <th>ID</th>
           <th>{{ t("admin_label_user") }}</th>
+          <th>To'lov turi</th>
+          <th>To'lov predmeti</th>
           <th>{{ t("admin_label_amount") }}</th>
           <th>{{ t("admin_label_status") }}</th>
           <th>{{ t("admin_label_created_at") }}</th>
@@ -62,6 +64,8 @@
             ID: {{ payment.user_id }}
             {% endif %}
           </td>
+          <td class="align-middle">{{ payment.type_label or '-' }}</td>
+          <td class="align-middle">{{ payment.item_label or '-' }}</td>
           <td class="align-middle">{{ payment.amount }}</td>
           <td class="align-middle">
             {% if payment.status == 'paid' %}
@@ -73,10 +77,10 @@
             {% endif %}
           </td>
           <td class="align-middle">{{ payment.created_at | datetimeformat }}</td>
-          <td class="align-middle">{{ payment.updated_at | datetimeformat }}</td>
+          <td class="align-middle">{{ (payment.payment_date or payment.created_at) | datetimeformat }}</td>
           <td class="align-middle">
-            {% if payment.confirmation_file %}
-            <a href="{{ payment.confirmation_file }}" target="_blank" class="btn btn-sm btn-outline-primary">
+            {% if payment.proof or payment.confirmation_file %}
+            <a href="{{ upload_access_url(payment.proof or payment.confirmation_file) }}" target="_blank" class="btn btn-sm btn-outline-primary">
               <i class="ti ti-file"></i> {{ t("admin_btn_view") }}
             </a>
             {% else %}
@@ -86,7 +90,9 @@
           <td class="align-middle">
             <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editPaymentModal"
               data-payment-id="{{ payment.id }}" data-payment-status="{{ payment.status }}"
-              data-payment-amount="{{ payment.amount }}" data-payment-file="{{ payment.confirmation_file or '' }}">
+              data-payment-amount="{{ payment.amount }}"
+              data-payment-file="{{ upload_access_url(payment.proof or payment.confirmation_file or '') }}"
+              data-payment-note="{{ payment.note or '' }}">
               <i class="ti ti-edit"></i> {{ t("admin_btn_edit") }}
             </button>
           </td>
@@ -143,7 +149,7 @@
 
           <div class="mb-3">
             <label class="form-label">{{ t("admin_label_amount") }}</label>
-            <input type="number" class="form-control" id="payment_amount" name="amount" step="0.01" required>
+            <input type="text" class="form-control" id="payment_amount" name="amount" inputmode="decimal" autocomplete="off" required>
           </div>
 
           <div class="mb-3">
@@ -183,11 +189,13 @@
         const paymentStatus = button.getAttribute('data-payment-status');
         const paymentAmount = button.getAttribute('data-payment-amount');
         const paymentFile = button.getAttribute('data-payment-file');
+        const paymentNote = button.getAttribute('data-payment-note') || '';
 
         // Заполняем форму
         document.getElementById('payment_id').value = paymentId;
         document.getElementById('payment_status').value = paymentStatus;
         document.getElementById('payment_amount').value = paymentAmount;
+        document.getElementById('payment_comment').value = paymentNote;
 
         // Отображение текущего файла
         const fileDisplay = document.getElementById('current_file_display');

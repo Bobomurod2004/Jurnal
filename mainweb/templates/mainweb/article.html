@@ -103,7 +103,9 @@
         <div class="grid grid-cols-4 gap-4">
             <div class="col-span-3">
                 <div class="flex gap-3 mb-4">
-                    <img src="{{ issue.cover_image if issue and issue.cover_image else url_for('static', filename='obl.jpg') }}" alt="{{ t('journal_cover') }}" class="h-auto rounded-sm" style="width: 6rem; height: fit-content;">
+                    <div class="border border-slate-200 bg-white p-2 shadow-sm" style="width: 7rem; border-radius: 0;">
+                        <img src="{{ issue.cover_image|cover_or_default if issue else url_for('static', filename='uploads/issues/2025/07/db14cd28777c448b9a7079c568448f9b.jpg') }}" alt="{{ t('journal_cover') }}" class="block w-full h-auto object-contain bg-white" style="aspect-ratio: 2484 / 3512;">
+                    </div>
                     <div>
                         <h5 class="text-lg mt-2 font-medium">{{ t('website_title') }}</h5>
                         <div class="text mb-4 text-gray-600 flex">
@@ -202,7 +204,7 @@
 
                 <hr class="h-px my-8 bg-fmmain-bg border-0">
 
-                {% if has_access %}
+                {% if not publication.is_paid or has_access %}
                     {% if publication.file_ids %}
                     <div class="mb-8" id="download">
                         <a href="{{ url_for('app__download_article', article_id=publication.id) }}" class="inline-flex items-center px-4 py-2 bg-fmmain text-white rounded-md hover:bg-fmmain-dark transition-colors">
@@ -210,201 +212,234 @@
                             {{ t('download_full_article') }}
                         </a>
                     </div>
+                    {% else %}
+                    <div class="mb-8 text-sm text-gray-500">
+                        {{ t('no_content_available') }}
+                    </div>
                     {% endif %}
                 {% else %}
                     <div class="mb-8 bg-yellow-50 border border-yellow-200 p-4 rounded-md">
                         <div class="font-medium text-yellow-800 mb-2">{{ t('access_required') }}</div>
-                        <p class="text-yellow-700 mb-4">{{ t('subscription_required_message') }}</p>
-                        <a href="{{ url_for('app__dashboard_payments') }}" class="inline-flex items-center px-4 py-2 bg-fmmain text-white rounded-md hover:bg-fmmain-dark transition-colors">
-                            {{ t('view_subscription_options') }}
-                        </a>
+                        {% if publication.is_paid and publication.subscription_enable %}
+                            <p class="text-yellow-700 mb-4">{{ t('subscription_required_message') }}</p>
+                            <div class="flex gap-3">
+                                <a href="{{ url_for('app__dashboard_payments') }}" class="inline-flex items-center px-4 py-2 bg-fmmain text-white rounded-md hover:bg-fmmain-dark transition-colors">
+                                    {{ t('view_subscription_options') }}
+                                </a>
+                                <a href="{{ url_for('app__purchase_article', article_id=publication.id) }}"
+                                   class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                                    <iconify-icon icon="tabler:shopping-cart" class="me-2"></iconify-icon>
+                                    {{ t('purchase_article') }} (${{ "%.2f"|format(publication.price or 0) }})
+                                </a>
+                            </div>
+                        {% elif publication.is_paid and not publication.subscription_enable %}
+                            <p class="text-yellow-700 mb-4">{{ t('purchase_this_article_to_get_access') }}</p>
+                            <div class="flex gap-3">
+                                <a href="{{ url_for('app__purchase_article', article_id=publication.id) }}"
+                                   class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                                    <iconify-icon icon="tabler:shopping-cart" class="me-2"></iconify-icon>
+                                    {{ t('purchase_article') }} (${{ "%.2f"|format(publication.price or 0) }})
+                                </a>
+                            </div>
+                        {% else %}
+                            <p class="text-yellow-700 mb-4">{{ t('subscription_required_message') }}</p>
+                            <a href="{{ url_for('app__dashboard_payments') }}" class="inline-flex items-center px-4 py-2 bg-fmmain text-white rounded-md hover:bg-fmmain-dark transition-colors">
+                                {{ t('view_subscription_options') }}
+                            </a>
+                        {% endif %}
                     </div>
                 {% endif %}
 
-                <!-- Dynamic content from publication_parts -->
-                {% if publication_parts %}
-                    {% for part in publication_parts[::-1] %}
-                        <div class="mb-8 intersect intersect-full font-sserif" data-block-id="{{ loop.index }}" id="section-{{ loop.index }}">
-                            <h4 class="text-xl font-medium mb-4">{{ part.title }}</h4>
-                            <div class="mb-4 article-content">
-                                {{ part.content|safe }}
+                {% if not publication.is_paid or has_access %}
+                    <!-- Dynamic content from publication_parts -->
+                    {% if publication_parts %}
+                        {% for part in publication_parts[::-1] %}
+                            <div class="mb-8 intersect intersect-full font-sserif" data-block-id="{{ loop.index }}" id="section-{{ loop.index }}">
+                                <h4 class="text-xl font-medium mb-4">{{ part.title }}</h4>
+                                <div class="mb-4 article-content">
+                                    {{ part.content|safe }}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <!-- Fallback content if no parts exist -->
+                        <div class="mb-8 intersect intersect-full text-gray-400" data-block-id="1" id="section-1">
+                            <div class="mb-4">
+                                <p>{{ t('no_content_available') }}</p>
                             </div>
                         </div>
-                    {% endfor %}
-                {% else %}
-                    <!-- Fallback content if no parts exist -->
-                    <div class="mb-8 intersect intersect-full text-gray-400" data-block-id="1" id="section-1">
-                        <div class="mb-4">
-                            <p>{{ t('no_content_available') }}</p>
-                        </div>
-                    </div>
-                {% endif %}
+                    {% endif %}
 
-                <!-- Citations section -->
-                {% if publication_refs %}
-                    <div class="mb-8 intersect intersect-full" data-block-id="{{ (publication_parts|length) + 1 }}" id="references">
-                        <h4 class="text-xl font-medium mb-4">{{ t('references') }}</h4>
-                        {% for ref in publication_refs[::-1] %}
-                            <div class="py-3 mb-4 intersect-once intersect:animate-fade animate-duration-500 intersect:animate-delay-[50ms] animate-ease-linear" data-ref-index="{{ loop.index }}">
-                                <div class="flex text-xs mb-1 me-2">
-                                    <span class="text-blue-600 font-medium me-2">[{{ loop.index }}]</span>
-                                    <div class="text-gray-400">{{ ref.authors }}</div>
-                                </div>
-                                <div class="">
-                                    {% if ref.doi_link %}
-                                        <a href="{{ ref.doi_link }}" target="_blank" class="hover:underline underline-offset-4 decoration-green-600 transition-all">
-                                            {{ ref.title }}
-                                        </a>
-                                    {% elif ref.web_link %}
-                                        <a href="{{ ref.web_link }}" target="_blank" class="hover:underline underline-offset-4 decoration-green-600 transition-all">
-                                            {{ ref.title }}
-                                        </a>
-                                    {% else %}
-                                        <span>{{ ref.title }}</span>
-                                    {% endif %}
-                                </div>
-                                {% if ref.doi %}
-                                    <div class="mt-1 mb-1">
-                                        <div class="text-sm text-gray-400 italic">
-                                            {% if ref.doi_link %}
-                                                <a href="{{ ref.doi_link }}" target="_blank" class="text-blue-600 hover:text-blue-800 not-italic">
-                                                    {{ t('doi_label') }}: {{ ref.doi }}
-                                                    <iconify-icon icon="tabler:arrow-up-right"></iconify-icon>
-                                                </a>
-                                            
-                                            {% else %}
-                                                {{ t('doi_label') }}: {{ ref.doi }}
-                                            {% endif %}
-                                        </div>
+                    <!-- Citations section -->
+                    {% if publication_refs %}
+                        <div class="mb-8 intersect intersect-full" data-block-id="{{ (publication_parts|length) + 1 }}" id="references">
+                            <h4 class="text-xl font-medium mb-4">{{ t('references') }}</h4>
+                            {% for ref in publication_refs[::-1] %}
+                                <div class="py-3 mb-4 intersect-once intersect:animate-fade animate-duration-500 intersect:animate-delay-[50ms] animate-ease-linear" data-ref-index="{{ loop.index }}">
+                                    <div class="flex text-xs mb-1 me-2">
+                                        <span class="text-blue-600 font-medium me-2">[{{ loop.index }}]</span>
+                                        <div class="text-gray-400">{{ ref.authors }}</div>
                                     </div>
-                                {% elif ref.resource %}
-                                    <div class="mt-1 mb-1">
-                                        {% if ref.web_link %}
-                                            <div class="text-sm text-gray-400 italic">
-                                                <a href="{{ ref.web_link }}" target="_blank" class="text-blue-600 hover:text-blue-800 not-italic">
-                                                    {{ ref.resource }}
-                                                </a>
-                                            </div>
+                                    <div class="">
+                                        {% if ref.doi_link %}
+                                            <a href="{{ ref.doi_link }}" target="_blank" class="hover:underline underline-offset-4 decoration-green-600 transition-all">
+                                                {{ ref.title }}
+                                            </a>
+                                        {% elif ref.web_link %}
+                                            <a href="{{ ref.web_link }}" target="_blank" class="hover:underline underline-offset-4 decoration-green-600 transition-all">
+                                                {{ ref.title }}
+                                            </a>
                                         {% else %}
-                                            <div class="text-sm text-gray-400 italic">
-                                                {{ ref.resource }}
-                                            </div>
+                                            <span>{{ ref.title }}</span>
                                         {% endif %}
                                     </div>
-                                {% endif %}
-                                <div class="flex flex-wrap mt-2 gap-4">
-                                    {% if ref.doi_link %}
-                                        <a href="{{ ref.doi_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
-                                            <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
-                                                {{ t('view_article') }}
-                                            </span>
-                                            <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
-                                        </a>
-                                    {% elif ref.web_link %}
-                                        <a href="{{ ref.web_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
-                                            <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
-                                                {{ ref.web_link }}
-                                            </span>
-                                        </a>
-                                    {% endif %}
-                                    {% if ref.gscholar_link %}
-                                        <a href="{{ ref.gscholar_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
-                                            <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
-                                                Google Scholar
-                                            </span>
-                                            <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
-                                        </a>
-                                    {% endif %}
-                                    {% if ref.scopus_link %}
-                                        <a href="{{ ref.scopus_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
-                                            <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
-                                                Scopus
-                                            </span>
-                                            <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
-                                        </a>
-                                    {% endif %}
-                                    {% if ref.wos_link %}
-                                        <a href="{{ ref.wos_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
-                                            <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
-                                                Web of Science
-                                            </span>
-                                            <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
-                                        </a>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-
-                <!-- Cited by section -->
-                {% if publication_citations %}
-                    <div class="mb-8 intersect intersect-full" data-block-id="{{ (publication_parts|length) + 2 }}" id="cited-by">
-                        <h4 class="text-xl font-medium mb-4">{{ t('cited_by') }}</h4>
-                        {% for citation in publication_citations[::-1] %}
-                            <div class="py-3 mb-4 intersect-once intersect:animate-fade animate-duration-500 intersect:animate-delay-[50ms] animate-ease-linear">
-                                <div class="flex text-xs mb-1 me-2">
-                                    <div class="text-gray-400">{{ citation.authors }}</div>
-                                </div>
-                                <div class="">
-                                    {% if citation.doi_link %}
-                                        <a href="{{ citation.doi_link }}" target="_blank" class="hover:underline underline-offset-4 decoration-green-600 transition-all">
-                                            {{ citation.title }}
-                                        </a>
-                                    {% else %}
-                                        <span>{{ citation.title }}</span>
-                                    {% endif %}
-                                </div>
-                                {% if citation.doi %}
-                                    <div class="mt-1 mb-1">
-                                        <div class="text-sm text-gray-400 italic">
-                                            {% if citation.doi_link %}
-                                                <a href="{{ citation.doi_link }}" target="_blank" class="text-blue-600 hover:text-blue-800 not-italic">
-                                                    {{ t('doi_label') }}: {{ citation.doi }}
-                                                    <iconify-icon icon="tabler:arrow-up-right"></iconify-icon>
-                                                </a>
+                                    {% if ref.doi %}
+                                        <div class="mt-1 mb-1">
+                                            <div class="text-sm text-gray-400 italic">
+                                                {% if ref.doi_link %}
+                                                    <a href="{{ ref.doi_link }}" target="_blank" class="text-blue-600 hover:text-blue-800 not-italic">
+                                                        {{ t('doi_label') }}: {{ ref.doi }}
+                                                        <iconify-icon icon="tabler:arrow-up-right"></iconify-icon>
+                                                    </a>
+                                                
+                                                {% else %}
+                                                    {{ t('doi_label') }}: {{ ref.doi }}
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    {% elif ref.resource %}
+                                        <div class="mt-1 mb-1">
+                                            {% if ref.web_link %}
+                                                <div class="text-sm text-gray-400 italic">
+                                                    <a href="{{ ref.web_link }}" target="_blank" class="text-blue-600 hover:text-blue-800 not-italic">
+                                                        {{ ref.resource }}
+                                                    </a>
+                                                </div>
                                             {% else %}
-                                                {{ t('doi_label') }}: {{ citation.doi }}
+                                                <div class="text-sm text-gray-400 italic">
+                                                    {{ ref.resource }}
+                                                </div>
                                             {% endif %}
                                         </div>
+                                    {% endif %}
+                                    <div class="flex flex-wrap mt-2 gap-4">
+                                        {% if ref.doi_link %}
+                                            <a href="{{ ref.doi_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
+                                                <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                                    {{ t('view_article') }}
+                                                </span>
+                                                <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                                            </a>
+                                        {% elif ref.web_link %}
+                                            <a href="{{ ref.web_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
+                                                <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                                    {{ ref.web_link }}
+                                                </span>
+                                            </a>
+                                        {% endif %}
+                                        {% if ref.gscholar_link %}
+                                            <a href="{{ ref.gscholar_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
+                                                <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                                    Google Scholar
+                                                </span>
+                                                <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                                            </a>
+                                        {% endif %}
+                                        {% if ref.scopus_link %}
+                                            <a href="{{ ref.scopus_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
+                                                <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                                    Scopus
+                                                </span>
+                                                <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                                            </a>
+                                        {% endif %}
+                                        {% if ref.wos_link %}
+                                            <a href="{{ ref.wos_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
+                                                <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                                    Web of Science
+                                                </span>
+                                                <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                                            </a>
+                                        {% endif %}
                                     </div>
-                                {% endif %}
-                                <div class="flex flex-wrap mt-2 gap-4">
-                                    {% if citation.doi_link %}
-                                        <a href="{{ citation.doi_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
-                                            <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
-                                                {{ t('view_article') }}
-                                            </span>
-                                            <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
-                                        </a>
-                                    {% endif %}
-                                    {% if citation.gscholar_link %}
-                                        <a href="{{ citation.gscholar_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
-                                            <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
-                                                Google Scholar
-                                            </span>
-                                            <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
-                                        </a>
-                                    {% endif %}
-                                    {% if citation.scopus_link %}
-                                        <a href="{{ citation.scopus_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
-                                            <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
-                                                Scopus
-                                            </span>
-                                            <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
-                                        </a>
-                                    {% endif %}
-                                    {% if citation.wos_link %}
-                                        <a href="{{ citation.wos_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
-                                            <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
-                                                Web of Science
-                                            </span>
-                                            <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
-                                        </a>
-                                    {% endif %}
                                 </div>
-                            </div>
-                        {% endfor %}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <!-- Cited by section -->
+                    {% if publication_citations %}
+                        <div class="mb-8 intersect intersect-full" data-block-id="{{ (publication_parts|length) + 2 }}" id="cited-by">
+                            <h4 class="text-xl font-medium mb-4">{{ t('cited_by') }}</h4>
+                            {% for citation in publication_citations[::-1] %}
+                                <div class="py-3 mb-4 intersect-once intersect:animate-fade animate-duration-500 intersect:animate-delay-[50ms] animate-ease-linear">
+                                    <div class="flex text-xs mb-1 me-2">
+                                        <div class="text-gray-400">{{ citation.authors }}</div>
+                                    </div>
+                                    <div class="">
+                                        {% if citation.doi_link %}
+                                            <a href="{{ citation.doi_link }}" target="_blank" class="hover:underline underline-offset-4 decoration-green-600 transition-all">
+                                                {{ citation.title }}
+                                            </a>
+                                        {% else %}
+                                            <span>{{ citation.title }}</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if citation.doi %}
+                                        <div class="mt-1 mb-1">
+                                            <div class="text-sm text-gray-400 italic">
+                                                {% if citation.doi_link %}
+                                                    <a href="{{ citation.doi_link }}" target="_blank" class="text-blue-600 hover:text-blue-800 not-italic">
+                                                        {{ t('doi_label') }}: {{ citation.doi }}
+                                                        <iconify-icon icon="tabler:arrow-up-right"></iconify-icon>
+                                                    </a>
+                                                {% else %}
+                                                    {{ t('doi_label') }}: {{ citation.doi }}
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                    <div class="flex flex-wrap mt-2 gap-4">
+                                        {% if citation.doi_link %}
+                                            <a href="{{ citation.doi_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
+                                                <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                                    {{ t('view_article') }}
+                                                </span>
+                                                <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                                            </a>
+                                        {% endif %}
+                                        {% if citation.gscholar_link %}
+                                            <a href="{{ citation.gscholar_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
+                                                <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                                    Google Scholar
+                                                </span>
+                                                <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                                            </a>
+                                        {% endif %}
+                                        {% if citation.scopus_link %}
+                                            <a href="{{ citation.scopus_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
+                                                <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                                    Scopus
+                                                </span>
+                                                <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                                            </a>
+                                        {% endif %}
+                                        {% if citation.wos_link %}
+                                            <a href="{{ citation.wos_link }}" target="_blank" class="text-blue-800 text-xs flex items-center group">
+                                                <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
+                                                    Web of Science
+                                                </span>
+                                                <iconify-icon icon="tabler:arrow-up-right" class="text-xs me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="mb-8 text-sm text-gray-500">
+                        {{ t('access_required') }}
                     </div>
                 {% endif %}
 
@@ -438,16 +473,20 @@
                         <h4 class="text-lg font-medium mb-6">{{ t('outline') }}</h4>
                         <div class="flex flex-col text-sm">
                             <a href="#abstract" data-block-id="0" class="text-blue-600 hover:text-blue-800 bg-gray-50 px-2 py-1 border-s-2 border-fmmain mb-2">{{ t('abstract') }}</a>
-                            {% if publication_parts %}
-                                {% for part in publication_parts[::-1] %}
-                                    <a href="#section-{{ loop.index }}" data-block-id="{{ loop.index }}" class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">{{ part.title }}</a>
-                                {% endfor %}
-                            {% endif %}
-                            {% if publication_refs %}
-                                <a href="#references" data-block-id="{{ (publication_parts|length) + 1 }}" class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">{{ t('references') }}</a>
-                            {% endif %}
-                            {% if publication_citations %}
-                                <a href="#cited-by" data-block-id="{{ (publication_parts|length) + 2 }}" class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">{{ t('cited_by') }}</a>
+                            {% if not publication.is_paid or has_access %}
+                                {% if publication_parts %}
+                                    {% for part in publication_parts[::-1] %}
+                                        <a href="#section-{{ loop.index }}" data-block-id="{{ loop.index }}" class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">{{ part.title }}</a>
+                                    {% endfor %}
+                                {% endif %}
+                                {% if publication_refs %}
+                                    <a href="#references" data-block-id="{{ (publication_parts|length) + 1 }}" class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">{{ t('references') }}</a>
+                                {% endif %}
+                                {% if publication_citations %}
+                                    <a href="#cited-by" data-block-id="{{ (publication_parts|length) + 2 }}" class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">{{ t('cited_by') }}</a>
+                                {% endif %}
+                            {% else %}
+                                <div class="text-xs text-gray-500">{{ t('access_required') }}</div>
                             {% endif %}
                         </div>
                     </div>
@@ -501,6 +540,10 @@
 
 {% block scripts %}
 <script>
+    // Set user login status
+    const USER_LOGGED_IN = {% if session.user_id %}true{% else %}false{% endif %};
+    const LOGIN_URL = '{{ url_for("app__login") }}';
+
     const header = document.getElementById('header');
     const menu = document.getElementById('menu');
 

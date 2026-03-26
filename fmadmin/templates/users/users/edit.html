@@ -2,6 +2,7 @@
 
 
 {% block content %}
+{% set is_superadmin = current_user and current_user.rolename == 'superadmin' %}
 
 <div class="page-header d-print-none mb-4">
     <div class="row align-items-center">
@@ -24,6 +25,8 @@
 </div>
 
 <form id="main-user-form" method="post" enctype="multipart/form-data">
+    <input type="hidden" id="original_role" value="{{ user.rolename or 'user' }}">
+    <input type="hidden" id="original_roles" value="{{ (user.roles or ['user']) | join(',') }}">
     <div class="row justify-content-center">
         <div class="col-lg-8">
             <div class="card">
@@ -64,24 +67,95 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_users_role") }}</label>
-                        <select class="form-select" name="rolename">
+                        <select class="form-select" name="rolename" id="rolename_select">
                             <option value="user" {% if user.rolename=='user' %}selected{% endif %}>{{
                                 t("admin_role_user") }}</option>
                             <option value="admin" {% if user.rolename=='admin' %}selected{% endif %}>{{
                                 t("admin_role_admin") }}</option>
                             <option value="editor" {% if user.rolename=='editor' %}selected{% endif %}>{{
                                 t("admin_role_editor") }}</option>
+                            {% if is_superadmin %}
+                            <option value="superadmin" {% if user.rolename=='superadmin' %}selected{% endif %}>Super Admin</option>
+                            {% endif %}
                         </select>
+                        <div class="form-text">Asosiy rol default dashboard va staff oqimidagi ustuvor xatti-harakatni belgilaydi.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Berilgan rollar</label>
+                        <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column gap-2">
+                            {% for role_value, role_label in role_choices %}
+                            <label class="form-selectgroup-item">
+                                <input
+                                    type="checkbox"
+                                    name="roles"
+                                    value="{{ role_value }}"
+                                    class="form-selectgroup-input role-checkbox"
+                                    data-role-name="{{ role_value }}"
+                                    {% if role_value in (user.roles or []) %}checked{% endif %}>
+                                <span class="form-selectgroup-label">{{ role_label }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        <div class="form-text" id="role_help">Masalan: `admin + muallif` uchun `admin` va `Muallif / Author` birga belgilanadi.</div>
+                    </div>
+                    <div class="mb-3 role-dependent" data-role="admin">
+                        <label class="form-label">Admin yo'nalishlari</label>
+                        <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column gap-2">
+                            {% for track_key, track_label in admin_track_choices %}
+                            <label class="form-selectgroup-item">
+                                <input type="checkbox" name="admin_tracks" value="{{ track_key }}" class="form-selectgroup-input"
+                                    {% if track_key in (user.admin_tracks or []) %}checked{% endif %}>
+                                <span class="form-selectgroup-label">{{ track_label }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        <div class="form-text">Belgilangan yo'nalishdagi maqolalar shu adminga tushadi.</div>
+                    </div>
+                    <div class="mb-3 role-dependent" data-role="editor">
+                        <label class="form-label">Biriktirilgan admin</label>
+                        <select class="form-select" name="editor_admin_id">
+                            <option value="">Tanlanmagan</option>
+                            {% for admin_user in active_admins %}
+                            <option value="{{ admin_user.id }}" {% if user.editor_admin_id == admin_user.id %}selected{% endif %}>
+                                {{ admin_user.name }} ({{ admin_user.email }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Superadmin tahrirchini qaysi admin bilan ishlashini shu yerda belgilaydi.</div>
                     </div>
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input" type="checkbox" name="is_blocked" id="is_blocked" {% if
                             user.is_blocked %}checked{% endif %}>
                         <label class="form-check-label" for="is_blocked">{{ t("admin_users_blocked") }}</label>
                     </div>
+                    {% if is_superadmin %}
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="is_hidden" id="is_hidden" {% if
+                            user.is_hidden %}checked{% endif %}>
+                        <label class="form-check-label" for="is_hidden">Yashirilgan (soft delete)</label>
+                    </div>
+                    {% endif %}
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input" type="checkbox" name="is_notify" id="is_notify" {% if
                             user.is_notify %}checked{% endif %}>
                         <label class="form-check-label" for="is_notify">{{ t("admin_users_notifications") }}</label>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Parol{% if user.id == 0 %} <span class="text-danger">*</span>{% endif %}</label>
+                                <input type="password" class="form-control" name="password" {% if user.id == 0 %}required{% endif %}
+                                    placeholder="{% if user.id == 0 %}Yangi parol{% else %}Parolni almashtirish uchun kiriting{% endif %}">
+                                <div class="form-text">User rolidan Admin/Tahrirchiga o'tkazganda yangi parol kiritish shart.</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Parolni tasdiqlash{% if user.id == 0 %} <span class="text-danger">*</span>{% endif %}</label>
+                                <input type="password" class="form-control" name="password_confirm" {% if user.id == 0 %}required{% endif %}
+                                    placeholder="Parolni qayta kiriting">
+                            </div>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_users_rules_accepted") }}</label>
@@ -123,10 +197,6 @@
                         <input type="date" class="form-control" name="subscription_end_date"
                             value="{{ user.subscription_end_date | date_to_form }}">
                     </div>
-                    {% if user.id == 0 and password %}
-                    <div class="alert alert-info">{{ t("admin_users_new_password_msg") }} <b>{{ password }}</b></div>
-                    <input type="hidden" name="password" value="{{ password }}">
-                    {% endif %}
                     <div class="d-flex justify-content-end">
                         <button id="save-user-btn" type="submit" class="btn btn-primary">{{ t("admin_btn_save")
                             }}</button>
@@ -141,8 +211,73 @@
 
 {% block scripts %}
 <script>
+    const isCreateUser = {{ 'true' if user.id == 0 else 'false' }};
+
     document.getElementById('save-user-btn-top').addEventListener('click', function () {
         document.getElementById('save-user-btn').click();
+    });
+
+    function toggleRoleDependentFields() {
+        const roleSelect = document.getElementById('rolename_select');
+        if (!roleSelect) return;
+        const roleCheckboxes = Array.from(document.querySelectorAll('.role-checkbox'));
+        const selectedRoles = roleCheckboxes.filter(node => node.checked).map(node => node.value);
+        const selectedRole = roleSelect.value;
+        const originalRoles = (document.getElementById('original_roles')?.value || 'user')
+            .split(',')
+            .map(value => value.trim().toLowerCase())
+            .filter(Boolean);
+        const roleHelp = document.getElementById('role_help');
+        const wasPrivileged = originalRoles.some(role => ['admin', 'editor', 'superadmin'].includes(role));
+        const isPrivileged = selectedRoles.some(role => ['admin', 'editor', 'superadmin'].includes(role));
+        const shouldRequirePassword = !wasPrivileged && isPrivileged;
+        const passwordInput = document.querySelector('input[name="password"]');
+        const passwordConfirmInput = document.querySelector('input[name="password_confirm"]');
+
+        if (!selectedRoles.includes(selectedRole)) {
+            const primaryCheckbox = roleCheckboxes.find(node => node.value === selectedRole);
+            if (primaryCheckbox) {
+                primaryCheckbox.checked = true;
+            }
+        }
+
+        const updatedSelectedRoles = roleCheckboxes.filter(node => node.checked).map(node => node.value);
+        const staffRoles = updatedSelectedRoles.filter(role => ['admin', 'editor', 'superadmin'].includes(role));
+        if (updatedSelectedRoles.includes('superadmin')) {
+            roleSelect.value = 'superadmin';
+        } else if (selectedRole === 'user' && staffRoles.length > 0) {
+            roleSelect.value = staffRoles[0];
+        }
+
+        document.querySelectorAll('.role-dependent').forEach(function (node) {
+            const visibleFor = node.getAttribute('data-role');
+            node.style.display = updatedSelectedRoles.includes(visibleFor) ? '' : 'none';
+        });
+        if (passwordInput && passwordConfirmInput) {
+            passwordInput.required = isCreateUser || shouldRequirePassword;
+            passwordConfirmInput.required = isCreateUser || shouldRequirePassword;
+        }
+        if (roleHelp) {
+            if (updatedSelectedRoles.includes('user') && updatedSelectedRoles.some(role => ['admin', 'editor', 'superadmin'].includes(role))) {
+                roleHelp.textContent = "Bu foydalanuvchi staff huquqlaridan tashqari website author dashboard'ga ham kira oladi.";
+            } else if (updatedSelectedRoles.includes('user')) {
+                roleHelp.textContent = "Muallif roli website dashboard va maqola yuborish huquqini beradi.";
+            } else {
+                roleHelp.textContent = "Faqat staff rollari tanlangan. Muallif dashboard kerak bo'lsa `Muallif / Author` ni ham belgilang.";
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const roleSelect = document.getElementById('rolename_select');
+        const roleCheckboxes = document.querySelectorAll('.role-checkbox');
+        if (roleSelect) {
+            roleSelect.addEventListener('change', toggleRoleDependentFields);
+        }
+        roleCheckboxes.forEach(function (checkbox) {
+            checkbox.addEventListener('change', toggleRoleDependentFields);
+        });
+        toggleRoleDependentFields();
     });
 </script>
 {% endblock %}

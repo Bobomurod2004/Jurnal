@@ -2,86 +2,271 @@
 import os
 import time
 import uuid
+import logging
 import requests
 from flask import request, jsonify
 from werkzeug.utils import secure_filename
 from extensions import db
 from modules.translate import t, translate, clear_translations_cache
+from utils.auth import api_admin_required, api_superadmin_required
 import settings
 
+logger = logging.getLogger(__name__)
 
+
+def _json_payload():
+    return request.get_json(silent=True) or {}
+
+
+def _first_record(result):
+    if isinstance(result, list):
+        return result[0] if result else None
+    if isinstance(result, dict):
+        return result
+    return None
+
+
+def _parse_int(value):
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    try:
+        text = str(value).strip()
+        if text == '':
+            return None
+        return int(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def _table_columns(table_name):
+    try:
+        return set(db.columns.get(table_name, []))
+    except Exception:
+        return set()
+
+
+def _apply_aliases(payload, columns, alias_pairs):
+    if not alias_pairs:
+        return payload
+    for old_name, new_name in alias_pairs:
+        if new_name in payload and new_name not in columns and old_name in columns and old_name not in payload:
+            payload[old_name] = payload[new_name]
+        if old_name in payload and old_name not in columns and new_name in columns and new_name not in payload:
+            payload[new_name] = payload[old_name]
+    return payload
+
+
+def _ensure_tariff_duration_column(default_days=30):
+    columns = _table_columns('tariffs')
+    if not columns or 'duration_days' in columns:
+        return
+    cursor = None
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute(f"ALTER TABLE tariffs ADD COLUMN IF NOT EXISTS duration_days integer DEFAULT {int(default_days)};")
+        cursor.execute(
+            "UPDATE tariffs "
+            "SET duration_days = COALESCE(duration_days, user_limit, %s) "
+            "WHERE duration_days IS NULL;",
+            (int(default_days),)
+        )
+        db.conn.commit()
+        db._init_tables()
+        db._init_columns()
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        logger.exception("Failed to ensure duration_days column for tariffs")
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+
+def _normalize_reference_payload(data):
+    payload = dict(data or {})
+    payload.pop('reference_id', None)
+    article_id = payload.pop('article_id', None)
+    if payload.get('publication_id') in (None, '') and article_id not in (None, ''):
+        payload['publication_id'] = article_id
+
+    columns = _table_columns('publication_refs')
+    alias_pairs = [
+        ('wos_link', 'web_of_science_url'),
+        ('gscholar_link', 'google_scholar_url'),
+        ('web_link', 'url'),
+        ('resource', 'source_title'),
+    ]
+    payload = _apply_aliases(payload, columns, alias_pairs)
+
+    for key in ('publication_id', 'publication_year', 'created_at'):
+        if key in payload:
+            payload[key] = _parse_int(payload[key])
+
+    if columns:
+        payload = {k: v for k, v in payload.items() if k in columns}
+    return payload
+
+
+def _normalize_citation_payload(data):
+    payload = dict(data or {})
+    payload.pop('citation_id', None)
+    article_id = payload.pop('article_id', None)
+    if payload.get('publication_id') in (None, '') and article_id not in (None, ''):
+        payload['publication_id'] = article_id
+
+    columns = _table_columns('publication_citations')
+    alias_pairs = [
+        ('wos_link', 'web_of_science_url'),
+        ('gscholar_link', 'google_scholar_url'),
+    ]
+    payload = _apply_aliases(payload, columns, alias_pairs)
+
+    for key in ('publication_id', 'created_at'):
+        if key in payload:
+            payload[key] = _parse_int(payload[key])
+
+    if columns:
+        payload = {k: v for k, v in payload.items() if k in columns}
+    return payload
+
+
+def _sync_mainweb_translation_cache():
+    headers = {'Content-Type': 'application/json'}
+    sync_token = (settings.TRANSLATION_SYNC_TOKEN or '').strip()
+    if sync_token:
+        headers['X-Translation-Sync-Token'] = sync_token
+
+    base_urls = []
+    primary_url = (settings.MAINWEB_INTERNAL_URL or '').strip().rstrip('/')
+    if primary_url:
+        base_urls.append(primary_url)
+    if 'http://localhost:5000' not in base_urls:
+        base_urls.append('http://localhost:5000')
+
+    last_error = 'Mainweb sync failed'
+    for base_url in base_urls:
+        api_url = f"{base_url}/api/translations/clear_cache"
+        try:
+            response = requests.post(api_url, headers=headers, timeout=10)
+        except requests.exceptions.ConnectionError:
+            last_error = f'Cannot connect to mainweb ({base_url})'
+            continue
+        except requests.exceptions.Timeout:
+            last_error = f'Timeout while connecting to mainweb ({base_url})'
+            continue
+        except Exception as exc:
+            logger.exception("Translation sync request failed")
+            last_error = f'Unexpected sync error: {exc}'
+            continue
+
+        result = {}
+        try:
+            result = response.json()
+        except Exception:
+            result = {}
+
+        if response.status_code != 200:
+            message = result.get('message') or f'HTTP {response.status_code}'
+            last_error = f'Mainweb sync failed: {message}'
+            continue
+
+        if not result.get('success'):
+            last_error = result.get('message') or 'Mainweb rejected cache clear request'
+            continue
+
+        return True, result.get('message') or 'Translation cache cleared on mainweb'
+
+    return False, last_error
+
+
+@api_superadmin_required
 def get_translation(alias):
-    translation = db.translations.get(alias=alias).exec()
+    safe_alias = (alias or '').strip()
+    if not safe_alias:
+        return jsonify({'success': False, 'message': 'Alias is required'}), 400
+
+    translation = _first_record(db.translations.get(alias=safe_alias).exec())
     if translation:
-        return jsonify({'success': True, 'translation': translation[0]})
+        return jsonify({'success': True, 'translation': translation})
     return jsonify({'success': False, 'message': 'Translation not found'}), 404
 
 
+@api_superadmin_required
 def update_translation(alias):
-    data = request.get_json()
-    content = data.get('content')
-    content_ru = data.get('content_ru')
-    content_uz = data.get('content_uz')
+    safe_alias = (alias or '').strip()
+    if not safe_alias:
+        return jsonify({'success': False, 'message': 'Alias is required'}), 400
 
-    translation = db.translations.get(alias=alias).exec()
-    if translation:
-        db.translations.get(alias=alias).update(
+    data = _json_payload()
+    existing = _first_record(db.translations.get(alias=safe_alias).exec()) or {}
+
+    content = data.get('content', existing.get('content', ''))
+    content_ru = data.get('content_ru', existing.get('content_ru', ''))
+    content_uz = data.get('content_uz', existing.get('content_uz', ''))
+    content = '' if content is None else str(content)
+    content_ru = '' if content_ru is None else str(content_ru)
+    content_uz = '' if content_uz is None else str(content_uz)
+
+    if existing:
+        db.translations.get(alias=safe_alias).update(
             content=content,
             content_ru=content_ru,
             content_uz=content_uz
         ).exec()
-        clear_translations_cache()
-        return jsonify({'success': True})
+    else:
+        db.translations.add(
+            alias=safe_alias,
+            content=content,
+            content_ru=content_ru,
+            content_uz=content_uz,
+            created_at=int(time.time())
+        ).exec()
 
-    db.translations.add(
-        alias=alias,
-        content=content,
-        content_ru=content_ru,
-        content_uz=content_uz,
-        created_at=int(time.time())
-    ).exec()
     clear_translations_cache()
-    return jsonify({'success': True})
+    sync_ok, sync_message = _sync_mainweb_translation_cache()
+    return jsonify({
+        'success': True,
+        'synced': sync_ok,
+        'sync_message': sync_message
+    })
 
 
+@api_superadmin_required
 def sync_translations():
-    """API endpoint для синхронизации переводов с mainweb"""
-    try:
-        mainweb_url = "http://localhost:16534"
-        translations = db.translations.get().exec()
-        translations_count = len(translations)
-
-        api_url = f"{mainweb_url}/api/translations/clear_cache"
-        response = requests.post(api_url, timeout=10)
-
-        if response.status_code == 200:
-            result = response.json()
-            if result.get('success'):
-                return jsonify({
-                    'success': True,
-                    'message': f'Кеш переводов очищен. Синхронизировано {translations_count} переводов.',
-                    'translations_count': translations_count
-                })
-            msg = result.get("message", "Unknown error")
-            return jsonify({
-                'success': False,
-                'message': f'Ошибка API mainweb: {msg}'
-            })
-        return jsonify({'success': False, 'message': f'HTTP ошибка: {response.status_code}'})
-
-    except requests.exceptions.ConnectionError:
+    translations = db.translations.all().exec()
+    translations_count = len(translations)
+    sync_ok, sync_message = _sync_mainweb_translation_cache()
+    if sync_ok:
         return jsonify({
-            'success': False,
-            'message': f'Не удается подключиться к mainweb ({mainweb_url}). Убедитесь, что mainweb запущен.'
+            'success': True,
+            'message': f'Synchronized {translations_count} translations. {sync_message}',
+            'translations_count': translations_count
         })
-    except requests.exceptions.Timeout:
-        return jsonify({'success': False, 'message': 'Таймаут при подключении к mainweb'})
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Ошибка синхронизации: {str(e)}'})
+    return jsonify({
+        'success': False,
+        'message': sync_message,
+        'translations_count': translations_count
+    })
 
 
+@api_admin_required
 def create_tariff():
-    data = request.get_json()
+    _ensure_tariff_duration_column()
+    data = _json_payload()
+    if not data.get('name'):
+        return jsonify({'success': False, 'message': 'name is required'}), 400
+    duration_days = _parse_int(data.get('duration_days'))
+    if duration_days is None:
+        duration_days = _parse_int(data.get('user_limit'))
+    if duration_days is None:
+        duration_days = 30
+
     db.tariffs.add(
         name=data.get('name'),
         name_uz=data.get('name_uz'),
@@ -92,7 +277,8 @@ def create_tariff():
         price_rub=data.get('price_rub', 0),
         price_uzs=data.get('price_uzs', 0),
         price_usd=data.get('price_usd', 0),
-        user_limit=data.get('user_limit', 0),
+        user_limit=duration_days,
+        duration_days=duration_days,
         is_default=data.get('is_default', False),
         is_verified=data.get('is_verified', False),
         created_at=data.get('created_at') or int(time.time()),
@@ -102,8 +288,15 @@ def create_tariff():
     return jsonify({'success': True})
 
 
+@api_admin_required
 def update_tariff(tariff_id):
-    data = request.get_json()
+    _ensure_tariff_duration_column()
+    data = _json_payload()
+    duration_days = _parse_int(data.get('duration_days'))
+    if duration_days is None:
+        duration_days = _parse_int(data.get('user_limit'))
+    if duration_days is None:
+        duration_days = 30
     db.tariffs.get(id=tariff_id).update(
         name=data.get('name'),
         name_uz=data.get('name_uz'),
@@ -114,7 +307,8 @@ def update_tariff(tariff_id):
         price_rub=data.get('price_rub', 0),
         price_uzs=data.get('price_uzs', 0),
         price_usd=data.get('price_usd', 0),
-        user_limit=data.get('user_limit', 0),
+        user_limit=duration_days,
+        duration_days=duration_days,
         is_default=data.get('is_default', False),
         is_verified=data.get('is_verified', False),
         updated_at=data.get('updated_at') or int(time.time())
@@ -122,6 +316,7 @@ def update_tariff(tariff_id):
     return jsonify({'success': True})
 
 
+@api_admin_required
 def delete_tariff(tariff_id):
     try:
         tariff = db.tariffs.get(id=tariff_id).exec()
@@ -148,6 +343,7 @@ def delete_tariff(tariff_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@api_admin_required
 def upload_image():
     file = None
     if 'upload' in request.files:
@@ -160,9 +356,12 @@ def upload_image():
     if file.filename == '':
         return jsonify({'success': False, 'message': 'No file selected'})
 
+    if request.content_length and request.content_length > 10 * 1024 * 1024:
+        return jsonify({'success': False, 'message': 'File too large'}), 400
+
     filename = secure_filename(file.filename)
     ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
-    if ext not in ['jpg', 'jpeg', 'png', 'gif']:
+    if ext not in ['jpg', 'jpeg', 'png', 'gif', 'webp']:
         return jsonify({'success': False, 'message': 'Invalid file type'})
 
     new_filename = f"{uuid.uuid4().hex}.{ext}"
@@ -174,67 +373,82 @@ def upload_image():
     return jsonify({'success': True, 'url': f"/static/uploads/images/{new_filename}"})
 
 
+@api_admin_required
 def get_publication_refs():
     refs = db.publication_refs.get().exec()
     return jsonify({'success': True, 'refs': refs})
 
 
+@api_admin_required
 def create_publication_ref():
-    data = request.get_json()
+    data = _json_payload()
     result = db.publication_refs.add(**data).exec()
     return jsonify({'success': True, 'ref': result[0] if result else None})
 
 
+@api_admin_required
 def get_article_references(article_id):
     refs = db.publication_refs.get(publication_id=article_id).exec()
     return jsonify({'success': True, 'refs': refs})
 
 
+@api_admin_required
 def get_article_citations(article_id):
     citations = db.publication_citations.get(publication_id=article_id).exec()
     return jsonify({'success': True, 'citations': citations})
 
 
+@api_admin_required
 def create_reference():
-    data = request.get_json()
-    result = db.references.add(**data).exec()
+    data = _normalize_reference_payload(_json_payload())
+    result = db.publication_refs.add(**data).exec()
     return jsonify({'success': True, 'reference': result[0] if result else None})
 
 
+@api_admin_required
 def get_reference(reference_id):
-    ref = db.references.get(id=reference_id).exec()
+    ref = db.publication_refs.get(id=reference_id).exec()
     if not ref:
         return jsonify({'success': False, 'message': 'Reference not found'}), 404
     return jsonify({'success': True, 'reference': ref[0]})
 
 
+@api_admin_required
 def update_reference(reference_id):
-    data = request.get_json()
-    db.references.get(id=reference_id).update(**data).exec()
-    ref = db.references.get(id=reference_id).exec()
+    data = _normalize_reference_payload(_json_payload())
+    if data:
+        db.publication_refs.get(id=reference_id).update(**data).exec()
+    ref = db.publication_refs.get(id=reference_id).exec()
     return jsonify({'success': True, 'reference': ref[0] if ref else None})
 
 
+@api_admin_required
 def delete_reference(reference_id):
-    db.references.get(id=reference_id).delete().exec()
+    db.publication_refs.get(id=reference_id).delete().exec()
     return jsonify({'success': True})
 
 
+@api_admin_required
 def search_references():
-    search = request.args.get('search', '').strip()
+    search = request.args.get('search', '').strip() or request.args.get('q', '').strip()
     if not search:
         return jsonify({'success': True, 'references': []})
-
-    refs = db.references.get().like(title=search).exec()
+    article_id = request.args.get('article_id') or request.args.get('publication_id')
+    query = db.publication_refs.get()
+    if article_id:
+        query = query.equal(publication_id=article_id)
+    refs = query.like(title=search).exec()
     return jsonify({'success': True, 'references': refs})
 
 
+@api_admin_required
 def create_citation():
-    data = request.get_json()
+    data = _normalize_citation_payload(_json_payload())
     result = db.publication_citations.add(**data).exec()
     return jsonify({'success': True, 'citation': result[0] if result else None})
 
 
+@api_admin_required
 def get_citation(citation_id):
     citation = db.publication_citations.get(id=citation_id).exec()
     if not citation:
@@ -242,37 +456,50 @@ def get_citation(citation_id):
     return jsonify({'success': True, 'citation': citation[0]})
 
 
+@api_admin_required
 def update_citation(citation_id):
-    data = request.get_json()
-    db.publication_citations.get(id=citation_id).update(**data).exec()
+    data = _normalize_citation_payload(_json_payload())
+    if data:
+        db.publication_citations.get(id=citation_id).update(**data).exec()
     citation = db.publication_citations.get(id=citation_id).exec()
     return jsonify({'success': True, 'citation': citation[0] if citation else None})
 
 
+@api_admin_required
 def delete_citation(citation_id):
     db.publication_citations.get(id=citation_id).delete().exec()
     return jsonify({'success': True})
 
 
+@api_admin_required
 def api_getauthor():
-    data = request.get_json()
+    data = _json_payload()
+    author_id = data.get('author_id')
     orcid = data.get('orcid')
-    name = data.get('name')
+    name = (data.get('name') or '').strip()
 
-    if orcid:
+    if author_id:
+        author_profile = db.author_profile.get(id=author_id).exec()
+    elif orcid:
         author_profile = db.author_profile.get(orcid=orcid).exec()
-    else:
+    elif data.get('search_by_name') and name:
+        authors = db.author_profile.get().like(name=name).exec()
+        return jsonify({'success': True, 'authors': authors, 'is_found': bool(authors)})
+    elif name:
         author_profile = db.author_profile.get().like(name=name).exec()
+    else:
+        return jsonify({'success': False, 'message': 'Search criteria is required'}), 400
 
     if not author_profile:
-        return jsonify({'success': False, 'message': 'Author not found'})
+        return jsonify({'success': True, 'is_found': False, 'author': None})
 
     author_profile = author_profile[0]
-    return jsonify({'success': True, 'author': author_profile})
+    return jsonify({'success': True, 'is_found': True, 'author': author_profile})
 
 
+@api_admin_required
 def api_createauthor():
-    data = request.get_json()
+    data = _json_payload()
     if not data.get('name'):
         return jsonify({'success': False, 'message': 'Name is required'})
 
@@ -294,8 +521,8 @@ def api_createauthor():
 
 
 def register(app):
-    app.add_url_rule('/fmadmin/api/translation/<alias>', view_func=get_translation, methods=['GET'])
-    app.add_url_rule('/fmadmin/api/translation/<alias>', view_func=update_translation, methods=['POST'])
+    app.add_url_rule('/fmadmin/api/translation/<path:alias>', view_func=get_translation, methods=['GET'])
+    app.add_url_rule('/fmadmin/api/translation/<path:alias>', view_func=update_translation, methods=['POST'])
     app.add_url_rule('/fmadmin/api/sync-translations', view_func=sync_translations, methods=['POST'])
     app.add_url_rule('/fmadmin/api/tariff', view_func=create_tariff, methods=['POST'])
     app.add_url_rule('/fmadmin/api/tariff/<int:tariff_id>', view_func=update_tariff, methods=['POST'])

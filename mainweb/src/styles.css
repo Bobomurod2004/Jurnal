@@ -356,6 +356,15 @@ button:hover {
     font-weight: 600;
 }
 
+[data-mobile-menu-toggle] iconify-icon:last-child {
+    transition: transform var(--fm-duration-fast) var(--fm-ease);
+}
+
+[data-mobile-menu-panel] {
+    transform-origin: top;
+    animation: scale-in 180ms var(--fm-ease);
+}
+
 
 /* ---------- 10. FORMS ---------- */
 input[type="text"],

@@ -6,7 +6,7 @@
     <div class="row g-2 align-items-center">
       <div class="col">
         <h2 class="page-title">
-          {% if assignment.status == 'pending' %}
+          {% if can_editor_submit %}
           {{ t("admin_review_title_pending") }}
           {% else %}
           {{ t("admin_review_title_view") }}
@@ -34,35 +34,41 @@
       <div class="col-md-8">
         <div class="card">
           <div class="card-header">
-            <h3 class="card-title">{{ t("admin_section_article_info") }}</h3>
+            <h3 class="card-title">Maqola ma'lumoti</h3>
           </div>
           <div class="card-body">
             <div class="datagrid">
               <div class="datagrid-item">
-                <div class="datagrid-title">{{ t("admin_label_title") }}</div>
+                <div class="datagrid-title">Sarlavha</div>
                 <div class="datagrid-content">{{ submission.title }}</div>
               </div>
               {% if submission.abstract %}
               <div class="datagrid-item">
-                <div class="datagrid-title">{{ t("admin_label_abstract") }}</div>
+                <div class="datagrid-title">Annotatsiya</div>
                 <div class="datagrid-content">{{ submission.abstract }}</div>
               </div>
               {% endif %}
-              {% if submission.keywords %}
+              {% if submission.anti_plagiarism_file %}
               <div class="datagrid-item">
-                <div class="datagrid-title">{{ t("admin_label_keywords") }}</div>
+                <div class="datagrid-title">Antiplagiat fayli</div>
                 <div class="datagrid-content">
-                  {% for keyword in submission.keywords %}
-                  <span class="badge bg-blue-lt me-1">{{ keyword }}</span>
-                  {% endfor %}
+                  <a href="{{ upload_access_url(submission.anti_plagiarism_file) }}" class="btn btn-primary" target="_blank">
+                    <i class="ti ti-download"></i>
+                    Tekshirilgan faylni ochish
+                  </a>
+                  {% if submission.anti_plagiarism_checked_at %}
+                  <div class="small text-secondary mt-1">
+                    Yangilangan: {{ submission.anti_plagiarism_checked_at | timestamp_to_date }}
+                  </div>
+                  {% endif %}
                 </div>
               </div>
               {% endif %}
               {% if submission.file_anonymized %}
               <div class="datagrid-item">
-                <div class="datagrid-title">{{ t("admin_label_anonymized_file") }}</div>
+                <div class="datagrid-title">Anonim fayl</div>
                 <div class="datagrid-content">
-                  <a href="{{ submission.file_anonymized }}" class="btn btn-primary" target="_blank">
+                  <a href="{{ upload_access_url(submission.file_anonymized) }}" class="btn btn-primary" target="_blank">
                     <i class="ti ti-download"></i>
                     {{ t("admin_btn_download") }}
                   </a>
@@ -73,52 +79,85 @@
           </div>
         </div>
 
-        {% if assignment.status == 'pending' %}
-        <form method="POST" action="{{ url_for('review_assignment', assignment_id=assignment.id) }}"
-          enctype="multipart/form-data">
+        {% if can_editor_submit %}
+        <form method="POST" action="{{ url_for('review_assignment', assignment_id=assignment.id) }}" enctype="multipart/form-data">
           <div class="card mt-3">
             <div class="card-header">
-              <h3 class="card-title">{{ t("admin_section_your_review") }}</h3>
+              <h3 class="card-title">Tahrirchi xulosasi</h3>
             </div>
             <div class="card-body">
+              {% if assignment.admin_decision == 'revision_requested' %}
+              <div class="alert alert-warning" role="alert">
+                <div class="d-flex">
+                  <div>
+                    <i class="ti ti-alert-triangle me-2"></i>
+                  </div>
+                  <div>
+                    <div class="fw-bold">Admin qayta ishlash so'ragan</div>
+                    {% if assignment.admin_comment %}
+                    <div class="small mt-1">Izoh: {{ assignment.admin_comment }}</div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              {% endif %}
+
+              {% if assignment.status in ['pending', 'in_review'] %}
+              <div class="alert alert-info" role="alert">
+                <div class="small">
+                  {% if assignment.status == 'pending' and assignment.acceptance_deadline_at %}
+                  Qabul qilish muddati: <strong>{{ assignment.acceptance_deadline_at | timestamp_to_datetime }}</strong>
+                  {% if assignment.acceptance_remaining_seconds is not none and assignment.acceptance_remaining_seconds > 0 %}
+                  (qoldi: {{ assignment.acceptance_remaining_label }})
+                  {% endif %}
+                  <br>
+                  {% endif %}
+                  {% if assignment.completion_deadline_at %}
+                  Topshirish muddati: <strong>{{ assignment.completion_deadline_at | timestamp_to_datetime }}</strong>
+                  {% if assignment.completion_remaining_seconds is not none and assignment.completion_remaining_seconds > 0 %}
+                  (qoldi: {{ assignment.completion_remaining_label }})
+                  {% endif %}
+                  {% endif %}
+                </div>
+              </div>
+              {% endif %}
+
               <div class="mb-3">
-                <label class="form-label">{{ t("admin_label_decision") }}</label>
+                <label class="form-label">Qaror</label>
                 <div class="form-selectgroup">
                   <label class="form-selectgroup-item">
                     <input type="radio" name="status" value="reviewed" class="form-selectgroup-input" checked>
                     <span class="form-selectgroup-label">
                       <i class="ti ti-check text-success me-1"></i>
-                      {{ t("admin_decision_approve") }}
+                      Nashrga tavsiya
                     </span>
                   </label>
                   <label class="form-selectgroup-item">
                     <input type="radio" name="status" value="rejected" class="form-selectgroup-input">
                     <span class="form-selectgroup-label">
                       <i class="ti ti-x text-danger me-1"></i>
-                      {{ t("admin_decision_reject") }}
+                      Rad etish tavsiyasi
                     </span>
                   </label>
                 </div>
               </div>
 
               <div class="mb-3">
-                <label class="form-label">{{ t("admin_label_comment") }}</label>
-                <textarea class="form-control" name="editor_comment" rows="6"
-                  placeholder="{{ t('admin_placeholder_comment') }}">{{ assignment.editor_comment or '' }}</textarea>
-                <small class="form-hint">{{ t("admin_hint_comment") }}</small>
+                <label class="form-label">Tahriz izohi</label>
+                <textarea class="form-control" name="editor_comment" rows="7" placeholder="Maqolaning kuchli va zaif tomonlarini yozing">{{ assignment.editor_comment or '' }}</textarea>
+                <small class="form-hint">Kamida izoh yoki fayl yuborish tavsiya etiladi.</small>
               </div>
 
               <div class="mb-3">
-                <label class="form-label">{{ t("admin_label_attach_file") }}</label>
+                <label class="form-label">Ilova fayl</label>
                 <input type="file" class="form-control" name="editor_file" accept=".pdf,.doc,.docx,.txt">
-                <small class="form-hint">{{ t("admin_hint_attach_file") }}</small>
+                <small class="form-hint">Annotatsiya varaqasi yoki to'liq review fayli yuklashingiz mumkin.</small>
                 {% if assignment.editor_file %}
                 <div class="mt-2">
-                  <span class="text-success">
+                  <a href="{{ assignment.editor_file }}" target="_blank" class="btn btn-sm btn-outline-primary">
                     <i class="ti ti-file"></i>
-                    {{ t("admin_label_current_file") }}: <a href="{{ assignment.editor_file }}" target="_blank">{{
-                      t("admin_btn_download") }}</a>
-                  </span>
+                    Joriy faylni ochish
+                  </a>
                 </div>
                 {% endif %}
               </div>
@@ -138,42 +177,43 @@
         {% else %}
         <div class="card mt-3">
           <div class="card-header">
-            <h3 class="card-title">{{ t("admin_section_review_result") }}</h3>
+            <h3 class="card-title">Tahriz natijasi</h3>
           </div>
           <div class="card-body">
             <div class="datagrid">
               <div class="datagrid-item">
-                <div class="datagrid-title">{{ t("admin_label_decision") }}</div>
+                <div class="datagrid-title">Tahrirchi qarori</div>
                 <div class="datagrid-content">
                   {% if assignment.status == 'reviewed' %}
-                  <span class="badge bg-success-lt">{{ t("admin_decision_approve") }}</span>
+                  <span class="badge bg-success-lt">Nashrga tavsiya</span>
                   {% elif assignment.status == 'rejected' %}
-                  <span class="badge bg-danger-lt">{{ t("admin_stats_rejected") }}</span>
+                  <span class="badge bg-danger-lt">Rad etish tavsiyasi</span>
+                  {% elif assignment.status == 'in_review' %}
+                  <span class="badge bg-info-lt">Jarayonda</span>
                   {% else %}
-                  <span class="badge bg-secondary-lt">{{ assignment.status }}</span>
+                  <span class="badge bg-warning-lt">Kutilmoqda</span>
                   {% endif %}
                 </div>
               </div>
               {% if assignment.reviewed_at %}
               <div class="datagrid-item">
-                <div class="datagrid-title">{{ t("admin_label_reviewed_at") }}</div>
+                <div class="datagrid-title">Yuborilgan vaqti</div>
                 <div class="datagrid-content">{{ assignment.reviewed_at | timestamp_to_date }}</div>
               </div>
               {% endif %}
               {% if assignment.editor_comment %}
               <div class="datagrid-item">
-                <div class="datagrid-title">{{ t("admin_label_comment") }}</div>
+                <div class="datagrid-title">Tahriz izohi</div>
                 <div class="datagrid-content">{{ assignment.editor_comment }}</div>
               </div>
-
               {% endif %}
               {% if assignment.editor_file %}
               <div class="datagrid-item">
-                <div class="datagrid-title">{{ t("admin_label_attached_file") }}</div>
+                <div class="datagrid-title">Tahriz fayli</div>
                 <div class="datagrid-content">
                   <a href="{{ assignment.editor_file }}" class="btn btn-outline-primary btn-sm" target="_blank">
                     <i class="ti ti-download"></i>
-                    {{ t("admin_tooltip_download_file") }}
+                    Yuklab olish
                   </a>
                 </div>
               </div>
@@ -182,46 +222,153 @@
           </div>
         </div>
         {% endif %}
+
+        {% if current_role in ['admin', 'superadmin'] and assignment.status in ['reviewed', 'rejected'] %}
+        <form method="POST" action="{{ url_for('assignment_admin_decision', assignment_id=assignment.id) }}">
+          <div class="card mt-3">
+            <div class="card-header">
+              <h3 class="card-title">Admin qarori</h3>
+            </div>
+            <div class="card-body">
+              <div class="mb-3">
+                <label class="form-label">Natija bo'yicha qaror</label>
+                <div class="form-selectgroup">
+                  <label class="form-selectgroup-item">
+                    <input type="radio" name="admin_decision" value="accepted" class="form-selectgroup-input" {% if assignment.admin_decision == 'accepted' %}checked{% endif %}>
+                    <span class="form-selectgroup-label">
+                      <i class="ti ti-check text-success me-1"></i>
+                      Natijani qabul qilish
+                    </span>
+                  </label>
+                  <label class="form-selectgroup-item">
+                    <input type="radio" name="admin_decision" value="revision_requested" class="form-selectgroup-input" {% if assignment.admin_decision == 'revision_requested' %}checked{% endif %}>
+                    <span class="form-selectgroup-label">
+                      <i class="ti ti-repeat text-warning me-1"></i>
+                      Qayta ishlashga yuborish
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Admin izohi</label>
+                <textarea class="form-control" name="admin_comment" rows="4" placeholder="Qabul sababini yoki qayta ishlash bo'yicha talablarni yozing">{{ assignment.admin_comment or '' }}</textarea>
+              </div>
+            </div>
+            <div class="card-footer text-end">
+              <button type="submit" class="btn btn-primary">
+                <i class="ti ti-device-floppy"></i>
+                Qarorni saqlash
+              </button>
+            </div>
+          </div>
+        </form>
+        {% endif %}
       </div>
 
       <div class="col-md-4">
         <div class="card">
           <div class="card-header">
-            <h3 class="card-title">{{ t("admin_section_assignment_details") }}</h3>
+            <h3 class="card-title">Topshiriq tafsilotlari</h3>
           </div>
           <div class="card-body">
             <div class="datagrid">
               <div class="datagrid-item">
-                <div class="datagrid-title">{{ t("admin_label_assignment_id") }}</div>
+                <div class="datagrid-title">Assignment ID</div>
                 <div class="datagrid-content">{{ assignment.id }}</div>
               </div>
               <div class="datagrid-item">
-                <div class="datagrid-title">{{ t("admin_label_assigned_at") }}</div>
-                <div class="datagrid-content">{{ assignment.assigned_at | timestamp_to_date }}</div>
+                <div class="datagrid-title">Tahrirchi</div>
+                <div class="datagrid-content">
+                  {% if editor_user %}
+                  {{ editor_user.name }} {{ editor_user.second_name or '' }}
+                  {% else %}
+                  ID: {{ assignment.editor_id }}
+                  {% endif %}
+                </div>
               </div>
               <div class="datagrid-item">
-                <div class="datagrid-title">{{ t("admin_label_status") }}</div>
+                <div class="datagrid-title">Biriktirilgan sana</div>
+                <div class="datagrid-content">{{ assignment.assigned_at | timestamp_to_date if assignment.assigned_at else '-' }}</div>
+              </div>
+              <div class="datagrid-item">
+                <div class="datagrid-title">Qabul muddati</div>
+                <div class="datagrid-content">
+                  {{ assignment.acceptance_deadline_at | timestamp_to_datetime if assignment.acceptance_deadline_at else '-' }}
+                  {% if assignment.status == 'pending' and assignment.acceptance_deadline_at and assignment.acceptance_remaining_seconds is not none and assignment.acceptance_remaining_seconds > 0 %}
+                  <div class="text-secondary small">Qoldi: {{ assignment.acceptance_remaining_label }}</div>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="datagrid-item">
+                <div class="datagrid-title">Topshirish muddati</div>
+                <div class="datagrid-content">
+                  {{ assignment.completion_deadline_at | timestamp_to_datetime if assignment.completion_deadline_at else '-' }}
+                  {% if assignment.status in ['pending', 'in_review'] and assignment.completion_deadline_at and assignment.completion_remaining_seconds is not none and assignment.completion_remaining_seconds > 0 %}
+                  <div class="text-secondary small">Qoldi: {{ assignment.completion_remaining_label }}</div>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="datagrid-item">
+                <div class="datagrid-title">Qabul qilingan vaqt</div>
+                <div class="datagrid-content">{{ assignment.accepted_at | timestamp_to_datetime if assignment.accepted_at else '-' }}</div>
+              </div>
+              <div class="datagrid-item">
+                <div class="datagrid-title">Holat</div>
                 <div class="datagrid-content">
                   {% if assignment.status == 'pending' %}
-                  <span class="badge bg-warning-lt">{{ t("admin_stats_pending_assignments") }}</span>
+                  <span class="badge bg-warning-lt">Kutilmoqda</span>
+                  {% elif assignment.status == 'in_review' %}
+                  <span class="badge bg-info-lt">Jarayonda</span>
                   {% elif assignment.status == 'reviewed' %}
-                  <span class="badge bg-success-lt">{{ t("admin_stats_reviewed") }}</span>
+                  <span class="badge bg-success-lt">Ko'rib chiqilgan</span>
                   {% elif assignment.status == 'rejected' %}
-                  <span class="badge bg-danger-lt">{{ t("admin_stats_rejected") }}</span>
+                  <span class="badge bg-danger-lt">Rad etish tavsiyasi</span>
                   {% else %}
                   <span class="badge bg-secondary-lt">{{ assignment.status }}</span>
                   {% endif %}
                 </div>
               </div>
+              <div class="datagrid-item">
+                <div class="datagrid-title">Admin qarori</div>
+                <div class="datagrid-content">
+                  {% if assignment.admin_decision == 'accepted' %}
+                  <span class="badge bg-success-lt">Qabul qilingan</span>
+                  {% elif assignment.admin_decision == 'revision_requested' %}
+                  <span class="badge bg-warning-lt">Qayta ishlash so'ralgan</span>
+                  {% elif assignment.status in ['reviewed', 'rejected'] %}
+                  <span class="badge bg-blue-lt">Kutilmoqda</span>
+                  {% else %}
+                  <span class="text-secondary">-</span>
+                  {% endif %}
+                </div>
+              </div>
+              {% if admin_decided_user and assignment.admin_decided_at %}
+              <div class="datagrid-item">
+                <div class="datagrid-title">Admin javobi</div>
+                <div class="datagrid-content">
+                  {{ admin_decided_user.name }} {{ admin_decided_user.second_name or '' }}<br>
+                  <span class="text-secondary small">{{ assignment.admin_decided_at | timestamp_to_date }}</span>
+                </div>
+              </div>
+              {% endif %}
+              {% if assignment.assignment_note %}
+              <div class="datagrid-item">
+                <div class="datagrid-title">Topshiriq izohi</div>
+                <div class="datagrid-content">{{ assignment.assignment_note }}</div>
+              </div>
+              {% endif %}
+              {% if assigned_by_user %}
+              <div class="datagrid-item">
+                <div class="datagrid-title">Biriktirgan admin</div>
+                <div class="datagrid-content">{{ assigned_by_user.name }} {{ assigned_by_user.second_name or '' }}</div>
+              </div>
+              {% endif %}
             </div>
           </div>
         </div>
-
-
       </div>
     </div>
   </div>
 </div>
-
-
 {% endblock %}

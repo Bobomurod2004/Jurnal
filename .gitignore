@@ -50,3 +50,5 @@ uploads_data/
 
 # SSL certificates
 certbot/
+
+# Local development outputs should NOT go to server

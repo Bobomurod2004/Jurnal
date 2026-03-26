@@ -85,7 +85,7 @@
           </td>
           <td class="align-middle">
             {% if doc.file_path %}
-            <a href="{{ doc.file_path }}" target="_blank" class="btn btn-xs btn-outline-primary"
+            <a href="{{ upload_access_url(doc.file_path) }}" target="_blank" class="btn btn-xs btn-outline-primary"
               title="{{ t('admin_tooltip_download_file') }}">
               <i class="ti ti-download"></i>
             </a>

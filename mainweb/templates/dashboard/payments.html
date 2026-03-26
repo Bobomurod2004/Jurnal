@@ -8,7 +8,7 @@
             <div class="mb-2 flex items-start justify-between">
                 <h4 class="text-2xl font-medium">{{ t('my_payments_title') }}</h4>
                 <div class="flex gap-2">
-                    <a href="/page/payment_guide" class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-200 px-6 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-300 hover:cursor-pointer transition-colors">{{ t('payment_guide') }}</a>
+                    <a href="{{ url_for('app__payment_guide') }}" class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-200 px-6 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-300 hover:cursor-pointer transition-colors">{{ t('payment_guide') }}</a>
                     <button id="open_subscribe_modal" class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-500 px-6 py-2 text-sm font-semibold text-gray-50 hover:bg-blue-600 hover:cursor-pointer transition-colors">{{ t('subscribe') }}</button>
                 </div>
             </div>
@@ -75,7 +75,7 @@
                         <div class="flex flex-col gap-2">
                             {% for article in payment.articles %}
                             <div>
-                                <a href="" class="text-blue-600 hover:text-blue-700 underline">{{ article.title }}</a>
+                                <a href="{{ url_for('app__article', article_id=article.id) }}" class="text-blue-600 hover:text-blue-700 underline">{{ article.title }}</a>
                                 - {{ article.author }}, <span class="text-gray-400">{{ t('volume') }} {{ article.volume }}, {{ t('issue') }} {{ article.issue }}, {{ article.year }}</span>
                             </div>
                             {% endfor %}
@@ -85,11 +85,14 @@
 
                     <div class="flex items-end justify-between mt-4 gap-2">
                         <div class="flex gap-4 text-sm">
-                            <div class="text-gray-500">{{ t('payment_amount') }}: ${{ "%.2f"|format(payment.amount) }}</div>
+                            {% set currency_label = (payment.currency or 'usd')|upper %}
+                            <div class="text-gray-500">{{ t('payment_amount') }}: {{ "%.2f"|format(payment.amount) }} {{ currency_label }}</div>
                         </div>
                         <div class="flex gap-2">
+                            {% if payment.status in ['unpaid', 'rejected'] %}
                             {% if payment.status == 'unpaid' %}
                             <button data-payment-id="{{ payment.id }}" class="delete-payment text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-red-50 px-6 py-2 text-sm font-semibold text-red-700 hover:bg-red-200 hover:cursor-pointer transition-colors">{{ t('delete_payment') }}</button>
+                            {% endif %}
                             <button data-payment-id="{{ payment.id }}" class="send-payment-details text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-500 px-6 py-2 text-sm font-semibold text-gray-50 hover:bg-blue-600 hover:cursor-pointer transition-colors">{{ t('upload_proof') }}</button>
                             {% endif %}
                         </div>
@@ -98,8 +101,6 @@
             </div>
             {% endfor %}
         </div>
-    </div>
-</div>
 
 <!-- Payment Details Modal -->
 <div class="relative z-60 hidden" id="payment_details_modal" aria-labelledby="modal-title" role="dialog" aria-modal="true">
@@ -143,6 +144,8 @@
                 </div>
             </div>
         </div>
+    </div>
+</div>
 
 {{ subscription_modal(tariffs, currency, is_verified, t) }}
 
@@ -233,7 +236,7 @@
             
             const formData = new FormData();
             formData.append('payment_id', currentPaymentId);
-            formData.append('proof', file);
+            formData.append('payment_proof', file);
             formData.append('note', $('#payment_note').val());
 
             $.ajax({

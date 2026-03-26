@@ -4,11 +4,68 @@
 
 
 {% block dashboard_content %}
+    <style>
+        /* New article page: use internal stepper instead of global dashboard sidebar */
+        .dashboard-sidebar {
+            display: none !important;
+        }
+        .dashboard-main {
+            width: 100%;
+            max-width: 100%;
+        }
+        .article-stepper {
+            display: none;
+        }
+        .article-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        .article-form {
+            min-width: 0;
+        }
+        @media (min-width: 1024px) {
+            .article-layout {
+                grid-template-columns: minmax(0, 1fr) 240px;
+                column-gap: 2rem;
+                align-items: start;
+            }
+            .article-stepper {
+                display: block;
+                order: 2;
+                border-left: 1px solid #e5e7eb;
+                padding-left: 1.5rem;
+                padding-top: 1.25rem;
+                padding-bottom: 1.25rem;
+            }
+            .article-form {
+                order: 1;
+            }
+        }
+    </style>
     <div class="pb-12">
-                <h4 class="text-2xl font-medium mb-8" id="page_header">{{ t('submit_new_article') }}</h4>
+                <h4 class="text-2xl font-medium mb-4" id="page_header">{{ t('submit_new_article') }}</h4>
 
-                <div class="grid grid-cols-4 gap-4 mb-16">
-                    <div class="col border-e border-gray-200 py-5">
+                {% if selected_track_info %}
+                <div class="mb-8 inline-flex items-center gap-3 rounded-xl border border-fmmain/20 bg-fmmain-light/40 px-4 py-2.5">
+                    <iconify-icon icon="{{ selected_track_info.icon }}" class="text-fmmain text-xl"></iconify-icon>
+                    <div class="text-sm">
+                        <div class="text-gray-500">
+                            {{ t('selected_submission_track') if t('selected_submission_track') != 'selected_submission_track' else 'Tanlangan toifa' }}
+                        </div>
+                        <div class="font-semibold text-gray-900">
+                            {{ t(selected_track_info.title_key) if t(selected_track_info.title_key) != selected_track_info.title_key else selected_track_info.fallback_title }}
+                        </div>
+                    </div>
+                    <a href="{{ url_for('app__dashboard_new_article') }}"
+                       class="ms-1 text-xs font-semibold text-fmmain hover:text-fmmain/80 transition-colors">
+                        {{ t('change_submission_track') if t('change_submission_track') != 'change_submission_track' else 'O\'zgartirish' }}
+                    </a>
+                </div>
+                {% endif %}
+
+                <div class="article-layout mb-16">
+                    <div class="article-stepper">
                         <div class="flex justify-start sticky top-40">
                             <div class="border-s border-gray-400 ps-4 absolute top-0 left-5 h-full"></div>
                             <div class="z-25 step">
@@ -159,7 +216,7 @@
 
 
                     </div>
-                    <div class="col-span-3 py-5">
+                    <div class="article-form py-5">
                         <div class="intersect intersect-full" id="section_1" data-section-id="1">
 
 
@@ -167,16 +224,64 @@
                                 <h4 class="text-xl font-medium ">{{ t('basic_information') }}</h4>
                             </div>
 
-                            <div class="mb-6 px-2 group" data-input-group="title">
-                                <label for="title" class="block mb-2 text-sm font-medium text-gray-900 group-[.error]:text-red-500">{{ t('title') }}</label>
-                                <input type="text" id="title" name="title" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="" required />
-                                <div class="text-red-500 text-sm ps-1 mt-1 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('fill_required_field') }}</div>
+                            <div class="mb-6 px-2 group rounded-2xl border border-gray-200 bg-gray-50/40 p-4 md:p-5" data-input-group="title_lang_required">
+                                <label class="block mb-2 text-sm font-medium text-gray-900 group-[.error]:text-red-500">
+                                    {{ t('title') }} ({{ t('language_uz') }}/{{ t('language_ru') }}/{{ t('language_en') }})
+                                </label>
+                                <div class="text-xs text-gray-500 mb-3">
+                                    {{ t('title_languages_hint') if t('title_languages_hint') != 'title_languages_hint' else 'UZ, RU, EN tillarida sarlavha majburiy. 4-til ixtiyoriy.' }}
+                                </div>
+                                <div class="grid grid-cols-1 gap-3">
+                                    <input type="text" id="title_uz" name="title_uz" class="bg-white border border-gray-200 group-[.error]:border-red-200 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 block w-full py-2.5 px-4 transition-colors" placeholder="{{ t('title') }} ({{ t('language_uz') }})" />
+                                    <input type="text" id="title_ru" name="title_ru" class="bg-white border border-gray-200 group-[.error]:border-red-200 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 block w-full py-2.5 px-4 transition-colors" placeholder="{{ t('title') }} ({{ t('language_ru') }})" />
+                                    <input type="text" id="title_en" name="title_en" class="bg-white border border-gray-200 group-[.error]:border-red-200 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 block w-full py-2.5 px-4 transition-colors" placeholder="{{ t('title') }} ({{ t('language_en') }})" />
+                                </div>
+                                <div class="text-red-500 text-sm ps-1 mt-1 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">
+                                    {{ t('error_title_languages_required') if t('error_title_languages_required') != 'error_title_languages_required' else 'UZ, RU, EN tillarda sarlavha kiritilishi shart' }}
+                                </div>
+
+                                <div class="mt-4 border-t border-gray-200 pt-4">
+                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                        <input type="checkbox" id="enable_other_language" class="w-4 h-4 accent-fmmain" />
+                                        <span>{{ t('enable_other_language_optional') if t('enable_other_language_optional') != 'enable_other_language_optional' else "4-til qo'shish (ixtiyoriy)" }}</span>
+                                    </label>
+
+                                    <div id="other_language_fields" class="hidden mt-3 space-y-3">
+                                        <input type="text" id="other_language_name" name="other_language_name" class="bg-white border border-gray-200 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 block w-full py-2.5 px-4 transition-colors" placeholder="{{ t('other_language_name_placeholder') if t('other_language_name_placeholder') != 'other_language_name_placeholder' else 'Masalan: Turkish, Persian ...' }}" />
+                                        <input type="text" id="title_other" name="title_other" class="bg-white border border-gray-200 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 block w-full py-2.5 px-4 transition-colors" placeholder="{{ t('title') }} ({{ t('other_language') if t('other_language') != 'other_language' else 'Boshqa til' }})" />
+                                        <div>
+                                            <textarea name="abstract_other" rows="4" id="abstract_other" class="bg-white border border-gray-200 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 block w-full py-2.5 px-4 transition-colors" placeholder="{{ t('abstract') }} ({{ t('other_language') if t('other_language') != 'other_language' else 'Boshqa til' }})"></textarea>
+                                            <div id="abstract_other_counter" class="text-xs text-gray-500 mt-1">{{ t('word_counter_label') if t('word_counter_label') != 'word_counter_label' else "So'zlar soni" }}: 0</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div class="mb-6 px-2 group" data-input-group="abstract">
-                                <label for="abstract" class="block mb-2 text-sm font-medium text-gray-900 group-[.error]:text-red-500">{{ t('abstract') }}</label>
-                                <textarea name="abstract" rows="6" id="abstract" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors"></textarea>
-                                <div class="text-red-500 text-sm ps-1 mt-1 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('fill_required_field') }}</div>
+                            <div class="mb-6 px-2 group rounded-2xl border border-gray-200 bg-gray-50/40 p-4 md:p-5" data-input-group="abstract_lang_required">
+                                <label class="block mb-2 text-sm font-medium text-gray-900 group-[.error]:text-red-500">
+                                    {{ t('abstract') }} ({{ t('language_uz') }}/{{ t('language_ru') }}/{{ t('language_en') }})
+                                </label>
+                                <div class="text-xs text-gray-500 mb-3">
+                                    {{ t('abstract_languages_hint') if t('abstract_languages_hint') != 'abstract_languages_hint' else 'UZ, RU, EN tillarida annotatsiya majburiy. 4-til ixtiyoriy.' }}
+                                </div>
+                                <div class="grid grid-cols-1 gap-3">
+                                    <div>
+                                        <textarea name="abstract_uz" rows="6" id="abstract_uz" class="bg-white border border-gray-200 group-[.error]:border-red-200 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 block w-full py-2.5 px-4 transition-colors" placeholder="{{ t('abstract') }} ({{ t('language_uz') }})"></textarea>
+                                        <div id="abstract_uz_counter" class="text-xs text-gray-500 mt-1">{{ t('word_counter_label') if t('word_counter_label') != 'word_counter_label' else "So'zlar soni" }}: 0</div>
+                                    </div>
+                                    <div>
+                                        <textarea name="abstract_ru" rows="6" id="abstract_ru" class="bg-white border border-gray-200 group-[.error]:border-red-200 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 block w-full py-2.5 px-4 transition-colors" placeholder="{{ t('abstract') }} ({{ t('language_ru') }})"></textarea>
+                                        <div id="abstract_ru_counter" class="text-xs text-gray-500 mt-1">{{ t('word_counter_label') if t('word_counter_label') != 'word_counter_label' else "So'zlar soni" }}: 0</div>
+                                    </div>
+                                    <div>
+                                        <textarea name="abstract_en" rows="6" id="abstract_en" class="bg-white border border-gray-200 group-[.error]:border-red-200 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 block w-full py-2.5 px-4 transition-colors" placeholder="{{ t('abstract') }} ({{ t('language_en') }})"></textarea>
+                                        <div id="abstract_en_counter" class="text-xs text-gray-500 mt-1">{{ t('word_counter_label') if t('word_counter_label') != 'word_counter_label' else "So'zlar soni" }}: 0</div>
+                                    </div>
+                                </div>
+                                <div id="abstract_limits" class="text-xs text-gray-500 mt-2"></div>
+                                <div class="text-red-500 text-sm ps-1 mt-1 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">
+                                    {{ t('error_abstract_languages_required') if t('error_abstract_languages_required') != 'error_abstract_languages_required' else 'UZ, RU, EN tillarda annotatsiya kiritilishi shart' }}
+                                </div>
                             </div>
 
                             <div class="mb-6 px-2 group" data-input-group="is_special_issue">
@@ -402,9 +507,16 @@
                                 {{ t('word_count_instruction') }}
                             </div>
 
-                            <div class="mb-6 px-2 group" data-input-group="word_count">
-                                <label for="word_count" class="block mb-2 text-sm font-medium text-gray-900 group-[.error]:text-red-500">{{ t('word_count') }}</label>
-                                <input type="text" id="word_count" name="word_count" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="" required />
+                            <div class="mb-6 px-2 group rounded-2xl border border-gray-200 bg-gray-50/40 p-4 md:p-5" data-input-group="word_count">
+                                <label for="word_count_display" class="block mb-2 text-sm font-medium text-gray-900 group-[.error]:text-red-500">{{ t('word_count') }}</label>
+                                <input type="hidden" id="word_count" name="word_count" value="0" />
+                                <input type="number" min="0" step="1" id="word_count_display" class="bg-white border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-white text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-white block w-full py-2.5 px-4 transition-colors" placeholder="0" />
+                                <div id="word_count_limits" class="text-xs text-gray-500 mt-1"></div>
+                                <div class="mt-4">
+                                    <label for="word_count_source_text" id="word_count_source_label" class="block mb-2 text-sm font-medium text-gray-900"></label>
+                                    <textarea id="word_count_source_text" rows="6" class="bg-white border border-gray-200 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 block w-full py-2.5 px-4 transition-colors"></textarea>
+                                    <div id="word_count_source_hint" class="text-xs text-gray-500 mt-1"></div>
+                                </div>
                                 <div class="text-red-500 text-sm ps-1 mt-1 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('word_count_field_required') }}</div>
                             </div>
 
@@ -511,6 +623,7 @@
                             <div class="my-4 text-sm text-gray-600  px-2">
                                 {{ t('keywords_instruction') }}
                             </div>
+                            <div id="keywords_limits" class="text-xs text-gray-500 px-2 mb-2"></div>
 
                             <div class="my-4 px-2">
                                 <h4 class="text-md font-medium mb-4">{{ t('keywords') }}:</h4>
@@ -535,8 +648,8 @@
                                 <input type="text" id="keywords" name="keywords" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="{{ t('keyword_placeholder') }}" required />
                             </div>
 
-                            <div class="group" data-input-group="keywods">
-                                <div class="text-red-500 text-sm ps-1 mt-2 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('add_at_least_keywords') }}</div>
+                            <div class="group" data-input-group="keywords">
+                                <div class="text-red-500 text-sm ps-1 mt-2 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('word_count_field_required') }}</div>
                             </div>
 
                         </div>
@@ -548,30 +661,45 @@
                                 <h4 class="text-xl font-medium ">{{ t('classification') }}</h4>
                             </div>
 
-                            <div class="my-4 text-sm text-gray-600  px-2">
-                                {{ t('classification_instruction') }}
+                            <div class="my-4 text-sm text-gray-600  px-2" id="classification_intro_text"></div>
+
+                            <div class="mb-6 px-2">
+                                <div class="block mb-2 text-sm font-medium text-gray-900" id="classification_area_label"></div>
+                                <div id="classification_areas" class="flex flex-wrap gap-2"></div>
+                                <div id="classification_area_description" class="text-xs text-gray-500 mt-2"></div>
                             </div>
 
                             <div class="mb-6  px-2">
                                 <label for="classifications" class="block mb-2 text-sm font-medium text-gray-900 ">{{ t('search_classifications') }}:</label>
                                 <input type="text" id="classifications" name="find_classification" class="bg-gray-50 border border-gray-200 group-[.error]:border-red-200 group-[.error]:bg-gray-50 text-gray-900 text-sm rounded-lg outline-0 ring-0 focus:border-gray-600 focus-visible:border-gray-400 focus-visible:bg-gray-100 block w-full py-2.5 px-4 transition-colors" placeholder="{{ t('start_typing') }}..." required />
+                                <div class="text-xs text-gray-500 mt-2" id="classification_min_hint"></div>
                             </div>
 
                             <div class="mb-6 px-2">
+                                <div class="text-sm mb-2 text-gray-800" id="classification_available_label"></div>
+                                <div class="flex gap-2 items-center flex-wrap classifier mb-4" id="classifier">
+                                    <button type="button" data-id="$cl_id" data-cl_text="$cl_text" data-area="$cl_area" data-example class="hidden px-4 py-2 not-[.checked]:bg-gray-50 not-[.checked]:border-gray-200 not-[.checked]:text-gray-900 bg-green-50 border-green-700 text-green-700 border rounded-lg text-sm font-medium flex items-center justify-center transition-colors group">
+                                        <iconify-icon icon="tabler:check" class="me-1 w-4 flex items-center content-center opacity-0 group-hover:opacity-100 group-[.checked]:opacity-100 transition-opacity"></iconify-icon>
+                                        <div class="-translate-x-2 group-hover:translate-x-0 transition-transform group-[.checked]:translate-x-0">$cl_text</div>
+                                    </button>
+                                </div>
+
                                 <div class="text-sm mb-2 text-gray-800">
                                     {{ t('selected_classifications') }}:
                                 </div>
 
-                                <div class="flex gap-2 items-center flex-wrap classifier" id="classifier">
-                                    <button type="button" data-id="$cl_id" data-cl_text="$cl_text" data-example class="hidden px-4 py-2 not-[.checked]:bg-gray-50 not-[.checked]:border-gray-200 not-[.checked]:text-gray-900 bg-green-50 border-green-700 text-green-700 border rounded-lg text-sm font-medium flex items-center justify-center transition-colors group">
-                                        <iconify-icon icon="tabler:check" class="me-1 w-4 flex items-center content-center opacity-0 group-hover:opacity-100 group-[.checked]:opacity-100 transition-opacity"></iconify-icon>
-                                        <div class="-translate-x-2 group-hover:translate-x-0 transition-transform group-[.checked]:translate-x-0">$cl_text</div>
+                                <div class="flex gap-2 items-center flex-wrap classifier" id="selected_classifier">
+                                    <button type="button" data-id="$cl_id" data-cl_text="$cl_text" data-example class="hidden px-4 py-2 bg-green-50 border-green-700 text-green-700 border rounded-lg text-sm font-medium flex items-center justify-center transition-colors group">
+                                        <iconify-icon icon="tabler:check" class="me-1 w-4 flex items-center content-center opacity-100 transition-opacity"></iconify-icon>
+                                        <div>$cl_text</div>
+                                        <iconify-icon icon="tabler:x" class="ms-2 w-4 text-red-500 opacity-70 group-hover:opacity-100 transition-opacity"></iconify-icon>
                                     </button>
-
                                 </div>
+                                <div id="classification_selected_counter" class="text-xs text-gray-500 mt-2"></div>
+                                <div id="classification_remove_hint" class="text-xs text-gray-500 mt-1"></div>
 
                                 <div class="group mt-2" data-input-group="classifications">
-                                    <div class="text-red-500 text-sm ps-1 mt-2 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]">{{ t('add_at_least_classification') }}</div>
+                                    <div id="classification_error_message" class="text-red-500 text-sm ps-1 mt-2 h-0 opacity-0 group-[.error]:opacity-100 group-[.error]:h-5 group-[.error]:block cursor-default transition-[height,opacity]"></div>
                                 </div>
 
                             </div>
@@ -610,7 +738,7 @@
                                 </a>
 
                                 <a href="javascript:;" class="submit inline-flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-green-50 border border-green-300 px-4 py-2 text-sm font-semibold text-green-900 hover:bg-green-200 transition-colors hover:cursor-pointer group" id="menu-button" aria-expanded="true" aria-haspopup="true">
-                                    <div class="opacity-100 group-[.processing]:opacity-0 group-[.submitted]:opacity-0 transition-opacity">{{ t('review_article') }}</div>
+                                    <div class="opacity-100 group-[.processing]:opacity-0 group-[.submitted]:opacity-0 transition-opacity">{{ t('submit_article') }}</div>
                                     <iconify-icon icon="svg-spinners:90-ring" class="absolute text-gray-400 opacity-0 group-[.processing]:opacity-100 transition-opacity"></iconify-icon>
                                     <div class="absolute text-green-700 opacity-0 group-[.submitted]:opacity-100 transition-opacity">{{ t('submitted') }}!</div>
                                     <iconify-icon icon="tabler:check" class="text-lg text-gren-800 opacity-100 group-[.processing]:opacity-0 group-[.submitted]:opacity-0 transition-opacity"></iconify-icon>
@@ -747,53 +875,334 @@
 
 {% endblock %}
 {% block dashboard_scripts %}
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+{# jQuery is already loaded in basic.html; avoid reloading to keep CSRF prefilter active. #}
 <script>
     // JavaScript translations for dynamic content
     const TRANSLATIONS = {
-        viewArticle: '{{ t("view_article") }}',
-        editArticle: '{{ t("edit_article") }}',
-        submitNewArticle: '{{ t("submit_new_article") }}',
-        failedToLoadSubmission: '{{ t("failed_to_load_submission") }}',
-        failedToSaveDraft: '{{ t("failed_to_save_draft") }}',
-        failedToSubmitArticle: '{{ t("failed_to_submit_article") }}',
-        deleteConfirmation: '{{ t("are_you_sure_delete_draft") }}',
-        failedToDeleteSubmission: '{{ t("failed_to_delete_submission") }}',
-        tryAgain: '{{ t("try_again") }}',
-        completeAuthorProfile: '{{ t("complete_author_profile_first") }}',
-        pleaseEnterOrcid: '{{ t("please_enter_orcid") }}',
-        invalidOrcidFormat: '{{ t("invalid_orcid_format") }}',
-        fillRequiredFields: '{{ t("fill_required_fields_colon") }}',
-        authorNameTooShort: '{{ t("author_name_too_short") }}',
-        validEmailRequired: '{{ t("valid_email_required") }}',
-        failedToCreateAuthor: '{{ t("failed_to_create_author") }}',
-        unknownError: '{{ t("unknown_error") }}'
+        viewArticle: {{ t("view_article") | tojson }},
+        editArticle: {{ t("edit_article") | tojson }},
+        submitNewArticle: {{ t("submit_new_article") | tojson }},
+        submitNewArticleMasters: {{ (t("submit_new_article_masters") if t("submit_new_article_masters") != "submit_new_article_masters" else t("submit_new_article")) | tojson }},
+        submitNewArticlePhd: {{ (t("submit_new_article_phd") if t("submit_new_article_phd") != "submit_new_article_phd" else t("submit_new_article")) | tojson }},
+        submitNewArticleTeacher: {{ (t("submit_new_article_teacher") if t("submit_new_article_teacher") != "submit_new_article_teacher" else t("submit_new_article")) | tojson }},
+        titleLanguagesRequired: {{ (t("error_title_languages_required") if t("error_title_languages_required") != "error_title_languages_required" else "UZ, RU, EN tillarda sarlavha kiritilishi shart") | tojson }},
+        abstractLanguagesRequired: {{ (t("error_abstract_languages_required") if t("error_abstract_languages_required") != "error_abstract_languages_required" else "UZ, RU, EN tillarda annotatsiya kiritilishi shart") | tojson }},
+        abstractWordsTooLow: {{ (t("error_abstract_words_too_low") if t("error_abstract_words_too_low") != "error_abstract_words_too_low" else "Annotatsiya minimal chegaradan kam") | tojson }},
+        abstractWordsTooHigh: {{ (t("error_abstract_words_too_high") if t("error_abstract_words_too_high") != "error_abstract_words_too_high" else "Annotatsiya maksimal chegaradan yuqori") | tojson }},
+        abstractWordRangeMasters: {{ (t("abstract_word_range_masters") if t("abstract_word_range_masters") != "abstract_word_range_masters" else "Magistr annotatsiyasi: 150-200 so'z") | tojson }},
+        abstractWordRangePhdTeacher: {{ (t("abstract_word_range_phd_teacher") if t("abstract_word_range_phd_teacher") != "abstract_word_range_phd_teacher" else "Doktorant/O'qituvchi annotatsiyasi: 250-300 so'z") | tojson }},
+        wordCountTooLow: {{ (t("error_word_count_too_low") if t("error_word_count_too_low") != "error_word_count_too_low" else "So'zlar soni minimal chegaradan kam") | tojson }},
+        wordCountTooHigh: {{ (t("error_word_count_too_high") if t("error_word_count_too_high") != "error_word_count_too_high" else "So'zlar soni maksimal chegaradan yuqori") | tojson }},
+        wordCountRangeMasters: {{ (t("word_count_range_masters") if t("word_count_range_masters") != "word_count_range_masters" else "Magistr maqolasi: 2500-3000 so'z") | tojson }},
+        wordCountRangePhdTeacher: {{ (t("word_count_range_phd_teacher") if t("word_count_range_phd_teacher") != "word_count_range_phd_teacher" else "Doktorant/O'qituvchi maqolasi: 4000-7000 so'z") | tojson }},
+        wordCounterLabel: {{ (t("word_counter_label") if t("word_counter_label") != "word_counter_label" else "So'zlar soni") | tojson }},
+        currentWordsLabel: {{ (t("current_words_label") if t("current_words_label") != "current_words_label" else "Hozir kiritilgan") | tojson }},
+        failedToLoadSubmission: {{ t("failed_to_load_submission") | tojson }},
+        failedToSaveDraft: {{ t("failed_to_save_draft") | tojson }},
+        failedToSubmitArticle: {{ t("failed_to_submit_article") | tojson }},
+        deleteConfirmation: {{ t("are_you_sure_delete_draft") | tojson }},
+        failedToDeleteSubmission: {{ t("failed_to_delete_submission") | tojson }},
+        tryAgain: {{ t("try_again") | tojson }},
+        completeAuthorProfile: {{ t("complete_author_profile_first") | tojson }},
+        pleaseEnterOrcid: {{ t("please_enter_orcid") | tojson }},
+        invalidOrcidFormat: {{ t("invalid_orcid_format") | tojson }},
+        fillRequiredFields: {{ t("fill_required_fields_colon") | tojson }},
+        authorNameTooShort: {{ t("author_name_too_short") | tojson }},
+        validEmailRequired: {{ t("valid_email_required") | tojson }},
+        failedToCreateAuthor: {{ t("failed_to_create_author") | tojson }},
+        unknownError: {{ t("unknown_error") | tojson }}
+    };
+    const FORM_LANGUAGE = String({{ (session.get('language') or 'uz') | tojson }}).toLowerCase();
+    const ABSTRACT_HINT_TEXTS = {
+        uz: {
+            masters: "Magistr annotatsiyasi: 150-200 so'z",
+            phd_teacher: "Doktorant/O'qituvchi annotatsiyasi: 250-300 so'z",
+            current: 'Hozir kiritilgan'
+        },
+        ru: {
+            masters: 'Аннотация магистра: 150-200 слов',
+            phd_teacher: 'Аннотация докторанта/преподавателя: 250-300 слов',
+            current: 'Введено сейчас'
+        },
+        en: {
+            masters: "Master's abstract: 150-200 words",
+            phd_teacher: 'PhD/Teacher abstract: 250-300 words',
+            current: 'Currently entered'
+        }
+    };
+    const WORD_COUNT_HINT_TEXTS = {
+        uz: {
+            masters: "Magistr maqolasi: 2500-3000 so'z",
+            phd_teacher: "Doktorant/O'qituvchi maqolasi: 4000-7000 so'z",
+            current: 'Hozir kiritilgan'
+        },
+        ru: {
+            masters: 'Объем статьи магистра: 2500-3000 слов',
+            phd_teacher: 'Объем статьи докторанта/преподавателя: 4000-7000 слов',
+            current: 'Введено сейчас'
+        },
+        en: {
+            masters: "Master's article length: 2500-3000 words",
+            phd_teacher: 'PhD/Teacher article length: 4000-7000 words',
+            current: 'Currently entered'
+        }
+    };
+    const WORD_COUNT_SOURCE_TEXTS = {
+        uz: {
+            label: "Asosiy matn (Kirishdan Xulosagacha) - ixtiyoriy avtomatik hisoblash",
+            hint: "Matnni shu yerga joylashtirsangiz, so'zlar soni avtomatik hisoblanadi. Aks holda so'zlar sonini yuqorida qo'lda kiriting."
+        },
+        ru: {
+            label: 'Основной текст (от Введения до Заключения) - опционально для автоподсчета',
+            hint: 'Если вставите текст сюда, количество слов посчитается автоматически. Иначе укажите число слов вручную в поле выше.'
+        },
+        en: {
+            label: 'Main text (Introduction to Conclusion) - optional auto count',
+            hint: 'If you paste the text here, the word count will be calculated automatically. Otherwise, enter the word count manually above.'
+        }
     };
 
+    const MIN_CLASSIFICATIONS_REQUIRED = 3;
+    const CLASSIFICATION_LANGUAGE = String({{ (session.get('language') or 'uz') | tojson }}).toLowerCase();
+    const CLASSIFICATION_CATALOG = {
+        uz: {
+            ui: {
+                intro: "Maqolangizni to'g'ri ekspertlar va tadqiqotchilar topishi uchun mos yo'nalish va tasniflarni tanlang.",
+                areaLabel: 'Asosiy ilmiy sohani tanlang:',
+                minimumHint: "Kamida 3 ta tasnif tanlang. Bu maqolangizni to'g'ri ekspertlarga tezroq yetkazadi.",
+                minimumError: 'Kamida 3 ta tasnif tanlang.',
+                availableLabel: 'Mavjud tasniflar:',
+                selectedCounter: 'Tanlangan tasniflar: {count} (minimum {min})',
+                removeHint: "Noto'g'ri tanlangan tasnifni bosib o'chiring."
+            },
+            areas: [
+                {
+                    id: 'linguistics',
+                    title: '1. TILSHUNOSLIK',
+                    description: "O'zbek tili, qoraqalpoq tili, Yevropa-Amerika-Avstraliya xalqlari tili, Osiyo-Afrika xalqlari tili, chog'ishtirma tilshunoslik, matnshunoslik, til nazariyasi, amaliy va kompyuter lingvistikasi, komparativistika, kognitiv lingvistika, neyrolingvistika, psixolingvistika, sotsiolingvistika, pragmalingvistika va boshq."
+                },
+                {
+                    id: 'literature',
+                    title: '2. ADABIYOTSHUNOSLIK',
+                    description: "O'zbek adabiyoti, qoraqalpoq adabiyoti, Yevropa-Amerika-Avstraliya xalqlari adabiyoti, Osiyo-Afrika xalqlari adabiyoti, qiyosiy adabiyotshunoslik, adabiyot nazariyasi, folklorshunoslik, adabiy manbashunoslik, komparativistika va boshq."
+                },
+                {
+                    id: 'translation',
+                    title: '3. TARJIMASHUNOSLIK',
+                    description: "O'zbek, rus, ingliz, fransuz, nemis, ispan, italyan, arab, xitoy, yapon, malay, koreys, hind tillaridagi chog'ishtirma tarjimashunoslik va komparativistika masalalari."
+                },
+                {
+                    id: 'methodology',
+                    title: '4. METODIKA',
+                    description: "Ta'lim va tarbiya nazariyasi va metodikasi (turli tizimli tillar bo'yicha), kasb-hunar ta'limi nazariyasi va metodikasi, elektron ta'lim nazariyasi va metodikasi, maktabgacha ta'lim va tarbiya nazariyasi va metodikasi va boshq."
+                },
+                {
+                    id: 'journalism',
+                    title: '5. JURNALISTIKA',
+                    description: "Ommaviy axborot vositalari jurnalistikasi, telejurnalistika, radio jurnalistika, internet jurnalistikasi, harbiy jurnalistika, sayohat jurnalistikasi, sport jurnalistikasi, san'at jurnalistikasi va boshq."
+                },
+                {
+                    id: 'pedagogy',
+                    title: '6. PEDAGOGIKA',
+                    description: "Pedagogika nazariyasi, pedagogik ta'limotlar tarixi, maxsus pedagogika, ta'limda menejment, ijtimoiy pedagogika va boshq."
+                },
+                {
+                    id: 'psychology',
+                    title: '7. PSIXOLOGIYA',
+                    description: "Psixologiya tarixi va nazariyasi, umumiy psixologiya, shaxs psixologiyasi, psixofiziologiya, inson kasbiy faoliyati psixologiyasi, tibbiy va maxsus psixologiya, ijtimoiy psixologiya, etnopsixologiya, yosh va pedagogik psixologiya, rivojlanish psixologiyasi, din psixologiyasi va boshq."
+                }
+            ],
+            customItems: [
+                { id: 'tr_lang_uz', name: "Tarjimashunoslik (o'zbek tili)", area: 'translation' },
+                { id: 'tr_lang_ru', name: 'Tarjimashunoslik (rus tili)', area: 'translation' },
+                { id: 'tr_lang_en', name: 'Tarjimashunoslik (ingliz tili)', area: 'translation' },
+                { id: 'tr_lang_fr', name: 'Tarjimashunoslik (fransuz tili)', area: 'translation' },
+                { id: 'tr_lang_de', name: 'Tarjimashunoslik (nemis tili)', area: 'translation' },
+                { id: 'tr_lang_es', name: 'Tarjimashunoslik (ispan tili)', area: 'translation' },
+                { id: 'tr_lang_it', name: 'Tarjimashunoslik (italyan tili)', area: 'translation' },
+                { id: 'tr_lang_ar', name: 'Tarjimashunoslik (arab tili)', area: 'translation' },
+                { id: 'tr_lang_zh', name: 'Tarjimashunoslik (xitoy tili)', area: 'translation' },
+                { id: 'tr_lang_ja', name: 'Tarjimashunoslik (yapon tili)', area: 'translation' },
+                { id: 'tr_lang_ms', name: 'Tarjimashunoslik (malay tili)', area: 'translation' },
+                { id: 'tr_lang_ko', name: 'Tarjimashunoslik (koreys tili)', area: 'translation' },
+                { id: 'tr_lang_hi', name: 'Tarjimashunoslik (hind tili)', area: 'translation' }
+            ]
+        },
+        ru: {
+            ui: {
+                intro: 'Выберите релевантные направления и классификации, чтобы статья попала к профильным экспертам и исследователям.',
+                areaLabel: 'Выберите основное научное направление:',
+                minimumHint: 'Выберите минимум 3 классификации, чтобы работа быстрее попала к профильным экспертам.',
+                minimumError: 'Выберите минимум 3 классификации.',
+                availableLabel: 'Доступные классификации:',
+                selectedCounter: 'Выбрано классификаций: {count} (минимум {min})',
+                removeHint: 'Чтобы удалить, нажмите на ошибочно выбранную классификацию.'
+            },
+            areas: [
+                {
+                    id: 'linguistics',
+                    title: '1. ЯЗЫКОЗНАНИЕ',
+                    description: 'Узбекский язык, каракалпакский язык, языки народов Европы, Америки и Австралии, языки народов Азии и Африки, сравнительное языкознание, текстология, теория языка, прикладная и компьютерная лингвистика, компаративистика, когнитивная лингвистика, нейролингвистика, психолингвистика, социолингвистика, прагмалингвистика и др.'
+                },
+                {
+                    id: 'literature',
+                    title: '2. ЛИТЕРАТУРОВЕДЕНИЕ',
+                    description: 'Узбекская литература, каракалпакская литература, литературы народов Европы, Америки и Австралии, литературы народов Азии и Африки, сравнительное литературоведение, теория литературы, фольклористика, литературное источниковедение, компаративистика и др.'
+                },
+                {
+                    id: 'translation',
+                    title: '3. ПЕРЕВОДОВЕДЕНИЕ',
+                    description: 'Сопоставительное переводоведение и компаративистика по узбекскому, русскому, английскому, французскому, немецкому, испанскому, итальянскому, арабскому, китайскому, японскому, малайскому, корейскому, хинди и др.'
+                },
+                {
+                    id: 'methodology',
+                    title: '4. МЕТОДИКА',
+                    description: 'Теория и методика обучения и воспитания (по языкам разных систем), теория и методика профессионального образования, теория и методика электронного обучения, теория и методика дошкольного образования и воспитания и др.'
+                },
+                {
+                    id: 'journalism',
+                    title: '5. ЖУРНАЛИСТИКА',
+                    description: 'Журналистика СМИ, тележурналистика, радиожурналистика, интернет-журналистика, военная журналистика, тревел-журналистика, спортивная журналистика, арт-журналистика и др.'
+                },
+                {
+                    id: 'pedagogy',
+                    title: '6. ПЕДАГОГИКА',
+                    description: 'Педагогическая теория, история педагогических учений, специальная педагогика, менеджмент в образовании, социальная педагогика и др.'
+                },
+                {
+                    id: 'psychology',
+                    title: '7. ПСИХОЛОГИЯ',
+                    description: 'История и теория психологии, общая психология, психология личности, психофизиология, психология профессиональной деятельности человека, медицинская и специальная психология, социальная психология, этнопсихология, возрастная и педагогическая психология, психология развития, психология религии и др.'
+                }
+            ],
+            customItems: [
+                { id: 'tr_lang_uz', name: 'Переводоведение (узбекский язык)', area: 'translation' },
+                { id: 'tr_lang_ru', name: 'Переводоведение (русский язык)', area: 'translation' },
+                { id: 'tr_lang_en', name: 'Переводоведение (английский язык)', area: 'translation' },
+                { id: 'tr_lang_fr', name: 'Переводоведение (французский язык)', area: 'translation' },
+                { id: 'tr_lang_de', name: 'Переводоведение (немецкий язык)', area: 'translation' },
+                { id: 'tr_lang_es', name: 'Переводоведение (испанский язык)', area: 'translation' },
+                { id: 'tr_lang_it', name: 'Переводоведение (итальянский язык)', area: 'translation' },
+                { id: 'tr_lang_ar', name: 'Переводоведение (арабский язык)', area: 'translation' },
+                { id: 'tr_lang_zh', name: 'Переводоведение (китайский язык)', area: 'translation' },
+                { id: 'tr_lang_ja', name: 'Переводоведение (японский язык)', area: 'translation' },
+                { id: 'tr_lang_ms', name: 'Переводоведение (малайский язык)', area: 'translation' },
+                { id: 'tr_lang_ko', name: 'Переводоведение (корейский язык)', area: 'translation' },
+                { id: 'tr_lang_hi', name: 'Переводоведение (хинди)', area: 'translation' }
+            ]
+        },
+        en: {
+            ui: {
+                intro: 'Select relevant areas and classifications so your manuscript reaches the right experts and researchers.',
+                areaLabel: 'Select the primary academic area:',
+                minimumHint: 'Select at least 3 classifications to route your manuscript to the right experts faster.',
+                minimumError: 'Select at least 3 classifications.',
+                availableLabel: 'Available classifications:',
+                selectedCounter: 'Selected classifications: {count} (minimum {min})',
+                removeHint: 'Click any mistaken selected classification to remove it.'
+            },
+            areas: [
+                {
+                    id: 'linguistics',
+                    title: '1. LINGUISTICS',
+                    description: 'Uzbek language, Karakalpak language, languages of Europe, America and Australia, languages of Asia and Africa, comparative linguistics, textual studies, language theory, applied and computational linguistics, comparative studies, cognitive linguistics, neurolinguistics, psycholinguistics, sociolinguistics, pragmalinguistics and more.'
+                },
+                {
+                    id: 'literature',
+                    title: '2. LITERARY STUDIES',
+                    description: 'Uzbek literature, Karakalpak literature, literature of Europe, America and Australia, literature of Asia and Africa, comparative literature studies, literary theory, folklore studies, literary source studies, comparative studies and more.'
+                },
+                {
+                    id: 'translation',
+                    title: '3. TRANSLATION STUDIES',
+                    description: 'Comparative translation studies and comparative studies across Uzbek, Russian, English, French, German, Spanish, Italian, Arabic, Chinese, Japanese, Malay, Korean, Hindi and more.'
+                },
+                {
+                    id: 'methodology',
+                    title: '4. METHODOLOGY',
+                    description: 'Theory and methodology of education and upbringing (for different language systems), vocational education methodology, e-learning methodology, preschool education methodology and more.'
+                },
+                {
+                    id: 'journalism',
+                    title: '5. JOURNALISM',
+                    description: 'Mass media journalism, TV journalism, radio journalism, internet journalism, military journalism, travel journalism, sports journalism, art journalism and more.'
+                },
+                {
+                    id: 'pedagogy',
+                    title: '6. PEDAGOGY',
+                    description: 'Pedagogical theory, history of pedagogical teachings, special pedagogy, management in education, social pedagogy and more.'
+                },
+                {
+                    id: 'psychology',
+                    title: '7. PSYCHOLOGY',
+                    description: 'History and theory of psychology, general psychology, personality psychology, psychophysiology, psychology of human professional activity, medical and special psychology, social psychology, ethnopsychology, age and pedagogical psychology, developmental psychology, psychology of religion and more.'
+                }
+            ],
+            customItems: [
+                { id: 'tr_lang_uz', name: 'Translation Studies (Uzbek)', area: 'translation' },
+                { id: 'tr_lang_ru', name: 'Translation Studies (Russian)', area: 'translation' },
+                { id: 'tr_lang_en', name: 'Translation Studies (English)', area: 'translation' },
+                { id: 'tr_lang_fr', name: 'Translation Studies (French)', area: 'translation' },
+                { id: 'tr_lang_de', name: 'Translation Studies (German)', area: 'translation' },
+                { id: 'tr_lang_es', name: 'Translation Studies (Spanish)', area: 'translation' },
+                { id: 'tr_lang_it', name: 'Translation Studies (Italian)', area: 'translation' },
+                { id: 'tr_lang_ar', name: 'Translation Studies (Arabic)', area: 'translation' },
+                { id: 'tr_lang_zh', name: 'Translation Studies (Chinese)', area: 'translation' },
+                { id: 'tr_lang_ja', name: 'Translation Studies (Japanese)', area: 'translation' },
+                { id: 'tr_lang_ms', name: 'Translation Studies (Malay)', area: 'translation' },
+                { id: 'tr_lang_ko', name: 'Translation Studies (Korean)', area: 'translation' },
+                { id: 'tr_lang_hi', name: 'Translation Studies (Hindi)', area: 'translation' }
+            ]
+        }
+    };
+    const CLASSIFICATION_TEXTS = CLASSIFICATION_CATALOG[CLASSIFICATION_LANGUAGE] || CLASSIFICATION_CATALOG.uz;
+    const CLASSIFICATION_AREAS = CLASSIFICATION_TEXTS.areas;
+
+    const CLASSIFICATION_AREA_ID_MAP = {
+        linguistics: new Set(['3', '14', '15', '18', '20', '23', '26', '28', '32', '37', '43', '46', '49', '52']),
+        literature: new Set(['1', '2', '7', '22', '30', '31', '45', '48']),
+        translation: new Set(['16', '51']),
+        methodology: new Set(['5', '13', '17', '39']),
+        journalism: new Set(['8', '12', '21', '33', '35', '36', '38', '41']),
+        pedagogy: new Set(['9', '19', '24', '25', '40']),
+        psychology: new Set(['4', '6', '10', '11', '27', '29', '34', '42', '44', '47', '50'])
+    };
+
+    const CLASSIFICATION_CUSTOM_ITEMS = CLASSIFICATION_TEXTS.customItems;
+
     // User role information for JavaScript
-    window.userRole = '{{ session.user.rolename if session.user else "user" }}';
+    window.userRole = {{ (session.user.rolename if session.user else "user") | tojson }};
+    window.selectedSubmissionTrack = {{ (selected_track or '') | tojson }};
 
     // Global variables for submission management
 
     let submission_data = null;
     let is_ready_submit = false;
+    let activeClassificationArea = null;
+    const CLASSIFICATION_MIN_ERROR_TEXT = CLASSIFICATION_TEXTS.ui.minimumError || 'Kamida 3 ta tasnif tanlang.';
 
     const error_data = {
-        "title": { 'title': '{{ t("error_title_required") }}', 'section': 1 },
-        "abstract": { 'title': '{{ t("error_abstract_too_short") }}', 'section': 1 },
-        "is_special_issue": { 'title': '{{ t("error_specify_special_issue") }}', 'section': 2 },
-        "is_dataset": { 'title': '{{ t("error_specify_dataset") }}', 'section': 3 },
-        "is_copyright_accept": { 'title': '{{ t("error_accept_copyright") }}', 'section': 4 },
-        "files": { 'title': '{{ t("error_upload_required_files") }}', 'section': 4 },
-        "is_ethical_accept": { 'title': '{{ t("error_address_ethical") }}', 'section': 5 },
-        "is_consent_accept": { 'title': '{{ t("error_consent_required") }}', 'section': 6 },
-        "is_acknowledgements_accept": { 'title': '{{ t("error_provide_acknowledgments") }}', 'section': 7 },
-        "is_previously": { 'title': '{{ t("error_specify_previously_published") }}', 'section': 8 },
-        "word_count": { 'title': '{{ t("error_word_count_exceeds") }}', 'section': 9 },
-        "author": { 'title': '{{ t("error_author_details_incomplete") }}', 'section': 10 },
-        "is_competing": { 'title': '{{ t("error_disclose_competing_interests") }}', 'section': 11 },
-        "keywords": { 'title': '{{ t("error_keywords_required") }}', 'section': 12 },
-        "classifications": { 'title': '{{ t("error_select_classifications") }}', 'section': 13 }
+        "title_lang_required": { 'title': TRANSLATIONS.titleLanguagesRequired, 'section': 1 },
+        "abstract_lang_required": { 'title': TRANSLATIONS.abstractLanguagesRequired, 'section': 1 },
+        "abstract_words_min": { 'title': TRANSLATIONS.abstractWordsTooLow, 'section': 1, 'input_group': 'abstract_lang_required' },
+        "abstract_words_max": { 'title': TRANSLATIONS.abstractWordsTooHigh, 'section': 1, 'input_group': 'abstract_lang_required' },
+        "title": { 'title': {{ t("error_title_required") | tojson }}, 'section': 1 },
+        "abstract": { 'title': {{ t("error_abstract_too_short") | tojson }}, 'section': 1 },
+        "is_special_issue": { 'title': {{ t("error_specify_special_issue") | tojson }}, 'section': 2 },
+        "is_dataset": { 'title': {{ t("error_specify_dataset") | tojson }}, 'section': 3 },
+        "is_copyright_accept": { 'title': {{ t("error_accept_copyright") | tojson }}, 'section': 4 },
+        "files": { 'title': {{ t("error_upload_required_files") | tojson }}, 'section': 4 },
+        "is_ethical_accept": { 'title': {{ t("error_address_ethical") | tojson }}, 'section': 5 },
+        "is_consent_accept": { 'title': {{ t("error_consent_required") | tojson }}, 'section': 6 },
+        "is_acknowledgements_accept": { 'title': {{ t("error_provide_acknowledgments") | tojson }}, 'section': 7 },
+        "is_previously": { 'title': {{ t("error_specify_previously_published") | tojson }}, 'section': 8 },
+        "word_count_min": { 'title': TRANSLATIONS.wordCountTooLow, 'section': 9, 'input_group': 'word_count' },
+        "word_count_max": { 'title': TRANSLATIONS.wordCountTooHigh, 'section': 9, 'input_group': 'word_count' },
+        "word_count": { 'title': {{ t("error_word_count_exceeds") | tojson }}, 'section': 9, 'input_group': 'word_count' },
+        "author": { 'title': {{ t("error_author_details_incomplete") | tojson }}, 'section': 10 },
+        "is_competing": { 'title': {{ t("error_disclose_competing_interests") | tojson }}, 'section': 11 },
+        "keywords": { 'title': {{ t("error_keywords_required") | tojson }}, 'section': 12, 'input_group': 'keywords' },
+        "classifications": { 'title': CLASSIFICATION_MIN_ERROR_TEXT, 'section': 13 }
     };
 
     // Initialize intersection observer for section highlighting
@@ -822,12 +1231,33 @@
         const viewOnly = new URLSearchParams(window.location.search).get('view') === 'true';
 
         // Fill form fields with submission data
-        $('[name="title"]').val(submission_data.title || '');
-        $('[name="abstract"]').val(submission_data.abstract || '');
-        $('[name="word_count"]').val(submission_data.word_count || '');
+        const titleFallback = submission_data.title || '';
+        const abstractFallback = submission_data.abstract || '';
+        $('[name="title_uz"]').val(submission_data.title_uz || titleFallback);
+        $('[name="title_ru"]').val(submission_data.title_ru || '');
+        $('[name="title_en"]').val(submission_data.title_en || '');
+        $('[name="title_other"]').val(submission_data.title_other || '');
+        $('[name="abstract_uz"]').val(submission_data.abstract_uz || abstractFallback);
+        $('[name="abstract_ru"]').val(submission_data.abstract_ru || '');
+        $('[name="abstract_en"]').val(submission_data.abstract_en || '');
+        $('[name="abstract_other"]').val(submission_data.abstract_other || '');
+        $('[name="other_language_name"]').val(submission_data.other_language_name || '');
+        $('#word_count_display').val(submission_data.word_count ?? '');
+        const hasOptionalLanguageContent = Boolean(
+            (submission_data.title_other || '').trim() ||
+            (submission_data.abstract_other || '').trim() ||
+            (submission_data.other_language_name || '').trim()
+        );
+        toggle_other_language_fields(hasOptionalLanguageContent);
+        if (submission_data.submission_track) {
+            window.selectedSubmissionTrack = submission_data.submission_track;
+        }
+        update_word_count_limits_hint();
+        update_abstract_limits_hint();
+        update_abstract_word_counters();
 
         // Handle radio buttons
-        change_radio_state("is_special_issue", submission_data.is_special_issue);
+        change_radio_state("is_special_issue", submission_data.is_special_issue ?? submission_data.is_special);
         change_radio_state("is_dataset", submission_data.is_dataset);
         change_radio_state("is_previously", submission_data.is_used_previous);
         change_radio_state("is_competing", submission_data.is_competing_interests);
@@ -870,6 +1300,7 @@
                 add_keyword(keyword);
             });
         }
+        update_word_count_limits_hint();
 
         // Mark selected classifications as checked (if classification buttons are already created)
         if (submission_data.classifications) {
@@ -877,6 +1308,8 @@
                 const idStr = String(classificationId);
                 $(`#classifier [data-id="${idStr}"]`).addClass('checked');
             });
+            render_selected_classifications();
+            apply_classification_filters();
         }
 
         if (viewOnly) {
@@ -899,9 +1332,12 @@
             $('[data-delete-keyword-button]').addClass('hidden');
             $('#new_keyword_section').addClass('hidden');
             
-            // Hide classification search field and make buttons non-clickable
+            // Hide classification search/area and show only selected classifications
             $('[name="find_classification"]').parent().addClass('hidden');
-            $('.classifier button').addClass('cursor-default').off('click');
+            $('#classification_areas').addClass('hidden');
+            $('#classifier').addClass('hidden');
+            $('#selected_classifier button').addClass('cursor-default').off('click');
+            $('#classification_remove_hint').addClass('hidden');
             
             // Hide delete, draft, and review buttons
             $('#article_actions').addClass('hidden');
@@ -911,13 +1347,7 @@
             
             // Make sure classifications are properly displayed
             if (submission_data.classifications) {
-                // Hide all classification buttons first
-                $('.classifier button:not([data-example])').addClass('hidden');
-                // Show only the selected classifications
-                submission_data.classifications.forEach(classificationId => {
-                    const idStr = String(classificationId);
-                    $(`#classifier [data-id="${idStr}"]`).removeClass('hidden').addClass('checked');
-                });
+                render_selected_classifications();
             }
         }
 
@@ -928,19 +1358,25 @@
 
         // Handle file displays if they exist
         if (submission_data.file_authors) {
-            // Update file author display
-            $('[data-file-authors]').removeClass('hidden')
-                .find('.download').attr('href', submission_data.file_authors.download);
-            // Fill hidden field
-            $('#file_authors_path').val(submission_data.file_authors.title);
+            const fileAuthors = submission_data.file_authors;
+            const fileAuthorsDownload = typeof fileAuthors === 'string' ? fileAuthors : fileAuthors.download;
+            const fileAuthorsTitle = typeof fileAuthors === 'string' ? fileAuthors : fileAuthors.title;
+            if (fileAuthorsDownload) {
+                $('[data-file-authors]').removeClass('hidden')
+                    .find('.download').attr('href', fileAuthorsDownload);
+            }
+            $('#file_authors_path').val(fileAuthorsTitle || '');
         }
 
         if (submission_data.file_anonymized) {
-            // Update anonymized file display
-            $('[data-file-anonymized]').removeClass('hidden')
-                .find('.download').attr('href', submission_data.file_anonymized.download);
-            // Fill hidden field
-            $('#file_anonymized_path').val(submission_data.file_anonymized.title);
+            const fileAnonymized = submission_data.file_anonymized;
+            const fileAnonymizedDownload = typeof fileAnonymized === 'string' ? fileAnonymized : fileAnonymized.download;
+            const fileAnonymizedTitle = typeof fileAnonymized === 'string' ? fileAnonymized : fileAnonymized.title;
+            if (fileAnonymizedDownload) {
+                $('[data-file-anonymized]').removeClass('hidden')
+                    .find('.download').attr('href', fileAnonymizedDownload);
+            }
+            $('#file_anonymized_path').val(fileAnonymizedTitle || '');
         }
     }
 
@@ -967,27 +1403,397 @@
         return checked.val() === '1';
     }
 
+    function get_submission_track() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const track = (urlParams.get('track') || window.selectedSubmissionTrack || '').toLowerCase();
+        if (track === 'masters' || track === 'phd' || track === 'teacher') {
+            return track;
+        }
+        return '';
+    }
+
+    function get_word_count_limits(track) {
+        if (track === 'masters') {
+            return { min: 2500, max: 3000 };
+        }
+        if (track === 'phd' || track === 'teacher') {
+            return { min: 4000, max: 7000 };
+        }
+        return null;
+    }
+
+    function get_abstract_word_limits(track) {
+        if (track === 'masters') {
+            return { min: 150, max: 200 };
+        }
+        if (track === 'phd' || track === 'teacher') {
+            return { min: 250, max: 300 };
+        }
+        return null;
+    }
+
+    function get_abstract_hint_texts() {
+        return ABSTRACT_HINT_TEXTS[FORM_LANGUAGE] || ABSTRACT_HINT_TEXTS.uz;
+    }
+
+    function get_abstract_range_label(track) {
+        const hints = get_abstract_hint_texts();
+        if (track === 'masters') {
+            return hints.masters;
+        }
+        if (track === 'phd' || track === 'teacher') {
+            return hints.phd_teacher;
+        }
+        return '';
+    }
+
+    function get_abstract_current_label() {
+        const hints = get_abstract_hint_texts();
+        return hints.current || TRANSLATIONS.currentWordsLabel;
+    }
+
+    function get_word_count_hint_texts() {
+        return WORD_COUNT_HINT_TEXTS[FORM_LANGUAGE] || WORD_COUNT_HINT_TEXTS.uz;
+    }
+
+    function get_word_count_range_label(track) {
+        const hints = get_word_count_hint_texts();
+        if (track === 'masters') {
+            return hints.masters;
+        }
+        if (track === 'phd' || track === 'teacher') {
+            return hints.phd_teacher;
+        }
+        return '';
+    }
+
+    function get_word_count_current_label() {
+        const hints = get_word_count_hint_texts();
+        return hints.current || TRANSLATIONS.currentWordsLabel;
+    }
+
+    function get_word_count_source_texts() {
+        return WORD_COUNT_SOURCE_TEXTS[FORM_LANGUAGE] || WORD_COUNT_SOURCE_TEXTS.uz;
+    }
+
+    function render_word_count_source_labels() {
+        const texts = get_word_count_source_texts();
+        $('#word_count_source_label').text(texts.label || '');
+        $('#word_count_source_hint').text(texts.hint || '');
+    }
+
+    function sync_word_count_from_source_text() {
+        const sourceInput = $('#word_count_source_text');
+        if (!sourceInput.length) {
+            return;
+        }
+        const sourceWords = count_words(sourceInput.val());
+        if (sourceWords > 0) {
+            $('#word_count_display').val(sourceWords);
+            $('#word_count').val(sourceWords);
+        }
+        update_word_count_limits_hint();
+    }
+
+    function count_words(text) {
+        const normalized = (text || '').trim();
+        if (!normalized) return 0;
+        return normalized.split(/\s+/).filter(Boolean).length;
+    }
+
+    function get_keywords_values() {
+        return $('#list_keywords [data-keyword]:not([data-example])').map(function() {
+            return ($(this).attr('data-keyword') || '').trim();
+        }).get().filter(Boolean);
+    }
+
+    function get_pending_keywords_values() {
+        const input = $('[name="keywords"]');
+        if (!input.length) {
+            return [];
+        }
+        const value = (input.val() || '').trim();
+        if (!value) {
+            return [];
+        }
+        return value.split(/[,\n;]/).map(item => item.trim()).filter(Boolean);
+    }
+
+    function get_keywords_count(includePending = false) {
+        const existing = get_keywords_values();
+        if (!includePending) {
+            return existing.length;
+        }
+
+        const existingSet = new Set(existing.map(item => item.toLowerCase()));
+        const pendingSet = new Set();
+        let total = existing.length;
+
+        get_pending_keywords_values().forEach(item => {
+            const normalized = item.toLowerCase();
+            if (!existingSet.has(normalized) && !pendingSet.has(normalized)) {
+                pendingSet.add(normalized);
+                total += 1;
+            }
+        });
+
+        return total;
+    }
+
+    function get_manual_word_count() {
+        const input = $('#word_count_display');
+        if (!input.length) {
+            return null;
+        }
+        const raw = String(input.val() || '').trim();
+        if (!raw) {
+            return null;
+        }
+        const parsed = parseInt(raw, 10);
+        return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    function get_effective_word_count() {
+        const manual = get_manual_word_count();
+        if (manual !== null) {
+            return manual;
+        }
+        return 0;
+    }
+
+    function commit_pending_keywords() {
+        const pendingInputs = [$('[name="keywords"]')];
+        pendingInputs.forEach($input => {
+            if (!$input.length) {
+                return;
+            }
+            const value = ($input.val() || '').trim();
+            if (!value) {
+                return;
+            }
+            value.split(/[,\n;]/).forEach(keyword => {
+                const trimmed = keyword.trim();
+                if (trimmed) {
+                    add_keyword(trimmed);
+                }
+            });
+            $input.val('');
+        });
+    }
+
+    function update_abstract_word_counters() {
+        const counters = [
+            { name: 'abstract_uz', id: '#abstract_uz_counter' },
+            { name: 'abstract_ru', id: '#abstract_ru_counter' },
+            { name: 'abstract_en', id: '#abstract_en_counter' },
+            { name: 'abstract_other', id: '#abstract_other_counter' }
+        ];
+        const track = get_submission_track();
+        const limits = get_abstract_word_limits(track);
+        const rangeText = get_abstract_range_label(track);
+        const currentLabel = get_abstract_current_label();
+
+        counters.forEach(item => {
+            const el = $(item.id);
+            if (!el.length) {
+                return;
+            }
+            const words = count_words($(`[name="${item.name}"]`).val());
+            const hintText = rangeText ? `${rangeText} | ${currentLabel}: ${words}` : `${currentLabel}: ${words}`;
+            el.text(hintText);
+            el.removeClass('text-gray-500 text-red-600 text-green-700').addClass('text-gray-500');
+            if (!limits || words === 0) {
+                return;
+            }
+            if (words < limits.min || words > limits.max) {
+                el.removeClass('text-gray-500 text-green-700').addClass('text-red-600');
+            } else {
+                el.removeClass('text-gray-500 text-red-600').addClass('text-green-700');
+            }
+        });
+    }
+
+    function toggle_other_language_fields(forceChecked = null) {
+        const checkbox = $('#enable_other_language');
+        if (checkbox.length === 0) {
+            return;
+        }
+
+        const shouldEnable = forceChecked === null ? checkbox.is(':checked') : Boolean(forceChecked);
+        checkbox.prop('checked', shouldEnable);
+        $('#other_language_fields').toggleClass('hidden', !shouldEnable);
+        if (!shouldEnable) {
+            $('[name="other_language_name"]').val('');
+            $('[name="title_other"]').val('');
+            $('[name="abstract_other"]').val('');
+        }
+        update_abstract_word_counters();
+    }
+
+    function update_abstract_limits_hint() {
+        const hint = $('#abstract_limits');
+        if (hint.length === 0) {
+            return;
+        }
+
+        const track = get_submission_track();
+        const limits = get_abstract_word_limits(track);
+        if (!limits) {
+            hint.text('');
+            return;
+        }
+
+        const rangeText = get_abstract_range_label(track);
+        const currentLabel = get_abstract_current_label();
+
+        const primaryAbstract = $('[name="abstract_uz"]').val().trim() ||
+            $('[name="abstract_ru"]').val().trim() ||
+            $('[name="abstract_en"]').val().trim() ||
+            $('[name="abstract_other"]').val().trim();
+        const words = count_words(primaryAbstract);
+        hint.text(`${rangeText} | ${currentLabel}: ${words}`);
+        hint.removeClass('text-red-600 text-green-700').addClass('text-gray-500');
+        if (words === 0) {
+            return;
+        }
+        if (words < limits.min || words > limits.max) {
+            hint.removeClass('text-gray-500 text-green-700').addClass('text-red-600');
+        } else {
+            hint.removeClass('text-gray-500 text-red-600').addClass('text-green-700');
+        }
+    }
+
+    function update_word_count_limits_hint() {
+        const hint = $('#word_count_limits');
+        if (hint.length === 0) {
+            return;
+        }
+
+        const track = get_submission_track();
+        const limits = get_word_count_limits(track);
+        if (!limits) {
+            hint.text('');
+            return;
+        }
+
+        const manualWordCount = get_manual_word_count();
+        const wordCount = manualWordCount !== null ? manualWordCount : 0;
+        const rangeText = get_word_count_range_label(track);
+        const currentLabel = get_word_count_current_label();
+        hint.text(`${rangeText} | ${currentLabel}: ${wordCount}`);
+        $('#word_count').val(wordCount);
+        hint.removeClass('text-red-600 text-green-700').addClass('text-gray-500');
+        if (wordCount < limits.min || wordCount > limits.max) {
+            hint.removeClass('text-gray-500 text-green-700').addClass('text-red-600');
+        } else {
+            hint.removeClass('text-gray-500 text-red-600').addClass('text-green-700');
+        }
+    }
+
+    function collect_language_fields() {
+        const titleUz = $('[name="title_uz"]').val().trim();
+        const titleRu = $('[name="title_ru"]').val().trim();
+        const titleEn = $('[name="title_en"]').val().trim();
+        const titleOther = $('[name="title_other"]').val().trim();
+        const abstractUz = $('[name="abstract_uz"]').val().trim();
+        const abstractRu = $('[name="abstract_ru"]').val().trim();
+        const abstractEn = $('[name="abstract_en"]').val().trim();
+        const abstractOther = $('[name="abstract_other"]').val().trim();
+        const otherLanguageName = $('[name="other_language_name"]').val().trim();
+
+        const canonicalTitle = titleUz || titleEn || titleRu || titleOther;
+        const canonicalAbstract = abstractUz || abstractEn || abstractRu || abstractOther;
+
+        return {
+            title: canonicalTitle,
+            abstract: canonicalAbstract,
+            title_uz: titleUz,
+            title_ru: titleRu,
+            title_en: titleEn,
+            title_other: titleOther,
+            abstract_uz: abstractUz,
+            abstract_ru: abstractRu,
+            abstract_en: abstractEn,
+            abstract_other: abstractOther,
+            other_language_name: otherLanguageName
+        };
+    }
+
+    function validate_multilang_and_wordcount(strictMode) {
+        commit_pending_keywords();
+        const errors = [];
+        const langData = collect_language_fields();
+
+        if (strictMode) {
+            if (!langData.title_uz || !langData.title_ru || !langData.title_en) {
+                errors.push('title_lang_required');
+            }
+            if (!langData.abstract_uz || !langData.abstract_ru || !langData.abstract_en) {
+                errors.push('abstract_lang_required');
+            }
+        } else if (!langData.title) {
+            errors.push('title_lang_required');
+        }
+
+        const track = get_submission_track();
+        const abstractLimits = get_abstract_word_limits(track);
+        if (strictMode && abstractLimits) {
+            const abstractWords = count_words(langData.abstract_uz || langData.abstract_ru || langData.abstract_en || langData.abstract_other);
+            if (abstractWords < abstractLimits.min) {
+                errors.push('abstract_words_min');
+            } else if (abstractWords > abstractLimits.max) {
+                errors.push('abstract_words_max');
+            }
+        }
+
+        const wordCountLimits = get_word_count_limits(track);
+        if (strictMode && wordCountLimits) {
+            const wordCount = get_effective_word_count();
+            $('#word_count').val(wordCount);
+            if (wordCount < wordCountLimits.min) {
+                errors.push('word_count_min');
+            } else if (wordCount > wordCountLimits.max) {
+                errors.push('word_count_max');
+            }
+        }
+
+        if (strictMode && get_selected_classification_ids().length < MIN_CLASSIFICATIONS_REQUIRED) {
+            errors.push('classifications');
+        }
+
+        return { errors, langData };
+    }
+
     function save_as_draft() {
         // Show processing state
         const btn = $('.savedraft');
         btn.addClass('processing');
 
-        // Get title value
-        const title = $('[name="title"]').val().trim();
-        
-        // Validate title
-        if (!title) {
+        const validation = validate_multilang_and_wordcount(false);
+        if (validation.errors.length > 0) {
             btn.removeClass('processing');
-            $('[data-input-group="title"]').addClass('error');
-            show_errors(['title']);
+            show_errors(validation.errors);
             return;
         }
 
         // Collect form data
-        const formData = {
-            submission_id: submission_data ? submission_data.id : null,
-            title: title,
-            abstract: $('[name="abstract"]').val(),
+        const keywords = get_keywords_values();
+        const derivedWordCount = get_effective_word_count();
+            const formData = {
+                csrf_token: window.csrfToken || '',
+                submission_id: submission_data ? submission_data.id : null,
+                submission_track: get_submission_track() || null,
+                title: validation.langData.title,
+                abstract: validation.langData.abstract,
+            title_uz: validation.langData.title_uz,
+            title_ru: validation.langData.title_ru,
+            title_en: validation.langData.title_en,
+            title_other: validation.langData.title_other,
+            abstract_uz: validation.langData.abstract_uz,
+            abstract_ru: validation.langData.abstract_ru,
+            abstract_en: validation.langData.abstract_en,
+            abstract_other: validation.langData.abstract_other,
+            other_language_name: validation.langData.other_language_name,
             is_special_issue: getRadioValue('is_special_issue'),
             is_dataset: getRadioValue('is_dataset'),
             is_copyright_accept: $('[name="is_copyright_accept"]').is(':checked'),
@@ -995,14 +1801,10 @@
             is_consent_accept: $('[name="is_consent_accept"]').is(':checked'),
             is_acknowledgements_accept: $('[name="is_acknowledgements_accept"]').is(':checked'),
             is_previously: getRadioValue('is_previously'),
-            word_count: parseInt($('[name="word_count"]').val()) || 0,
+            word_count: derivedWordCount,
             is_competing: getRadioValue('is_competing'),
-            keywords: $('#list_keywords [data-keyword]').map(function() {
-                return $(this).attr('data-keyword');
-            }).get(),
-            classifications: $('#classifier .checked').map(function() {
-                return parseInt($(this).attr('data-id'));
-            }).get().filter(id => !isNaN(id)),
+            keywords: keywords,
+            classifications: get_selected_classification_ids(),
             main_author_id: parseInt(corresponding_author_id) || null,
             sub_author_ids: $('#subauthor_list [data-author-id]').map(function() {
                 return parseInt($(this).attr('data-author-id'));
@@ -1047,22 +1849,31 @@
         $('[data-visible-section]').removeClass('error');
         $('[data-input-group]').removeClass('error');
 
-        // Get title value
-        const title = $('[name="title"]').val().trim();
-        
-        // Validate title
-        if (!title) {
+        const validation = validate_multilang_and_wordcount(true);
+        if (validation.errors.length > 0) {
             btn.removeClass('processing');
-            $('[data-input-group="title"]').addClass('error');
-            show_errors(['title']);
+            show_errors(validation.errors);
             return;
         }
 
         // Collect form data
-        const formData = {
-            submission_id: submission_data ? submission_data.id : null,
-            title: title,
-            abstract: $('[name="abstract"]').val(),
+        const keywords = get_keywords_values();
+        const derivedWordCount = get_effective_word_count();
+            const formData = {
+                csrf_token: window.csrfToken || '',
+                submission_id: submission_data ? submission_data.id : null,
+                submission_track: get_submission_track() || null,
+                title: validation.langData.title,
+                abstract: validation.langData.abstract,
+            title_uz: validation.langData.title_uz,
+            title_ru: validation.langData.title_ru,
+            title_en: validation.langData.title_en,
+            title_other: validation.langData.title_other,
+            abstract_uz: validation.langData.abstract_uz,
+            abstract_ru: validation.langData.abstract_ru,
+            abstract_en: validation.langData.abstract_en,
+            abstract_other: validation.langData.abstract_other,
+            other_language_name: validation.langData.other_language_name,
             is_special_issue: getRadioValue('is_special_issue'),
             is_dataset: getRadioValue('is_dataset'),
             is_copyright_accept: $('[name="is_copyright_accept"]').is(':checked'),
@@ -1070,14 +1881,10 @@
             is_consent_accept: $('[name="is_consent_accept"]').is(':checked'),
             is_acknowledgements_accept: $('[name="is_acknowledgements_accept"]').is(':checked'),
             is_previously: getRadioValue('is_previously'),
-            word_count: parseInt($('[name="word_count"]').val()) || 0,
+            word_count: derivedWordCount,
             is_competing: getRadioValue('is_competing'),
-            keywords: $('#list_keywords [data-keyword]').map(function() {
-                return $(this).attr('data-keyword');
-            }).get(),
-            classifications: $('#classifier .checked').map(function() {
-                return parseInt($(this).attr('data-id'));
-            }).get().filter(id => !isNaN(id)),
+            keywords: keywords,
+            classifications: get_selected_classification_ids(),
             main_author_id: parseInt(corresponding_author_id) || null,
             sub_author_ids: $('#subauthor_list [data-author-id]').map(function() {
                 return parseInt($(this).attr('data-author-id'));
@@ -1101,7 +1908,11 @@
                         url: '/api/article/submit',
                         type: 'POST',
                         contentType: 'application/json',
-                        data: JSON.stringify({ submission_id: saveResponse.submission.id }),
+                        data: JSON.stringify({
+                            submission_id: saveResponse.submission.id,
+                            submission_track: get_submission_track() || null,
+                            csrf_token: window.csrfToken || ''
+                        }),
                         success: function(submitResponse) {
                             btn.removeClass('processing');
                             if (submitResponse.success) {
@@ -1152,6 +1963,33 @@
         const urlParams = new URLSearchParams(window.location.search);
         const submissionId = urlParams.get('id');
         const viewOnly = urlParams.get('view') === 'true';
+        const selectedTrack = (urlParams.get('track') || window.selectedSubmissionTrack || '').toLowerCase();
+        const trackHeaderMap = {
+            masters: TRANSLATIONS.submitNewArticleMasters,
+            phd: TRANSLATIONS.submitNewArticlePhd,
+            teacher: TRANSLATIONS.submitNewArticleTeacher
+        };
+        window.selectedSubmissionTrack = selectedTrack || window.selectedSubmissionTrack || '';
+        toggle_other_language_fields();
+        render_word_count_source_labels();
+        update_word_count_limits_hint();
+        update_abstract_limits_hint();
+        update_abstract_word_counters();
+        $('[name="abstract_uz"], [name="abstract_ru"], [name="abstract_en"], [name="abstract_other"]').on('input', function() {
+            update_abstract_limits_hint();
+            update_abstract_word_counters();
+        });
+        $('#word_count_display').on('input', function() {
+            update_word_count_limits_hint();
+        });
+        $('#word_count_source_text').on('input', function() {
+            sync_word_count_from_source_text();
+        });
+        $('#enable_other_language').on('change', function() {
+            toggle_other_language_fields();
+            update_abstract_limits_hint();
+            update_abstract_word_counters();
+        });
 
         // Update page header based on URL parameters
         if (submissionId) {
@@ -1161,8 +1999,9 @@
                 $('#page_header').text(TRANSLATIONS.editArticle);
             }
         } else {
-            $('#page_header').text(TRANSLATIONS.submitNewArticle);
+            $('#page_header').text(trackHeaderMap[selectedTrack] || TRANSLATIONS.submitNewArticle);
         }
+        render_classification_static_labels();
 
         if (submissionId) {
             // Load submission data from API
@@ -1188,9 +2027,12 @@
                             // Hide keyword-related elements in view mode
                             $('[data-delete-keyword-button]').addClass('hidden');
                             $('#new_keyword_section').addClass('hidden');
-                            // Hide classification search field and make buttons non-clickable
+                            // Hide classification search/area and keep selected list only
                             $('[name="find_classification"]').parent().addClass('hidden');
-                            $('.classifier button').addClass('cursor-default').off('click');
+                            $('#classification_areas').addClass('hidden');
+                            $('#classifier').addClass('hidden');
+                            $('#selected_classifier button').addClass('cursor-default').off('click');
+                            $('#classification_remove_hint').addClass('hidden');
                         }
                     }
                 },
@@ -1265,7 +2107,7 @@
         });
 
         // Hide name search option for non-admin users
-        if (window.userRole !== 'admin' && window.userRole !== 'editor') {
+        if (window.userRole !== 'admin' && window.userRole !== 'editor' && window.userRole !== 'superadmin') {
             $('#name_search_option').hide();
         }
 
@@ -1455,20 +2297,8 @@
             type: 'GET',
             success: function(response) {
                 if (response.success) {
-                    window.classifications = response.classifications;
-                    
-                    // Populate classification buttons
-                    Object.entries(response.classifications).forEach(([id, name]) => {
-                        add_classification(parseInt(id), name);
-                    });
-                    
-                    // If we have submission data with classifications, mark them as checked
-                    if (submission_data && submission_data.classifications) {
-                        submission_data.classifications.forEach(classificationId => {
-                            const idStr = String(classificationId);
-                            $(`#classifier [data-id="${idStr}"]`).addClass('checked');
-                        });
-                    }
+                    window.classifications = response.classifications || [];
+                    init_classifications(response);
                 }
             }
         });
@@ -1479,7 +2309,7 @@
         if (keyword == '') {
             return;
         }
-        is_exists = $('[data-keyword="' + keyword + '"]');
+        const is_exists = $('[data-keyword="' + keyword + '"]');
         if (is_exists.length != 0) {
             is_exists.addClass('bg-blue-300');
             setTimeout(function () {
@@ -1505,28 +2335,205 @@
         }
     }
 
-    function add_classification(cl_id, cl_text) {
-        // Check if we already have this classification
-        if ($(`#classifier [data-id="${cl_id}"]`).length > 0) {
+    function resolve_classification_area(id) {
+        const idStr = String(id);
+        if (idStr.startsWith('tr_lang_')) {
+            return 'translation';
+        }
+        for (const area of CLASSIFICATION_AREAS) {
+            if (CLASSIFICATION_AREA_ID_MAP[area.id] && CLASSIFICATION_AREA_ID_MAP[area.id].has(idStr)) {
+                return area.id;
+            }
+        }
+        return 'linguistics';
+    }
+
+    function get_classification_text(key, fallback = '') {
+        if (!CLASSIFICATION_TEXTS || !CLASSIFICATION_TEXTS.ui) {
+            return fallback;
+        }
+        return CLASSIFICATION_TEXTS.ui[key] || fallback;
+    }
+
+    function update_classification_selected_counter() {
+        const counter = $('#classification_selected_counter');
+        if (!counter.length) {
             return;
         }
 
-        // Create and append the new classification button
-        const example = $('#classifier [data-example]');
-        var new_item = example.clone().removeClass('hidden');
-        new_item = $(new_item).prop('outerHTML')
-            .replace(/\$cl_id/g, cl_id)
-            .replace(/\$cl_text/g, cl_text);
-        new_item = $(new_item).removeAttr('data-example');
-        
-        $('#classifier').append(new_item);
+        const selectedCount = get_selected_classification_ids().length;
+        const template = get_classification_text('selectedCounter', 'Tanlangan tasniflar: {count} (minimum {min})');
+        const counterText = template
+            .replace('{count}', String(selectedCount))
+            .replace('{min}', String(MIN_CLASSIFICATIONS_REQUIRED));
+
+        counter.text(counterText);
+        counter.removeClass('text-gray-500 text-red-600 text-green-700');
+        if (selectedCount < MIN_CLASSIFICATIONS_REQUIRED) {
+            counter.addClass('text-red-600');
+        } else {
+            counter.addClass('text-green-700');
+        }
     }
 
-    function add_classifications(data) {
-        // Use classifications from API data
-        for (const key in data.classifications) {
-            const value = data.classifications[key];
-            add_classification(key, value);
+    function update_classification_area_description() {
+        const descriptionEl = $('#classification_area_description');
+        if (!descriptionEl.length) {
+            return;
+        }
+
+        const currentArea = CLASSIFICATION_AREAS.find(area => area.id === activeClassificationArea);
+        descriptionEl.text(currentArea ? currentArea.description : '');
+    }
+
+    function render_classification_static_labels() {
+        $('#classification_intro_text').text(get_classification_text('intro', ''));
+        $('#classification_area_label').text(get_classification_text('areaLabel', 'Asosiy ilmiy sohani tanlang:'));
+        $('#classification_min_hint').text(get_classification_text('minimumHint', CLASSIFICATION_MIN_ERROR_TEXT));
+        $('#classification_available_label').text(get_classification_text('availableLabel', 'Mavjud tasniflar:'));
+        $('#classification_remove_hint').text(get_classification_text('removeHint', "Noto'g'ri tanlangan tasnifni bosib o'chiring."));
+        $('#classification_error_message').text(CLASSIFICATION_MIN_ERROR_TEXT);
+        update_classification_area_description();
+        update_classification_selected_counter();
+    }
+
+    function normalize_classification_label(item) {
+        if (!item || typeof item !== 'object') {
+            return String(item || '');
+        }
+        if (CLASSIFICATION_LANGUAGE === 'ru') {
+            return item.name_ru || item.name || item.name_uz || '';
+        }
+        if (CLASSIFICATION_LANGUAGE === 'en') {
+            return item.name || item.name_uz || item.name_ru || '';
+        }
+        return item.name_uz || item.name || item.name_ru || '';
+    }
+
+    function add_classification(cl_id, cl_text, cl_area) {
+        const idStr = String(cl_id);
+        if (!idStr || !cl_text) {
+            return;
+        }
+        if ($(`#classifier [data-id="${idStr}"]`).length > 0) {
+            return;
+        }
+
+        const newItem = $('#classifier [data-example]').first().clone().removeClass('hidden');
+        newItem.attr('data-id', idStr);
+        newItem.attr('data-cl_text', cl_text);
+        newItem.attr('data-area', cl_area || 'linguistics');
+        newItem.find('div').last().text(cl_text);
+        newItem.removeAttr('data-example');
+        $('#classifier').append(newItem);
+    }
+
+    function get_selected_classification_ids() {
+        return $('#classifier .checked:not([data-example])').map(function() {
+            return String($(this).attr('data-id'));
+        }).get().filter(Boolean);
+    }
+
+    function render_selected_classifications() {
+        const selectedContainer = $('#selected_classifier');
+        if (!selectedContainer.length) {
+            return;
+        }
+
+        selectedContainer.find('button:not([data-example])').remove();
+        const selectedIds = get_selected_classification_ids();
+        selectedIds.forEach(id => {
+            const source = $(`#classifier [data-id="${id}"]`);
+            const title = source.length
+                ? (source.attr('data-cl_text') || source.find('div').text().trim())
+                : id;
+            const item = selectedContainer.find('[data-example]').first().clone().removeClass('hidden');
+            item.attr('data-id', id);
+            item.attr('data-cl_text', title);
+            item.find('div').last().text(title);
+            item.removeAttr('data-example');
+            selectedContainer.append(item);
+        });
+        update_classification_selected_counter();
+    }
+
+    function render_classification_areas() {
+        const container = $('#classification_areas');
+        if (!container.length) {
+            return;
+        }
+
+        container.empty();
+        CLASSIFICATION_AREAS.forEach(area => {
+            const isActive = activeClassificationArea === area.id;
+            const btn = `
+                <button type="button"
+                        data-area-id="${area.id}"
+                        class="classification-area-btn inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${isActive ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'}">
+                    ${area.title}
+                </button>
+            `;
+            container.append(btn);
+        });
+        update_classification_area_description();
+    }
+
+    function apply_classification_filters() {
+        const searchTerm = ($('[name="find_classification"]').val() || '').trim().toLowerCase();
+        $('#classifier button:not([data-example])').each(function() {
+            const area = $(this).attr('data-area');
+            const text = ($(this).attr('data-cl_text') || '').toLowerCase();
+            const isInActiveArea = !activeClassificationArea || area === activeClassificationArea;
+            const matchesSearch = !searchTerm || text.includes(searchTerm);
+            if (isInActiveArea && matchesSearch) {
+                $(this).removeClass('hidden');
+            } else {
+                $(this).addClass('hidden');
+            }
+        });
+    }
+
+    function set_active_classification_area(areaId) {
+        activeClassificationArea = areaId;
+        render_classification_areas();
+        apply_classification_filters();
+    }
+
+    function init_classifications(response) {
+        $('#classifier button:not([data-example])').remove();
+        render_classification_static_labels();
+
+        const apiClassifications = Array.isArray(response.classifications) ? response.classifications : [];
+        const sortLocale = CLASSIFICATION_LANGUAGE === 'ru' ? 'ru' : (CLASSIFICATION_LANGUAGE === 'en' ? 'en' : 'uz');
+        const normalized = apiClassifications.map(item => {
+            const id = String(item.id);
+            const label = normalize_classification_label(item);
+            const area = resolve_classification_area(id);
+            return { id, label, area };
+        }).sort((a, b) => a.label.localeCompare(b.label, sortLocale));
+
+        normalized.forEach(item => {
+            add_classification(item.id, item.label, item.area);
+        });
+
+        CLASSIFICATION_CUSTOM_ITEMS.forEach(item => {
+            add_classification(item.id, item.name, item.area);
+        });
+
+        if (!activeClassificationArea) {
+            activeClassificationArea = CLASSIFICATION_AREAS[0].id;
+        }
+        render_classification_areas();
+        apply_classification_filters();
+        render_selected_classifications();
+
+        if (submission_data && submission_data.classifications) {
+            submission_data.classifications.forEach(classificationId => {
+                const idStr = String(classificationId);
+                $(`#classifier [data-id="${idStr}"]`).addClass('checked');
+            });
+            render_selected_classifications();
+            apply_classification_filters();
         }
     }
 
@@ -1540,7 +2547,7 @@
         errors_list.forEach(function (item) {
             var error_info = error_data[item];
             if (error_info) {
-                add_error(item, error_info.title, error_info.section);
+                add_error(error_info.input_group || item, error_info.title, error_info.section);
             }
         });
 
@@ -1572,45 +2579,44 @@
 
     // Event handlers for keywords
     $(document).ready(function() {
-        const $input = $('[name="keywords"]');
-
-        // Handle input events (typing or pasting)
-        $input.on('input', function(event) {
-            const value = $(this).val();
-            if (value.endsWith(',')) {
-                const keyword = value.slice(0, -1).trim();
-                if (keyword) {
-                    add_keyword(keyword);
-                }
-                $(this).val('');
-            }
-        });
-
-        // Handle paste events
-        $input.on('paste', function(event) {
-            event.preventDefault();
-            const pastedText = (event.originalEvent.clipboardData || window.clipboardData).getData('text');
-            const keywords = pastedText.split(',');
-            keywords.forEach(keyword => {
-                const trimmed = keyword.trim();
-                if (trimmed) {
-                    add_keyword(trimmed);
-                }
-            });
-            $(this).val('');
-        });
-
-        // Handle Enter key
-        $input.on('keydown', function(event) {
-            if (event.key === 'Enter' || event.keyCode === 13) {
-                event.preventDefault();
-                const value = $(this).val().trim();
-                if (value) {
-                    add_keyword(value);
+        function bind_keyword_input($input) {
+            $input.on('input', function() {
+                const value = $(this).val();
+                if (value.endsWith(',')) {
+                    const keyword = value.slice(0, -1).trim();
+                    if (keyword) {
+                        add_keyword(keyword);
+                    }
                     $(this).val('');
                 }
-            }
-        });
+            });
+
+            $input.on('paste', function(event) {
+                event.preventDefault();
+                const pastedText = (event.originalEvent.clipboardData || window.clipboardData).getData('text');
+                const keywords = pastedText.split(/[,\n;]/);
+                keywords.forEach(keyword => {
+                    const trimmed = keyword.trim();
+                    if (trimmed) {
+                        add_keyword(trimmed);
+                    }
+                });
+                $(this).val('');
+            });
+
+            $input.on('keydown', function(event) {
+                if (event.key === 'Enter' || event.keyCode === 13) {
+                    event.preventDefault();
+                    const value = $(this).val().trim();
+                    if (value) {
+                        add_keyword(value);
+                        $(this).val('');
+                    }
+                }
+            });
+        }
+
+        bind_keyword_input($('[name="keywords"]'));
 
         // Handle keyword deletion
         $('#list_keywords').on('click', '[data-delete-keyword="keyword"]', function() {
@@ -1618,18 +2624,32 @@
         });
 
         // Handle classification selection
-        $('.classifier').on('click', 'button:not([data-example])', function() {
+        $('#classifier').on('click', 'button:not([data-example])', function() {
             if ($(this).hasClass('checked')) {
                 $(this).removeClass('checked');
-            } else if ($('.classifier > .checked').length < 3) {
+            } else {
                 $(this).addClass('checked');
             }
-            
-            if ($('.classifier > .checked').length >= 3) {
-                $(".classifier > button:not(.checked)").removeClass('group');
-            } else {
-                $(".classifier > button").addClass('group');
+            render_selected_classifications();
+            $('[data-input-group="classifications"]').removeClass('error');
+        });
+
+        $('#classification_areas').on('click', '.classification-area-btn', function() {
+            const areaId = String($(this).attr('data-area-id') || '');
+            if (!areaId) {
+                return;
             }
+            set_active_classification_area(areaId);
+        });
+
+        $('#selected_classifier').on('click', 'button:not([data-example])', function() {
+            const id = String($(this).attr('data-id') || '');
+            if (!id) {
+                return;
+            }
+            $(`#classifier [data-id="${id}"]`).removeClass('checked');
+            render_selected_classifications();
+            apply_classification_filters();
         });
     });
 
@@ -1683,8 +2703,9 @@
         $.ajax({
             url: '/api/getauthor',
             type: 'POST',
+            headers: { 'X-CSRF-Token': window.csrfToken || '' },
             contentType: 'application/json',
-            data: JSON.stringify({ orcid: orcid }),
+            data: JSON.stringify({ orcid: orcid, csrf_token: window.csrfToken || '' }),
             success: function(response) {
                 if (response.success) {
                     if (response.is_found) {
@@ -1723,11 +2744,13 @@
     }
 
     function get_author_by_data(searchData, callback) {
+        const payload = Object.assign({}, searchData, { csrf_token: window.csrfToken || '' });
         $.ajax({
             url: '/api/getauthor',
             type: 'POST',
+            headers: { 'X-CSRF-Token': window.csrfToken || '' },
             contentType: 'application/json',
-            data: JSON.stringify(searchData),
+            data: JSON.stringify(payload),
             success: function(response) {
                 if (response.success) {
                     if (response.is_found) {
@@ -1766,11 +2789,13 @@
     }
 
     function create_new_author(data, callback) {
+        const payload = Object.assign({}, data, { csrf_token: window.csrfToken || '' });
         $.ajax({
             url: '/api/createauthor',
             type: 'POST',
+            headers: { 'X-CSRF-Token': window.csrfToken || '' },
             contentType: 'application/json',
-            data: JSON.stringify(data),
+            data: JSON.stringify(payload),
             success: function(response) {
                 if (response.success) {
                     callback(response.author);
@@ -1807,11 +2832,13 @@
     }
 
     function add_coauthor(data, callback) {
+        const payload = Object.assign({}, data, { csrf_token: window.csrfToken || '' });
         $.ajax({
             url: '/api/getauthor',
             type: 'POST',
+            headers: { 'X-CSRF-Token': window.csrfToken || '' },
             contentType: 'application/json',
-            data: JSON.stringify(data),
+            data: JSON.stringify(payload),
             success: function(response) {
                 if (response.success) {
                     if (response.is_found) {
@@ -1912,9 +2939,12 @@
 
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('type', type);
+        formData.append('file_type', type);
         if (submission_data && submission_data.id) {
             formData.append('submission_id', submission_data.id);
+        }
+        if (window.csrfToken) {
+            formData.append('csrf_token', window.csrfToken);
         }
 
         $.ajax({
@@ -1926,6 +2956,13 @@
             success: function(response) {
                 btn.removeClass('processing');
                 if (response.success) {
+                    const downloadUrl = response.download || response.file_path || response.filename || '';
+                    const fileRef = response.file_ref || response.file_path || response.filename || '';
+                    if (!downloadUrl || !fileRef) {
+                        alert(response.message || 'Upload response is invalid');
+                        return;
+                    }
+
                     // Show success state
                     btn.addClass('uploaded');
                     setTimeout(() => {
@@ -1936,16 +2973,16 @@
                     const fileDisplay = $(`[data-file-${type}]`);
                     fileDisplay.removeClass('hidden')
                         .find('.download')
-                        .attr('href', response.download);
+                        .attr('href', downloadUrl);
 
                     // Save file path to hidden field
-                    $(`#file_${type}_path`).val(response.filename);
+                    $(`#file_${type}_path`).val(fileRef);
 
                     // Update submission data
                     if (!submission_data) submission_data = {};
                     submission_data[`file_${type}`] = {
-                        filename: response.filename,
-                        download: response.download
+                        title: fileRef,
+                        download: downloadUrl
                     };
 
                     // Remove error state if both files are uploaded
@@ -1956,9 +2993,32 @@
                     alert(response.message || 'Upload failed');
                 }
             },
-            error: function() {
+            error: function(xhr) {
                 btn.removeClass('processing');
-                alert('Upload failed. Please try again.');
+                let message = 'Upload failed. Please try again.';
+                if (xhr) {
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                        if (xhr.responseJSON.redirect) {
+                            window.location.href = xhr.responseJSON.redirect;
+                            return;
+                        }
+                    } else if (xhr.responseText) {
+                        try {
+                            const parsed = JSON.parse(xhr.responseText);
+                            if (parsed && parsed.message) {
+                                message = parsed.message;
+                                if (parsed.redirect) {
+                                    window.location.href = parsed.redirect;
+                                    return;
+                                }
+                            }
+                        } catch (err) {
+                            // Ignore parse failures and keep default message.
+                        }
+                    }
+                }
+                alert(message);
             }
         });
     }
@@ -1973,15 +3033,7 @@
 
     // Handle classification search
     $('[name="find_classification"]').on('input', function() {
-        const searchTerm = $(this).val().toLowerCase();
-        $('#classifier button:not([data-example])').each(function() {
-            const text = $(this).find('div').text().toLowerCase();
-            if (text.includes(searchTerm)) {
-                $(this).show();
-            } else {
-                $(this).hide();
-            }
-        });
+        apply_classification_filters();
     });
 </script>
 {% endblock %}

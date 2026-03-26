@@ -25,7 +25,10 @@ COPY . .
 RUN mkdir -p /var/www/journal/static/uploads/avatars \
     /var/www/journal/static/uploads/articles \
     /var/www/journal/static/uploads/documents \
-    /var/www/journal/static/uploads/issues
+    /var/www/journal/static/uploads/issues \
+    /var/www/journal/private_uploads/articles \
+    /var/www/journal/private_uploads/documents \
+    /var/www/journal/private_uploads/payments
 
 # Default command (will be overridden in docker-compose)
 CMD ["python", "mainweb/run.py"]

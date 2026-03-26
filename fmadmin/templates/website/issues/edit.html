@@ -45,7 +45,7 @@
                 <div class="card-body">
                     <input type="hidden" name="id" value="{{ issue.id }}">
                     <div class="mb-3 lang-field lang-en">
-                        <label class="form-label">{{ t("admin_label_title") }}</label>
+                        <label class="form-label">{{ t("admin_label_title") }} (en)</label>
                         <input type="text" class="form-control" name="title" value="{{ issue.title or '' }}">
                     </div>
                     <div class="mb-3 lang-field lang-uz">
@@ -80,7 +80,7 @@
                         </select>
                     </div>
                     <div class="mb-3 lang-field lang-en">
-                        <label class="form-label">{{ t("admin_label_short_info") }}</label>
+                        <label class="form-label">{{ t("admin_label_short_info") }} (en)</label>
                         <input type="text" class="form-control" name="shortinfo" value="{{ issue.shortinfo or '' }}">
                     </div>
                     <div class="mb-3 lang-field lang-uz">

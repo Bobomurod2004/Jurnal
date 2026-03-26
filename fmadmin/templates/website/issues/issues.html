@@ -74,7 +74,7 @@
         {% for issue in issues %}
         <tr>
           <td class="align-middle">{{ issue.vol_no }}-{{ issue.issue_no }}</td>
-          <td class="align-middle">{{ issue.title }}</td>
+          <td class="align-middle">{{ issue.title_display or issue.title }}</td>
           <td class="align-middle">{{ issue.created_at | datetimeformat }}</td>
           <td class="align-middle">
             {% if issue.subscription_enable %}

@@ -258,7 +258,7 @@
             </div>
 
             <!-- Pagination -->
-            {% if total_results > per_page %}
+            {% if total_pages > 1 %}
                 <div class="mt-8 flex justify-center">
                     <nav class="flex items-center gap-2">
                         {% if page > 1 %}
@@ -268,16 +268,14 @@
                             </a>
                         {% endif %}
                         
-                        {% for p in range(max(1, page-2), min(page+3, (total_results // per_page) + 2)) %}
-                            {% if p <= (total_results // per_page) + 1 %}
-                                <a href="{{ url_for('app__articles', page=p, **current_filters) }}" 
-                                   class="px-3 py-2 {% if p == page %}bg-blue-600 text-white{% else %}text-gray-500 hover:text-gray-700 hover:bg-gray-100{% endif %} rounded-lg transition-colors">
-                                    {{ p }}
-                                </a>
-                            {% endif %}
+                        {% for p in range(max(1, page-2), min(page+3, total_pages + 1)) %}
+                            <a href="{{ url_for('app__articles', page=p, **current_filters) }}" 
+                               class="px-3 py-2 {% if p == page %}bg-blue-600 text-white{% else %}text-gray-500 hover:text-gray-700 hover:bg-gray-100{% endif %} rounded-lg transition-colors">
+                                {{ p }}
+                            </a>
                         {% endfor %}
                         
-                        {% if page < (total_results // per_page) + 1 %}
+                        {% if page < total_pages %}
                             <a href="{{ url_for('app__articles', page=page+1, **current_filters) }}" 
                                class="px-3 py-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
                                 {{ t('next') }}

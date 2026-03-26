@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}Philology Matters{% endblock %}</title>
     <link rel="icon" href="/static/favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,83 +30,272 @@
     {% include 'components/footer/main.html' %}
     {% endblock %}
     
-    <script defer src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script defer src="https://unpkg.com/tailwindcss-intersect@2.x.x/dist/observer.min.js"></script>
+    <script>
+        window.csrfToken = {{ csrf_token|tojson }};
+        window.CSRF_HEADER = 'X-CSRF-Token';
+
+        (function () {
+            function isSameOrigin(url) {
+                if (!url) {
+                    return true;
+                }
+
+                try {
+                    const resolved = new URL(url, window.location.origin);
+                    return resolved.origin === window.location.origin;
+                } catch (error) {
+                    return true;
+                }
+            }
+
+            function requiresCsrf(method) {
+                const normalized = String(method || 'GET').toUpperCase();
+                return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(normalized);
+            }
+
+            function ensureFormToken(form) {
+                if (!form || form.method.toUpperCase() !== 'POST' || !window.csrfToken) {
+                    return;
+                }
+
+                let input = form.querySelector('input[name="csrf_token"]');
+                if (!input) {
+                    input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'csrf_token';
+                    form.appendChild(input);
+                }
+                input.value = window.csrfToken;
+            }
+
+            function ensureAllFormTokens() {
+                document.querySelectorAll('form').forEach(ensureFormToken);
+            }
+
+            if (window.jQuery) {
+                window.jQuery.ajaxPrefilter(function (options, originalOptions, jqXHR) {
+                    const method = (options.type || options.method || 'GET').toUpperCase();
+                    if (!requiresCsrf(method) || !isSameOrigin(options.url) || !window.csrfToken) {
+                        return;
+                    }
+                    jqXHR.setRequestHeader(window.CSRF_HEADER, window.csrfToken);
+                });
+            }
+
+            const nativeFetch = window.fetch ? window.fetch.bind(window) : null;
+            if (nativeFetch) {
+                window.fetch = function (input, init) {
+                    const request = input instanceof Request ? input : null;
+                    const requestUrl = request ? request.url : input;
+                    const requestMethod = (init && init.method) || (request ? request.method : 'GET');
+
+                    if (!requiresCsrf(requestMethod) || !isSameOrigin(requestUrl) || !window.csrfToken) {
+                        return nativeFetch(input, init);
+                    }
+
+                    if (request) {
+                        const requestInit = Object.assign({}, init || {});
+                        const headers = new Headers(request.headers || {});
+                        const overrideHeaders = new Headers(requestInit.headers || {});
+                        overrideHeaders.forEach(function (value, key) {
+                            headers.set(key, value);
+                        });
+                        if (!headers.has(window.CSRF_HEADER)) {
+                            headers.set(window.CSRF_HEADER, window.csrfToken);
+                        }
+                        requestInit.headers = headers;
+                        return nativeFetch(new Request(request, requestInit));
+                    }
+
+                    const requestInit = Object.assign({}, init || {});
+                    const headers = new Headers(requestInit.headers || {});
+                    if (!headers.has(window.CSRF_HEADER)) {
+                        headers.set(window.CSRF_HEADER, window.csrfToken);
+                    }
+                    requestInit.headers = headers;
+                    return nativeFetch(input, requestInit);
+                };
+            }
+
+            document.addEventListener('DOMContentLoaded', ensureAllFormTokens);
+            document.addEventListener('submit', function (event) {
+                ensureFormToken(event.target);
+            }, true);
+        })();
+    </script>
 
     {% block scripts %}{% endblock %}
 
     
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const dropdownTriggers = Array.from(document.querySelectorAll('.relative > button'));
-            const dropdownItems = dropdownTriggers
-                .map((button) => ({ button, panel: button.parentElement.querySelector(':scope > .absolute') }))
-                .filter((item) => item.panel);
+            const dropdownItems = Array.from(document.querySelectorAll('[data-dropdown-trigger]'))
+                .map(function (button) {
+                    return { button: button, panel: button.parentElement.querySelector(':scope > .absolute') };
+                })
+                .filter(function (item) {
+                    return item.panel;
+                });
 
-            function hideDropdown(panel) {
-                if (panel.classList.contains('hidden')) {
+            function positionDropdown(item) {
+                var rect = item.button.getBoundingClientRect();
+                item.panel.style.position = 'fixed';
+
+                var left = rect.left;
+                var top = rect.bottom + 8;
+                var viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+                var viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+                var panelWidth = item.panel.offsetWidth || 260;
+                var panelHeight = item.panel.offsetHeight || 320;
+
+                if (left + panelWidth > viewportWidth - 8) {
+                    left = Math.max(8, viewportWidth - panelWidth - 8);
+                }
+
+                if (top + panelHeight > viewportHeight - 8 && rect.top - panelHeight - 8 > 8) {
+                    top = rect.top - panelHeight - 8;
+                }
+
+                item.panel.style.left = left + 'px';
+                item.panel.style.top = top + 'px';
+            }
+
+            function hideDropdown(item) {
+                if (item.panel.classList.contains('hidden')) {
+                    item.button.setAttribute('aria-expanded', 'false');
                     return;
                 }
 
-                panel.classList.remove('dropdown-enter-active');
-                panel.classList.add('dropdown-leave');
+                item.panel.classList.remove('dropdown-enter-active');
+                item.panel.classList.add('dropdown-leave');
+                item.button.setAttribute('aria-expanded', 'false');
                 setTimeout(function () {
-                    panel.classList.remove('dropdown-leave');
-                    panel.classList.add('dropdown-leave-active', 'hidden');
-                    panel.style.position = '';
-                    panel.style.left = '';
-                    panel.style.top = '';
+                    item.panel.classList.remove('dropdown-leave');
+                    item.panel.classList.add('dropdown-leave-active', 'hidden');
+                    item.panel.style.position = '';
+                    item.panel.style.left = '';
+                    item.panel.style.top = '';
                 }, 10);
             }
 
-            function showDropdown(panel, button) {
-                var rect = button.getBoundingClientRect();
-                panel.style.position = 'fixed';
-                panel.style.left = rect.left + 'px';
-                panel.style.top = (rect.bottom + 8) + 'px';
-                panel.classList.remove('hidden', 'dropdown-leave-active');
-                panel.classList.add('dropdown-enter');
+            function showDropdown(item) {
+                positionDropdown(item);
+                item.panel.classList.remove('hidden', 'dropdown-leave-active');
+                item.panel.classList.add('dropdown-enter');
+                item.button.setAttribute('aria-expanded', 'true');
                 setTimeout(function () {
-                    panel.classList.remove('dropdown-enter');
-                    panel.classList.add('dropdown-enter-active');
+                    item.panel.classList.remove('dropdown-enter');
+                    item.panel.classList.add('dropdown-enter-active');
                 }, 10);
+            }
+
+            function closeAllDropdowns(exceptItem) {
+                dropdownItems.forEach(function (item) {
+                    if (!exceptItem || item.panel !== exceptItem.panel) {
+                        hideDropdown(item);
+                    }
+                });
             }
 
             dropdownItems.forEach(function (item) {
                 item.button.addEventListener('click', function (event) {
                     event.stopPropagation();
-
-                    dropdownItems.forEach(function (otherItem) {
-                        if (otherItem.panel !== item.panel) {
-                            hideDropdown(otherItem.panel);
-                        }
-                    });
-
                     if (item.panel.classList.contains('hidden')) {
-                        showDropdown(item.panel, item.button);
+                        closeAllDropdowns(item);
+                        showDropdown(item);
                     } else {
-                        hideDropdown(item.panel);
+                        hideDropdown(item);
                     }
                 });
-            });
-
-            document.addEventListener('click', function (event) {
-                if (!event.target.closest('.relative')) {
-                    dropdownItems.forEach(function (item) {
-                        hideDropdown(item.panel);
-                    });
-                }
             });
 
             window.addEventListener('scroll', function () {
                 dropdownItems.forEach(function (item) {
                     if (!item.panel.classList.contains('hidden')) {
-                        var rect = item.button.getBoundingClientRect();
-                        item.panel.style.left = rect.left + 'px';
-                        item.panel.style.top = (rect.bottom + 8) + 'px';
+                        positionDropdown(item);
                     }
                 });
             }, { passive: true });
+
+            const mobileMenuRoots = Array.from(document.querySelectorAll('[data-mobile-menu-root]'));
+
+            function closeMobileMenu(root) {
+                var button = root.querySelector('[data-mobile-menu-toggle]');
+                var panel = root.querySelector('[data-mobile-menu-panel]');
+                var icon = button ? button.querySelector('iconify-icon:last-child') : null;
+                if (!button || !panel) {
+                    return;
+                }
+                panel.classList.add('hidden');
+                button.setAttribute('aria-expanded', 'false');
+                if (icon) {
+                    icon.classList.remove('rotate-180');
+                }
+            }
+
+            mobileMenuRoots.forEach(function (root) {
+                var button = root.querySelector('[data-mobile-menu-toggle]');
+                var panel = root.querySelector('[data-mobile-menu-panel]');
+                var icon = button ? button.querySelector('iconify-icon:last-child') : null;
+
+                if (!button || !panel) {
+                    return;
+                }
+
+                button.addEventListener('click', function (event) {
+                    event.stopPropagation();
+                    var isHidden = panel.classList.contains('hidden');
+                    mobileMenuRoots.forEach(function (otherRoot) {
+                        if (otherRoot !== root) {
+                            closeMobileMenu(otherRoot);
+                        }
+                    });
+
+                    if (isHidden) {
+                        panel.classList.remove('hidden');
+                        button.setAttribute('aria-expanded', 'true');
+                        if (icon) {
+                            icon.classList.add('rotate-180');
+                        }
+                    } else {
+                        closeMobileMenu(root);
+                    }
+                });
+
+                panel.querySelectorAll('a').forEach(function (link) {
+                    link.addEventListener('click', function () {
+                        closeMobileMenu(root);
+                    });
+                });
+            });
+
+            function closeOverlaysOnOutsideClick(event) {
+                if (!event.target.closest('[data-dropdown-trigger]') && !event.target.closest('[role="menu"]')) {
+                    closeAllDropdowns();
+                }
+
+                mobileMenuRoots.forEach(function (root) {
+                    if (!event.target.closest('[data-mobile-menu-root]')) {
+                        closeMobileMenu(root);
+                    }
+                });
+            }
+
+            document.addEventListener('click', closeOverlaysOnOutsideClick);
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') {
+                    closeAllDropdowns();
+                    mobileMenuRoots.forEach(closeMobileMenu);
+                }
+            });
+
+            window.addEventListener('resize', function () {
+                closeAllDropdowns();
+                mobileMenuRoots.forEach(closeMobileMenu);
+            });
 
             const header = document.getElementById('header');
             const menu = document.getElementById('menu');

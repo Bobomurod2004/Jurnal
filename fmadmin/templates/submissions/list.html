@@ -15,27 +15,8 @@
     <div class="card-title">{{ t("admin_filter_title") }}</div>
   </div>
   <div class="card-body">
-    <form method="get" class="row g-3">
-      <div class="col-md-4">
-        <label class="form-label">{{ t("admin_label_status") }}</label>
-        <select class="form-select" name="status">
-          <option value="">{{ t("admin_option_all_statuses") }}</option>
-          <option value="draft" {% if status_filter=='draft' %}selected{% endif %}>{{ t("admin_status_draft") }}
-          </option>
-          <option value="in_process" {% if status_filter=='in_process' %}selected{% endif %}>{{
-            t("admin_status_in_process") }}</option>
-          <option value="published" {% if status_filter=='published' %}selected{% endif %}>{{
-            t("admin_status_published") }}</option>
-          <option value="rejected" {% if status_filter=='rejected' %}selected{% endif %}>{{ t("admin_status_rejected")
-            }}</option>
-        </select>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">{{ t("admin_label_user_id") }}</label>
-        <input type="number" class="form-control" name="user" value="{{ user_filter }}"
-          placeholder="{{ t('admin_placeholder_user_id') }}">
-      </div>
-      <div class="col-md-4 d-flex align-items-end">
+    <form method="get" class="row g-3" id="submission-filters">
+      <div class="col-12 d-flex align-items-end">
         <button type="submit" class="btn btn-primary">{{ t("admin_btn_apply") }}</button>
         <a href="{{ url_for('submissions') }}" class="btn btn-secondary ms-2">{{ t("admin_btn_reset") }}</a>
       </div>
@@ -50,12 +31,102 @@
         <tr>
           <th>ID</th>
           <th>{{ t("admin_submissions_col_user") }}</th>
+          <th>Muharrir</th>
           <th>{{ t("admin_submissions_col_title") }}</th>
+          <th>Yo'nalish</th>
+          <th>Biriktirilgan admin</th>
+          <th>Tasniflar</th>
           <th>{{ t("admin_label_status") }}</th>
           <th>{{ t("admin_submissions_col_author") }}</th>
           <th>{{ t("admin_submissions_col_date") }}</th>
+          <th>Jarayon</th>
           <th>{{ t("admin_submissions_col_review_status") }}</th>
           <th>{{ t("admin_col_actions") }}</th>
+        </tr>
+        <tr class="bg-light">
+          <th>
+            <input type="number" class="form-control form-control-sm" name="submission_id"
+              value="{{ submission_id_filter or '' }}" placeholder="ID" form="submission-filters">
+          </th>
+          <th>
+            <input type="number" class="form-control form-control-sm" name="user_id"
+              value="{{ user_id_filter or '' }}" placeholder="ID" form="submission-filters">
+          </th>
+          <th>
+            <select class="form-select form-select-sm" name="editor_id" form="submission-filters">
+              <option value="">{{ t("admin_label_all") }}</option>
+              {% for editor_user in editor_options %}
+              <option value="{{ editor_user.id }}" {% if editor_id_filter==editor_user.id %}selected{% endif %}>
+                {{ editor_user.name or editor_user.email }}
+              </option>
+              {% endfor %}
+            </select>
+          </th>
+          <th>
+            <input type="text" class="form-control form-control-sm" name="title"
+              value="{{ title_filter }}" placeholder="Sarlavha" form="submission-filters">
+          </th>
+          <th>
+            <select class="form-select form-select-sm" name="track" form="submission-filters">
+              <option value="">{{ t("admin_label_all") }}</option>
+              {% for track_key, track_label in admin_track_choices %}
+              <option value="{{ track_key }}" {% if track_filter==track_key %}selected{% endif %}>{{ track_label }}</option>
+              {% endfor %}
+            </select>
+          </th>
+          <th>
+            <select class="form-select form-select-sm" name="assigned_admin" form="submission-filters">
+              <option value="">{{ t("admin_label_all") }}</option>
+              {% for admin_user in admin_options %}
+              <option value="{{ admin_user.id }}" {% if assigned_admin_filter==admin_user.id %}selected{% endif %}>
+                {{ admin_user.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </th>
+          <th></th>
+          <th>
+            <select class="form-select form-select-sm" name="status" form="submission-filters">
+              <option value="">{{ t("admin_option_all_statuses") }}</option>
+              <option value="submitted" {% if status_filter=='submitted' %}selected{% endif %}>{{ t("admin_status_submitted") if t("admin_status_submitted") != "admin_status_submitted" else "Yuborilgan" }}</option>
+              <option value="in_process" {% if status_filter=='in_process' %}selected{% endif %}>{{ t("admin_status_in_process") }}</option>
+              <option value="published" {% if status_filter=='published' %}selected{% endif %}>{{ t("admin_status_published") }}</option>
+              <option value="rejected" {% if status_filter=='rejected' %}selected{% endif %}>{{ t("admin_status_rejected") }}</option>
+            </select>
+          </th>
+          <th>
+            <input type="text" class="form-control form-control-sm" name="author"
+              value="{{ author_filter }}" placeholder="Muallif" form="submission-filters">
+          </th>
+          <th>
+            <div class="d-flex gap-1">
+              <input type="date" class="form-control form-control-sm" name="created_from"
+                value="{{ created_from }}" form="submission-filters">
+              <input type="date" class="form-control form-control-sm" name="created_to"
+                value="{{ created_to }}" form="submission-filters">
+            </div>
+          </th>
+          <th>
+            <select class="form-select form-select-sm" name="workflow_stage" form="submission-filters">
+              <option value="">{{ t("admin_label_all") }}</option>
+              {% for stage_key, stage_label in workflow_stage_choices %}
+              <option value="{{ stage_key }}" {% if workflow_filter==stage_key %}selected{% endif %}>{{ stage_label }}</option>
+              {% endfor %}
+              <option value="rejected" {% if workflow_filter=='rejected' %}selected{% endif %}>Rad etilgan</option>
+            </select>
+          </th>
+          <th>
+            <select class="form-select form-select-sm" name="review_status" form="submission-filters">
+              <option value="">{{ t("admin_label_all") }}</option>
+              <option value="not_assigned" {% if review_filter=='not_assigned' %}selected{% endif %}>{{ t("admin_review_status_not_assigned") }}</option>
+              <option value="assigned" {% if review_filter=='assigned' %}selected{% endif %}>{{ t("admin_review_status_assigned") }}</option>
+              <option value="in_review" {% if review_filter=='in_review' %}selected{% endif %}>{{ t("admin_review_status_in_review") }}</option>
+              <option value="reviewed" {% if review_filter=='reviewed' %}selected{% endif %}>{{ t("admin_review_status_reviewed") }}</option>
+              <option value="approved" {% if review_filter=='approved' %}selected{% endif %}>{{ t("admin_review_status_approved") }}</option>
+              <option value="rejected" {% if review_filter=='rejected' %}selected{% endif %}>{{ t("admin_review_status_rejected") }}</option>
+            </select>
+          </th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -69,10 +140,29 @@
             ID: {{ submission.user_id or t("admin_label_not_specified") }}
             {% endif %}
           </td>
+          <td class="align-middle">{{ submission.assigned_editors_label }}</td>
           <td class="align-middle">{{ submission.title or t("admin_label_no_title") }}</td>
+          <td class="align-middle">
+            <span class="badge bg-blue-lt">{{ submission.submission_track_label }}</span>
+          </td>
+          <td class="align-middle">{{ submission.assigned_admin_name }}</td>
+          <td class="align-middle">
+            {% if submission.classification_items %}
+            {% for classification in submission.classification_items[:2] %}
+            <span class="badge bg-light text-dark me-1 mb-1">{{ classification.label }}</span>
+            {% endfor %}
+            {% if submission.classification_total > 2 %}
+            <span class="badge bg-secondary-lt">+{{ submission.classification_total - 2 }}</span>
+            {% endif %}
+            {% else %}
+            <span class="text-muted">{{ t("admin_label_not_specified") }}</span>
+            {% endif %}
+          </td>
           <td class="align-middle">
             {% if submission.status == 'draft' %}
             <span class="badge bg-secondary-lt">{{ t("admin_status_draft") }}</span>
+            {% elif submission.status == 'submitted' %}
+            <span class="badge bg-primary-lt">{{ t("admin_status_submitted") if t("admin_status_submitted") != "admin_status_submitted" else "Yuborilgan" }}</span>
             {% elif submission.status == 'published' %}
             <span class="badge bg-success-lt">{{ t("admin_status_published") }}</span>
             {% elif submission.status == 'in_process' %}
@@ -95,6 +185,19 @@
             {{ submission.created_date | timestamp_to_date }}
             {% else %}
             {{ t("admin_label_not_specified") }}
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            {% if submission.workflow_stage == 'published' %}
+            <span class="badge bg-success-lt">{{ submission.workflow_stage_label }}</span>
+            {% elif submission.workflow_stage == 'rejected' %}
+            <span class="badge bg-danger-lt">Rad etilgan</span>
+            {% elif submission.workflow_stage == 'recommended' %}
+            <span class="badge bg-indigo-lt">{{ submission.workflow_stage_label }}</span>
+            {% elif submission.workflow_stage == 'payment' %}
+            <span class="badge bg-orange-lt">{{ submission.workflow_stage_label }}</span>
+            {% else %}
+            <span class="badge bg-blue-lt">{{ submission.workflow_stage_label }}</span>
             {% endif %}
           </td>
           <td class="align-middle">
@@ -124,6 +227,7 @@
               <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal"
                 data-bs-target="#editSubmissionModal" data-submission-id="{{ submission.id }}"
                 data-submission-status="{{ submission.status or '' }}"
+                data-submission-workflow-stage="{{ submission.workflow_stage or '' }}"
                 data-submission-notes="{{ submission.notes or '' }}">
                 <i class="ti ti-edit"></i>
               </button>
@@ -148,17 +252,17 @@
       t("admin_pagination_of") }} <span>{{ total_submissions }}</span> {{ t("admin_pagination_entries") }}</p>
     <ul class="pagination m-0 ms-auto">
       <li class="page-item {% if page <= 1 %}disabled{% endif %}">
-        <a class="page-link" href="{{ url_for('submissions', page=page-1, status=status_filter, user=user_filter) }}"
+        <a class="page-link" href="{{ url_for('submissions', page=page-1) }}{{ pagination_query_string }}"
           tabindex="-1" aria-disabled="true">
           <i class="ti ti-chevron-left"></i>
         </a>
       </li>
       {% for p in range(1, total_pages+1) %}
       <li class="page-item {% if p == page %}active{% endif %}"><a class="page-link"
-          href="{{ url_for('submissions', page=p, status=status_filter, user=user_filter) }}">{{ p }}</a></li>
+          href="{{ url_for('submissions', page=p) }}{{ pagination_query_string }}">{{ p }}</a></li>
       {% endfor %}
       <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-        <a class="page-link" href="{{ url_for('submissions', page=page+1, status=status_filter, user=user_filter) }}">
+        <a class="page-link" href="{{ url_for('submissions', page=page+1) }}{{ pagination_query_string }}">
           <i class="ti ti-chevron-right"></i>
         </a>
       </li>
@@ -174,14 +278,14 @@
         <h5 class="modal-title">{{ t("admin_submissions_edit_title") }}</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <form id="editSubmissionForm" method="post" action="{{ url_for('submission_edit') }}">
+      <form id="editSubmissionForm" method="post" action="{{ url_for('submission_edit') }}" enctype="multipart/form-data">
         <div class="modal-body">
           <input type="hidden" id="submission_id" name="submission_id">
 
           <div class="mb-3">
             <label class="form-label">{{ t("admin_label_status") }}</label>
             <select class="form-select" id="submission_status" name="status" required>
-              <option value="draft">{{ t("admin_status_draft") }}</option>
+              <option value="submitted">{{ t("admin_status_submitted") if t("admin_status_submitted") != "admin_status_submitted" else "Yuborilgan" }}</option>
               <option value="in_process">{{ t("admin_status_in_process") }}</option>
               <option value="published">{{ t("admin_status_published") }}</option>
               <option value="rejected">{{ t("admin_status_rejected") }}</option>
@@ -189,9 +293,25 @@
           </div>
 
           <div class="mb-3">
+            <label class="form-label">Jarayon bosqichi</label>
+            <select class="form-select" id="submission_workflow_stage" name="workflow_stage">
+              {% for stage_key, stage_label in workflow_stage_choices %}
+              <option value="{{ stage_key }}">{{ stage_label }}</option>
+              {% endfor %}
+              <option value="rejected">Rad etilgan</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
             <label class="form-label">{{ t("admin_label_notes") }}</label>
             <textarea class="form-control" id="submission_notes" name="notes" rows="5"
               placeholder="{{ t('admin_placeholder_notes') }}"></textarea>
+          </div>
+
+          <div class="mb-3">
+            <div class="alert alert-info mb-0">
+              Antiplagiat hujjatini muallif dashboard orqali yuklaydi.
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -216,11 +336,13 @@
 
         const submissionId = button.getAttribute('data-submission-id');
         const submissionStatus = button.getAttribute('data-submission-status');
+        const submissionWorkflowStage = button.getAttribute('data-submission-workflow-stage');
         const submissionNotes = button.getAttribute('data-submission-notes');
 
         // Заполняем форму
         document.getElementById('submission_id').value = submissionId;
         document.getElementById('submission_status').value = submissionStatus;
+        document.getElementById('submission_workflow_stage').value = submissionWorkflowStage || 'waiting';
         document.getElementById('submission_notes').value = submissionNotes;
       });
     }

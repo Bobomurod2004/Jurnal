@@ -1,29 +1,74 @@
 {% macro editor(editor_info) %}
-    <div class="flex gap-4 mb-8">
-        {% if editor_info.image %}
-        <img src="{{ url_for( 'static', filename = editor_info.image ) }}" class="h-24 rounded-md" alt="">
-        {% else %}
-        <img src="{{ url_for( 'static', filename = 'person.png' ) }}" class="h-24 rounded-md" alt="">
-        {% endif %}
-        <div>
-            <div class="font-semibold text-gray-600">
-                {{ editor_info.title }}
+    {% set image_value = editor_info.image or editor_info.avatar %}
+    {% set full_name = editor_info.full_name or ((editor_info.name or '') ~ ' ' ~ (editor_info.second_name or '') ~ ' ' ~ (editor_info.father_name or ''))|trim %}
+    {% set title_value = editor_info.position or editor_info.title %}
+    {% set organization_value = editor_info.organization or editor_info.editor_specialization %}
+    {% set member_type_label = editor_info.member_type_label %}
+    {% set raw_email = (editor_info.email or '') | string %}
+    {% set email_value = raw_email if '@' in raw_email else '' %}
+    {% set orcid_value = editor_info.orcid %}
+    {% set editor_fallback = editorial_ui.editor_fallback if editorial_ui is defined and editorial_ui.editor_fallback else 'Editor' %}
+
+    <article class="editorial-member-card">
+        <div class="editorial-member-layout">
+            <div class="editorial-avatar-wrap">
+                    {% if image_value %}
+                    {% if image_value.startswith('http://') or image_value.startswith('https://') or image_value.startswith('/') %}
+                        <img src="{{ image_value }}" class="editorial-avatar" alt="{{ full_name or editor_fallback }}">
+                    {% else %}
+                        <img src="{{ url_for('static', filename=image_value) }}" class="editorial-avatar" alt="{{ full_name or editor_fallback }}">
+                    {% endif %}
+                {% else %}
+                    <img src="{{ url_for('static', filename='person.png') }}" class="editorial-avatar" alt="{{ full_name or editor_fallback }}">
+                {% endif %}
             </div>
-            <h4 class="text-xl  font-medium mb-1">{{ editor_info.full_name }}</h4>
-            <div class="text-sm text-gray-600 mb-2">
-                {{ editor_info.organization }}
-            </div>
-            {% if editor_info.biography %}
-            <div class="toggler_item">
-                <a href="javascript:;" class="inline-flex toggler_button text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 hover:cursor-pointer" id="menu-button" aria-expanded="true" aria-haspopup="true">
-                    <span data-off="{{ t('show_biography') }}" data-on="{{ t('hide_biography') }}">{{ t('show_biography') }}</span>
-                    <iconify-icon icon="tabler:chevron-down" data-icon-off="tabler:chevron-down" data-icon-on="tabler:chevron-up" class="text-lg text-fmmain"></iconify-icon>
-                </a>
-                <div class="ps-2 me-2 bg-gray-50 py-2 my-1 rounded hidden toggler_data">
-                    {{ editor_info.biography }}
+
+            <div class="editorial-member-content">
+                <div class="editorial-badges">
+                    {% if title_value %}
+                    <span class="editorial-badge editorial-badge-main">{{ title_value }}</span>
+                    {% endif %}
+                    {% if member_type_label and member_type_label != title_value %}
+                    <span class="editorial-badge">{{ member_type_label }}</span>
+                    {% endif %}
                 </div>
+
+                <h3 class="editorial-member-name">{{ full_name or editor_fallback }}</h3>
+
+                {% if email_value or orcid_value %}
+                <div class="editorial-member-meta">
+                    {% if email_value %}
+                    <a href="mailto:{{ email_value }}" class="editorial-meta-chip">
+                        <iconify-icon icon="tabler:mail" class="editorial-chip-icon"></iconify-icon>
+                        {{ email_value }}
+                    </a>
+                    {% endif %}
+                    {% if orcid_value %}
+                    <a href="https://orcid.org/{{ orcid_value }}" target="_blank" rel="noopener noreferrer" class="editorial-meta-chip">
+                        <iconify-icon icon="tabler:id-badge-2" class="editorial-chip-icon"></iconify-icon>
+                        ORCID
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                {% if title_value or organization_value %}
+                <div class="editorial-member-facts">
+                    {% if title_value %}
+                    <div class="editorial-fact">
+                        <span class="editorial-fact-label">{{ t('editorial_position_label') }}</span>
+                        <strong>{{ title_value }}</strong>
+                    </div>
+                    {% endif %}
+                    {% if organization_value %}
+                    <div class="editorial-fact">
+                        <span class="editorial-fact-label">{{ t('editorial_institution_label') }}</span>
+                        <strong>{{ organization_value }}</strong>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
         </div>
-    </div>
+    </article>
 {% endmacro %}
