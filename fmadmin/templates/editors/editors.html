@@ -54,6 +54,7 @@
           <th>{{ t("admin_users_name") }}</th>
           <th>{{ t("admin_users_email") }}</th>
           <th>{{ t("admin_label_specialization") }}</th>
+          <th>Biriktirilgan admin</th>
           <th>{{ t("admin_col_stats") }}</th>
           <th class="w-1"></th>
         </tr>
@@ -79,6 +80,13 @@
             {% endif %}
           </td>
           <td class="align-middle">
+            {% if editor.assigned_admin_name %}
+            {{ editor.assigned_admin_name }}
+            {% else %}
+            <span class="text-secondary">Biriktirilmagan</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">
             {% set stats = editor_stats.get(editor.id, {'total': 0, 'pending': 0, 'reviewed': 0, 'rejected': 0}) %}
             <div class="text-secondary">
               <small>
@@ -90,10 +98,18 @@
             </div>
           </td>
           <td class="align-middle">
-            <a href="{{ url_for('editor_edit', editor_id=editor.id) }}"
-              class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1">
-              {{ t("admin_btn_view") }}
-            </a>
+            <div class="d-flex gap-2 justify-content-end">
+              <a href="{{ url_for('editor_edit', editor_id=editor.id) }}"
+                class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1">
+                {{ t("admin_btn_view") }}
+              </a>
+              <form method="POST" action="{{ url_for('editor_delete', editor_id=editor.id) }}"
+                onsubmit="return confirm('Tahrirchini o\'chirishni tasdiqlaysizmi?')">
+                <button type="submit" class="btn btn-icon btn-outline-danger bg-danger-lt btn-sm px-2 py-1">
+                  {{ t("admin_btn_delete") }}
+                </button>
+              </form>
+            </div>
           </td>
         </tr>
         {% endfor %}

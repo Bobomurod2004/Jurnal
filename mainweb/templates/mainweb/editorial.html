@@ -2,87 +2,455 @@
 
 {% block title %}{{ t('website_title') }}{% endblock %}
 
-
 {% block content %}
 {% include 'components/headers/main_header.html' %}
 {% include 'components/hero/main_hero.html' %}
 {% from "components/items/editorial.html" import editor with context %}
-    <div class="mt-8 bg-white">
-        <div class="container py-8 mx-auto">
-            <div class="grid grid-cols-4 gap-4">
-                <div class="col-span-3">
-                    <h4 class="text-2xl font-medium mb-4">{{ t('editorial_board') }}</h4>
-                    <div class="mb-8">
-                        {{ t('editorial_board_description') }}
+
+<div class="editorial-page">
+    <div class="container mx-auto editorial-container">
+        <div class="editorial-layout">
+            <section class="editorial-main">
+                <header class="editorial-hero">
+                    <div class="editorial-hero-text">
+                        <h1>{{ t('editorial_board') }}</h1>
+                        <p>{{ t('editorial_board_description') }}</p>
                     </div>
-
-                    {% for editor_data in editors %}
-                    {{ editor(editor_data) }}
-                    {% endfor %}
-
-                    
-
-    
-                </div>
-                <div class="border-s border-gray-100 px-4">
-                    <div class="">
-
-                        <h4 class="text-lg font-medium mb-6">{{ t('pages') }}</h4>
-                        <div class="flex flex-col text-sm">
-                            <a href="" class="text-blue-600 hover:text-blue-800 bg-gray-50 px-2 py-1 border-s-2 border-fmmain mb-2">{{ t('aims_and_goals') }}</a>
-                            <a href="" class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">{{ t('other_page') }}</a>
-                            <a href="" class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">{{ t('one_more_other_page') }}</a>
-                            <a href="" class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">{{ t('another_one') }}</a>
+                    <div class="editorial-stats">
+                        <div class="editorial-stat">
+                            <span class="editorial-stat-value">{{ total_editors or 0 }}</span>
+                            <span class="editorial-stat-label">{{ editorial_ui.total_members }}</span>
+                        </div>
+                        <div class="editorial-stat">
+                            <span class="editorial-stat-value">{{ total_groups or 0 }}</span>
+                            <span class="editorial-stat-label">{{ editorial_ui.sections }}</span>
                         </div>
                     </div>
+                </header>
+
+                {% if editor_groups %}
+                    {% for group in editor_groups %}
+                    <section class="editorial-group" id="group-{{ group.key }}">
+                        <div class="editorial-group-head">
+                            <h2>{{ group.label }}</h2>
+                            <span>{{ group.count }} {{ editorial_ui.members_suffix }}</span>
+                        </div>
+                        <div class="editorial-members-stack">
+                            {% for editor_data in group.members %}
+                            {{ editor(editor_data) }}
+                            {% endfor %}
+                        </div>
+                    </section>
+                    {% endfor %}
+                {% else %}
+                    <div class="editorial-empty">
+                        {{ editorial_ui.empty }}
+                    </div>
+                {% endif %}
+            </section>
+
+            <aside class="editorial-sidebar">
+                {% if editor_groups %}
+                <div class="editorial-side-card">
+                    <h3>{{ editorial_ui.sections_title }}</h3>
+                    <div class="editorial-side-list">
+                        {% for group in editor_groups %}
+                        <a href="#group-{{ group.key }}">
+                            <span>{{ group.label }}</span>
+                            <b>{{ group.count }}</b>
+                        </a>
+                        {% endfor %}
+                    </div>
                 </div>
+                {% endif %}
 
-            </div>
-
+                <div class="editorial-side-card">
+                    <h3>{{ t('pages') }}</h3>
+                    <div class="editorial-side-list">
+                        <a href="{{ url_for('app__page_alias', alias='aims_scope') }}">
+                            <span>{{ t('menu_aims_scope') }}</span>
+                            <iconify-icon icon="tabler:arrow-right"></iconify-icon>
+                        </a>
+                        <a href="{{ url_for('app__page_alias', alias='journal_info') }}">
+                            <span>{{ t('menu_journal_info') }}</span>
+                            <iconify-icon icon="tabler:arrow-right"></iconify-icon>
+                        </a>
+                        <a href="{{ url_for('app__page_alias', alias='editorial_policy') }}">
+                            <span>{{ t('menu_editorial_policy') }}</span>
+                            <iconify-icon icon="tabler:arrow-right"></iconify-icon>
+                        </a>
+                        <a href="{{ url_for('app__contact') }}">
+                            <span>{{ t('footer_contact') }}</span>
+                            <iconify-icon icon="tabler:arrow-right"></iconify-icon>
+                        </a>
+                    </div>
+                </div>
+            </aside>
         </div>
     </div>
-
-
+</div>
 {% endblock %}
+
 {% block scripts %}
+<style>
+    .editorial-page {
+        background: linear-gradient(180deg, #f7fbf9 0%, #f4f6f8 55%, #ffffff 100%);
+        padding: 2rem 0 3rem;
+    }
 
+    .editorial-container {
+        max-width: 1220px;
+    }
 
-<script>
-    const header = document.getElementById('header'); // Get the header element
-    const menu = document.getElementById('menu'); // Get the #menu element
+    .editorial-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 1.4rem;
+    }
 
-    window.addEventListener('scroll', function () {
-        const menuPosition = menu.getBoundingClientRect().top; // Get the position of #menu relative to the viewport
-        const scrollPosition = window.scrollY; // Current scroll position
+    .editorial-main {
+        min-width: 0;
+    }
 
-        if (menuPosition <= 0) {
-            // If #menu is in or above the viewport, show the header
-            header.classList.remove('hidden');
-        } else {
-            // If #menu is below the viewport, hide the header
-            header.classList.add('hidden');
+    .editorial-hero {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1.5rem;
+        border: 1px solid #dce8e1;
+        border-radius: 18px;
+        background: linear-gradient(145deg, #ffffff 0%, #eef8f2 90%);
+        margin-bottom: 1rem;
+    }
+
+    .editorial-hero-text h1 {
+        margin: 0 0 0.65rem;
+        font-size: 1.8rem;
+        line-height: 1.2;
+        letter-spacing: -0.015em;
+        color: #101828;
+    }
+
+    .editorial-hero-text p {
+        margin: 0;
+        color: #475467;
+        font-size: 1rem;
+        max-width: 680px;
+    }
+
+    .editorial-stats {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.55rem;
+        min-width: 170px;
+    }
+
+    .editorial-stat {
+        border-radius: 12px;
+        border: 1px solid #d2e8db;
+        background: #ffffff;
+        padding: 0.7rem 0.85rem;
+        text-align: center;
+    }
+
+    .editorial-stat-value {
+        display: block;
+        font-weight: 800;
+        font-size: 1.25rem;
+        color: #0f5132;
+    }
+
+    .editorial-stat-label {
+        display: block;
+        margin-top: 0.15rem;
+        color: #527266;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .editorial-group {
+        margin-bottom: 0.85rem;
+        padding: 1rem;
+        border-radius: 18px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        scroll-margin-top: 6.5rem;
+    }
+
+    .editorial-group-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.95rem;
+        padding-bottom: 0.7rem;
+        border-bottom: 1px solid #edf2f7;
+    }
+
+    .editorial-group-head h2 {
+        margin: 0;
+        font-size: 1.2rem;
+        color: #111827;
+        letter-spacing: -0.01em;
+    }
+
+    .editorial-group-head span {
+        padding: 0.22rem 0.58rem;
+        font-size: 0.8rem;
+        border-radius: 999px;
+        border: 1px solid #cae5d7;
+        background: #eef9f2;
+        color: #14532d;
+        white-space: nowrap;
+    }
+
+    .editorial-members-stack {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.72rem;
+    }
+
+    .editorial-member-card {
+        border: 1px solid #e3e8ee;
+        border-radius: 14px;
+        padding: 0.95rem;
+        background: #ffffff;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    .editorial-member-card:hover {
+        border-color: #c8d7cf;
+        box-shadow: 0 10px 24px rgba(17, 24, 39, 0.07);
+        transform: translateY(-1px);
+    }
+
+    .editorial-member-layout {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.9rem;
+    }
+
+    .editorial-avatar-wrap {
+        flex-shrink: 0;
+    }
+
+    .editorial-avatar {
+        width: 84px;
+        height: 96px;
+        border-radius: 12px;
+        object-fit: cover;
+        border: 1px solid #e3e8ee;
+        background: #f8fafc;
+    }
+
+    .editorial-member-content {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .editorial-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-bottom: 0.45rem;
+    }
+
+    .editorial-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        border: 1px solid #d4dde6;
+        background: #f8fafc;
+        color: #334155;
+    }
+
+    .editorial-badge-main {
+        border-color: #c5dfd2;
+        background: #eef9f3;
+        color: #14532d;
+        font-weight: 700;
+    }
+
+    .editorial-member-name {
+        margin: 0;
+        font-size: 1.32rem;
+        line-height: 1.25;
+        color: #0f172a;
+        letter-spacing: -0.015em;
+    }
+
+    .editorial-member-meta {
+        margin-top: 0.58rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .editorial-meta-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border-radius: 999px;
+        border: 1px solid #d8e1eb;
+        background: #f8fafc;
+        color: #1f2937;
+        font-size: 0.82rem;
+        padding: 0.26rem 0.64rem;
+        text-decoration: none;
+        word-break: break-word;
+    }
+
+    .editorial-meta-chip:hover {
+        border-color: #b9cbbe;
+        background: #edf9f2;
+        color: #14532d;
+    }
+
+    .editorial-chip-icon {
+        font-size: 0.93rem;
+    }
+
+    .editorial-member-facts {
+        margin-top: 0.62rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0.55rem;
+    }
+
+    .editorial-fact {
+        padding: 0.72rem 0.8rem;
+        border: 1px solid #e5ebf2;
+        border-radius: 12px;
+        background: #f9fbfc;
+    }
+
+    .editorial-fact-label {
+        display: block;
+        margin-bottom: 0.28rem;
+        color: #64748b;
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .editorial-fact strong {
+        display: block;
+        color: #0f172a;
+        font-size: 0.9rem;
+        line-height: 1.45;
+    }
+
+    .editorial-empty {
+        border-radius: 14px;
+        border: 1px dashed #cdd5df;
+        background: #ffffff;
+        padding: 1rem;
+        color: #64748b;
+        text-align: center;
+    }
+
+    .editorial-sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 0.85rem;
+        position: sticky;
+        top: 84px;
+        align-self: start;
+    }
+
+    .editorial-side-card {
+        border: 1px solid #dbe3ec;
+        border-radius: 16px;
+        background: #ffffff;
+        padding: 1rem;
+    }
+
+    .editorial-side-card h3 {
+        margin: 0 0 0.8rem;
+        font-size: 1.02rem;
+        color: #111827;
+    }
+
+    .editorial-side-list {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.38rem;
+    }
+
+    .editorial-side-list a {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.65rem;
+        border: 1px solid #e5eaf0;
+        border-radius: 10px;
+        padding: 0.52rem 0.64rem;
+        background: #f8fafc;
+        color: #1e293b;
+        text-decoration: none;
+        font-size: 0.9rem;
+        transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .editorial-side-list a:hover {
+        border-color: #bfd8ca;
+        background: #eef9f2;
+        color: #14532d;
+    }
+
+    .editorial-side-list a b {
+        display: inline-flex;
+        min-width: 1.45rem;
+        height: 1.45rem;
+        border-radius: 999px;
+        align-items: center;
+        justify-content: center;
+        background: #0f5132;
+        color: #ffffff;
+        font-size: 0.73rem;
+        font-weight: 700;
+    }
+
+    .editorial-side-list a iconify-icon {
+        font-size: 1rem;
+    }
+
+    @media (max-width: 1100px) {
+        .editorial-layout {
+            grid-template-columns: minmax(0, 1fr);
         }
-    });
-</script>
 
+        .editorial-sidebar {
+            position: static;
+        }
+    }
 
+    @media (max-width: 760px) {
+        .editorial-page {
+            padding: 1.4rem 0 2rem;
+        }
 
-<script>
-    $(document).ready(function () {
-        $('.toggler_item').on('click', '.toggler_button', function () {
-            const $clickedItem = $(this).closest('.toggler_item').find('.toggler_data');
-            $clickedItem.toggleClass('hidden');
-            var chtext = $(this).find('span');
-            var chicon = $(this).find('iconify-icon');
-            console.log( chicon.data('on'))
-            if ($clickedItem.hasClass('hidden')) {
-                chtext.text(chtext.data('off'))
-                chicon.attr('icon', chicon.data('icon-off'))
-            } else {
-                chtext.text(chtext.data('on'))
-                chicon.attr('icon', chicon.data('icon-on'))
-            }
-        });
-    });
-</script>
+        .editorial-hero {
+            flex-direction: column;
+        }
+
+        .editorial-stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .editorial-member-layout {
+            flex-direction: column;
+            gap: 0.7rem;
+        }
+
+        .editorial-avatar {
+            width: 76px;
+            height: 90px;
+        }
+    }
+</style>
 {% endblock %}

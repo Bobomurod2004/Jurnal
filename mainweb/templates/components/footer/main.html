@@ -80,6 +80,9 @@
                 <div class="py-1 text-gray-400 text-xs">
                     <div>{{ t('footer_copyright') }}</div>
                     <div>{{ t('footer_rights') }}</div>
+                    {% if app_version and app_version != '0.0.0' %}
+                    <div>Version {{ app_version }}</div>
+                    {% endif %}
                 </div>
             </div>
         </div>

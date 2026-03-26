@@ -12,11 +12,15 @@
         {% endif %}
       </h2>
       {% if editor.id != 0 %}
+      {% set assigned_admin = (active_admins | selectattr('id', 'equalto', editor.editor_admin_id) | list | first) %}
       <div class="page-subtitle">
         <div class="row">
           <div class="col-auto">
             <span class="badge bg-blue-lt">{{ editor.editor_specialization or t("admin_editor_spec_not_specified")
               }}</span>
+          </div>
+          <div class="col-auto">
+            <span class="badge bg-azure-lt">Admin: {{ assigned_admin.name if assigned_admin else 'biriktirilmagan' }}</span>
           </div>
           <div class="col-auto">
             <span class="text-secondary">{{ editor.email }}</span>
@@ -36,6 +40,13 @@
           <i class="ti ti-edit"></i>
           {{ t("admin_btn_edit") }}
         </a>
+        <form method="POST" action="{{ url_for('editor_delete', editor_id=editor.id) }}" class="d-inline-block"
+          onsubmit="return confirm('Tahrirchini o\'chirishni tasdiqlaysizmi?')">
+          <button type="submit" class="btn btn-danger">
+            <i class="ti ti-trash"></i>
+            {{ t("admin_btn_delete") }}
+          </button>
+        </form>
         {% endif %}
       </div>
     </div>
@@ -89,7 +100,21 @@
               placeholder="{{ t('admin_placeholder_specialization_examples') }}">
             <small class="form-hint">{{ t("admin_hint_specialization") }}</small>
           </div>
+          <div class="mb-3">
+            <label class="form-label">Biriktirilgan admin</label>
+            <select class="form-select" name="editor_admin_id">
+              <option value="">Tanlanmagan</option>
+              {% for admin_user in active_admins %}
+              <option value="{{ admin_user.id }}" {% if editor.editor_admin_id == admin_user.id %}selected{% endif %}>
+                {{ admin_user.name }} ({{ admin_user.email }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
         </div>
+      </div>
+
+      <div class="row">
         <div class="col-md-6">
           <div class="mb-3">
             <label class="form-label">{{ t("admin_label_password") }}</label>
@@ -236,6 +261,8 @@
           <td class="align-middle">
             {% if assignment.status == 'pending' %}
             <span class="badge bg-warning-lt">{{ t("admin_stats_pending_assignments") }}</span>
+            {% elif assignment.status == 'in_review' %}
+            <span class="badge bg-info-lt">Jarayonda</span>
             {% elif assignment.status == 'reviewed' %}
             <span class="badge bg-success-lt">{{ t("admin_stats_reviewed") }}</span>
             {% elif assignment.status == 'rejected' %}
@@ -256,7 +283,7 @@
           <td class="align-middle">
             <a href="{{ url_for('review_assignment', assignment_id=assignment.id) }}"
               class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1">
-              {% if assignment.status == 'pending' %}{{ t("admin_review_title_pending") }}{% else %}{{
+              {% if assignment.status in ['pending', 'in_review'] %}{{ t("admin_review_title_pending") }}{% else %}{{
               t("admin_btn_view") }}{% endif %}
             </a>
           </td>
@@ -327,6 +354,17 @@
               value="{{ editor.editor_specialization or '' }}"
               placeholder="{{ t('admin_placeholder_specialization_examples') }}">
             <small class="form-hint">{{ t("admin_hint_specialization") }}</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Biriktirilgan admin</label>
+            <select class="form-select" name="editor_admin_id">
+              <option value="">Tanlanmagan</option>
+              {% for admin_user in active_admins %}
+              <option value="{{ admin_user.id }}" {% if editor.editor_admin_id == admin_user.id %}selected{% endif %}>
+                {{ admin_user.name }} ({{ admin_user.email }})
+              </option>
+              {% endfor %}
+            </select>
           </div>
         </div>
         <div class="modal-footer">

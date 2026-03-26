@@ -9,12 +9,20 @@
       <h2 class="page-title">{{ t("admin_translations_title") }}</h2>
     </div>
     <div class="col-auto">
+      <button type="button" class="btn btn-primary me-2" id="create-translation-btn" data-bs-toggle="modal"
+        data-bs-target="#modal-edit-translation">
+        <i class="ti ti-plus"></i>
+        {{ t("admin_btn_add") }}
+      </button>
       <button type="button" class="btn btn-success" id="sync-translations-btn">
         <i class="ti ti-refresh"></i>
         {{ t("admin_btn_sync_translations") }}
       </button>
     </div>
   </div>
+</div>
+<div class="alert alert-info" role="alert">
+  {{ t("admin_translations_help_text") }}
 </div>
 <form method="get" action="/fmadmin/website/translations" class="mb-3">
   <div class="input-group">
@@ -71,7 +79,7 @@
       <div class="modal-body">
         <div class="mb-3">
           <label class="form-label">{{ t("admin_label_alias") }}</label>
-          <input type="text" class="form-control" id="edit-alias" readonly>
+          <input type="text" class="form-control" id="edit-alias">
         </div>
         <div class="mb-3">
           <label class="form-label">{{ t("admin_label_uzbek") }}</label>
@@ -106,42 +114,115 @@
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const editModal = document.getElementById('modal-edit-translation');
+    const createBtn = document.getElementById('create-translation-btn');
+    const saveBtn = document.getElementById('save-translation-btn');
+    const aliasInput = document.getElementById('edit-alias');
+    const uzInput = document.getElementById('edit-content-uz');
+    const ruInput = document.getElementById('edit-content-ru');
+    const enInput = document.getElementById('edit-content');
     let currentAlias = null;
+    let isCreateMode = false;
+
+    const showError = (message) => {
+      if (typeof showToast === 'function') {
+        showToast(message, 'error');
+      } else {
+        alert(message);
+      }
+    };
+
+    const showSuccess = (message) => {
+      if (typeof showToast === 'function') {
+        showToast(message, 'success');
+      }
+    };
+
+    const resetModal = () => {
+      aliasInput.value = '';
+      uzInput.value = '';
+      ruInput.value = '';
+      enInput.value = '';
+    };
+
+    createBtn.addEventListener('click', function () {
+      isCreateMode = true;
+      currentAlias = null;
+      resetModal();
+      aliasInput.removeAttribute('readonly');
+    });
+
     editModal.addEventListener('show.bs.modal', function (event) {
       const button = event.relatedTarget;
-      const alias = button.getAttribute('data-alias');
+      const alias = button ? button.getAttribute('data-alias') : null;
+      if (!alias) {
+        return;
+      }
+      isCreateMode = false;
       currentAlias = alias;
-      fetch(`/fmadmin/api/translation/${alias}`)
-        .then(r => r.json())
-        .then(data => {
-          document.getElementById('edit-alias').value = data.alias || '';
-          document.getElementById('edit-content-uz').value = data.content_uz || '';
-          document.getElementById('edit-content-ru').value = data.content_ru || '';
-          document.getElementById('edit-content').value = data.content || '';
+      aliasInput.setAttribute('readonly', 'readonly');
+      fetch(`/fmadmin/api/translation/${encodeURIComponent(alias)}`)
+        .then(r => r.json().then(data => ({ ok: r.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok || !data.success || !data.translation) {
+            showError(data.message || '{{ t("admin_msg_network_error_sync") }}');
+            return;
+          }
+          const translation = data.translation;
+          aliasInput.value = translation.alias || '';
+          uzInput.value = translation.content_uz || '';
+          ruInput.value = translation.content_ru || '';
+          enInput.value = translation.content || '';
+        })
+        .catch(() => {
+          showError('{{ t("admin_msg_network_error_sync") }}');
         });
     });
-    document.getElementById('save-translation-btn').onclick = function () {
-      fetch(`/fmadmin/api/translation/${currentAlias}`, {
+
+    saveBtn.onclick = function () {
+      const aliasValue = (aliasInput.value || '').trim();
+      if (!aliasValue) {
+        showError('{{ t("admin_label_alias") }}: {{ t("admin_msg_required") }}');
+        return;
+      }
+
+      const endpointAlias = isCreateMode ? aliasValue : currentAlias;
+      fetch(`/fmadmin/api/translation/${encodeURIComponent(endpointAlias)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content_uz: document.getElementById('edit-content-uz').value,
-          content_ru: document.getElementById('edit-content-ru').value,
-          content: document.getElementById('edit-content').value
+          content_uz: uzInput.value,
+          content_ru: ruInput.value,
+          content: enInput.value
         })
-      }).then(r => r.json()).then(data => {
-        if (data.success) {
+      }).then(r => r.json().then(data => ({ ok: r.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok || !data.success) {
+            showError(data.message || '{{ t("admin_msg_sync_error") }}');
+            return;
+          }
+          if (!data.synced && data.sync_message) {
+            showError(data.sync_message);
+            setTimeout(() => location.reload(), 300);
+            return;
+          }
+          showSuccess('{{ t("admin_msg_synchronized") }}');
           location.reload();
-        }
-      });
+        })
+        .catch(() => {
+          showError('{{ t("admin_msg_network_error_sync") }}');
+        });
     };
 
-    // Обработчик кнопки синхронизации
+    editModal.addEventListener('hidden.bs.modal', function () {
+      resetModal();
+      currentAlias = null;
+      isCreateMode = false;
+      aliasInput.setAttribute('readonly', 'readonly');
+    });
+
     document.getElementById('sync-translations-btn').onclick = function () {
       const btn = this;
       const originalText = btn.innerHTML;
-
-      // Показываем индикатор загрузки
       btn.innerHTML = '<i class="ti ti-loader-2 ti-spin"></i> {{ t("admin_msg_synchronizing") }}';
       btn.disabled = true;
 
@@ -149,49 +230,32 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })
-        .then(r => r.json())
-        .then(data => {
-          if (data.success) {
-            // Показываем успешное сообщение
+        .then(r => r.json().then(data => ({ ok: r.ok, data })))
+        .then(({ ok, data }) => {
+          if (ok && data.success) {
             btn.innerHTML = '<i class="ti ti-check"></i> {{ t("admin_msg_synchronized") }}';
             btn.className = 'btn btn-success';
-
-            // Показываем toast уведомление если есть
-            if (typeof showToast === 'function') {
-              showToast('{{ t("admin_msg_sync_success") }}', 'success');
-            }
-
-            // Возвращаем кнопку в исходное состояние через 3 секунды
+            showSuccess(data.message || '{{ t("admin_msg_sync_success") }}');
             setTimeout(() => {
               btn.innerHTML = originalText;
               btn.disabled = false;
             }, 3000);
-          } else {
-            // Показываем ошибку
-            btn.innerHTML = '<i class="ti ti-x"></i> {{ t("admin_label_error") }}';
-            btn.className = 'btn btn-danger';
-
-            if (typeof showToast === 'function') {
-              showToast(data.message || '{{ t("admin_msg_sync_error") }}', 'error');
-            }
-
-            // Возвращаем кнопку в исходное состояние через 3 секунды
-            setTimeout(() => {
-              btn.innerHTML = originalText;
-              btn.className = 'btn btn-success';
-              btn.disabled = false;
-            }, 3000);
+            return;
           }
+
+          btn.innerHTML = '<i class="ti ti-x"></i> {{ t("admin_label_error") }}';
+          btn.className = 'btn btn-danger';
+          showError(data.message || '{{ t("admin_msg_sync_error") }}');
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.className = 'btn btn-success';
+            btn.disabled = false;
+          }, 3000);
         })
-        .catch(error => {
-          console.error('Ошибка синхронизации:', error);
+        .catch(() => {
           btn.innerHTML = '<i class="ti ti-x"></i> {{ t("admin_msg_network_error") }}';
           btn.className = 'btn btn-danger';
-
-          if (typeof showToast === 'function') {
-            showToast('{{ t("admin_msg_network_error_sync") }}', 'error');
-          }
-
+          showError('{{ t("admin_msg_network_error_sync") }}');
           setTimeout(() => {
             btn.innerHTML = originalText;
             btn.className = 'btn btn-success';

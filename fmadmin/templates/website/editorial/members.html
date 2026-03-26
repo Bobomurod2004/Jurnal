@@ -1,0 +1,142 @@
+{% extends "basic.html" %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">{{ editorial_ui['page_title'] }}</h2>
+      <div class="text-secondary mt-1">{{ editorial_ui['page_subtitle'] }}</div>
+    </div>
+    <div class="col-auto ms-auto">
+      <a href="{{ url_for('editorial_member_edit', member_id=0) }}" class="btn btn-primary d-none d-sm-inline-block">
+        <i class="ti ti-plus"></i>
+        {{ editorial_ui['add_member'] }}
+      </a>
+    </div>
+  </div>
+</div>
+
+<form method="GET" action="{{ url_for('editorial_members') }}">
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <label class="form-label">{{ editorial_ui['label_name'] }}</label>
+      <input type="text" class="form-control" name="name" value="{{ search_name or '' }}" placeholder="{{ editorial_ui['search_placeholder'] }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">{{ editorial_ui['label_type'] }}</label>
+      <select class="form-select" name="member_type">
+        <option value="">{{ editorial_ui['all'] }}</option>
+        {% for opt in member_type_options %}
+        <option value="{{ opt.value }}" {% if search_member_type == opt.value %}selected{% endif %}>{{ opt.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">{{ editorial_ui['label_status'] }}</label>
+      <select class="form-select" name="status">
+        <option value="">{{ editorial_ui['all'] }}</option>
+        <option value="active" {% if search_status == 'active' %}selected{% endif %}>{{ editorial_ui['active'] }}</option>
+        <option value="inactive" {% if search_status == 'inactive' %}selected{% endif %}>{{ editorial_ui['inactive'] }}</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">&nbsp;</label>
+      <div class="d-flex justify-content-end gap-2">
+        <a href="{{ url_for('editorial_members') }}" class="btn btn-ghost-danger">{{ editorial_ui['clear'] }}</a>
+        <button class="btn btn-primary" type="submit">{{ editorial_ui['search'] }}</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="card mt-4">
+  <div class="table-responsive">
+    <table class="table card-table table-hover">
+      <thead>
+        <tr>
+          <th>{{ editorial_ui['label_name'] }}</th>
+          <th>{{ editorial_ui['label_type'] }}</th>
+          <th>{{ editorial_ui['label_position'] }}</th>
+          <th>{{ editorial_ui['label_organization'] }}</th>
+          <th class="text-center">{{ editorial_ui['label_sort'] }}</th>
+          <th class="text-center">{{ editorial_ui['label_status'] }}</th>
+          <th class="w-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for member in members %}
+        <tr>
+          <td class="align-middle">
+            <div class="d-flex align-items-center">
+              {% if member.image %}
+                {% if member.image.startswith('/') %}
+                <img src="{{ member.image }}" class="avatar avatar-sm me-2" alt="{{ member.full_name_display }}">
+                {% else %}
+                <img src="{{ url_for('static', filename=member.image) }}" class="avatar avatar-sm me-2" alt="{{ member.full_name_display }}">
+                {% endif %}
+              {% else %}
+              <span class="avatar avatar-sm me-2">{{ (member.full_name_display or 'A')[0] }}</span>
+              {% endif %}
+              <div>
+                <div class="fw-semibold">{{ member.full_name_display }}</div>
+                <div class="text-secondary small">{{ member.email or '-' }}</div>
+              </div>
+            </div>
+          </td>
+          <td class="align-middle"><span class="badge bg-blue-lt">{{ member.member_type_label }}</span></td>
+          <td class="align-middle">{{ member.position_display or '-' }}</td>
+          <td class="align-middle">{{ member.organization_display or '-' }}</td>
+          <td class="align-middle text-center">{{ member.sort_order or 0 }}</td>
+          <td class="align-middle text-center">
+            {% if member.is_active %}
+            <span class="badge bg-success-lt">{{ editorial_ui['active'] }}</span>
+            {% else %}
+            <span class="badge bg-secondary-lt">{{ editorial_ui['inactive'] }}</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            <div class="d-flex gap-2 justify-content-end">
+              <a href="{{ url_for('editorial_member_edit', member_id=member.id) }}" class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1">
+                {{ t("admin_btn_edit") }}
+              </a>
+              <form method="POST" action="{{ url_for('editorial_member_delete', member_id=member.id) }}"
+                onsubmit="return confirm({{ editorial_ui['confirm_delete']|tojson }})">
+                <button type="submit" class="btn btn-icon btn-outline-danger bg-danger-lt btn-sm px-2 py-1">
+                  {{ t("admin_btn_delete") }}
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="text-center text-secondary py-4">{{ editorial_ui['empty'] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer d-flex align-items-center">
+    <p class="m-0 text-secondary">
+      {{ editorial_ui['showing'] }}: <span>{{ members|length }}</span> / <span>{{ total_members }}</span>
+    </p>
+    <ul class="pagination m-0 ms-auto">
+      <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('editorial_members', page=page-1, name=search_name, member_type=search_member_type, status=search_status) }}">
+          <i class="ti ti-chevron-left"></i>
+        </a>
+      </li>
+      {% for p in range(1, total_pages + 1) %}
+      <li class="page-item {% if p == page %}active{% endif %}">
+        <a class="page-link" href="{{ url_for('editorial_members', page=p, name=search_name, member_type=search_member_type, status=search_status) }}">{{ p }}</a>
+      </li>
+      {% endfor %}
+      <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('editorial_members', page=page+1, name=search_name, member_type=search_member_type, status=search_status) }}">
+          <i class="ti ti-chevron-right"></i>
+        </a>
+      </li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

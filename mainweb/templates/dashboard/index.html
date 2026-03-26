@@ -4,72 +4,156 @@
 
 
 {% block dashboard_content %}
+{% set user_first = (session.user.name|decode_html) if session.user and session.user.name else '' %}
+{% set user_last = (session.user.second_name|decode_html) if session.user and session.user.second_name else '' %}
 
-    <!-- Welcome Section -->
-    <div class="rounded-2xl bg-gradient-to-r from-fmmain-light/40 to-white border border-fmmain/10 px-8 py-8 mb-8">
-        <div class="flex items-center gap-4 mb-3">
-            <div class="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-fmmain text-2xl">
-                <iconify-icon icon="solar:hand-shake-bold-duotone"></iconify-icon>
+<section class="mb-6 rounded-2xl border border-fmmain/20 bg-gradient-to-r from-fmmain-light/35 via-white to-white px-6 py-6">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <div class="text-xs font-semibold uppercase tracking-[0.14em] text-fmmain">
+                {{ t('my_account') if t('my_account') != 'my_account' else 'Shaxsiy kabinet' }}
             </div>
-            <div>
-                <h4 class="text-2xl font-bold text-gray-900">{{ t('welcome') }}, {{ session.user.name }} {{ session.user.second_name }}!</h4>
-                <p class="text-gray-600 text-sm mt-1">{{ t('control_info') }}</p>
-            </div>
+            <h1 class="mt-1 text-2xl font-bold text-gray-900">
+                {{ t('welcome') if t('welcome') != 'welcome' else 'Xush kelibsiz' }}, {{ user_first }} {{ user_last }}!
+            </h1>
+            <p class="mt-1 text-sm text-gray-600">
+                {{ t('dashboard_overview_text') if t('dashboard_overview_text') != 'dashboard_overview_text' else 'Quyida maqolalar, to`lovlar va profilingiz bo`yicha asosiy boshqaruvlar joylashgan.' }}
+            </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ url_for('app__dashboard_new_article') }}" class="inline-flex items-center gap-2 rounded-md bg-fmmain px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95">
+                <iconify-icon icon="solar:document-add-bold-duotone" class="text-base"></iconify-icon>
+                {{ t('submit_article') }}
+            </a>
+            <a href="{{ url_for('app__dashboard_articles') }}" class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:border-fmmain/40 hover:text-gray-900">
+                <iconify-icon icon="solar:paperclip-rounded-2-bold-duotone" class="text-base"></iconify-icon>
+                {{ t('my_articles') }}
+            </a>
         </div>
     </div>
+</section>
 
-    <!-- Dashboard Cards Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+<section class="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-5">
+    <article class="rounded-xl border border-gray-200 bg-white px-4 py-3">
+        <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500">
+            {{ t('my_articles') }}
+        </div>
+        <div class="mt-1 text-2xl font-bold text-gray-900">{{ dashboard_stats.total|default(0) }}</div>
+    </article>
+
+    <article class="rounded-xl border border-gray-200 bg-white px-4 py-3">
+        <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500">
+            {{ t('in_process') if t('in_process') != 'in_process' else 'Jarayonda' }}
+        </div>
+        <div class="mt-1 text-2xl font-bold text-blue-700">{{ dashboard_stats.in_progress|default(0) }}</div>
+    </article>
+
+    <article class="rounded-xl border border-gray-200 bg-white px-4 py-3">
+        <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500">
+            {{ t('published') if t('published') != 'published' else 'Nashr etilgan' }}
+        </div>
+        <div class="mt-1 text-2xl font-bold text-green-700">{{ dashboard_stats.published|default(0) }}</div>
+    </article>
+
+    <article class="rounded-xl border border-gray-200 bg-white px-4 py-3">
+        <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500">
+            {{ t('draft') if t('draft') != 'draft' else 'Qoralama' }}
+        </div>
+        <div class="mt-1 text-2xl font-bold text-amber-700">{{ dashboard_stats.drafts|default(0) }}</div>
+    </article>
+
+    <article class="rounded-xl border border-gray-200 bg-white px-4 py-3">
+        <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500">
+            {{ t('notifications') if t('notifications') != 'notifications' else 'Bildirishnomalar' }}
+        </div>
+        <div class="mt-1 text-2xl font-bold text-fuchsia-700">{{ dashboard_stats.unread_notifications|default(0) }}</div>
+    </article>
+</section>
+
+<section class="mb-8 rounded-2xl border border-gray-200 bg-white p-5">
+    <div class="mb-4 flex items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold text-gray-900">
+            {{ t('latest_submissions') if t('latest_submissions') != 'latest_submissions' else 'So`nggi yuborilgan maqolalar' }}
+        </h2>
+        <a href="{{ url_for('app__dashboard_articles') }}" class="text-sm font-semibold text-fmmain hover:underline">
+            {{ t('view_all') if t('view_all') != 'view_all' else 'Barchasini ko`rish' }}
+        </a>
+    </div>
+
+    {% if submissions %}
+    <div class="space-y-3">
+        {% for submission in submissions %}
+        <article class="rounded-xl border border-gray-100 bg-gray-50/40 p-4">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0">
+                    <h3 class="truncate text-sm font-semibold text-gray-900">{{ submission.title }}</h3>
+                    <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+                        <span>{{ t('created') }}: {{ submission.created_date|timestamp_to_date }}</span>
+                        {% if submission.workflow_stage_label %}
+                        <span class="font-medium text-fmmain">{{ submission.workflow_stage_label }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {% if submission.status == 'rejected' %}bg-red-100 text-red-700{% elif submission.status == 'published' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+                        {{ t(submission.status) if t(submission.status) != submission.status else submission.status }}
+                    </span>
+                    <a href="{{ url_for('app__dashboard_new_article') }}?id={{ submission.id }}" class="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:border-fmmain/40 hover:text-gray-900">
+                        <iconify-icon icon="solar:pen-new-square-bold-duotone" class="text-sm"></iconify-icon>
+                        {{ t('open') if t('open') != 'open' else 'Ochish' }}
+                    </a>
+                </div>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-600">
+        {{ t('no_articles_yet') if t('no_articles_yet') != 'no_articles_yet' else 'Hozircha maqolalar yo`q. Birinchi maqolangizni yuboring.' }}
+    </div>
+    {% endif %}
+</section>
+
+<section>
+    <h2 class="mb-4 text-lg font-semibold text-gray-900">
+        {{ t('quick_actions') if t('quick_actions') != 'quick_actions' else 'Tezkor bo`limlar' }}
+    </h2>
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <a href="{{ url_for('app__dashboard_articles') }}" class="dashboard-card group relative overflow-hidden" aria-label="{{ t('my_articles') }}">
             <div class="card-icon bg-blue-50 text-blue-600">
                 <iconify-icon icon="solar:paperclip-rounded-2-bold-duotone"></iconify-icon>
             </div>
             <div class="card-title group-hover:text-fmmain transition-colors">{{ t('my_articles') }}</div>
-            <div class="card-desc">{{ t('control_info') }}</div>
+            <div class="card-desc">{{ t('my_articles_desc') if t('my_articles_desc') != 'my_articles_desc' else 'Maqolalaringiz holatini ko`ring, tahrirlang va yuboring.' }}</div>
             <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl text-fmmain"></iconify-icon>
             </div>
         </a>
 
-        <a href="{{ url_for('app__dashboard_purchases') }}" class="dashboard-card group relative overflow-hidden" aria-label="{{ t('my_purchases') }}">
-            <div class="card-icon bg-green-50 text-green-600">
-                <iconify-icon icon="solar:cart-check-bold-duotone"></iconify-icon>
-            </div>
-            <div class="card-title group-hover:text-fmmain transition-colors">{{ t('my_purchases') }}</div>
-            <div class="card-desc">{{ t('control_info') }}</div>
-            <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl text-fmmain"></iconify-icon>
-            </div>
-        </a>
-
-        <a href="{{ url_for('app__dashboard_new_article') }}" class="dashboard-card group relative overflow-hidden" aria-label="{{ t('submit_article') }}">
-            <div class="card-icon bg-amber-50 text-amber-600">
-                <iconify-icon icon="solar:document-add-bold-duotone"></iconify-icon>
-            </div>
-            <div class="card-title group-hover:text-fmmain transition-colors">{{ t('submit_article') }}</div>
-            <div class="card-desc">{{ t('control_info') }}</div>
-            <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl text-fmmain"></iconify-icon>
-            </div>
-        </a>
-
-        <a href="{{ url_for('app__dashboard_payments') }}" class="dashboard-card group relative overflow-hidden" aria-label="{{ t('my_payments') }}">
+        <a href="{{ url_for('app__dashboard_purchases') }}" class="dashboard-card group relative overflow-hidden" aria-label="{{ t('my_payments') }}">
             <div class="card-icon bg-orange-50 text-orange-600">
                 <iconify-icon icon="solar:wallet-money-bold-duotone"></iconify-icon>
             </div>
-            <div class="card-title group-hover:text-fmmain transition-colors">{{ t('my_payments') }}</div>
-            <div class="card-desc">{{ t('control_info') }}</div>
+            <div class="card-title group-hover:text-fmmain transition-colors">{{ t('my_payments') if t('my_payments') != 'my_payments' else 'To`lovlar va xaridlar' }}</div>
+            <div class="card-desc">{{ t('my_payments_desc') if t('my_payments_desc') != 'my_payments_desc' else 'To`lovlar tarixini tekshiring va obuna bo`yicha amallarni bajaring.' }}</div>
             <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl text-fmmain"></iconify-icon>
             </div>
         </a>
 
-        <a href="{{ url_for('app__dashboard_guides') }}" class="dashboard-card group relative overflow-hidden" aria-label="{{ t('guides') }}">
-            <div class="card-icon bg-indigo-50 text-indigo-600">
-                <iconify-icon icon="solar:checklist-minimalistic-bold-duotone"></iconify-icon>
+        <a href="{{ url_for('app__dashboard_notifications') }}" class="dashboard-card group relative overflow-hidden" aria-label="{{ t('notifications') if t('notifications') != 'notifications' else 'Bildirishnomalar' }}">
+            <div class="card-icon bg-fuchsia-50 text-fuchsia-600">
+                <iconify-icon icon="solar:bell-bing-bold-duotone"></iconify-icon>
             </div>
-            <div class="card-title group-hover:text-fmmain transition-colors">{{ t('guides') }}</div>
-            <div class="card-desc">{{ t('control_info') }}</div>
+            <div class="card-title group-hover:text-fmmain transition-colors">
+                {{ t('notifications') if t('notifications') != 'notifications' else 'Bildirishnomalar' }}
+                {% if dashboard_stats.unread_notifications %}
+                <span class="ml-2 inline-flex items-center rounded-full bg-red-100 text-red-700 text-[10px] font-semibold px-2 py-0.5">
+                    {{ dashboard_stats.unread_notifications }}
+                </span>
+                {% endif %}
+            </div>
+            <div class="card-desc">{{ t('notifications_desc') if t('notifications_desc') != 'notifications_desc' else 'Admin va tizimdan kelgan muhim xabarlarni shu yerda ko`rasiz.' }}</div>
             <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl text-fmmain"></iconify-icon>
             </div>
@@ -80,11 +164,34 @@
                 <iconify-icon icon="solar:user-id-bold-duotone"></iconify-icon>
             </div>
             <div class="card-title group-hover:text-fmmain transition-colors">{{ t('my_profile') }}</div>
-            <div class="card-desc">{{ t('control_info') }}</div>
+            <div class="card-desc">{{ t('profile_desc') if t('profile_desc') != 'profile_desc' else 'Shaxsiy va muallif ma`lumotlaringizni yangilang.' }}</div>
+            <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl text-fmmain"></iconify-icon>
+            </div>
+        </a>
+
+        <a href="{{ url_for('app__dashboard_guides') }}" class="dashboard-card group relative overflow-hidden" aria-label="{{ t('guides') }}">
+            <div class="card-icon bg-indigo-50 text-indigo-600">
+                <iconify-icon icon="solar:checklist-minimalistic-bold-duotone"></iconify-icon>
+            </div>
+            <div class="card-title group-hover:text-fmmain transition-colors">{{ t('guides') }}</div>
+            <div class="card-desc">{{ t('guides_desc') if t('guides_desc') != 'guides_desc' else 'Maqola topshirish va to`lov bo`yicha qo`llanmalarni oching.' }}</div>
+            <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl text-fmmain"></iconify-icon>
+            </div>
+        </a>
+
+        <a href="{{ url_for('app__dashboard_new_article') }}" class="dashboard-card group relative overflow-hidden" aria-label="{{ t('submit_article') }}">
+            <div class="card-icon bg-amber-50 text-amber-600">
+                <iconify-icon icon="solar:document-add-bold-duotone"></iconify-icon>
+            </div>
+            <div class="card-title group-hover:text-fmmain transition-colors">{{ t('submit_article') }}</div>
+            <div class="card-desc">{{ t('submit_article_desc') if t('submit_article_desc') != 'submit_article_desc' else 'Yangi maqola yuborishni bosqichma-bosqich boshlang.' }}</div>
             <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xl text-fmmain"></iconify-icon>
             </div>
         </a>
     </div>
+</section>
 
 {% endblock %}

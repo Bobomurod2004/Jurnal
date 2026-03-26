@@ -598,6 +598,34 @@
     let contentList = contentListData;
     let ckeditorInstance = null;
 
+    function normalizeReferenceData(ref) {
+        const data = Object.assign({}, ref || {});
+        if (data.web_of_science_url === undefined && data.wos_link) {
+            data.web_of_science_url = data.wos_link;
+        }
+        if (data.google_scholar_url === undefined && data.gscholar_link) {
+            data.google_scholar_url = data.gscholar_link;
+        }
+        if (data.url === undefined && data.web_link) {
+            data.url = data.web_link;
+        }
+        if (data.source_title === undefined && data.resource) {
+            data.source_title = data.resource;
+        }
+        return data;
+    }
+
+    function normalizeCitationData(citation) {
+        const data = Object.assign({}, citation || {});
+        if (data.web_of_science_url === undefined && data.wos_link) {
+            data.web_of_science_url = data.wos_link;
+        }
+        if (data.google_scholar_url === undefined && data.gscholar_link) {
+            data.google_scholar_url = data.gscholar_link;
+        }
+        return data;
+    }
+
     // Добавляем SVG иконку (книга с плюсом)
     const bookPlusIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icon-tabler-book-plus" viewBox="0 0 24 24"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 6h6"/><path d="M9 12h6"/><path d="M9 18h6"/><path d="M15 15v6"/><path d="M12 18h6"/><path d="M5 4v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z"/></svg>';
 
@@ -670,11 +698,16 @@
         fetch(`/fmadmin/api/references/search?q=${encodeURIComponent(q)}&article_id=${articleId}`)
             .then(r => r.json())
             .then(data => {
-                if (!data.length) {
+                const refs = Array.isArray(data) ? data : (data.references || data.refs || []);
+                if (!Array.isArray(data) && data.success === false) {
+                    resultsDiv.innerHTML = '<div class="text-danger">{{ t("admin_msg_error_search") }}</div>';
+                    return;
+                }
+                if (!refs.length) {
                     resultsDiv.innerHTML = '<div class="text-muted">{{ t("admin_msg_no_results") }}</div>';
                     return;
                 }
-                resultsDiv.innerHTML = data.map(ref =>
+                resultsDiv.innerHTML = refs.map(ref =>
                     `<div class='list-group-item list-group-item-action' style='cursor:pointer' data-id='${ref.id}'>
             <div><b>${ref.title || ''}</b></div>
             <div class='small text-muted'>${ref.authors || ''}${ref.doi ? ' | DOI: ' + ref.doi : ''}</div>
@@ -721,21 +754,31 @@
                 article_id: articleId,
                 title,
                 resource,
+                source_title: resource,
                 authors,
                 doi,
                 doi_link,
                 wos_link,
+                web_of_science_url: wos_link,
                 scopus_link,
                 gscholar_link,
-                web_link
+                google_scholar_url: gscholar_link,
+                web_link,
+                url: web_link
             })
         })
             .then(r => r.json())
             .then(data => {
-                if (data && data.id) {
+                const ref = data && (data.reference || data.ref || data);
+                if (data && data.success === false) {
+                    errorDiv.textContent = data.error || '{{ t("admin_msg_error_add") }}';
+                    errorDiv.style.display = '';
+                    return;
+                }
+                if (ref && ref.id) {
                     const modal = bootstrap.Modal.getInstance(document.getElementById('customInsertModal'));
                     if (ckeditorInstance) {
-                        ckeditorInstance.execute('insertText', { text: '[[' + String(data.id) + ']]' });
+                        ckeditorInstance.execute('insertText', { text: '[[' + String(ref.id) + ']]' });
                     }
                     modal.hide();
                 } else {
@@ -867,32 +910,42 @@
         fetch(`/fmadmin/api/articles/${articleId}/references`)
             .then(response => response.json())
             .then(data => {
-                if (data.length === 0) {
+                const refs = Array.isArray(data) ? data : (data.refs || data.references || []);
+                if (!Array.isArray(data) && data.success === false) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">{{ t("admin_msg_error_loading") }}</td></tr>';
+                    return;
+                }
+                if (refs.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">{{ t("admin_msg_no_references") }}</td></tr>';
                     return;
                 }
 
-                tbody.innerHTML = data.map(ref => {
-                    const doiLink = ref.doi ? `https://doi.org/${ref.doi}` : (ref.doi_link || '');
+                tbody.innerHTML = refs.map(ref => {
+                    const normalizedRef = normalizeReferenceData(ref);
+                    const doiLink = normalizedRef.doi ? `https://doi.org/${normalizedRef.doi}` : (normalizedRef.doi_link || '');
+                    const wosLink = normalizedRef.web_of_science_url || '';
+                    const scopusLink = normalizedRef.scopus_link || '';
+                    const gscholarLink = normalizedRef.google_scholar_url || '';
+                    const webLink = normalizedRef.url || '';
                     return `
                 <tr>
-                    <td class="align-middle">${ref.id}</td>
-                    <td class="align-middle">${ref.title || ''}</td>
-                    <td class="align-middle">${ref.authors || ''}</td>
+                    <td class="align-middle">${normalizedRef.id}</td>
+                    <td class="align-middle">${normalizedRef.title || ''}</td>
+                    <td class="align-middle">${normalizedRef.authors || ''}</td>
                     <td class="align-middle">
-                        ${ref.doi ? `<a href="${doiLink}" target="_blank">${ref.doi}</a>` : ''}
+                        ${normalizedRef.doi ? `<a href="${doiLink}" target="_blank">${normalizedRef.doi}</a>` : ''}
                     </td>
                     <td class="align-middle">
                         <div class="btn-group">
                             ${doiLink ? `<a href="${doiLink}" target="_blank" class="btn btn-sm btn-outline-primary">DOI</a>` : ''}
-                            ${ref.wos_link ? `<a href="${ref.wos_link}" target="_blank" class="btn btn-sm btn-outline-info">WOS</a>` : ''}
-                            ${ref.scopus_link ? `<a href="${ref.scopus_link}" target="_blank" class="btn btn-sm btn-outline-warning">Scopus</a>` : ''}
-                            ${ref.gscholar_link ? `<a href="${ref.gscholar_link}" target="_blank" class="btn btn-sm btn-outline-success">Scholar</a>` : ''}
-                            ${ref.web_link ? `<a href="${ref.web_link}" target="_blank" class="btn btn-sm btn-outline-secondary">Web</a>` : ''}
+                            ${wosLink ? `<a href="${wosLink}" target="_blank" class="btn btn-sm btn-outline-info">WOS</a>` : ''}
+                            ${scopusLink ? `<a href="${scopusLink}" target="_blank" class="btn btn-sm btn-outline-warning">Scopus</a>` : ''}
+                            ${gscholarLink ? `<a href="${gscholarLink}" target="_blank" class="btn btn-sm btn-outline-success">Scholar</a>` : ''}
+                            ${webLink ? `<a href="${webLink}" target="_blank" class="btn btn-sm btn-outline-secondary">Web</a>` : ''}
                         </div>
                         <div class="btn-group ms-2">
-                            <button class="btn btn-sm btn-outline-primary" onclick="editReference(${ref.id})">{{ t("admin_btn_edit") }}</button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deleteReference(${ref.id})">{{ t("admin_btn_delete") }}</button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="editReference(${normalizedRef.id})">{{ t("admin_btn_edit") }}</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteReference(${normalizedRef.id})">{{ t("admin_btn_delete") }}</button>
                         </div>
                     </td>
                 </tr>
@@ -912,29 +965,39 @@
         fetch(`/fmadmin/api/articles/${articleId}/citations`)
             .then(response => response.json())
             .then(data => {
-                if (data.length === 0) {
+                const citations = Array.isArray(data) ? data : (data.citations || []);
+                if (!Array.isArray(data) && data.success === false) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">{{ t("admin_msg_error_loading") }}</td></tr>';
+                    return;
+                }
+                if (citations.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">{{ t("admin_msg_no_citations") }}</td></tr>';
                     return;
                 }
 
-                tbody.innerHTML = data.map(citation => {
-                    const doiLink = citation.doi ? `https://doi.org/${citation.doi}` : (citation.doi_link || '');
+                tbody.innerHTML = citations.map(citation => {
+                    const normalizedCitation = normalizeCitationData(citation);
+                    const doiLink = normalizedCitation.doi ? `https://doi.org/${normalizedCitation.doi}` : (normalizedCitation.doi_link || '');
+                    const wosLink = normalizedCitation.web_of_science_url || '';
+                    const scopusLink = normalizedCitation.scopus_link || '';
+                    const gscholarLink = normalizedCitation.google_scholar_url || '';
                     return `
                 <tr>
-                    <td class="align-middle">${citation.id}</td>
-                    <td class="align-middle">${citation.title || ''}</td>
-                    <td class="align-middle">${citation.authors || ''}</td>
-                    <td class="align-middle">${citation.journal || ''}</td>
-                    <td class="align-middle">${citation.year || ''}</td>
+                    <td class="align-middle">${normalizedCitation.id}</td>
+                    <td class="align-middle">${normalizedCitation.title || ''}</td>
+                    <td class="align-middle">${normalizedCitation.authors || ''}</td>
+                    <td class="align-middle">${normalizedCitation.journal || ''}</td>
+                    <td class="align-middle">${normalizedCitation.year || ''}</td>
                     <td class="align-middle">
                         <div class="btn-group">
                             ${doiLink ? `<a href="${doiLink}" target="_blank" class="btn btn-sm btn-outline-primary">DOI</a>` : ''}
-                            ${citation.wos_link ? `<a href="${citation.wos_link}" target="_blank" class="btn btn-sm btn-outline-info">WOS</a>` : ''}
-                            ${citation.scopus_link ? `<a href="${citation.scopus_link}" target="_blank" class="btn btn-sm btn-outline-warning">Scopus</a>` : ''}
+                            ${wosLink ? `<a href="${wosLink}" target="_blank" class="btn btn-sm btn-outline-info">WOS</a>` : ''}
+                            ${scopusLink ? `<a href="${scopusLink}" target="_blank" class="btn btn-sm btn-outline-warning">Scopus</a>` : ''}
+                            ${gscholarLink ? `<a href="${gscholarLink}" target="_blank" class="btn btn-sm btn-outline-success">Scholar</a>` : ''}
                         </div>
                         <div class="btn-group ms-2">
-                            <button class="btn btn-sm btn-outline-primary" onclick="editCitation(${citation.id})">{{ t("admin_btn_edit") }}</button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deleteCitation(${citation.id})">{{ t("admin_btn_delete") }}</button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="editCitation(${normalizedCitation.id})">{{ t("admin_btn_edit") }}</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteCitation(${normalizedCitation.id})">{{ t("admin_btn_delete") }}</button>
                         </div>
                     </td>
                 </tr>
@@ -996,13 +1059,21 @@
         fetch(`/fmadmin/api/references/${referenceId}`)
             .then(response => response.json())
             .then(data => {
-                document.getElementById('reference-id').value = data.id;
+                if (data && data.success === false) {
+                    throw new Error(data.message || 'Reference not found');
+                }
+                const ref = data && (data.reference || data.ref || data);
+                if (!ref) {
+                    throw new Error('Reference not found');
+                }
+                const normalizedRef = normalizeReferenceData(ref);
+                document.getElementById('reference-id').value = normalizedRef.id || '';
 
                 // Set values
                 const form = document.getElementById('reference-form');
                 form.querySelectorAll('input, select').forEach(input => {
-                    if (data[input.name] !== undefined) {
-                        input.value = data[input.name] || '';
+                    if (normalizedRef[input.name] !== undefined) {
+                        input.value = normalizedRef[input.name] || '';
                     }
                 });
 
@@ -1057,12 +1128,20 @@
         fetch(`/fmadmin/api/citations/${citationId}`)
             .then(response => response.json())
             .then(data => {
-                document.getElementById('citation-id').value = data.id;
+                if (data && data.success === false) {
+                    throw new Error(data.message || 'Citation not found');
+                }
+                const citation = data && (data.citation || data);
+                if (!citation) {
+                    throw new Error('Citation not found');
+                }
+                const normalizedCitation = normalizeCitationData(citation);
+                document.getElementById('citation-id').value = normalizedCitation.id || '';
                 // Set values
                 const form = document.getElementById('citation-form');
                 form.querySelectorAll('input, select').forEach(input => {
-                    if (data[input.name] !== undefined) {
-                        input.value = data[input.name] || '';
+                    if (normalizedCitation[input.name] !== undefined) {
+                        input.value = normalizedCitation[input.name] || '';
                     }
                 });
 

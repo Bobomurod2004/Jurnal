@@ -1,0 +1,105 @@
+{% extends "basic.html" %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">Bildirishnomalar</h2>
+      <div class="text-secondary">Jami: {{ total_notifications }} | O'qilmagan: {{ unread_count }}</div>
+    </div>
+    <div class="col-auto ms-auto d-print-none">
+      <form method="POST" action="{{ url_for('role_notification_read_all') }}">
+        <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
+        <button type="submit" class="btn btn-primary">
+          <i class="ti ti-checks me-1"></i>
+          Barchasini o'qildi deb belgilash
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="table-responsive">
+    <table class="table card-table table-hover">
+      <thead>
+        <tr>
+          <th>Sana</th>
+          <th>Sarlavha</th>
+          <th>Xabar</th>
+          <th>Yuborgan</th>
+          <th>Holat</th>
+          <th class="w-1">Amal</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if notifications %}
+        {% for item in notifications %}
+        {% set actor = actors_map.get(item.actor_user_id) %}
+        <tr class="{% if not item.is_read %}table-warning{% endif %}">
+          <td class="text-secondary small">{{ item.created_at | timestamp_to_date if item.created_at else '-' }}</td>
+          <td>
+            <div class="fw-semibold">{{ item.title }}</div>
+            {% if item.event_type %}
+            <div class="text-secondary small">{{ item.event_type }}</div>
+            {% endif %}
+          </td>
+          <td>{{ item.message }}</td>
+          <td>
+            {% if actor %}
+            {{ actor.name }} {{ actor.second_name or '' }}
+            {% else %}
+            <span class="text-secondary">Tizim</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if item.is_read %}
+            <span class="badge bg-success-lt">O'qilgan</span>
+            {% else %}
+            <span class="badge bg-warning-lt">Yangi</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="d-flex gap-2">
+              {% if item.action_url %}
+              <a href="{{ url_for('role_notification_open', notification_id=item.id) }}" class="btn btn-sm btn-outline-primary">Ochish</a>
+              {% endif %}
+              {% if not item.is_read %}
+              <form method="POST" action="{{ url_for('role_notification_read', notification_id=item.id) }}">
+                <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">O'qildi</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-center text-secondary py-4">Hozircha bildirishnoma yo'q.</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if total_pages > 1 %}
+  <div class="card-footer d-flex align-items-center">
+    <p class="m-0 text-secondary">Sahifa {{ page }} / {{ total_pages }}</p>
+    <ul class="pagination m-0 ms-auto">
+      <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('role_notifications', page=page-1) }}"><i class="ti ti-chevron-left"></i></a>
+      </li>
+      {% for p in range(1, total_pages+1) %}
+      <li class="page-item {% if p == page %}active{% endif %}">
+        <a class="page-link" href="{{ url_for('role_notifications', page=p) }}">{{ p }}</a>
+      </li>
+      {% endfor %}
+      <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('role_notifications', page=page+1) }}"><i class="ti ti-chevron-right"></i></a>
+      </li>
+    </ul>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

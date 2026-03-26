@@ -1,0 +1,231 @@
+{% extends "basic.html" %}
+
+{% block content %}
+<div class="page-header d-print-none mb-4">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">
+        {% if member.id == 0 %}
+        {{ editorial_ui['add_title'] }}
+        {% else %}
+        {{ member.full_name or member.full_name_uz or member.full_name_ru }}
+        {% endif %}
+      </h2>
+      <div class="text-secondary mt-1">{{ editorial_ui['edit_subtitle'] }}</div>
+    </div>
+    <div class="col-auto ms-auto">
+      <div class="btn-list">
+        <a href="{{ url_for('editorial_members') }}" class="btn btn-secondary">
+          <i class="ti ti-arrow-left"></i>
+          {{ editorial_ui['back_to_list'] }}
+        </a>
+        {% if member.id != 0 %}
+        <form method="POST" action="{{ url_for('editorial_member_delete', member_id=member.id) }}"
+              onsubmit="return confirm({{ editorial_ui['confirm_delete']|tojson }})">
+          <button type="submit" class="btn btn-danger">
+            <i class="ti ti-trash"></i>
+            {{ editorial_ui['delete'] }}
+          </button>
+        </form>
+        {% endif %}
+        <button form="editorial-member-form" type="submit" class="btn btn-primary">
+          <i class="ti ti-check"></i>
+          {{ editorial_ui['save'] }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<form id="editorial-member-form" method="POST" enctype="multipart/form-data"
+      action="{{ url_for('editorial_member_edit', member_id=member.id) }}">
+  <input type="hidden" name="current_image" value="{{ member.image or '' }}">
+
+  <div class="row justify-content-center">
+    <div class="col-lg-11">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">{{ editorial_ui['section_main'] }}</h3>
+        </div>
+        <div class="card-body">
+          <div class="alert alert-info" role="alert">
+            {{ editorial_ui['fill_note'] }}
+          </div>
+
+          <div class="mb-2 fw-semibold">{{ editorial_ui['field_full_name'] }}</div>
+          <div class="row">
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_full_name'] }} (EN / Default)</label>
+                <input type="text" class="form-control" name="full_name" value="{{ member.full_name or '' }}"
+                       placeholder="{{ editorial_ui['ph_full_name_en'] }}">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_full_name'] }} (UZ)</label>
+                <input type="text" class="form-control" name="full_name_uz" value="{{ member.full_name_uz or '' }}"
+                       placeholder="{{ editorial_ui['ph_full_name_uz'] }}">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_full_name'] }} (RU)</label>
+                <input type="text" class="form-control" name="full_name_ru" value="{{ member.full_name_ru or '' }}"
+                       placeholder="{{ editorial_ui['ph_full_name_ru'] }}">
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-2 fw-semibold">{{ editorial_ui['field_position'] }}</div>
+          <div class="row">
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_position'] }} (EN / Default)</label>
+                <input type="text" class="form-control" name="position" value="{{ member.position or '' }}"
+                       placeholder="{{ editorial_ui['ph_position_en'] }}">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_position'] }} (UZ)</label>
+                <input type="text" class="form-control" name="position_uz" value="{{ member.position_uz or '' }}"
+                       placeholder="{{ editorial_ui['ph_position_uz'] }}">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_position'] }} (RU)</label>
+                <input type="text" class="form-control" name="position_ru" value="{{ member.position_ru or '' }}"
+                       placeholder="{{ editorial_ui['ph_position_ru'] }}">
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-2 fw-semibold">{{ editorial_ui['field_organization'] }}</div>
+          <div class="row">
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_organization'] }} (EN / Default)</label>
+                <input type="text" class="form-control" name="organization" value="{{ member.organization or '' }}"
+                       placeholder="{{ editorial_ui['ph_org_en'] }}">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_organization'] }} (UZ)</label>
+                <input type="text" class="form-control" name="organization_uz" value="{{ member.organization_uz or '' }}"
+                       placeholder="{{ editorial_ui['ph_org_uz'] }}">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_organization'] }} (RU)</label>
+                <input type="text" class="form-control" name="organization_ru" value="{{ member.organization_ru or '' }}"
+                       placeholder="{{ editorial_ui['ph_org_ru'] }}">
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-2 fw-semibold">{{ editorial_ui['field_bio'] }}</div>
+          <div class="row">
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_bio'] }} (EN / Default)</label>
+                <textarea class="form-control" name="biography" rows="6" placeholder="{{ editorial_ui['ph_bio_en'] }}">{{ member.biography or '' }}</textarea>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_bio'] }} (UZ)</label>
+                <textarea class="form-control" name="biography_uz" rows="6" placeholder="{{ editorial_ui['ph_bio_uz'] }}">{{ member.biography_uz or '' }}</textarea>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_bio'] }} (RU)</label>
+                <textarea class="form-control" name="biography_ru" rows="6" placeholder="{{ editorial_ui['ph_bio_ru'] }}">{{ member.biography_ru or '' }}</textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_type'] }}</label>
+                <select class="form-select" name="member_type">
+                  {% for opt in member_type_options %}
+                  <option value="{{ opt.value }}" {% if member.member_type == opt.value %}selected{% endif %}>
+                    {{ opt.label }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_email'] }}</label>
+                <input type="email" class="form-control" name="email" value="{{ member.email or '' }}"
+                       placeholder="name@example.com">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_orcid'] }}</label>
+                <input type="text" class="form-control" name="orcid" value="{{ member.orcid or '' }}"
+                       placeholder="0000-0000-0000-0000">
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_image'] }}</label>
+                <input type="file" class="form-control" name="image" accept=".jpg,.jpeg,.png,.webp,image/*">
+                {% if member.image %}
+                <div class="mt-3 d-flex align-items-center gap-3">
+                  {% if member.image.startswith('/') %}
+                  <img src="{{ member.image }}" alt="{{ member.full_name or member.full_name_uz or member.full_name_ru or 'Member' }}"
+                       style="width: 84px; height: 84px; object-fit: cover; border-radius: 10px;">
+                  {% else %}
+                  <img src="{{ url_for('static', filename=member.image) }}" alt="{{ member.full_name or member.full_name_uz or member.full_name_ru or 'Member' }}"
+                       style="width: 84px; height: 84px; object-fit: cover; border-radius: 10px;">
+                  {% endif %}
+                  <label class="form-check m-0">
+                    <input class="form-check-input" type="checkbox" name="remove_image" value="1">
+                    <span class="form-check-label">{{ editorial_ui['remove_image'] }}</span>
+                  </label>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_sort'] }}</label>
+                <input type="number" class="form-control" name="sort_order" value="{{ member.sort_order or 0 }}" step="1">
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="mb-3">
+                <label class="form-label">{{ editorial_ui['field_state'] }}</label>
+                <label class="form-check form-switch mt-2">
+                  <input class="form-check-input" type="checkbox" name="is_active" value="1"
+                         {% if member.is_active %}checked{% endif %}>
+                  <span class="form-check-label">{{ editorial_ui['active'] }}</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer text-end">
+          <button type="submit" class="btn btn-primary">
+            <i class="ti ti-check"></i>
+            {{ editorial_ui['save'] }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}

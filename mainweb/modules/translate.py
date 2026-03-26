@@ -1,4 +1,5 @@
 # flake8: noqa
+from html import unescape
 from flask import session
 from .connector import PostgreSQLConnector
 from config import *
@@ -8,6 +9,10 @@ try:
     from .translations import EN as STATIC_EN, RU as STATIC_RU, UZ as STATIC_UZ
 except Exception:
     STATIC_EN, STATIC_RU, STATIC_UZ = {}, {}, {}
+try:
+    from .fallback_translations import EXTRA_STATIC_TRANSLATIONS
+except Exception:
+    EXTRA_STATIC_TRANSLATIONS = {'en': {}, 'ru': {}, 'uz': {}}
 
 dbc = PostgreSQLConnector(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASSWORD, database=DB_NAME)
 
@@ -22,6 +27,65 @@ _static_translations = {
     'ru': {k: v for k, v in STATIC_RU.items() if k != 'alias'},
     'uz': {k: v for k, v in STATIC_UZ.items() if k != 'alias'},
 }
+
+for _lang, _translations in EXTRA_STATIC_TRANSLATIONS.items():
+    _static_translations.setdefault(_lang, {}).update(_translations)
+
+
+def _decode_entities(value):
+    if isinstance(value, str):
+        decoded = value
+        for _ in range(3):
+            next_decoded = unescape(decoded)
+            if next_decoded == decoded:
+                break
+            decoded = next_decoded
+        return decoded
+    return value
+
+
+def _decode_record_strings(data):
+    for key, value in list(data.items()):
+        if isinstance(value, str):
+            data[key] = _decode_entities(value)
+    return data
+
+
+def _translation_is_usable(value, key):
+    if value is None:
+        return False
+
+    normalized = _decode_entities(str(value)).strip()
+    if not normalized:
+        return False
+
+    lowered = normalized.lower()
+    placeholders = {
+        str(key).strip().lower(),
+        str(key).replace('_', ' ').strip().lower(),
+        str(key).replace('_', '-').strip().lower(),
+    }
+    return lowered not in placeholders
+
+
+def _humanize_translation_key(key):
+    acronyms = {
+        'api': 'API',
+        'doi': 'DOI',
+        'eissn': 'E-ISSN',
+        'en': 'EN',
+        'id': 'ID',
+        'issn': 'ISSN',
+        'orcid': 'ORCID',
+        'pdf': 'PDF',
+        'ru': 'RU',
+        'uz': 'UZ',
+    }
+    tokens = [token for token in str(key).split('_') if token]
+    if tokens and tokens[0].lower() == 'admin':
+        tokens = tokens[1:]
+    pretty = [acronyms.get(token.lower(), token.capitalize()) for token in tokens]
+    return ' '.join(pretty) if pretty else str(key)
 
 def _load_translations_from_db():
     """Загружает переводы из базы данных с кешированием"""
@@ -46,9 +110,9 @@ def _load_translations_from_db():
 
                 for trans in translations:
                     alias = trans['alias']
-                    _translations_cache['en'][alias] = trans.get('content', '')
-                    _translations_cache['ru'][alias] = trans.get('content_ru', '')
-                    _translations_cache['uz'][alias] = trans.get('content_uz', '')
+                    _translations_cache['en'][alias] = _decode_entities(trans.get('content', ''))
+                    _translations_cache['ru'][alias] = _decode_entities(trans.get('content_ru', ''))
+                    _translations_cache['uz'][alias] = _decode_entities(trans.get('content_uz', ''))
 
                 _cache_timestamp = current_time
 
@@ -65,6 +129,7 @@ def _get_fallback_translations():
     return {
         'en': {
             'website_title': 'Philology Matters',
+            'dashboard': 'Dashboard',
             'login': 'Login',
             'register': 'Register',
             'my_articles': 'My Articles',
@@ -75,6 +140,7 @@ def _get_fallback_translations():
         },
         'ru': {
             'website_title': 'Филологические задачи',
+            'dashboard': 'Главная',
             'login': 'Вход',
             'register': 'Регистрация',
             'my_articles': 'Мои статьи',
@@ -85,6 +151,7 @@ def _get_fallback_translations():
         },
         'uz': {
             'website_title': 'Filologiya masalalari',
+            'dashboard': 'Bosh sahifa',
             'login': 'Kirish',
             'register': 'Ro\'yxatdan o\'tish',
             'my_articles': 'Mening maqolalarim',
@@ -97,9 +164,12 @@ def _get_fallback_translations():
 
 def translate(data):
     """Переводит поля объекта на текущий язык"""
+    if not data:
+        return data
+
     current_lang = session.get('language', 'en')
     if current_lang == 'en':
-        return data
+        return _decode_record_strings(data)
 
     # Create a list of keys to avoid dictionary size change during iteration
     fields = list(data.keys())
@@ -113,11 +183,13 @@ def translate(data):
 
         if current_lang == 'uz':
             if f'{field}_uz' in data:
-                data[field] = data.get(f'{field}_uz') or data.get(field) or ''
+                localized_value = data.get(f'{field}_uz')
+                data[field] = '' if localized_value is None else localized_value
                 keys_to_delete.append(f'{field}_uz')
         elif current_lang == 'ru':
             if f'{field}_ru' in data:
-                data[field] = data.get(f'{field}_ru') or data.get(field) or ''
+                localized_value = data.get(f'{field}_ru')
+                data[field] = '' if localized_value is None else localized_value
                 keys_to_delete.append(f'{field}_ru')
 
         # Always add unused language keys for deletion
@@ -131,7 +203,7 @@ def translate(data):
         if key in data:
             del data[key]
 
-    return data
+    return _decode_record_strings(data)
 
 def t(key):
     """Возвращает перевод для ключа на текущем языке"""
@@ -144,23 +216,23 @@ def t(key):
     # Get translation for current language
     if current_lang in translations_cache and key in translations_cache[current_lang]:
         translation = translations_cache[current_lang][key]
-        if translation:  # Проверяем, что перевод не пустой
-            return translation
+        if _translation_is_usable(translation, key):
+            return _decode_entities(translation)
 
     # Static fallback from local dictionaries for missing/incomplete DB entries
     static_lang = _static_translations.get(current_lang, {})
-    if key in static_lang and static_lang[key]:
-        return static_lang[key]
+    if key in static_lang and _translation_is_usable(static_lang[key], key):
+        return _decode_entities(static_lang[key])
 
     # Fallback to English if translation not found
     if key in translations_cache['en']:
         translation = translations_cache['en'][key]
-        if translation:
-            return translation
+        if _translation_is_usable(translation, key):
+            return _decode_entities(translation)
 
     static_en = _static_translations.get('en', {})
-    if key in static_en and static_en[key]:
-        return static_en[key]
+    if key in static_en and _translation_is_usable(static_en[key], key):
+        return _decode_entities(static_en[key])
 
     # If key not found anywhere, add it to database with content=alias
     if key not in translations_cache['en']:
@@ -184,8 +256,8 @@ def t(key):
         except Exception as e:
             print(f"Ошибка добавления алиаса перевода {key}: {e}")
 
-    # Return key itself if no translation found
-    return key
+    # Return a readable label instead of exposing raw translation keys
+    return _humanize_translation_key(key)
 
 def clear_translations_cache():
     """Очищает кеш переводов (для принудительного обновления)"""

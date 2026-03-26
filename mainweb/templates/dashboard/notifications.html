@@ -1,0 +1,82 @@
+{% extends 'basic_dashboard.html' %}
+
+{% block title %}{{ t('website_title') }} - {{ t('notifications') if t('notifications') != 'notifications' else 'Bildirishnomalar' }}{% endblock %}
+
+{% block dashboard_content %}
+<div class="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+    <div class="px-6 py-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+            <h3 class="text-xl font-semibold text-gray-900">{{ t('notifications') if t('notifications') != 'notifications' else 'Bildirishnomalar' }}</h3>
+            <p class="text-sm text-gray-500 mt-1">Jami: {{ total_notifications }} | O'qilmagan: {{ unread_count }}</p>
+        </div>
+        <form method="POST" action="{{ url_for('app__dashboard_notification_read_all') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
+            <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-fmmain px-4 py-2 text-sm font-semibold text-white hover:bg-fmmain-dark transition-colors">
+                <iconify-icon icon="solar:check-read-bold-duotone" class="text-lg"></iconify-icon>
+                Barchasini o'qildi qilish
+            </button>
+        </form>
+    </div>
+
+    {% if notifications %}
+    <div class="divide-y divide-gray-100">
+        {% for item in notifications %}
+        <div class="px-6 py-4 {% if not item.is_read %}bg-amber-50/50{% endif %}">
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        <h4 class="font-semibold text-gray-900">{{ item.title }}</h4>
+                        {% if not item.is_read %}
+                        <span class="inline-flex rounded-full bg-red-100 text-red-700 text-[10px] font-semibold px-2 py-0.5">Yangi</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1">{{ item.message }}</p>
+                    <p class="text-xs text-gray-400 mt-2">{{ item.created_at | timestamp_to_date if item.created_at else '' }}</p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    {% if item.action_url %}
+                    <a href="{{ url_for('app__dashboard_notification_open', notification_id=item.id) }}" class="inline-flex items-center gap-1 rounded-lg border border-fmmain/30 text-fmmain px-3 py-1.5 text-xs font-medium hover:bg-fmmain/10 transition-colors">
+                        <iconify-icon icon="solar:eye-bold-duotone" class="text-base"></iconify-icon>
+                        Ochish
+                    </a>
+                    {% endif %}
+                    {% if not item.is_read %}
+                    <form method="POST" action="{{ url_for('app__dashboard_notification_read', notification_id=item.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
+                        <button type="submit" class="inline-flex items-center gap-1 rounded-lg border border-gray-200 text-gray-700 px-3 py-1.5 text-xs font-medium hover:bg-gray-100 transition-colors">
+                            <iconify-icon icon="solar:check-read-bold-duotone" class="text-base"></iconify-icon>
+                            O'qildi
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="px-6 py-12 text-center">
+        <iconify-icon icon="solar:bell-off-bold-duotone" class="text-5xl text-gray-300 mb-3"></iconify-icon>
+        <p class="text-gray-500">Hozircha bildirishnomalar yo'q.</p>
+    </div>
+    {% endif %}
+
+    {% if total_pages > 1 %}
+    <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+        <p class="text-sm text-gray-500">Sahifa {{ page }} / {{ total_pages }}</p>
+        <div class="flex items-center gap-2">
+            <a href="{{ url_for('app__dashboard_notifications', page=page-1) }}"
+               class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm {% if page <= 1 %}pointer-events-none opacity-40{% endif %}">
+                Oldingi
+            </a>
+            <a href="{{ url_for('app__dashboard_notifications', page=page+1) }}"
+               class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm {% if page >= total_pages %}pointer-events-none opacity-40{% endif %}">
+                Keyingi
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

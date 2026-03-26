@@ -5,6 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <meta name="csrf-token" content="{{ csrf_token }}">
   <title>{{ t("admin_page_title_default") }}</title>
   <link href="/dist/js/tom-select/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet" />
   <link href="/dist/css/tabler.min.css?1740918423" rel="stylesheet" />
@@ -29,6 +30,8 @@
 </head>
 
 <body>
+  {% set fmadmin_user = session.fmadmin_user if session.fmadmin_user else none %}
+  {% set user_caps = fmadmin_user.capabilities if fmadmin_user and fmadmin_user.capabilities else {} %}
   <div class="page">
     <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
       <div class="container-fluid">
@@ -46,14 +49,15 @@
           <!-- BEGIN NAVBAR MENU -->
           <ul class="navbar-nav pt-lg-3">
             <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('index') }}">
+              <a class="nav-link d-flex justify-content-start align-items-center"
+                href="{% if fmadmin_user and fmadmin_user.rolename == 'editor' %}{{ url_for('editor_dashboard') }}{% else %}{{ url_for('index') }}{% endif %}">
                 <i class="ti ti-home fs-2 pe-2"></i>
                 <span class="nav-link-title">{{ t('admin_home') }}</span>
               </a>
             </li>
 
-            <!-- Раздел "Пользователи" только для администраторов -->
-            {% if session.fmadmin_user and session.fmadmin_user.rolename == 'admin' %}
+            <!-- Раздел "Пользователи" только для супер-админа -->
+            {% if user_caps.can_manage_users %}
             <li class="px-3 pt-4 pb-2 text-muted">
               <h4 class="m-0">{{ t('admin_users') }}</h4>
             </li>
@@ -78,10 +82,26 @@
                 <span class="nav-link-title">{{ t('admin_editors') }}</span>
               </a>
             </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('editorial_members') }}">
+                <i class="ti ti-users-group fs-2 pe-2"></i>
+                {% set _lang = (session.get('language') or 'uz') %}
+                <span class="nav-link-title">
+                  {% if _lang == 'ru' %}
+                  Редакционная коллегия
+                  {% elif _lang == 'en' %}
+                  Editorial Board
+                  {% else %}
+                  Tahrir hay'ati
+                  {% endif %}
+                </span>
+              </a>
+            </li>
             {% endif %}
 
             <!-- Раздел "Подачи" только для администраторов -->
-            {% if session.fmadmin_user and session.fmadmin_user.rolename == 'admin' %}
+            {% if user_caps.can_manage_submissions %}
             <li class="px-3 pt-4 pb-2 text-muted">
               <h4 class="m-0">{{ t('admin_submissions_section') }}</h4>
             </li>
@@ -103,10 +123,10 @@
             {% endif %}
 
             <!-- Назначения для редакторов и администраторов -->
-            {% if session.fmadmin_user and session.fmadmin_user.rolename in ['admin', 'editor'] %}
+            {% if user_caps.can_view_assignments %}
             <li class="px-3 pt-4 pb-2 text-muted">
               <h4 class="m-0">
-                {% if session.fmadmin_user.rolename == 'editor' %}
+                {% if fmadmin_user and fmadmin_user.rolename == 'editor' %}
                 {{ t('admin_my_tasks') }}
                 {% else %}
                 {{ t('admin_editor_tasks') }}
@@ -119,7 +139,7 @@
                 href="{{ url_for('editor_assignments') }}">
                 <i class="ti ti-clipboard-check fs-2 pe-2"></i>
                 <span class="nav-link-title">
-                  {% if session.fmadmin_user.rolename == 'editor' %}
+                  {% if fmadmin_user and fmadmin_user.rolename == 'editor' %}
                   {{ t('admin_my_assignments') }}
                   {% else %}
                   {{ t('admin_assignments') }}
@@ -127,10 +147,20 @@
                 </span>
               </a>
             </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('role_notifications') }}">
+                <i class="ti ti-bell fs-2 pe-2"></i>
+                <span class="nav-link-title">Bildirishnomalar</span>
+                {% if role_notifications_unread_count %}
+                <span class="badge bg-danger ms-auto">{{ role_notifications_unread_count }}</span>
+                {% endif %}
+              </a>
+            </li>
             {% endif %}
 
-            <!-- Раздел "Контент сайта" только для администраторов -->
-            {% if session.fmadmin_user and session.fmadmin_user.rolename == 'admin' %}
+            <!-- Разделы "Контент" и "Финансы" только для супер-админа -->
+            {% if user_caps.can_manage_content %}
             <li class="px-3 pt-4 pb-2 text-muted">
               <h4 class="m-0">{{ t('admin_content') }}</h4>
             </li>
@@ -177,6 +207,20 @@
               </a>
             </li>
 
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('home_videos') }}">
+                <i class="ti ti-video fs-2 pe-2"></i>
+                <span class="nav-link-title">Bosh sahifa videolari</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('payment_guide_settings') }}">
+                <i class="ti ti-receipt fs-2 pe-2"></i>
+                <span class="nav-link-title">To'lov yo'riqnomasi</span>
+              </a>
+            </li>
+
             <li class="px-3 pt-4 pb-2 text-muted">
               <h4 class="m-0">{{ t('admin_finance') }}</h4>
             </li>
@@ -205,6 +249,34 @@
         </button>
         <!-- END NAVBAR TOGGLER -->
         <div class="navbar-nav flex-row order-md-last">
+          <div class="nav-item dropdown me-2">
+            <a href="#" class="nav-link px-2" data-bs-toggle="dropdown" aria-label="Notifications">
+              <i class="ti ti-bell fs-3"></i>
+              {% if role_notifications_unread_count %}
+              <span class="badge bg-danger">{{ role_notifications_unread_count }}</span>
+              {% endif %}
+            </a>
+            <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow" style="min-width: 360px;">
+              <div class="dropdown-header d-flex justify-content-between align-items-center">
+                <span>Bildirishnomalar</span>
+                <a href="{{ url_for('role_notifications') }}" class="small">Barchasi</a>
+              </div>
+              {% if role_notifications_preview %}
+              {% for item in role_notifications_preview %}
+              <a href="{{ url_for('role_notification_open', notification_id=item.id) }}" class="dropdown-item {% if not item.is_read %}fw-bold{% endif %}">
+                <div class="d-flex flex-column">
+                  <span>{{ item.title }}</span>
+                  <span class="text-secondary small text-wrap">{{ item.message }}</span>
+                  <span class="text-secondary small">{{ item.created_at | timestamp_to_date if item.created_at else '' }}</span>
+                </div>
+              </a>
+              {% endfor %}
+              {% else %}
+              <div class="dropdown-item text-secondary">Hozircha bildirishnoma yo'q.</div>
+              {% endif %}
+            </div>
+          </div>
+
           <div class="nav-item dropdown me-3">
             <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
               {% if session.language == 'uz' %} O'zbekcha {% elif session.language == 'en' %} English {% else %} Русский
@@ -219,18 +291,20 @@
 
           <div class="nav-item dropdown">
             <a href="#" class="nav-link d-flex lh-1 p-0 px-2" data-bs-toggle="dropdown" aria-label="Open user menu">
-              {% if session.fmadmin_user %}
-              <span class="avatar avatar-sm">{{ session.fmadmin_user.name[0] if session.fmadmin_user.name else 'U'
+              {% if fmadmin_user %}
+              <span class="avatar avatar-sm">{{ fmadmin_user.name[0] if fmadmin_user.name else 'U'
                 }}</span>
               <div class="d-none d-xl-block ps-2">
-                <div>{{ session.fmadmin_user.name or t('admin_user_or_guest') }}</div>
+                <div>{{ fmadmin_user.name or t('admin_user_or_guest') }}</div>
                 <div class="mt-1 small text-secondary">
-                  {% if session.fmadmin_user.rolename == 'admin' %}
+                  {% if fmadmin_user.rolename == 'superadmin' %}
+                  Super Admin
+                  {% elif fmadmin_user.rolename == 'admin' %}
                   {{ t('admin_role_admin') }}
-                  {% elif session.fmadmin_user.rolename == 'editor' %}
+                  {% elif fmadmin_user.rolename == 'editor' %}
                   {{ t('admin_role_editor') }}
                   {% else %}
-                  {{ session.fmadmin_user.rolename or t('admin_user_or_guest') }}
+                  {{ fmadmin_user.rolename or t('admin_user_or_guest') }}
                   {% endif %}
                 </div>
               </div>
@@ -243,7 +317,7 @@
               {% endif %}
             </a>
             <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-              {% if session.fmadmin_user %}
+              {% if fmadmin_user %}
               <a href="#" class="dropdown-item">
                 <i class="ti ti-user me-2"></i>
                 {{ t('admin_profile') }}
@@ -288,7 +362,56 @@
 
   <!-- Global user info for JavaScript -->
   <script>
-    window.userRole = '{{ session.fmadmin_user.rolename if session.fmadmin_user else "guest" }}';
+    window.userRole = '{{ fmadmin_user.rolename if fmadmin_user else "guest" }}';
+    window.csrfToken = '{{ csrf_token }}';
+    window.CSRF_HEADER = 'X-CSRF-Token';
+
+    window.ensureCsrfField = function (form) {
+      if (!form || !window.csrfToken) {
+        return;
+      }
+      const method = (form.getAttribute('method') || 'GET').toUpperCase();
+      if (method === 'GET') {
+        const existing = form.querySelector('input[name="csrf_token"]');
+        if (existing) {
+          existing.remove();
+        }
+        return;
+      }
+      let input = form.querySelector('input[name="csrf_token"]');
+      if (!input) {
+        input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'csrf_token';
+        form.appendChild(input);
+      }
+      input.value = window.csrfToken;
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('form').forEach(function (form) {
+        window.ensureCsrfField(form);
+      });
+    });
+
+    document.addEventListener('submit', function (event) {
+      window.ensureCsrfField(event.target);
+    }, true);
+
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = function (input, init = {}) {
+      const requestInit = Object.assign({}, init);
+      const sourceMethod = (typeof input === 'object' && input && input.method) ? input.method : 'GET';
+      const method = (requestInit.method || sourceMethod || 'GET').toUpperCase();
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+        const headers = new Headers(requestInit.headers || {});
+        if (!headers.has(window.CSRF_HEADER) && window.csrfToken) {
+          headers.set(window.CSRF_HEADER, window.csrfToken);
+        }
+        requestInit.headers = headers;
+      }
+      return originalFetch(input, requestInit);
+    };
   </script>
 
   <!-- Author Search Modal -->
@@ -303,7 +426,10 @@
       document.querySelectorAll('textarea.ckeditor').forEach(function (textarea) {
         ClassicEditor.create(textarea, {
           ckfinder: {
-            uploadUrl: '/fmadmin/api/upload_image'
+            uploadUrl: '/fmadmin/api/upload_image',
+            headers: {
+              'X-CSRF-Token': window.csrfToken
+            }
           }
         }).catch(error => { });
       });

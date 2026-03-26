@@ -29,7 +29,7 @@
           <th class="text-center">{{ t("admin_label_amount_rub") }}</th>
           <th class="text-center">{{ t("admin_label_amount_uzs") }}</th>
           <th class="text-center">{{ t("admin_label_amount_usd") }}</th>
-          <th class="text-center">{{ t("admin_label_users") }}</th>
+          <th class="text-center">{{ t("admin_label_user_limit") }}</th>
           <th class="text-center">{{ t("admin_label_default") }}</th>
           <th class="text-center">{{ t("admin_label_for_verified") }}</th>
           <th class="w-1"></th>
@@ -45,7 +45,7 @@
             t("admin_label_per_month") }}{% endif %}</td>
           <td class="align-middle text-center">{{ tariff.price_usd }} $ {% if tariff.price_usd > 0 %}{{
             t("admin_label_per_month") }}{% endif %}</td>
-          <td class="align-middle text-center">{{ tariffs_user_count[tariff.id] }}</td>
+          <td class="align-middle text-center">{{ tariff.duration_days or tariff.user_limit or 0 }}</td>
           <td class="align-middle text-center">
             {% if tariff.is_default %}
             <i class="ti ti-check text-success"></i>
@@ -103,7 +103,7 @@
         <div class="mb-3"><label class="form-label">{{ t("admin_label_price_usd") }}</label><input type="number"
             class="form-control" id="add-price-usd"></div>
         <div class="mb-3"><label class="form-label">{{ t("admin_label_user_limit") }}</label><input type="number"
-            class="form-control" id="add-user-limit"></div>
+            class="form-control" id="add-duration-days" min="1" value="30"></div>
         <div class="mb-3 form-check"><input type="checkbox" class="form-check-input" id="add-is-default"><label
             class="form-check-label" for="add-is-default">{{ t("admin_label_default") }}</label></div>
         <div class="mb-3 form-check"><input type="checkbox" class="form-check-input" id="add-is-verified"><label
@@ -147,7 +147,7 @@
         <div class="mb-3"><label class="form-label">{{ t("admin_label_price_usd") }}</label><input type="number"
             class="form-control" id="edit-price-usd"></div>
         <div class="mb-3"><label class="form-label">{{ t("admin_label_user_limit") }}</label><input type="number"
-            class="form-control" id="edit-user-limit"></div>
+            class="form-control" id="edit-duration-days" min="1"></div>
         <div class="mb-3 form-check"><input type="checkbox" class="form-check-input" id="edit-is-default"><label
             class="form-check-label" for="edit-is-default">{{ t("admin_label_default") }}</label></div>
         <div class="mb-3 form-check"><input type="checkbox" class="form-check-input" id="edit-is-verified"><label
@@ -210,7 +210,8 @@
           price_rub: parseFloat(document.getElementById('add-price-rub').value) || 0,
           price_uzs: parseFloat(document.getElementById('add-price-uzs').value) || 0,
           price_usd: parseFloat(document.getElementById('add-price-usd').value) || 0,
-          user_limit: parseInt(document.getElementById('add-user-limit').value) || 0,
+          duration_days: parseInt(document.getElementById('add-duration-days').value) || 30,
+          user_limit: parseInt(document.getElementById('add-duration-days').value) || 30,
           is_default: document.getElementById('add-is-default').checked,
           is_verified: document.getElementById('add-is-verified').checked
         })
@@ -241,7 +242,7 @@
           document.getElementById('edit-price-rub').value = tariff.price_rub || 0;
           document.getElementById('edit-price-uzs').value = tariff.price_uzs || 0;
           document.getElementById('edit-price-usd').value = tariff.price_usd || 0;
-          document.getElementById('edit-user-limit').value = tariff.user_limit || 0;
+          document.getElementById('edit-duration-days').value = tariff.duration_days || tariff.user_limit || 30;
           document.getElementById('edit-is-default').checked = !!tariff.is_default;
           document.getElementById('edit-is-verified').checked = !!tariff.is_verified;
         }
@@ -264,7 +265,8 @@
           price_rub: parseFloat(document.getElementById('edit-price-rub').value) || 0,
           price_uzs: parseFloat(document.getElementById('edit-price-uzs').value) || 0,
           price_usd: parseFloat(document.getElementById('edit-price-usd').value) || 0,
-          user_limit: parseInt(document.getElementById('edit-user-limit').value) || 0,
+          duration_days: parseInt(document.getElementById('edit-duration-days').value) || 30,
+          user_limit: parseInt(document.getElementById('edit-duration-days').value) || 30,
           is_default: document.getElementById('edit-is-default').checked,
           is_verified: document.getElementById('edit-is-verified').checked
         })

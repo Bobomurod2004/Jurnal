@@ -37,6 +37,8 @@
                     <div class="col-sm-9">
                         {% if submission.status == 'draft' %}
                         <span class="badge bg-secondary-lt">{{ t("admin_status_draft") }}</span>
+                        {% elif submission.status == 'submitted' %}
+                        <span class="badge bg-primary-lt">{{ t("admin_status_submitted") if t("admin_status_submitted") != "admin_status_submitted" else "Yuborilgan" }}</span>
                         {% elif submission.status == 'published' %}
                         <span class="badge bg-success-lt">{{ t("admin_status_published") }}</span>
                         {% elif submission.status == 'in_process' %}
@@ -45,6 +47,90 @@
                         <span class="badge bg-danger-lt">{{ t("admin_status_rejected") }}</span>
                         {% else %}
                         <span class="badge bg-light">{{ submission.status or t("admin_label_not_specified") }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3">
+                        <strong>Jarayon:</strong>
+                    </div>
+                    <div class="col-sm-9">
+                        {% if submission.workflow_stage == 'published' %}
+                        <span class="badge bg-success-lt">{{ submission.workflow_stage_label }}</span>
+                        {% elif submission.workflow_stage == 'rejected' %}
+                        <span class="badge bg-danger-lt">Rad etilgan</span>
+                        {% elif submission.workflow_stage == 'recommended' %}
+                        <span class="badge bg-indigo-lt">{{ submission.workflow_stage_label }}</span>
+                        {% elif submission.workflow_stage == 'payment' %}
+                        <span class="badge bg-orange-lt">{{ submission.workflow_stage_label }}</span>
+                        {% else %}
+                        <span class="badge bg-blue-lt">{{ submission.workflow_stage_label }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3">
+                        <strong>Antiplagiat:</strong>
+                    </div>
+                    <div class="col-sm-9">
+                        {% if submission.anti_plagiarism_file %}
+                        <a href="{{ upload_access_url(submission.anti_plagiarism_file) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="ti ti-file"></i> Tekshirilgan fayl
+                        </a>
+                        {% if submission.anti_plagiarism_checked_at %}
+                        <div class="small text-secondary mt-1">
+                            Yangilangan: {{ submission.anti_plagiarism_checked_at | timestamp_to_date }}
+                        </div>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-danger">Tekshiruv fayli hali yuklanmagan</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3">
+                        <strong>Yo'nalish:</strong>
+                    </div>
+                    <div class="col-sm-9">
+                        <span class="badge bg-blue-lt">{{ submission.submission_track_label }}</span>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3">
+                        <strong>Tahriz holati:</strong>
+                    </div>
+                    <div class="col-sm-9">
+                        {% if submission.editor_review_status == 'not_assigned' %}
+                        <span class="badge bg-secondary-lt">{{ t("admin_review_status_not_assigned") }}</span>
+                        {% elif submission.editor_review_status == 'assigned' %}
+                        <span class="badge bg-warning-lt">{{ t("admin_review_status_assigned") }}</span>
+                        {% elif submission.editor_review_status == 'in_review' %}
+                        <span class="badge bg-info-lt">{{ t("admin_review_status_in_review") }}</span>
+                        {% elif submission.editor_review_status == 'reviewed' %}
+                        <span class="badge bg-primary-lt">{{ t("admin_review_status_reviewed") }}</span>
+                        {% elif submission.editor_review_status == 'approved' %}
+                        <span class="badge bg-success-lt">{{ t("admin_review_status_approved") }}</span>
+                        {% elif submission.editor_review_status == 'rejected' %}
+                        <span class="badge bg-danger-lt">{{ t("admin_review_status_rejected") }}</span>
+                        {% else %}
+                        <span class="badge bg-light">{{ submission.editor_review_status or t("admin_label_not_specified") }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3">
+                        <strong>Biriktirilgan admin:</strong>
+                    </div>
+                    <div class="col-sm-9">
+                        {% if assigned_admin %}
+                        {{ assigned_admin.name }} ({{ assigned_admin.email or '-' }})
+                        {% else %}
+                        <span class="text-muted">{{ t("admin_label_not_specified") }}</span>
                         {% endif %}
                     </div>
                 </div>
@@ -88,6 +174,26 @@
 
                 <div class="row mb-3">
                     <div class="col-sm-3">
+                        <strong>Tasniflar:</strong>
+                    </div>
+                    <div class="col-sm-9">
+                        {% if submission.classification_groups %}
+                        {% for group in submission.classification_groups %}
+                        <div class="mb-2">
+                            <div class="small text-muted mb-1">{{ group.area_label }}</div>
+                            {% for classification in group['items'] %}
+                            <span class="badge bg-light me-1 mb-1">{{ classification.label }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <span class="text-muted">{{ t("admin_label_not_specified") }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3">
                         <strong>{{ t("admin_label_word_count") }}:</strong>
                     </div>
                     <div class="col-sm-9">
@@ -99,17 +205,118 @@
 
         <div class="card mt-4">
             <div class="card-header">
+                <h3 class="card-title">Tahriz topshiriqlari</h3>
+                <div class="card-actions">
+                    {% if submission.file_anonymized and submission.anti_plagiarism_file and submission.status in ['submitted', 'in_process'] %}
+                    <a href="{{ url_for('assign_editors', submission_id=submission.id) }}" class="btn btn-sm btn-primary">
+                        <i class="ti ti-user-check"></i>
+                        Tahrirchi biriktirish
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body p-0">
+                {% if submission_assignments %}
+                <div class="table-responsive">
+                    <table class="table card-table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Tahrirchi</th>
+                                <th>Biriktirilgan</th>
+                                <th>Qabul muddati</th>
+                                <th>Topshirish muddati</th>
+                                <th>Holat</th>
+                                <th>Admin qarori</th>
+                                <th class="w-1">Amal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for assignment in submission_assignments %}
+                            {% set editor_user = assignment_editors_map.get(assignment.editor_id) %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex flex-column">
+                                        <span class="font-weight-medium">
+                                            {% if editor_user %}
+                                            {{ editor_user.name }} {{ editor_user.second_name or '' }}
+                                            {% else %}
+                                            ID: {{ assignment.editor_id }}
+                                            {% endif %}
+                                        </span>
+                                        {% if assignment.assignment_note %}
+                                        <span class="text-secondary small">{{ assignment.assignment_note }}</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>{{ assignment.assigned_at | timestamp_to_date if assignment.assigned_at else '-' }}</td>
+                                <td>
+                                    {{ assignment.acceptance_deadline_at | timestamp_to_datetime if assignment.acceptance_deadline_at else '-' }}
+                                    {% if assignment.status == 'pending' and assignment.acceptance_deadline_at and assignment.acceptance_remaining_seconds is not none and assignment.acceptance_remaining_seconds > 0 %}
+                                    <div class="text-secondary small">Qoldi: {{ assignment.acceptance_remaining_label }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ assignment.completion_deadline_at | timestamp_to_datetime if assignment.completion_deadline_at else '-' }}
+                                    {% if assignment.status in ['pending', 'in_review'] and assignment.completion_deadline_at and assignment.completion_remaining_seconds is not none and assignment.completion_remaining_seconds > 0 %}
+                                    <div class="text-secondary small">Qoldi: {{ assignment.completion_remaining_label }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if assignment.status == 'pending' %}
+                                    <span class="badge bg-warning-lt">Kutilmoqda</span>
+                                    {% elif assignment.status == 'in_review' %}
+                                    <span class="badge bg-info-lt">Jarayonda</span>
+                                    {% elif assignment.status == 'reviewed' %}
+                                    <span class="badge bg-success-lt">Yuborilgan</span>
+                                    {% elif assignment.status == 'rejected' %}
+                                    <span class="badge bg-danger-lt">Rad etish tavsiyasi</span>
+                                    {% else %}
+                                    <span class="badge bg-light">{{ assignment.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if assignment.admin_decision == 'accepted' %}
+                                    <span class="badge bg-success-lt">Qabul qilingan</span>
+                                    {% elif assignment.admin_decision == 'revision_requested' %}
+                                    <span class="badge bg-warning-lt">Qayta ishlash so'ralgan</span>
+                                    {% elif assignment.status in ['reviewed', 'rejected'] %}
+                                    <span class="badge bg-blue-lt">Kutilmoqda</span>
+                                    {% else %}
+                                    <span class="text-secondary">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('review_assignment', assignment_id=assignment.id) }}"
+                                        class="btn btn-sm btn-outline-primary">
+                                        Ochish
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-3 text-secondary">
+                    Bu maqola uchun hali tahrirchi biriktirilmagan.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
                 <h3 class="card-title">{{ t("admin_section_admin_response") }}</h3>
             </div>
             <div class="card-body">
-                <form id="adminResponseForm" method="post" action="/fmadmin/submissions/edit">
+                <form id="adminResponseForm" method="post" action="/fmadmin/submissions/edit" enctype="multipart/form-data">
                     <input type="hidden" name="submission_id" value="{{ submission.id }}">
 
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_status") }}</label>
                         <select class="form-select" name="status" required>
-                            <option value="draft" {% if submission.status=='draft' %}selected{% endif %}>{{
-                                t("admin_status_draft") }}</option>
+                            <option value="submitted" {% if submission.status=='submitted' %}selected{% endif %}>{{
+                                t("admin_status_submitted") if t("admin_status_submitted") != "admin_status_submitted" else "Yuborilgan" }}</option>
                             <option value="in_process" {% if submission.status=='in_process' %}selected{% endif %}>{{
                                 t("admin_status_in_process") }}</option>
                             <option value="published" {% if submission.status=='published' %}selected{% endif %}>{{
@@ -120,9 +327,25 @@
                     </div>
 
                     <div class="mb-3">
+                        <label class="form-label">Jarayon bosqichi</label>
+                        <select class="form-select" name="workflow_stage">
+                            {% for stage_key, stage_label in workflow_stage_choices %}
+                            <option value="{{ stage_key }}" {% if submission.workflow_stage==stage_key %}selected{% endif %}>{{ stage_label }}</option>
+                            {% endfor %}
+                            <option value="rejected" {% if submission.workflow_stage=='rejected' %}selected{% endif %}>Rad etilgan</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_admin_notes") }}</label>
                         <textarea class="form-control" name="notes" rows="4"
                             placeholder="{{ t('admin_placeholder_notes') }}">{{ submission.notes or '' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="alert alert-info mb-0">
+                            Antiplagiat hujjatini muallif dashboard orqali yuklaydi.
+                        </div>
                     </div>
 
                     <div class="d-grid">
@@ -270,7 +493,7 @@
             <div class="card-body">
                 {% if submission.file_authors %}
                 <div class="mb-2">
-                    <a href="{{ submission.file_authors }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                    <a href="{{ upload_access_url(submission.file_authors) }}" target="_blank" class="btn btn-sm btn-outline-primary">
                         <i class="ti ti-file"></i> {{ t("admin_file_authors") }}
                     </a>
                 </div>
@@ -278,13 +501,21 @@
 
                 {% if submission.file_anonymized %}
                 <div class="mb-2">
-                    <a href="{{ submission.file_anonymized }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                    <a href="{{ upload_access_url(submission.file_anonymized) }}" target="_blank" class="btn btn-sm btn-outline-primary">
                         <i class="ti ti-file"></i> {{ t("admin_file_anonymized") }}
                     </a>
                 </div>
                 {% endif %}
 
-                {% if not submission.file_authors and not submission.file_anonymized %}
+                {% if submission.anti_plagiarism_file %}
+                <div class="mb-2">
+                    <a href="{{ upload_access_url(submission.anti_plagiarism_file) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <i class="ti ti-shield-check"></i> Antiplagiat tekshiruv fayli
+                    </a>
+                </div>
+                {% endif %}
+
+                {% if not submission.file_authors and not submission.file_anonymized and not submission.anti_plagiarism_file %}
                 <p class="text-muted">{{ t("admin_files_not_uploaded") }}</p>
                 {% endif %}
             </div>

@@ -5,6 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <meta name="csrf-token" content="{{ csrf_token }}">
   <title>{{ t("admin_login_page_title") }}</title>
   <link href="/dist/css/tabler.min.css?1740918423" rel="stylesheet" />
   <link href="/dist/css/tabler-flags.min.css?1740918423" rel="stylesheet" />
@@ -60,6 +61,7 @@
           {% endwith %}
 
           <form action="{{ url_for('login') }}" method="post" autocomplete="off" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <div class="mb-3">
               <label class="form-label">{{ t("admin_login_email_label") }}</label>
               <input type="email" class="form-control" name="email"

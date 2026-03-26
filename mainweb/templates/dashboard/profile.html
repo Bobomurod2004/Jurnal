@@ -10,24 +10,27 @@
                 </div>
 
                 {% include 'components/notifications/flash_messages.html' %}
+                {% if profile_completion and not profile_completion.is_complete %}
+                <div class="mb-8 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+                    {{ t('complete_profile_required') if t('complete_profile_required') != 'complete_profile_required' else "Davom etishdan oldin profilingizdagi barcha majburiy maydonlarni to'ldiring." }}
+                </div>
+                {% endif %}
 
                 <div class="grid grid-cols-4 gap-4 mb-16">
                     <div class="col">
                         <label for="avatar" class="block mb-2 text-sm font-medium text-gray-900">{{ t('profile_photo') }}</label>
-                        <img src="{{ user.avatar if user.avatar else '/static/default_avatar.png' }}" class="rounded-lg border-1 mb-4 w-full h-48 object-cover" alt="{{ t('profile_photo') }}">
-                        <input type="file" id="photo_input" name="photo" accept="image/*" class="hidden" />
-                        <button id="update_photo" name="action" value="update_photo" class="group mb-1 inline-flex w-full text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-blue-500 px-3 py-3 text-sm font-semibold text-white hover:bg-blue-600 hover:cursor-pointer transition-colors">
+                        <img id="profile_avatar" src="{{ user.avatar if user.avatar else '/static/default_avatar.png' }}" class="rounded-lg border-1 mb-4 w-full h-48 object-cover" alt="{{ t('profile_photo') }}">
+                        <input type="file" id="photo_input" name="photo" accept="image/png,image/jpeg,image/gif,image/webp" class="sr-only" />
+                        <label for="photo_input" id="update_photo" class="group mb-1 inline-flex w-full text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-blue-500 px-3 py-3 text-sm font-semibold text-white hover:bg-blue-600 hover:cursor-pointer transition-colors">
                             <iconify-icon icon="tabler:cloud-upload" class="group-hover:text-blue-100 text-lg"></iconify-icon> {{ t('update_photo') }}
-                        </button>
+                        </label>
                         <button id="delete_photo" name="action" value="delete_photo" class="group flex w-full text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-200 hover:cursor-pointer transition-colors">
                             <iconify-icon icon="tabler:x" class="group-hover:text-red-500 text-lg"></iconify-icon> {{ t('delete_current') }}
                         </button>
-                        <form id="photo_form" method="POST" enctype="multipart/form-data" class="hidden">
-                            <input type="hidden" name="action" value="update_photo" />
-                        </form>
                     </div>
                     <div class="col-span-3">
                         <form id="profile_form" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                             <div class="grid grid-cols-6 gap-4">
                                 <div class="col-span-2">
                                     <label for="name" class="block mb-2 text-sm font-medium text-gray-900">{{ t('first_name') }}</label>
@@ -41,7 +44,7 @@
                             
                                 <div class="col-span-2">
                                     <label for="father_name" class="block mb-2 text-sm font-medium text-gray-900">{{ t('patronymic') }}</label>
-                                    <input type="text" id="father_name" name="father_name" value="{{ user.father_name }}" class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="" />
+                                    <input type="text" id="father_name" name="father_name" value="{{ user.father_name }}" class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="" required />
                                 </div>
 
                                 <div class="col-span-6">
@@ -52,8 +55,8 @@
 
                                 <div class="col-span-6">
                                     <label for="country_id" class="block mb-2 text-sm font-medium text-gray-900">{{ t('country') }}</label>
-                                    <select id="country_id" name="country_id" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
-                                        <option selected disabled>{{ t('choose_country') }}</option>
+                                    <select id="country_id" name="country_id" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+                                        <option value="" disabled {% if not user.country_id %}selected{% endif %}>{{ t('choose_country') }}</option>
                                         {% for country in fix_country[::-1] %}
                                             <option value="{{ country.id }}" {% if user.country_id == country.id %}selected{% endif %}>{{ country.name }}</option>
                                         {% endfor %}
@@ -61,47 +64,47 @@
                                 </div>
 
                                 <div class="col-span-6">
-                                    <label for="academic_position" class="block mb-2 text-sm font-medium text-gray-900">Текущее рабочее место</label>
-                                    <select id="academic_position" name="academic_position" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
-                                        <option value="" {% if not user_doc_upload %}selected{% endif %}>Не указан</option>
-                                        <option value="teacher" {% if user_doc_upload and user_doc_upload.work_title == 'teacher' %}selected{% endif %}>Преподаватель</option>
-                                        <option value="student" {% if user_doc_upload and user_doc_upload.work_title == 'student' %}selected{% endif %}>Студент</option>
-                                        <option value="master" {% if user_doc_upload and user_doc_upload.work_title == 'master' %}selected{% endif %}>Магистрант</option>
-                                        <option value="doctoral" {% if user_doc_upload and user_doc_upload.work_title == 'doctoral' %}selected{% endif %}>Докторант</option>
-                                        <option value="postgraduate" {% if user_doc_upload and user_doc_upload.work_title == 'postgraduate' %}selected{% endif %}>Аспирант</option>
-                                        <option value="doctor" {% if user_doc_upload and user_doc_upload.work_title == 'doctor' %}selected{% endif %}>Доктор наук</option>
+                                    <label for="academic_position" class="block mb-2 text-sm font-medium text-gray-900">{{ t('academic_position') if t('academic_position') != 'academic_position' else "Ilmiy daraja / faoliyat turi" }}</label>
+                                    <select id="academic_position" name="academic_position" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+                                        <option value="" {% if not user_doc_upload or not user_doc_upload.work_title %}selected{% endif %}>{{ t('not_specified') if t('not_specified') != 'not_specified' else "Tanlanmagan" }}</option>
+                                        <option value="teacher" {% if user_doc_upload and user_doc_upload.work_title == 'teacher' %}selected{% endif %}>{{ t('track_teacher_title') if t('track_teacher_title') != 'track_teacher_title' else "O'qituvchi" }}</option>
+                                        <option value="student" {% if user_doc_upload and user_doc_upload.work_title == 'student' %}selected{% endif %}>{{ t('student') if t('student') != 'student' else "Talaba" }}</option>
+                                        <option value="master" {% if user_doc_upload and user_doc_upload.work_title == 'master' %}selected{% endif %}>{{ t('track_masters_title') if t('track_masters_title') != 'track_masters_title' else "Magistrant" }}</option>
+                                        <option value="doctoral" {% if user_doc_upload and user_doc_upload.work_title == 'doctoral' %}selected{% endif %}>{{ t('track_phd_title') if t('track_phd_title') != 'track_phd_title' else "Doktorant" }}</option>
+                                        <option value="postgraduate" {% if user_doc_upload and user_doc_upload.work_title == 'postgraduate' %}selected{% endif %}>{{ t('postgraduate') if t('postgraduate') != 'postgraduate' else "Aspirant" }}</option>
+                                        <option value="doctor" {% if user_doc_upload and user_doc_upload.work_title == 'doctor' %}selected{% endif %}>{{ t('doctor_science') if t('doctor_science') != 'doctor_science' else "Fan doktori" }}</option>
                                     </select>
                                 </div>
 
                                 <div class="col-span-6" id="document_upload_section" style="display: none;">
-                                    <label class="block mb-2 text-sm font-medium text-gray-900">Подтверждающий документ</label>
+                                    <label class="block mb-2 text-sm font-medium text-gray-900">{{ t('supporting_document') if t('supporting_document') != 'supporting_document' else "Tasdiqlovchi hujjat (ixtiyoriy)" }}</label>
                                     <div class="mb-4">
                                         {% if user_doc_upload and user_doc_upload.file_path %}
                                         <div class="bg-green-50 border border-green-200 rounded-lg p-3 mb-3" id="current_document">
                                             <div class="flex items-center gap-2">
                                                 <iconify-icon icon="tabler:file-check" class="text-green-600 text-lg"></iconify-icon>
-                                                <span class="text-green-800 text-sm">Документ загружен</span>
+                                                <span class="text-green-800 text-sm">{{ t('document_uploaded') if t('document_uploaded') != 'document_uploaded' else "Hujjat yuklangan" }}</span>
                                                 {% if user_doc_upload.verification_status == 'verified' %}
-                                                    <span class="text-green-600 text-xs bg-green-100 px-2 py-1 rounded">Проверен</span>
+                                                    <span class="text-green-600 text-xs bg-green-100 px-2 py-1 rounded">{{ t('verified') if t('verified') != 'verified' else "Tasdiqlangan" }}</span>
                                                 {% elif user_doc_upload.verification_status == 'pending' %}
-                                                    <span class="text-blue-600 text-xs bg-blue-100 px-2 py-1 rounded">На проверке</span>
+                                                    <span class="text-blue-600 text-xs bg-blue-100 px-2 py-1 rounded">{{ t('pending') if t('pending') != 'pending' else "Ko'rib chiqilmoqda" }}</span>
                                                 {% elif user_doc_upload.verification_status == 'rejected' %}
-                                                    <span class="text-red-600 text-xs bg-red-100 px-2 py-1 rounded">Отклонен</span>
+                                                    <span class="text-red-600 text-xs bg-red-100 px-2 py-1 rounded">{{ t('rejected') if t('rejected') != 'rejected' else "Rad etilgan" }}</span>
                                                 {% endif %}
-                                                <a href="{{ user_doc_upload.file_path }}" class="text-blue-600 hover:text-blue-800 text-sm underline ml-auto" target="_blank">Скачать</a>
+                                                <a href="{{ upload_access_url(user_doc_upload.file_path) }}" class="text-blue-600 hover:text-blue-800 text-sm underline ml-auto" target="_blank">{{ t('download') if t('download') != 'download' else "Yuklab olish" }}</a>
                                             </div>
                                         </div>
                                         {% endif %}
                                         <input type="file" id="document_input" name="academic_document" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="hidden" />
                                         <input type="hidden" id="document_path" name="document_path" value="{{ user_doc_upload.file_path if user_doc_upload else '' }}" />
                                         <button type="button" id="upload_document" class="group flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-sm font-semibold text-blue-800 hover:bg-blue-100 hover:cursor-pointer transition-colors">
-                                            <span class="opacity-100 group-[.processing]:opacity-0 group-[.uploaded]:opacity-0">Загрузить документ</span>
+                                            <span class="opacity-100 group-[.processing]:opacity-0 group-[.uploaded]:opacity-0">{{ t('upload_document') if t('upload_document') != 'upload_document' else "Hujjat yuklash" }}</span>
                                             <iconify-icon icon="svg-spinners:90-ring" class="absolute text-blue-400 opacity-0 group-[.processing]:opacity-100"></iconify-icon>
-                                            <span class="absolute text-green-700 opacity-0 group-[.uploaded]:opacity-100">Загружено!</span>
+                                            <span class="absolute text-green-700 opacity-0 group-[.uploaded]:opacity-100">{{ t('uploaded') if t('uploaded') != 'uploaded' else "Yuklandi!" }}</span>
                                             <iconify-icon icon="tabler:upload" class="text-lg text-blue-800 opacity-100 group-[.processing]:opacity-0 group-[.uploaded]:opacity-0"></iconify-icon>
                                         </button>
                                         <div class="text-sm text-gray-500 mt-2">
-                                            Загрузите документ, подтверждающий ваше текущее рабочее место (диплом, справка с работы, студенческий билет и т.д.)
+                                            {{ t('supporting_document_hint') if t('supporting_document_hint') != 'supporting_document_hint' else "Agar xohlasangiz, ilmiy daraja yoki faoliyatingizni tasdiqlovchi hujjat yuklashingiz mumkin." }}
                                         </div>
                                     </div>
                                 </div>
@@ -132,6 +135,7 @@
                 </div>
 
                 <form id="author_form" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <div class="grid grid-cols-6 gap-4">
                         <div class="col-span-6">
                             <h4 class="text-lg font-medium">{{ t('main_information') }}</h4>
@@ -139,7 +143,7 @@
                         <div class="col-span-6">
                             <label for="orcid" class="block mb-2 text-sm font-medium text-gray-900">{{ t('orcid') }}</label>
                             <div class="flex">
-                                <input type="text" id="orcid" name="orcid" value="{{ author_profile.orcid if author_profile else '' }}" class="bg-gray-50 border border-r-0 border-gray-200 text-gray-900 text-sm rounded-l-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="0000-0000-1234-5678" required />
+                                <input type="text" id="orcid" name="orcid" value="{{ author_profile.orcid if author_profile else '' }}" class="bg-gray-50 border border-r-0 border-gray-200 text-gray-900 text-sm rounded-l-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="0000-0000-1234-5678" />
                                 <button type="button" id="search_orcid" name="action" value="search_orcid" class="bg-blue-500 hover:bg-blue-600 border border-blue-500 text-nowrap text-gray-50 text-sm rounded-r-lg py-2.5 px-6 hover:cursor-pointer transition-colors">{{ t('search_by_orcid') }}</button>
                             </div>
                             <div class="mt-2 text-sm text-gray-500">
@@ -224,9 +228,14 @@
                         </div>
                         <div class="flex-1">
                             <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('change_password') }}</h3>
-                            <p class="text-sm text-gray-500 mb-4">Enter your new password below. Make sure to use a strong password.</p>
+                            <p class="text-sm text-gray-500 mb-4">{{ t('password_modal_hint') if t('password_modal_hint') != 'password_modal_hint' else "Yangi parolni kiriting. Kuchli paroldan foydalaning." }}</p>
                             
                             <div class="space-y-4">
+                                <div>
+                                    <label for="current_password" class="block mb-1 text-sm font-medium text-gray-900">{{ t('current_password') if t('current_password') != 'current_password' else "Joriy parol" }}</label>
+                                    <input type="password" id="current_password" class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required />
+                                    <div class="text-red-600 text-sm mt-1 hidden" id="current_password_error"></div>
+                                </div>
                                 <div>
                                     <label for="new_password" class="block mb-1 text-sm font-medium text-gray-900">{{ t('new_password') }}</label>
                                     <input type="password" id="new_password" class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required />
@@ -254,7 +263,38 @@
 
 {% block dashboard_scripts %}
 <script>
-    $(document).ready(function () {
+    document.addEventListener('DOMContentLoaded', function () {
+        const updatePhotoLabel = {{ t('update_photo')|tojson }};
+        const deleteCurrentLabel = {{ t('delete_current')|tojson }};
+        const uploadInProgressLabel = {{ (t('uploading') if t('uploading') != 'uploading' else "Yuklanmoqda...")|tojson }};
+        const deleteInProgressLabel = {{ (t('deleting') if t('deleting') != 'deleting' else "O'chirilmoqda...")|tojson }};
+        const confirmDeletePhotoMessage = {{ (t('confirm_delete_photo') if t('confirm_delete_photo') != 'confirm_delete_photo' else "Profil rasmini o'chirishni tasdiqlaysizmi?")|tojson }};
+        const uploadFailedMessage = {{ (t('upload_failed') if t('upload_failed') != 'upload_failed' else "Yuklashda xatolik. Qayta urinib ko'ring.")|tojson }};
+        const deleteFailedMessage = {{ (t('delete_failed') if t('delete_failed') != 'delete_failed' else "O'chirishda xatolik. Qayta urinib ko'ring.")|tojson }};
+        const docUploadedMessage = {{ (t('document_uploaded') if t('document_uploaded') != 'document_uploaded' else "Hujjat yuklangan")|tojson }};
+        const downloadLabel = {{ (t('download') if t('download') != 'download' else "Yuklab olish")|tojson }};
+        const docUploadErrorPrefix = {{ (t('upload_error_prefix') if t('upload_error_prefix') != 'upload_error_prefix' else "Yuklash xatosi")|tojson }};
+        const orcidEmptyMessage = {{ (t('orcid_enter_prompt') if t('orcid_enter_prompt') != 'orcid_enter_prompt' else "ORCID kiriting")|tojson }};
+        const orcidSearchLoadingLabel = {{ (t('searching') if t('searching') != 'searching' else "Qidirilmoqda...")|tojson }};
+        const orcidSearchDefaultLabel = {{ (t('search_by_orcid') if t('search_by_orcid') != 'search_by_orcid' else "ORCID bo'yicha qidirish")|tojson }};
+        const orcidNotFoundMessage = {{ (t('orcid_not_found_fill_manually') if t('orcid_not_found_fill_manually') != 'orcid_not_found_fill_manually' else "Bu ORCID bo'yicha ma'lumot topilmadi. Maydonlarni qo'lda to'ldiring.")|tojson }};
+        const genericSearchErrorMessage = {{ (t('search_failed_try_again') if t('search_failed_try_again') != 'search_failed_try_again' else "Qidiruvda xatolik. Qayta urinib ko'ring.")|tojson }};
+        const currentPasswordRequiredMessage = {{ (t('enter_current_password') if t('enter_current_password') != 'enter_current_password' else "Joriy parolni kiriting")|tojson }};
+        const passwordEnterMessage = {{ (t('enter_new_password') if t('enter_new_password') != 'enter_new_password' else "Yangi parolni kiriting")|tojson }};
+        const passwordConfirmMessage = {{ (t('confirm_new_password') if t('confirm_new_password') != 'confirm_new_password' else "Parolni tasdiqlang")|tojson }};
+        const passwordMismatchMessage = {{ (t('passwords_do_not_match') if t('passwords_do_not_match') != 'passwords_do_not_match' else "Parollar mos emas")|tojson }};
+        const passwordSavedMessage = {{ (t('password_updated') if t('password_updated') != 'password_updated' else "Parol muvaffaqiyatli yangilandi")|tojson }};
+        const passwordSaveFailedMessage = {{ (t('password_update_failed') if t('password_update_failed') != 'password_update_failed' else "Parolni yangilashda xatolik yuz berdi")|tojson }};
+
+        function setPhotoControlsBusy(isBusy) {
+            $('#delete_photo, #save_profile, #save_author_profile, #photo_input').prop('disabled', isBusy);
+            const updateLabel = $('#update_photo');
+            if (isBusy) {
+                updateLabel.addClass('pointer-events-none opacity-70');
+            } else {
+                updateLabel.removeClass('pointer-events-none opacity-70');
+            }
+        }
 
         // Initialize academic position document section visibility
         function toggleDocumentSection() {
@@ -307,72 +347,71 @@
                             }, 2000);
 
                             // Update hidden field
-                            $('#document_path').val(response.file_path);
+                            const fileRef = response.file_ref || response.file_path || '';
+                            const downloadUrl = response.download || response.file_path || '';
+                            $('#document_path').val(fileRef);
 
                             // Update or create current document display
                             if ($('#current_document').length) {
-                                $('#current_document a').attr('href', response.file_path);
+                                $('#current_document a').attr('href', downloadUrl);
                             } else {
                                 $('#document_input').before(`
                                     <div class="bg-green-50 border border-green-200 rounded-lg p-3 mb-3" id="current_document">
                                         <div class="flex items-center gap-2">
                                             <iconify-icon icon="tabler:file-check" class="text-green-600 text-lg"></iconify-icon>
-                                            <span class="text-green-800 text-sm">Документ загружен</span>
-                                            <a href="${response.file_path}" class="text-blue-600 hover:text-blue-800 text-sm underline ml-auto" target="_blank">Скачать</a>
+                                            <span class="text-green-800 text-sm">${docUploadedMessage}</span>
+                                            <a href="${downloadUrl}" class="text-blue-600 hover:text-blue-800 text-sm underline ml-auto" target="_blank">${downloadLabel}</a>
                                         </div>
                                     </div>
                                 `);
                             }
                         } else {
-                            alert(response.message || 'Ошибка загрузки файла');
+                            alert(response.message || uploadFailedMessage);
                         }
                     },
                     error: function(xhr) {
                         btn.removeClass('processing');
-                        const errorMessage = xhr.responseJSON?.message || 'Ошибка загрузки файла. Попробуйте снова.';
-                        alert('Ошибка загрузки: ' + errorMessage);
+                        const errorMessage = xhr.responseJSON?.message || uploadFailedMessage;
+                        alert(`${docUploadErrorPrefix}: ${errorMessage}`);
                     }
                 });
             }
         });
 
-        // Photo upload handling
-        $('#update_photo').on('click', function(e) {
-            e.preventDefault();
-            $('#photo_input').click();
-        });
-
         $('#photo_input').on('change', function(e) {
             if (this.files && this.files[0]) {
                 // Disable all buttons
-                $('#update_photo, #delete_photo, #save_profile, #save_author_profile').prop('disabled', true);
+                setPhotoControlsBusy(true);
                 
                 // Add loading state to update button
-                $('#update_photo').html('<iconify-icon icon="tabler:loader" class="text-lg animate-spin"></iconify-icon> Uploading...');
+                $('#update_photo').html(`<iconify-icon icon="tabler:loader" class="text-lg animate-spin"></iconify-icon> ${uploadInProgressLabel}`);
                 
                 // Create FormData and append file
-                const formData = new FormData($('#photo_form')[0]);
+                const formData = new FormData();
+                formData.append('action', 'update_photo');
                 formData.append('photo', this.files[0]);
 
                 // Send AJAX request
                 $.ajax({
-                    url: '/dashboard/profile',
+                    url: '{{ url_for("app__dashboard_profile") }}',
                     type: 'POST',
                     data: formData,
                     processData: false,
                     contentType: false,
                     success: function(response) {
                         if (response.success) {
-                            // Refresh the page to show new photo
-                            window.location.reload();
+                            const avatarUrl = response.avatar_url || '/static/default_avatar.png';
+                            $('#profile_avatar').attr('src', `${avatarUrl}?v=${Date.now()}`);
+                            resetPhotoButtonState();
                         } else {
-                            alert(response.message || 'Upload failed');
+                            alert(response.message || uploadFailedMessage);
                             // Reset button state
                             resetPhotoButtonState();
                         }
                     },
-                    error: function() {
-                        alert('Upload failed. Please try again.');
+                    error: function(xhr) {
+                        const errorMessage = xhr.responseJSON?.message || uploadFailedMessage;
+                        alert(errorMessage);
                         // Reset button state
                         resetPhotoButtonState();
                     }
@@ -384,15 +423,15 @@
         $('#delete_photo').on('click', function(e) {
             e.preventDefault();
             
-            if (!confirm('Are you sure you want to delete your profile photo?')) {
+            if (!confirm(confirmDeletePhotoMessage)) {
                 return;
             }
             
             // Disable all buttons
-            $('#update_photo, #delete_photo, #save_profile, #save_author_profile').prop('disabled', true);
+            setPhotoControlsBusy(true);
             
             // Add loading state to delete button
-            $('#delete_photo').html('<iconify-icon icon="tabler:loader" class="text-lg animate-spin"></iconify-icon> Deleting...');
+            $('#delete_photo').html(`<iconify-icon icon="tabler:loader" class="text-lg animate-spin"></iconify-icon> ${deleteInProgressLabel}`);
             
             // Send AJAX request
             $.ajax({
@@ -401,16 +440,17 @@
                 data: { action: 'delete_photo' },
                 success: function(response) {
                     if (response.success) {
-                        // Update the image source to default avatar
-                        $('img[alt="{{ t("profile_photo") }}"]').attr('src', '/static/default_avatar.png');
+                        const avatarUrl = response.avatar_url || '/static/default_avatar.png';
+                        $('#profile_avatar').attr('src', `${avatarUrl}?v=${Date.now()}`);
                         resetPhotoButtonState();
                     } else {
-                        alert('Delete failed. Please try again.');
+                        alert(response.message || deleteFailedMessage);
                         resetPhotoButtonState();
                     }
                 },
-                error: function() {
-                    alert('Delete failed. Please try again.');
+                error: function(xhr) {
+                    const errorMessage = xhr.responseJSON?.message || deleteFailedMessage;
+                    alert(errorMessage);
                     resetPhotoButtonState();
                 }
             });
@@ -418,11 +458,12 @@
 
         function resetPhotoButtonState() {
             // Enable all buttons
-            $('#update_photo, #delete_photo, #save_profile, #save_author_profile').prop('disabled', false);
+            setPhotoControlsBusy(false);
             
             // Reset button texts
-            $('#update_photo').html('<iconify-icon icon="tabler:cloud-upload" class="group-hover:text-blue-100 text-lg"></iconify-icon> Update Photo');
-            $('#delete_photo').html('<iconify-icon icon="tabler:x" class="group-hover:text-red-500 text-lg"></iconify-icon> {{ t("delete_current") }}');
+            $('#update_photo').html(`<iconify-icon icon="tabler:cloud-upload" class="group-hover:text-blue-100 text-lg"></iconify-icon> ${updatePhotoLabel}`);
+            $('#delete_photo').html(`<iconify-icon icon="tabler:x" class="group-hover:text-red-500 text-lg"></iconify-icon> ${deleteCurrentLabel}`);
+            $('#photo_input').val('');
         }
 
         // ORCID search handling
@@ -431,14 +472,14 @@
             
             const orcid = $('#orcid').val().trim();
             if (!orcid) {
-                alert('Please enter an ORCID');
+                alert(orcidEmptyMessage);
                 return;
             }
 
             // Disable form elements and show loading state
             const authorFormInputs = $('#author_form input, #author_form button, #search_orcid');
             authorFormInputs.prop('disabled', true);
-            $('#search_orcid').html('<iconify-icon icon="tabler:loader" class="text-lg animate-spin"></iconify-icon> Searching...');
+            $('#search_orcid').html(`<iconify-icon icon="tabler:loader" class="text-lg animate-spin"></iconify-icon> ${orcidSearchLoadingLabel}`);
 
             // Make API call
             $.ajax({
@@ -469,21 +510,21 @@
                             $('#author_details').slideDown();
                             // Clear form fields
                             $('#author_form input:not(#orcid)').val('');
-                            alert('No author found with this ORCID. You can fill in your details manually.');
+                            alert(orcidNotFoundMessage);
                         }
                     } else {
-                        alert(response.message || 'Search failed. Please try again.');
+                        alert(response.message || genericSearchErrorMessage);
                         $('#author_details').slideUp();
                     }
                 },
                 error: function() {
-                    alert('Search failed. Please try again.');
+                    alert(genericSearchErrorMessage);
                     $('#author_details').slideUp();
                 },
                 complete: function() {
                     // Re-enable form elements and reset button state
                     authorFormInputs.prop('disabled', false);
-                    $('#search_orcid').html('Search by ORCID');
+                    $('#search_orcid').html(orcidSearchDefaultLabel);
                 }
             });
         });
@@ -494,10 +535,11 @@
         // Change password functionality
         $('#change_password').click(function() {
             $('#change_password_modal').removeClass('hidden');
+            $('#current_password').val('');
             $('#new_password').val('');
             $('#confirm_password').val('');
             // Clear any previous errors and success messages
-            $('#new_password_error, #confirm_password_error').addClass('hidden').text('');
+            $('#current_password_error, #new_password_error, #confirm_password_error').addClass('hidden').text('');
             $('.password-success-message').remove();
         });
 
@@ -511,12 +553,13 @@
         }
 
         function clearPasswordErrors() {
-            $('#new_password_error, #confirm_password_error').addClass('hidden').text('');
-            $('#new_password, #confirm_password').removeClass('border-red-500');
+            $('#current_password_error, #new_password_error, #confirm_password_error').addClass('hidden').text('');
+            $('#current_password, #new_password, #confirm_password').removeClass('border-red-500');
         }
 
         $('#save_new_password').click(function() {
             const btn = $(this);
+            const currentPassword = $('#current_password').val();
             const newPassword = $('#new_password').val();
             const confirmPassword = $('#confirm_password').val();
 
@@ -524,16 +567,20 @@
             clearPasswordErrors();
 
             let hasError = false;
+            if (!currentPassword) {
+                showPasswordError('current_password', currentPasswordRequiredMessage);
+                hasError = true;
+            }
             if (!newPassword) {
-                showPasswordError('new_password', 'Please enter a new password');
+                showPasswordError('new_password', passwordEnterMessage);
                 hasError = true;
             }
             if (!confirmPassword) {
-                showPasswordError('confirm_password', 'Please confirm your password');
+                showPasswordError('confirm_password', passwordConfirmMessage);
                 hasError = true;
             }
             if (newPassword !== confirmPassword) {
-                showPasswordError('confirm_password', 'Passwords do not match');
+                showPasswordError('confirm_password', passwordMismatchMessage);
                 hasError = true;
             }
 
@@ -546,6 +593,7 @@
                 type: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({
+                    current_password: currentPassword,
                     new_password: newPassword,
                     confirm_password: confirmPassword
                 }),
@@ -559,21 +607,24 @@
                             `<div class="password-success-message bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 mb-4">
                                 <div class="flex items-center gap-2">
                                     <iconify-icon icon="tabler:check-circle" class="text-lg text-green-500"></iconify-icon>
-                                    <span>Password updated successfully</span>
+                                    <span>${passwordSavedMessage}</span>
                                 </div>
                             </div>`
                         );
                     } else {
-                        if (response.message.toLowerCase().includes('match')) {
-                            showPasswordError('confirm_password', response.message);
+                        const responseMessage = String(response.message || passwordSaveFailedMessage);
+                        if (responseMessage.toLowerCase().includes('current')) {
+                            showPasswordError('current_password', responseMessage);
+                        } else if (responseMessage.toLowerCase().includes('match')) {
+                            showPasswordError('confirm_password', responseMessage);
                         } else {
-                            showPasswordError('new_password', response.message || 'Failed to update password');
+                            showPasswordError('new_password', responseMessage);
                         }
                     }
                     btn.prop('disabled', false);
                 },
                 error: function() {
-                    showPasswordError('new_password', 'Failed to update password. Please try again.');
+                    showPasswordError('new_password', passwordSaveFailedMessage);
                     btn.prop('disabled', false);
                 }
             });

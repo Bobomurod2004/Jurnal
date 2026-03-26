@@ -17,6 +17,14 @@ def timestamp_to_date(timestamp):
     return time.strftime('%d.%m.%Y', time.gmtime(local_timestamp))
 
 
+def timestamp_to_datetime(timestamp):
+    if not timestamp:
+        return ''
+    utc_plus_5_offset = 5 * 60 * 60
+    local_timestamp = timestamp + utc_plus_5_offset
+    return time.strftime('%d.%m.%Y %H:%M', time.gmtime(local_timestamp))
+
+
 def datetimeformat(value):
     if not value:
         return ''
@@ -51,6 +59,7 @@ def date_to_form_full(value):
 def register_filters(app):
     app.template_filter('number_format')(number_format)
     app.template_filter('timestamp_to_date')(timestamp_to_date)
+    app.template_filter('timestamp_to_datetime')(timestamp_to_datetime)
     app.template_filter('datetimeformat')(datetimeformat)
     app.template_filter('date_to_form')(date_to_form)
     app.template_filter('date_to_form_full')(date_to_form_full)

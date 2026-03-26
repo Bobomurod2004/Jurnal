@@ -1,3 +1,8 @@
+# ============================================
+# PRODUCTION / SERVER docker-compose
+# Usage: docker compose up -d
+# ============================================
+
 services:
   db:
     image: postgres:17-alpine
@@ -12,15 +17,16 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db_backup.sql:/docker-entrypoint-initdb.d/01-restore.sql:ro
-    # ports:
-    #   - "5433:5432"  # Do NOT expose DB port in production
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d journal2" ]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - journal_net
 
   mainweb:
+    image: ${IMAGE_REGISTRY:-}journal_mainweb:${APP_VERSION:-0.0.0}
     build:
       context: .
       dockerfile: Dockerfile
@@ -28,18 +34,29 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      FLASK_ENV: production
     volumes:
-      # - ./mainweb:/app/mainweb  # Remove source mount in production
       - uploads_data:/var/www/journal/static/uploads
+      - private_uploads_data:/var/www/journal/private_uploads
     working_dir: /app/mainweb
     command: gunicorn --bind 0.0.0.0:5000 --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - run:app
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5000/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     depends_on:
       db:
         condition: service_healthy
     expose:
       - "5000"
+    networks:
+      - journal_net
 
   fmadmin:
+    image: ${IMAGE_REGISTRY:-}journal_fmadmin:${APP_VERSION:-0.0.0}
     build:
       context: .
       dockerfile: Dockerfile
@@ -47,17 +64,26 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      FLASK_ENV: production
     volumes:
-      # - ./fmadmin:/app/fmadmin  # Remove source mount in production
-      - ./mainweb/.env:/app/.env:ro
       - uploads_data:/var/www/journal/static/uploads
+      - private_uploads_data:/var/www/journal/private_uploads
     working_dir: /app/fmadmin
     command: gunicorn --bind 0.0.0.0:5001 --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - run:app
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5001/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     depends_on:
       db:
         condition: service_healthy
     expose:
       - "5001"
+    networks:
+      - journal_net
 
   nginx:
     image: nginx:alpine
@@ -70,12 +96,22 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./mainweb/static:/var/www/mainweb/static:ro
       - ./fmadmin/dist:/var/www/fmadmin/dist:ro
+      - ./fmadmin/static:/var/www/fmadmin/static:ro
       - uploads_data:/var/www/journal/static/uploads:ro
       - /etc/nginx/certs:/etc/nginx/certs:ro
     depends_on:
-      - mainweb
-      - fmadmin
+      mainweb:
+        condition: service_healthy
+      fmadmin:
+        condition: service_healthy
+    networks:
+      - journal_net
 
 volumes:
   postgres_data:
   uploads_data:
+  private_uploads_data:
+
+networks:
+  journal_net:
+    driver: bridge

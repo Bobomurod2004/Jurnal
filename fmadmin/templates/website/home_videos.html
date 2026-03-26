@@ -1,0 +1,72 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+
+<div class="page-header d-print-none mb-4">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">Bosh sahifa videolari</h2>
+      <div class="text-secondary">Yangiliklar va e'lonlardan pastda ko'rsatiladigan 2 ta video.</div>
+    </div>
+  </div>
+</div>
+
+<form method="post" class="card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-12 col-lg-6">
+        <div class="mb-3">
+          <label class="form-label">Saytdan foydalanish videosi (UZ)</label>
+          <input type="url" class="form-control" name="site_usage_url_uz" value="{{ site_usage_urls.get('uz', '') }}">
+          <div class="form-hint">Masalan: https://www.youtube.com/watch?v=VIDEO_ID</div>
+        </div>
+      </div>
+      <div class="col-12 col-lg-6">
+        <div class="mb-3">
+          <label class="form-label">Maqola yuborish videosi (UZ)</label>
+          <input type="url" class="form-control" name="submission_url_uz" value="{{ submission_urls.get('uz', '') }}">
+          <div class="form-hint">Masalan: https://youtu.be/VIDEO_ID</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-12 col-lg-6">
+        <div class="mb-3">
+          <label class="form-label">Saytdan foydalanish videosi (RU)</label>
+          <input type="url" class="form-control" name="site_usage_url_ru" value="{{ site_usage_urls.get('ru', '') }}">
+        </div>
+      </div>
+      <div class="col-12 col-lg-6">
+        <div class="mb-3">
+          <label class="form-label">Maqola yuborish videosi (RU)</label>
+          <input type="url" class="form-control" name="submission_url_ru" value="{{ submission_urls.get('ru', '') }}">
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-12 col-lg-6">
+        <div class="mb-3">
+          <label class="form-label">Saytdan foydalanish videosi (EN)</label>
+          <input type="url" class="form-control" name="site_usage_url_en" value="{{ site_usage_urls.get('en', '') }}">
+        </div>
+      </div>
+      <div class="col-12 col-lg-6">
+        <div class="mb-3">
+          <label class="form-label">Maqola yuborish videosi (EN)</label>
+          <input type="url" class="form-control" name="submission_url_en" value="{{ submission_urls.get('en', '') }}">
+        </div>
+      </div>
+    </div>
+    <div class="alert alert-info mb-0">
+      Agar link bo'sh qoldirilsa, u video frontda ko'rinmaydi.
+    </div>
+  </div>
+  <div class="card-footer text-end">
+    <button type="submit" class="btn btn-primary">Saqlash</button>
+  </div>
+</form>
+
+{% endblock %}

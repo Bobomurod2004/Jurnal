@@ -1,11 +1,14 @@
+# flake8: noqa
 import json
 import copy
 import time
 import psycopg2
 import uuid
 import os
+import logging
 from tabulate import tabulate
-import copy
+
+logger = logging.getLogger(__name__)
 
 
 class ConnectorQuery(object):
@@ -29,28 +32,32 @@ class ConnectorQuery(object):
                 result.append(_add_data)
         return result
     
-    def precheck(self):
+    def precheck(self, max_retries = 30):
         query = "SELECT 1;"
-        while True:
+        last_exception = None
+        for attempt in range(max_retries):
             try:
                 cursor = self.connection.cursor()
                 cursor.execute(query)
                 self.connection.commit()
+                cursor.close()
                 return True
-            except psycopg2.OperationalError:
-                time.sleep(0.1)
+            except (psycopg2.OperationalError, psycopg2.InterfaceError) as exc:
+                last_exception = exc
+                time.sleep(min(0.1 * (attempt + 1), 1.0))
                 self.connector._connect()
                 self.connection = self.connector.conn
-            except psycopg2.InterfaceError:
-                time.sleep(0.1)
-                self.connector._connect()
-                self.connection = self.connector.conn
+            except Exception:
+                raise
+        if last_exception:
+            raise last_exception
+        raise psycopg2.OperationalError("Database connection precheck failed")
     
     def _sql(self, query, arguments, colnames = []):
         self.precheck()
+        cursor = None
         try:
             cursor = self.connection.cursor()
-            # print(query % arguments)
             cursor.execute(query, arguments)
             self.connection.commit()
             if self._action != "DELETE":
@@ -60,10 +67,13 @@ class ConnectorQuery(object):
                     result = self._get_all(cursor.fetchall())
                 return result
             return True
-        except Exception as e:
-            print(e)
+        except Exception:
             self.connection.rollback()
-            return []
+            logger.exception("Database query failed (table=%s, action=%s)", self.tablename, self._action)
+            raise
+        finally:
+            if cursor is not None:
+                cursor.close()
 
     def exec(self):
         _filters = []
@@ -749,34 +759,46 @@ class PostgreSQLConnector(object):
 
     def _init_columns(self):
         cursor = self.conn.cursor()
-        q = """SELECT c.column_name, c.data_type, tc.table_name
-            FROM information_schema.table_constraints tc
-            JOIN information_schema.key_column_usage AS kcu 
-              ON tc.constraint_name = kcu.constraint_name
-              AND tc.table_schema = kcu.table_schema
-            JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema
-              AND tc.table_name = c.table_name AND kcu.column_name = c.column_name
-            WHERE tc.constraint_type = 'PRIMARY KEY'"""
-        cursor.execute(q)
-        for each in cursor.fetchall():
-            self.primary_columns[each[2]] = each[0]
-
-        for each in self.tables:
-            q = f"SELECT * FROM {each} LIMIT 0"
+        try:
+            q = """SELECT c.column_name, c.data_type, tc.table_name
+                FROM information_schema.table_constraints tc
+                JOIN information_schema.key_column_usage AS kcu
+                  ON tc.constraint_name = kcu.constraint_name
+                  AND tc.table_schema = kcu.table_schema
+                JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema
+                  AND tc.table_name = c.table_name AND kcu.column_name = c.column_name
+                WHERE tc.constraint_type = 'PRIMARY KEY'"""
             cursor.execute(q)
-            self.columns[each] = [desc[0] for desc in cursor.description]
-        cursor.close()
+            for each in cursor.fetchall():
+                self.primary_columns[each[2]] = each[0]
+
+            for each in self.tables:
+                q = f"SELECT * FROM {each} LIMIT 0"
+                cursor.execute(q)
+                self.columns[each] = [desc[0] for desc in cursor.description]
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
+        finally:
+            cursor.close()
         return
 
     def _init_tables(self):
         cursor = self.conn.cursor()
-        q = """SELECT table_name
-          FROM information_schema.tables
-         WHERE table_schema='public' AND table_type='BASE TABLE';"""
-        cursor.execute(q)
-        for each in cursor.fetchall():
-            self.tables.append(each[0])
-        cursor.close()
+        try:
+            q = """SELECT table_name
+              FROM information_schema.tables
+             WHERE table_schema='public' AND table_type='BASE TABLE';"""
+            cursor.execute(q)
+            for each in cursor.fetchall():
+                self.tables.append(each[0])
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
+        finally:
+            cursor.close()
         return
 
     def __init__(self, config_json = None, database = None, host = "127.0.0.1", port = "25432", user = "postgres", password = "postgres", autoconnect = True, autoreconnect = True):
@@ -799,6 +821,10 @@ class PostgreSQLConnector(object):
         self.json_data = None
         self.conn = None
         self.languages = ['ru', 'en', 'cn']
+        self._skip_init = str(os.getenv('SKIP_DB_INIT', '')).strip().lower() in {'1', 'true', 'yes'}
+
+        if self._skip_init:
+            return
 
         if config_json is not None:
             self._load_json(config_json)

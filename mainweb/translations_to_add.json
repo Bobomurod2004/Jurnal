@@ -1,0 +1,59 @@
+{
+  "translations": {
+    "stat_1_value": {
+      "uz": "5 kun",
+      "ru": "5 дней",
+      "en": "5 days"
+    },
+    "stat_1_text": {
+      "uz": "Birinchi qarorgacha vaqt",
+      "ru": "До первого решения",
+      "en": "To first decision"
+    },
+    "stat_2_value": {
+      "uz": "9 kun",
+      "ru": "9 дней",
+      "en": "9 days"
+    },
+    "stat_2_text": {
+      "uz": "Taqrizdan keyingi qaror",
+      "ru": "Решение после рецензии",
+      "en": "Decision after review"
+    },
+    "stat_3_value": {
+      "uz": "18 kun",
+      "ru": "18 дней",
+      "en": "18 days"
+    },
+    "stat_3_text": {
+      "uz": "Qabul qilinishigacha vaqt",
+      "ru": "До принятия",
+      "en": "Submission to acceptance"
+    },
+    "stat_4_value": {
+      "uz": "5 kun",
+      "ru": "5 дней",
+      "en": "5 days"
+    },
+    "stat_4_text": {
+      "uz": "Onlayn nashrgacha vaqt",
+      "ru": "До онлайн-публикации",
+      "en": "Acceptance to online publication"
+    },
+    "altmetric": {
+      "uz": "Yuklab olishlar",
+      "ru": "Загрузки",
+      "en": "Downloads"
+    },
+    "footer_copyright": {
+      "uz": "Mualliflik huquqi © 2026 O'zbekiston Davlat Jahon tillari universiteti.",
+      "ru": "Авторское право © 2026 Узбекский государственный университет мировых языков.",
+      "en": "Copyright © 2026 Uzbekistan State World Languages University."
+    },
+    "footer_rights": {
+      "uz": "Barcha huquqlar himoyalangan.",
+      "ru": "Все права защищены.",
+      "en": "All rights reserved."
+    }
+  }
+}
