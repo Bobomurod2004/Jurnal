@@ -38,6 +38,10 @@ package-lock.json
 # Database backups (keep only in secure storage)
 *.sql
 !db_backup.sql
+!db_schema.sql
+!translations_seed.sql
+!migrations/versions/
+!migrations/versions/*.sql
 
 # Uploads (managed by Docker volume)
 static/uploads/
@@ -52,3 +56,6 @@ uploads_data/
 certbot/
 
 # Local development outputs should NOT go to server
+.codex
+journal_full.dump
+uploads.tgz

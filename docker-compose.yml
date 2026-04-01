@@ -44,6 +44,7 @@ services:
     volumes:
       - ./db_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./translations_seed.sql:/docker-entrypoint-initdb.d/02-translations.sql:ro
+      - ./migrations:/app/migrations:ro
     working_dir: /app
     command: bash /app/scripts/init-db.sh
     depends_on:
