@@ -29,7 +29,11 @@ website/
 cd /path/to/website
 
 # 2. Запустить production-сервисы (db-init выполнится автоматически)
-docker compose up -d --build
+# Рекомендуется, если на сервере уже есть host Nginx:
+docker compose up -d --build db db-init mainweb fmadmin
+
+# Если хотите использовать Nginx из docker-compose (порты 80/443):
+docker compose --profile docker-nginx up -d --build
 
 # 3. Проверить статус
 docker compose ps
@@ -222,10 +226,10 @@ python mainweb/scripts/send_test_email.py your-email@example.com
 
 | Сервис | Порт | Описание |
 |--------|------|----------|
-| Nginx | 80 | HTTP (публичный) |
+| Nginx | 80/443 | HTTP/HTTPS (публичный, только с профилем `docker-nginx`) |
 | PostgreSQL | 5432 | База данных |
-| mainweb | 5000 | Flask (внутренний) |
-| fmadmin | 5001 | Flask (внутренний) |
+| mainweb | 127.0.0.1:5000 | Flask (доступ для host Nginx) |
+| fmadmin | 127.0.0.1:5001 | Flask (доступ для host Nginx) |
 
 ## 📦 Управление
 
@@ -265,8 +269,11 @@ docker compose down -v
 ### Пересборка
 
 ```bash
-# После изменения кода
-docker compose up -d --build
+# После изменения кода (рекомендуемый вариант для host Nginx)
+docker compose up -d --build db db-init mainweb fmadmin
+
+# Если используете docker nginx:
+docker compose --profile docker-nginx up -d --build
 ```
 
 ## 🔧 Разработка

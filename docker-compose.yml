@@ -80,6 +80,8 @@ services:
         condition: service_healthy
       db-init:
         condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:5000:5000"
     expose:
       - "5000"
     networks:
@@ -112,6 +114,8 @@ services:
         condition: service_healthy
       db-init:
         condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:5001:5001"
     expose:
       - "5001"
     networks:
@@ -121,6 +125,8 @@ services:
     image: nginx:alpine
     container_name: journal_nginx
     restart: unless-stopped
+    profiles:
+      - docker-nginx
     ports:
       - "80:80"
       - "443:443"
