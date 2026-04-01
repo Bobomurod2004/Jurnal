@@ -28,12 +28,21 @@ website/
 # 1. Клонировать или перейти в директорию проекта
 cd /path/to/website
 
-# 2. Запустить production-сервисы
-docker-compose up -d
+# 2. Запустить production-сервисы (db-init выполнится автоматически)
+docker compose up -d --build
 
 # 3. Проверить статус
-docker-compose ps
+docker compose ps
 ```
+
+`db-init` — это одноразовый сервис инициализации. Он:
+- проверяет/создает БД;
+- применяет `db_schema.sql` и `translations_seed.sql` при необходимости;
+- запускает SQL-миграции из `migrations/versions`;
+- заполняет baseline-данные (`countries`, `classifications`, `issue categories`, `tariffs`);
+- при наличии `SUPERADMIN_EMAIL` и `SUPERADMIN_PASSWORD` создаёт/обновляет супер-админа.
+
+Пока `db-init` не завершится успешно, `mainweb` и `fmadmin` не стартуют.
 
 ### Local запуск
 
@@ -116,6 +125,10 @@ MAIL_FROM_EMAIL=philologymatters@uzswlu.uz
 MAIL_FROM_NAME=Philology Matters
 MAIL_REPLY_TO=philologymatters@uzswlu.uz
 MAIL_CONTACT_RECIPIENTS=philologymatters@uzswlu.uz,philolm.uz@gmail.com
+# Optional one-time superadmin bootstrap:
+# SUPERADMIN_EMAIL=admin@example.com
+# SUPERADMIN_NAME=Super Admin
+# SUPERADMIN_PASSWORD=change-this-superadmin-password
 ```
 
 ### Email note
@@ -154,7 +167,7 @@ Example:
 ```bash
 git tag v1.0.0
 APP_VERSION=1.0.0
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 Optional: push to a registry by setting `IMAGE_REGISTRY` (must end with `/`):
@@ -220,39 +233,40 @@ python mainweb/scripts/send_test_email.py your-email@example.com
 
 ```bash
 # Все сервисы
-docker-compose logs -f
+docker compose logs -f
 
 # Конкретный сервис
-docker-compose logs -f mainweb
-docker-compose logs -f fmadmin
-docker-compose logs -f db
+docker compose logs -f mainweb
+docker compose logs -f fmadmin
+docker compose logs -f db
+docker compose logs -f db-init
 ```
 
 ### Перезапуск
 
 ```bash
 # Перезапустить конкретный сервис
-docker-compose restart mainweb
+docker compose restart mainweb
 
 # Перезапустить все
-docker-compose restart
+docker compose restart
 ```
 
 ### Остановка
 
 ```bash
 # Остановить (сохранить данные)
-docker-compose down
+docker compose down
 
 # Остановить и удалить данные
-docker-compose down -v
+docker compose down -v
 ```
 
 ### Пересборка
 
 ```bash
 # После изменения кода
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 ## 🔧 Разработка

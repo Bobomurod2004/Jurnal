@@ -16,12 +16,39 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./db_backup.sql:/docker-entrypoint-initdb.d/01-restore.sql:ro
+      - ./db_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./translations_seed.sql:/docker-entrypoint-initdb.d/02-translations.sql:ro
+      - ./migrations:/app/migrations:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - journal_net
+
+  db-init:
+    image: ${IMAGE_REGISTRY:-}journal_mainweb:${APP_VERSION:-0.0.0}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: journal_db_init
+    restart: "no"
+    env_file:
+      - .env
+    environment:
+      FLASK_ENV: production
+      SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:-}
+      SUPERADMIN_NAME: ${SUPERADMIN_NAME:-Super Admin}
+      SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:-}
+    volumes:
+      - ./db_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./translations_seed.sql:/docker-entrypoint-initdb.d/02-translations.sql:ro
+    working_dir: /app
+    command: bash /app/scripts/init-db.sh
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - journal_net
 
@@ -50,6 +77,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     expose:
       - "5000"
     networks:
@@ -80,6 +109,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     expose:
       - "5001"
     networks:

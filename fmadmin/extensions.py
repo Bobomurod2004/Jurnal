@@ -1,7 +1,16 @@
+"""
+Flask extensions initialization with improved database connector.
+"""
+import sys
+import os
+
+# Add parent directory to path for shared modules
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 from connector import PostgreSQLConnector
 import settings
 
-
+# Initialize database connector with connection pooling
 db = PostgreSQLConnector(
     database=settings.DB_NAME,
     user=settings.DB_USER,

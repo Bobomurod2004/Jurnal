@@ -1,13 +1,10 @@
 import sys
 import os
-import time
+import argparse
 
 # Add parent directory to path to import connector
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from modules.connector import PostgreSQLConnector
-
-# Initialize database connection
-dbc = PostgreSQLConnector(host='127.0.0.1', port=5432, user='postgres', password='1', database='journal')
 
 # List of classifications with translations
 # Format: [name_en, name_uz, name_ru]
@@ -66,28 +63,59 @@ classifications = [
     ["Comparative Linguistics", "Chogʻishtirma tilshunoslik", "Сравнительное языкознание"]
 ]
 
-def main():
-    try:
-        # First, clear existing classifications using table.delete()
+
+def _build_connector():
+    return PostgreSQLConnector(
+        host=os.getenv('DB_HOST', '127.0.0.1'),
+        port=int(os.getenv('DB_PORT', '5432')),
+        user=os.getenv('DB_USER', 'postgres'),
+        password=os.getenv('DB_PASSWORD', '1'),
+        database=os.getenv('DB_NAME', 'journal2'),
+    )
+
+
+def seed_classifications(dbc, replace=False):
+    existing_count = dbc.fix_classifications.count().exec() or 0
+    if existing_count > 0 and not replace:
+        print(f"fix_classifications already has {existing_count} rows. Skipping classification seed.")
+        return existing_count
+
+    if replace and existing_count > 0:
         print("Clearing existing classifications...")
         dbc.fix_classifications.delete().exec()
-        
-        # Add each classification with translations
-        print("Adding classifications...")
-        for classification in classifications:
-            dbc.fix_classifications.add(
-                name=classification[0],      # English name
-                name_uz=classification[1],   # Uzbek name
-                name_ru=classification[2],   # Russian name
-            ).exec()
-        
-        # Verify the count
-        count = dbc.fix_classifications.count().exec()
-        print(f"Added {count} classifications successfully!")
-        
+
+    print("Adding classifications...")
+    for classification in classifications:
+        dbc.fix_classifications.add(
+            name=classification[0],      # English name
+            name_uz=classification[1],   # Uzbek name
+            name_ru=classification[2],   # Russian name
+        ).exec()
+
+    count = dbc.fix_classifications.count().exec()
+    print(f"Classifications seed complete. Total rows: {count}")
+    return count
+
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description='Seed fix_classifications table')
+    parser.add_argument(
+        '--replace',
+        action='store_true',
+        help='Delete existing rows and reseed from scratch',
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = _parse_args()
+    dbc = _build_connector()
+    try:
+        seed_classifications(dbc, replace=args.replace)
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         sys.exit(1)
 
+
 if __name__ == "__main__":
-    main() 
+    main()

@@ -1,13 +1,11 @@
 import sys
 import os
 import time
+import argparse
 
 # Add parent directory to path to import connector
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from modules.connector import PostgreSQLConnector
-
-# Initialize database connection
-dbc = PostgreSQLConnector(host='127.0.0.1', port=5432, user='postgres', password='1', database='journal')
 
 # List of countries with translations
 # Format: [name_en, name_uz, name_ru]
@@ -207,29 +205,61 @@ countries = [
     ["Zimbabwe", "Zimbabve", "Зимбабве"]
 ]
 
-def main():
-    try:
-        # First, clear existing countries using table.delete()
+
+def _build_connector():
+    return PostgreSQLConnector(
+        host=os.getenv('DB_HOST', '127.0.0.1'),
+        port=int(os.getenv('DB_PORT', '5432')),
+        user=os.getenv('DB_USER', 'postgres'),
+        password=os.getenv('DB_PASSWORD', '1'),
+        database=os.getenv('DB_NAME', 'journal2'),
+    )
+
+
+def seed_countries(dbc, replace=False):
+    existing_count = dbc.fix_country.count().exec() or 0
+    if existing_count > 0 and not replace:
+        print(f"fix_country already has {existing_count} rows. Skipping country seed.")
+        return existing_count
+
+    if replace and existing_count > 0:
         print("Clearing existing countries...")
         dbc.fix_country.delete().exec()
-        
-        # Add each country with translations
-        print("Adding countries...")
-        for country in countries:
-            dbc.fix_country.add(
-                name=country[0],      # English name
-                name_uz=country[1],   # Uzbek name
-                name_ru=country[2],   # Russian name
-                created_at=int(time.time())
-            ).exec()
-        
-        # Verify the count
-        count = dbc.fix_country.count().exec()
-        print(f"Added {count} countries successfully!")
-        
+
+    print("Adding countries...")
+    now_ts = int(time.time())
+    for country in countries:
+        dbc.fix_country.add(
+            name=country[0],      # English name
+            name_uz=country[1],   # Uzbek name
+            name_ru=country[2],   # Russian name
+            created_at=now_ts
+        ).exec()
+
+    count = dbc.fix_country.count().exec()
+    print(f"Countries seed complete. Total rows: {count}")
+    return count
+
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description='Seed fix_country table')
+    parser.add_argument(
+        '--replace',
+        action='store_true',
+        help='Delete existing rows and reseed from scratch',
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = _parse_args()
+    dbc = _build_connector()
+    try:
+        seed_countries(dbc, replace=args.replace)
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         sys.exit(1)
 
+
 if __name__ == "__main__":
-    main() 
+    main()
