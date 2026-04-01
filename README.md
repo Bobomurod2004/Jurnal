@@ -118,6 +118,11 @@ LOG_LEVEL=INFO
 SECRET_KEY=change-this-mainweb-secret
 FMADMIN_SECRET_KEY=change-this-fmadmin-secret
 TRANSLATION_SYNC_TOKEN=change-this-sync-token
+# Optional Google OAuth
+# GOOGLE_AUTH_ENABLED=1
+# GOOGLE_CLIENT_ID=your-google-client-id
+# GOOGLE_CLIENT_SECRET=your-google-client-secret
+# GOOGLE_REDIRECT_URI=https://your-domain/auth/google/callback
 MAIL_ENABLED=1
 MAIL_HOST=smtp.your-provider.tld
 MAIL_PORT=587
@@ -134,6 +139,11 @@ MAIL_CONTACT_RECIPIENTS=philologymatters@uzswlu.uz,philolm.uz@gmail.com
 # SUPERADMIN_NAME=Super Admin
 # SUPERADMIN_PASSWORD=change-this-superadmin-password
 ```
+
+Google OAuth checklist:
+- In Google Cloud Console, add `https://your-domain/auth/google/callback` to **Authorized redirect URIs**.
+- Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_AUTH_ENABLED=1` in `.env`.
+- Keep server/proxy on HTTPS in production.
 
 ### Email note
 

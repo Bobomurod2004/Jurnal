@@ -1103,41 +1103,30 @@ def _is_google_auth_available():
     return explicit_enabled and has_credentials
 
 
+def _is_absolute_http_url(value):
+    text = (value or '').strip()
+    if not text:
+        return False
+    try:
+        parsed = urlparse(text)
+    except Exception:
+        return False
+    return parsed.scheme in {'http', 'https'} and bool(parsed.netloc)
+
+
 def _google_redirect_uri():
     configured = (settings.GOOGLE_REDIRECT_URI or '').strip()
-    if configured:
-        try:
-            parsed = urlparse(configured)
-            if parsed.scheme and parsed.netloc:
-                if has_request_context():
-                    request_host = (request.host or '').strip().lower()
-                    request_scheme = (request.scheme or '').strip().lower()
-                    configured_host = parsed.netloc.strip().lower()
-                    configured_scheme = parsed.scheme.strip().lower()
-                    if request_host and configured_host != request_host:
-                        logger.warning(
-                            "Ignoring GOOGLE_REDIRECT_URI due to host mismatch (configured=%s, request=%s)",
-                            configured_host,
-                            request_host,
-                        )
-                        configured = ''
-                    elif request_scheme and configured_scheme and configured_scheme != request_scheme:
-                        logger.warning(
-                            "Ignoring GOOGLE_REDIRECT_URI due to scheme mismatch (configured=%s, request=%s)",
-                            configured_scheme,
-                            request_scheme,
-                        )
-                        configured = ''
-            else:
-                logger.warning("Ignoring GOOGLE_REDIRECT_URI because it is not an absolute URL")
-                configured = ''
-        except Exception:
-            logger.warning("Ignoring GOOGLE_REDIRECT_URI because parsing failed")
-            configured = ''
-    if configured:
+    if configured and _is_absolute_http_url(configured):
         return configured
+    if configured:
+        logger.warning("Ignoring GOOGLE_REDIRECT_URI because it is not an absolute http(s) URL")
+
+    app_base_url = (settings.APP_BASE_URL or '').strip().rstrip('/')
+    if _is_absolute_http_url(app_base_url):
+        return f"{app_base_url}/auth/google/callback"
+
     try:
-        return url_for('app__google_callback_api_slash', _external=True)
+        return url_for('app__google_callback', _external=True)
     except Exception:
         return url_for('app__google_callback', _external=True)
 
@@ -1408,7 +1397,11 @@ def app__google_callback():
 
     oauth_error = request.args.get('error')
     if oauth_error:
-        flash(f'Google authorization failed: {oauth_error}', 'error')
+        oauth_error_description = (request.args.get('error_description') or '').strip()
+        if oauth_error_description:
+            flash(f'Google authorization failed: {oauth_error} ({oauth_error_description})', 'error')
+        else:
+            flash(f'Google authorization failed: {oauth_error}', 'error')
         return redirect(url_for(fallback))
 
     state = request.args.get('state', '')
