@@ -57,17 +57,20 @@ fi
 
 echo "Checking schema..."
 TABLE_COUNT=$(psql_cmd -d "${DB_NAME}" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';")
+USERS_TABLE_EXISTS=$(psql_cmd -d "${DB_NAME}" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='users');")
+FIX_COUNTRY_TABLE_EXISTS=$(psql_cmd -d "${DB_NAME}" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='fix_country');")
 
-if [ "${TABLE_COUNT}" -eq "0" ]; then
-    echo "No tables found. Applying initial schema..."
-    if [ -f "/docker-entrypoint-initdb.d/01-schema.sql" ]; then
-        psql_cmd -d "${DB_NAME}" -f "/docker-entrypoint-initdb.d/01-schema.sql"
-        echo "Schema applied!"
-    else
-        echo "Warning: /docker-entrypoint-initdb.d/01-schema.sql not found"
-    fi
+if [ ! -f "/docker-entrypoint-initdb.d/01-schema.sql" ]; then
+    echo "Error: /docker-entrypoint-initdb.d/01-schema.sql not found"
+    exit 1
+fi
+
+if [ "${USERS_TABLE_EXISTS}" != "t" ] || [ "${FIX_COUNTRY_TABLE_EXISTS}" != "t" ]; then
+    echo "Core tables are missing (users=${USERS_TABLE_EXISTS}, fix_country=${FIX_COUNTRY_TABLE_EXISTS}). Applying initial schema..."
+    psql_cmd -d "${DB_NAME}" -f "/docker-entrypoint-initdb.d/01-schema.sql"
+    echo "Schema applied!"
 else
-    echo "Schema already exists (${TABLE_COUNT} tables)"
+    echo "Schema already exists (${TABLE_COUNT} tables, core tables are present)"
 fi
 
 TRANSLATIONS_TABLE_EXISTS=$(psql_cmd -d "${DB_NAME}" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='translations');")
