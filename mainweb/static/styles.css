@@ -3735,6 +3735,19 @@ button:hover {
   transform-origin: top;
   animation: scale-in 180ms var(--fm-ease);
 }
+@media (min-width: 1280px) {
+  [data-mobile-menu-root] {
+    display: none !important;
+  }
+  [data-desktop-menu-root] {
+    display: flex !important;
+  }
+}
+@media (max-width: 1279.98px) {
+  [data-desktop-menu-root] {
+    display: none !important;
+  }
+}
 input[type="text"],
 input[type="email"],
 input[type="password"],
