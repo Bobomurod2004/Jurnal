@@ -93,6 +93,9 @@ python3 migrations/migrate.py migrate
 echo "Seeding baseline data..."
 python3 mainweb/scripts/seed_baseline_data.py
 
+echo "Ensuring baseline static pages..."
+python3 mainweb/scripts/update_pages.py --only-missing
+
 if [ -n "${SUPERADMIN_EMAIL:-}" ] && [ -n "${SUPERADMIN_PASSWORD:-}" ]; then
     echo "Ensuring fmadmin superadmin account exists..."
     python3 fmadmin/create_superadmin.py \

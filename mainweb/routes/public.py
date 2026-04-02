@@ -1,8 +1,10 @@
 # flake8: noqa
+import logging
 import os
 import re
 import time
-from urllib.parse import urlparse, parse_qs
+from functools import lru_cache
+from urllib.parse import urlparse, parse_qs, unquote
 from flask import current_app, render_template, session, request, jsonify, flash, redirect, url_for, send_file, send_from_directory, abort
 from extensions import dbc
 from modules.translate import t, translate, clear_translations_cache
@@ -103,6 +105,15 @@ INTERNATIONAL_LOCATION_TOKENS = (
     'canada', 'kanada', 'канада', 'london', 'moscow', 'moskva', 'москва'
 )
 PAYMENT_GUIDE_KEY = 'payment_guide_html'
+PAGE_ALIAS_REDIRECTS = {
+    'editorial_board': ('app__editorial', {}),
+    'latest_articles': ('app__articles', {}),
+    'all_issues': ('app__issues', {}),
+    'special_issues': ('app__issues', {'category': 'special'}),
+    'current_issue': ('app__issues', {}),
+}
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_int(value):
@@ -157,18 +168,24 @@ def _get_site_setting(key, default=''):
 
 def _get_home_video_url(base_key, lang):
     lang_text = _clean_text(lang).lower()
-    if lang_text in {'uz', 'ru', 'en'}:
-        localized = _get_site_setting(f"{base_key}_{lang_text}")
-        if localized:
-            return localized
-    localized_exists = False
+    localized_values = {}
     for candidate_lang in ('uz', 'ru', 'en'):
-        if _get_site_setting(f"{base_key}_{candidate_lang}"):
-            localized_exists = True
-            break
-    if localized_exists:
-        return ''
-    return _get_site_setting(base_key)
+        value = _get_site_setting(f"{base_key}_{candidate_lang}")
+        if value:
+            localized_values[candidate_lang] = value
+
+    if lang_text in localized_values:
+        return localized_values[lang_text]
+
+    base_value = _get_site_setting(base_key)
+    if base_value:
+        return base_value
+
+    for candidate_lang in ('uz', 'ru', 'en'):
+        candidate = localized_values.get(candidate_lang)
+        if candidate:
+            return candidate
+    return ''
 
 
 def _default_payment_guide_html(lang='uz'):
@@ -217,12 +234,24 @@ def _youtube_embed_url(raw_url):
     if not url_text:
         return ''
 
+    # Support URLs without scheme, e.g. "youtube.com/watch?v=..."
+    if url_text.startswith('//'):
+        url_text = f"https:{url_text}"
+    elif not re.match(r'^[a-z][a-z0-9+\-.]*://', url_text, re.IGNORECASE):
+        url_text = f"https://{url_text.lstrip('/')}"
+
     parsed = urlparse(url_text)
+    if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+        return ''
+
     host = (parsed.netloc or '').lower()
+    if host.startswith('www.'):
+        host = host[4:]
     path = (parsed.path or '').strip('/')
     video_id = ''
+    is_youtube_host = ('youtube.com' in host) or (host == 'youtu.be') or ('youtube-nocookie.com' in host)
 
-    if host in {'youtu.be', 'www.youtu.be'}:
+    if host in {'youtu.be'}:
         video_id = path.split('/')[0] if path else ''
     elif 'youtube.com' in host or 'youtube-nocookie.com' in host:
         if path.startswith('watch'):
@@ -232,11 +261,95 @@ def _youtube_embed_url(raw_url):
             video_id = path.split('/', 1)[1] if '/' in path else ''
         elif path.startswith('shorts/'):
             video_id = path.split('/', 1)[1] if '/' in path else ''
+        elif path.startswith('live/'):
+            video_id = path.split('/', 1)[1] if '/' in path else ''
+        elif path.startswith('v/'):
+            video_id = path.split('/', 1)[1] if '/' in path else ''
+        elif path.startswith('attribution_link'):
+            params = parse_qs(parsed.query or '')
+            encoded_u = (params.get('u') or [''])[0]
+            decoded_u = unquote(encoded_u or '')
+            nested_params = parse_qs(urlparse(decoded_u).query or '')
+            video_id = (nested_params.get('v') or [''])[0]
 
-    if not video_id or not re.match(r'^[A-Za-z0-9_-]{6,}$', video_id):
+    video_id = video_id.split('?')[0].split('&')[0].split('/')[0].strip()
+    if video_id and re.match(r'^[A-Za-z0-9_-]{6,}$', video_id):
+        return f"https://www.youtube.com/embed/{video_id}"
+
+    if is_youtube_host:
         return ''
 
-    return f"https://www.youtube.com/embed/{video_id}"
+    # Non-YouTube providers may still be embeddable by iframe.
+    return url_text
+
+
+@lru_cache(maxsize=1)
+def _seed_pages_data():
+    try:
+        from scripts.update_pages import PAGES_DATA
+        return dict(PAGES_DATA)
+    except Exception as exc:
+        logger.warning("Unable to load static pages seed data: %s", exc)
+        return {}
+
+
+def _seed_page_payload(alias):
+    page_alias = _clean_text(alias).lower()
+    page_data = _seed_pages_data().get(page_alias)
+    if not page_data:
+        return None
+
+    now_ts = int(time.time())
+    return {
+        'alias': page_alias,
+        'title': page_data.get('title') or '',
+        'title_uz': page_data.get('title_uz') or page_data.get('title') or '',
+        'title_ru': page_data.get('title_ru') or page_data.get('title') or '',
+        'content': page_data.get('content') or '',
+        'content_uz': page_data.get('content_uz') or page_data.get('content') or '',
+        'content_ru': page_data.get('content_ru') or page_data.get('content') or '',
+        'last_update': now_ts,
+        'created_at': now_ts,
+    }
+
+
+def _ensure_seed_page(alias):
+    page_alias = _clean_text(alias).lower()
+    if not page_alias:
+        return None
+
+    try:
+        existing = dbc.pages.get(alias=page_alias).exec()
+        if existing:
+            return existing[0]
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+
+    payload = _seed_page_payload(page_alias)
+    if not payload:
+        return None
+
+    try:
+        page_columns = set(dbc.columns.get('pages', []))
+        insert_payload = {k: v for k, v in payload.items() if k in page_columns}
+        created_rows = dbc.pages.add(**insert_payload).exec()
+        if created_rows:
+            return created_rows[0]
+
+        refetched = dbc.pages.get(alias=page_alias).exec()
+        if refetched:
+            return refetched[0]
+    except Exception as exc:
+        logger.warning("Unable to seed page alias '%s': %s", page_alias, exc)
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+
+    return payload
 
 
 def _localized_content_field(item, base_field, lang=None, strict=False):
@@ -667,13 +780,32 @@ def app__editorial():
 
 
 def app__page_alias(alias):
-    if alias == 'payment_guide':
+    page_alias = _clean_text(alias).lower()
+
+    if page_alias == 'payment_guide':
         return redirect(url_for('app__payment_guide'))
-    page = dbc.pages.get(alias=alias).exec()
+
+    redirected = PAGE_ALIAS_REDIRECTS.get(page_alias)
+    if redirected:
+        endpoint, endpoint_kwargs = redirected
+        return redirect(url_for(endpoint, **endpoint_kwargs))
+
+    page = _ensure_seed_page(page_alias)
     if not page:
         flash('Page not found', 'error')
         return redirect(url_for('app__index'))
-    page = translate(page[0])
+
+    if isinstance(page, list):
+        page = page[0] if page else None
+    if not page:
+        flash('Page not found', 'error')
+        return redirect(url_for('app__index'))
+
+    try:
+        page = translate(page)
+    except Exception:
+        pass
+    page = _apply_localized_content(page, ('title', 'content'), lang=_current_lang_code())
     return render_template('mainweb/page.html', page=page)
 
 
