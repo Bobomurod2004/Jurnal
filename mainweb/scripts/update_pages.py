@@ -1,3 +1,4 @@
+import argparse
 import sys
 import os
 import time
@@ -696,7 +697,7 @@ PAGES_DATA = {
     }
 }
 
-def update_pages():
+def update_pages(only_missing=False):
     # Initialize database connection
     dbc = PostgreSQLConnector(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASSWORD, database=DB_NAME)
     
@@ -709,6 +710,9 @@ def update_pages():
     # Update or create each page
     for alias, page_data in PAGES_DATA.items():
         if alias in existing_aliases:
+            if only_missing:
+                print(f"Skipping existing page: {page_data['title']}")
+                continue
             print(f"Updating page: {page_data['title']}")
             dbc.pages.get(alias=alias).update(
                 title=page_data['title'],
@@ -735,5 +739,17 @@ def update_pages():
 
     print("All pages updated successfully!")
 
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description='Seed/update static pages')
+    parser.add_argument(
+        '--only-missing',
+        action='store_true',
+        help='Create only missing pages and keep existing content untouched',
+    )
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
-    update_pages() 
+    args = _parse_args()
+    update_pages(only_missing=args.only_missing)

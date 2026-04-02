@@ -84,6 +84,7 @@
                     <span>{{ t('or') }}</span>
                 </div>
 
+                {% if google_auth_enabled %}
                 <a href="{{ url_for('app__google_auth_start', intent='login', next=next_url) }}"
                     class="w-full flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 mb-3"
                     aria-label="{{ t('login_with_google') if t('login_with_google') != 'login_with_google' else 'Google orqali kirish' }}">
@@ -92,6 +93,11 @@
                     </svg>
                     {{ t('login_with_google') if t('login_with_google') != 'login_with_google' else 'Google orqali kirish' }}
                 </a>
+                {% else %}
+                <div class="mb-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600">
+                    Google login hozircha sozlanmagan.
+                </div>
+                {% endif %}
 
                 <a href="javascript:;"
                     class="w-full flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200">

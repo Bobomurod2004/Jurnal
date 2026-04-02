@@ -1103,6 +1103,18 @@ def _is_google_auth_available():
     return explicit_enabled and has_credentials
 
 
+def _google_auth_config_issues():
+    issues = []
+    if not settings.GOOGLE_CLIENT_ID:
+        issues.append('GOOGLE_CLIENT_ID')
+    if not settings.GOOGLE_CLIENT_SECRET:
+        issues.append('GOOGLE_CLIENT_SECRET')
+    explicit_enabled = _as_optional_bool(settings.GOOGLE_AUTH_ENABLED)
+    if explicit_enabled is False:
+        issues.append('GOOGLE_AUTH_ENABLED=false')
+    return issues
+
+
 def _is_absolute_http_url(value):
     text = (value or '').strip()
     if not text:
@@ -1371,6 +1383,8 @@ def _create_or_update_google_user(profile, intent):
 
 def app__google_auth_start():
     if not _is_google_auth_available():
+        issues = ', '.join(_google_auth_config_issues()) or 'unknown'
+        current_app.logger.warning("Google auth unavailable: %s", issues)
         flash('Google authentication is not configured yet.', 'error')
         return redirect(url_for('app__login'))
 
@@ -1392,6 +1406,8 @@ def app__google_callback():
     _clear_google_oauth_session()
 
     if not _is_google_auth_available():
+        issues = ', '.join(_google_auth_config_issues()) or 'unknown'
+        current_app.logger.warning("Google auth callback blocked: %s", issues)
         flash('Google authentication is not configured yet.', 'error')
         return redirect(url_for(fallback))
 

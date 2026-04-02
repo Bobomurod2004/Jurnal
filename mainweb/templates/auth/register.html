@@ -207,6 +207,7 @@
                             <div class="auth-divider mt-4 mb-4">
                                 <span>{{ t('or') }}</span>
                             </div>
+                            {% if google_auth_enabled %}
                             <a href="{{ url_for('app__google_auth_start', intent='register') }}"
                                 class="w-full flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
                                 aria-label='{{ t("register_with_google") if t("register_with_google") != "register_with_google" else "Google orqali ro'yxatdan o'tish" }}'>
@@ -215,6 +216,11 @@
                                 </svg>
                                 {{ t('register_with_google') if t('register_with_google') != 'register_with_google' else "Google orqali ro'yxatdan o'tish" }}
                             </a>
+                            {% else %}
+                            <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600">
+                                Google ro'yxatdan o'tish hozircha sozlanmagan.
+                            </div>
+                            {% endif %}
                             
                             <div class="mt-4 text-center">
                                 <span class="text-sm text-gray-500">{{ t('login_to_account') }}?</span>

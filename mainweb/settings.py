@@ -18,6 +18,14 @@ def _get_env(name, default=None, production_required=False):
     return default
 
 
+def _get_first_env(names, default=''):
+    for name in names:
+        value = os.getenv(name)
+        if value is not None and str(value).strip() != '':
+            return value
+    return default
+
+
 def _get_env_bool(name, default=False):
     value = os.getenv(name)
     if value is None or str(value).strip() == '':
@@ -50,10 +58,22 @@ SECRET_KEY = _get_env(
 )
 
 # Google OAuth
-GOOGLE_AUTH_ENABLED = _get_env('GOOGLE_AUTH_ENABLED', '').strip()
-GOOGLE_CLIENT_ID = _get_env('GOOGLE_CLIENT_ID', '').strip()
-GOOGLE_CLIENT_SECRET = _get_env('GOOGLE_CLIENT_SECRET', '').strip()
-GOOGLE_REDIRECT_URI = _get_env('GOOGLE_REDIRECT_URI', '').strip()
+GOOGLE_AUTH_ENABLED = _get_first_env(
+    ('GOOGLE_AUTH_ENABLED', 'GOOGLE_OAUTH_ENABLED', 'ENABLE_GOOGLE_AUTH'),
+    ''
+).strip()
+GOOGLE_CLIENT_ID = _get_first_env(
+    ('GOOGLE_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH2_CLIENT_ID'),
+    ''
+).strip()
+GOOGLE_CLIENT_SECRET = _get_first_env(
+    ('GOOGLE_CLIENT_SECRET', 'GOOGLE_OAUTH_CLIENT_SECRET', 'GOOGLE_OAUTH2_CLIENT_SECRET'),
+    ''
+).strip()
+GOOGLE_REDIRECT_URI = _get_first_env(
+    ('GOOGLE_REDIRECT_URI', 'GOOGLE_OAUTH_REDIRECT_URI', 'GOOGLE_OAUTH2_REDIRECT_URI'),
+    ''
+).strip()
 GOOGLE_REQUEST_TIMEOUT = int(_get_env('GOOGLE_REQUEST_TIMEOUT', '10'))
 _sync_default = 'local-translation-sync-token' if not IS_PRODUCTION else SECRET_KEY
 TRANSLATION_SYNC_TOKEN = _get_env('TRANSLATION_SYNC_TOKEN', _sync_default)
