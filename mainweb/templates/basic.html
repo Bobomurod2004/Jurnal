@@ -139,29 +139,6 @@
                     return item.panel;
                 });
 
-            function positionDropdown(item) {
-                var rect = item.button.getBoundingClientRect();
-                item.panel.style.position = 'fixed';
-
-                var left = rect.left;
-                var top = rect.bottom + 8;
-                var viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-                var viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-                var panelWidth = item.panel.offsetWidth || 260;
-                var panelHeight = item.panel.offsetHeight || 320;
-
-                if (left + panelWidth > viewportWidth - 8) {
-                    left = Math.max(8, viewportWidth - panelWidth - 8);
-                }
-
-                if (top + panelHeight > viewportHeight - 8 && rect.top - panelHeight - 8 > 8) {
-                    top = rect.top - panelHeight - 8;
-                }
-
-                item.panel.style.left = left + 'px';
-                item.panel.style.top = top + 'px';
-            }
-
             function hideDropdown(item) {
                 if (item.panel.classList.contains('hidden')) {
                     item.button.setAttribute('aria-expanded', 'false');
@@ -174,14 +151,10 @@
                 setTimeout(function () {
                     item.panel.classList.remove('dropdown-leave');
                     item.panel.classList.add('dropdown-leave-active', 'hidden');
-                    item.panel.style.position = '';
-                    item.panel.style.left = '';
-                    item.panel.style.top = '';
                 }, 10);
             }
 
             function showDropdown(item) {
-                positionDropdown(item);
                 item.panel.classList.remove('hidden', 'dropdown-leave-active');
                 item.panel.classList.add('dropdown-enter');
                 item.button.setAttribute('aria-expanded', 'true');
@@ -210,14 +183,6 @@
                     }
                 });
             });
-
-            window.addEventListener('scroll', function () {
-                dropdownItems.forEach(function (item) {
-                    if (!item.panel.classList.contains('hidden')) {
-                        positionDropdown(item);
-                    }
-                });
-            }, { passive: true });
 
             const mobileMenuRoots = Array.from(document.querySelectorAll('[data-mobile-menu-root]'));
 

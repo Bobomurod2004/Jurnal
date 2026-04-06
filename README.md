@@ -113,7 +113,7 @@ DB_PASSWORD=postgres
 DB_NAME=journal2
 APP_HOST=your-domain
 APP_BASE_URL=https://your-domain
-APP_VERSION=1.0.0
+APP_VERSION=1.0.1
 LOG_LEVEL=INFO
 SECRET_KEY=change-this-mainweb-secret
 FMADMIN_SECRET_KEY=change-this-fmadmin-secret
@@ -180,7 +180,7 @@ Example:
 
 ```bash
 git tag v1.0.0
-APP_VERSION=1.0.0
+APP_VERSION=1.0.1
 docker compose up -d --build
 ```
 
@@ -193,10 +193,10 @@ IMAGE_REGISTRY=registry.example.com/journal/
 Then build and push:
 
 ```bash
-APP_VERSION=1.0.0
+APP_VERSION=1.0.1
 docker compose build
-docker push registry.example.com/journal/journal_mainweb:1.0.0
-docker push registry.example.com/journal/journal_fmadmin:1.0.0
+docker push registry.example.com/journal/journal_mainweb:1.0.1
+docker push registry.example.com/journal/journal_fmadmin:1.0.1
 ```
 
 Rollback example:

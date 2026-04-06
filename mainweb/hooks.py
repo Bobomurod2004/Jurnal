@@ -61,7 +61,8 @@ def register(app):
         if request.method not in {'POST', 'PUT', 'PATCH', 'DELETE'}:
             return None
 
-        if _has_translation_sync_authorization():
+        # Only allow token-based bypass for the dedicated translation sync endpoint.
+        if request.path.rstrip('/') == '/api/translations/clear_cache' and _has_translation_sync_authorization():
             return None
 
         if _validate_csrf():

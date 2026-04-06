@@ -18,18 +18,30 @@
 
             <div class="absolute right-0 z-10 mt-2 hidden w-56 origin-top-right rounded-lg bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" tabindex="-1">
                 <div class="py-1" role="none">
-                    <a href="{{ url_for('app__change_language', lang='uz') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors {% if session.get('language') == 'uz' %}bg-fmmain-light/30 font-semibold{% endif %}" role="menuitem" tabindex="-1">
-                        <span class="fi fi-uz max-h-3"></span> {{ t('language_uz') }}
-                        {% if session.get('language') == 'uz' %}<span class="float-right text-fmmain">✓</span>{% endif %}
-                    </a>
-                    <a href="{{ url_for('app__change_language', lang='ru') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors {% if session.get('language') == 'ru' %}bg-fmmain-light/30 font-semibold{% endif %}" role="menuitem" tabindex="-1">
-                        <span class="fi fi-ru max-h-3"></span> {{ t('language_ru') }}
-                        {% if session.get('language') == 'ru' %}<span class="float-right text-fmmain">✓</span>{% endif %}
-                    </a>
-                    <a href="{{ url_for('app__change_language', lang='en') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors {% if session.get('language') == 'en' %}bg-fmmain-light/30 font-semibold{% endif %}" role="menuitem" tabindex="-1">
-                        <span class="fi fi-gb max-h-3"></span> {{ t('language_en') }}
-                        {% if session.get('language') == 'en' %}<span class="float-right text-fmmain">✓</span>{% endif %}
-                    </a>
+                    <form method="POST" action="{{ url_for('app__change_language', lang='uz') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
+                        <button type="submit" class="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors {% if session.get('language') == 'uz' %}bg-fmmain-light/30 font-semibold{% endif %}" role="menuitem" tabindex="-1">
+                            <span class="fi fi-uz max-h-3"></span> {{ t('language_uz') }}
+                            {% if session.get('language') == 'uz' %}<span class="float-right text-fmmain">✓</span>{% endif %}
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('app__change_language', lang='ru') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
+                        <button type="submit" class="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors {% if session.get('language') == 'ru' %}bg-fmmain-light/30 font-semibold{% endif %}" role="menuitem" tabindex="-1">
+                            <span class="fi fi-ru max-h-3"></span> {{ t('language_ru') }}
+                            {% if session.get('language') == 'ru' %}<span class="float-right text-fmmain">✓</span>{% endif %}
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('app__change_language', lang='en') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
+                        <button type="submit" class="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors {% if session.get('language') == 'en' %}bg-fmmain-light/30 font-semibold{% endif %}" role="menuitem" tabindex="-1">
+                            <span class="fi fi-gb max-h-3"></span> {{ t('language_en') }}
+                            {% if session.get('language') == 'en' %}<span class="float-right text-fmmain">✓</span>{% endif %}
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

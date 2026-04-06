@@ -49,6 +49,8 @@ def parse_args():
     parser.add_argument('--email', default=os.getenv('SUPERADMIN_EMAIL', 'admin@fmadmin.uz'))
     parser.add_argument('--name', default=os.getenv('SUPERADMIN_NAME', 'Super Admin'))
     parser.add_argument('--password', default=os.getenv('SUPERADMIN_PASSWORD'))
+    parser.add_argument('--show-password', action='store_true', help='Print password to stdout (unsafe)')
+    parser.add_argument('--password-file', default=os.getenv('SUPERADMIN_PASSWORD_FILE'))
     return parser.parse_args()
 
 
@@ -118,7 +120,17 @@ def main():
         print("Password source: provided via CLI/ENV")
     else:
         print("Password source: auto-generated for this run")
-    print(f"Password: {password}")
+
+    if args.show_password:
+        print(f"Password: {password}")
+    else:
+        password_file = args.password_file or '.superadmin_password'
+        file_flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        file_mode = 0o600
+        with os.fdopen(os.open(password_file, file_flags, file_mode), 'w', encoding='utf-8') as handle:
+            handle.write(f"{password}\n")
+        print(f"Password saved to: {password_file} (permissions: 600)")
+        print("Tip: use --show-password only in secure local terminals.")
 
 
 if __name__ == '__main__':

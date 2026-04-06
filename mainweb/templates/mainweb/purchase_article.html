@@ -23,6 +23,16 @@
                             <span>{{ t('payment_amount') }}</span>
                             <span class="text-gray-900 font-semibold">{{ "%.2f"|format(amount) }} {{ currency|upper }}</span>
                         </div>
+                        {% if discount_percent and discount_percent > 0 %}
+                        <div class="mt-2 flex items-center justify-between text-sm text-gray-600">
+                            <span>Chegirma</span>
+                            <span class="text-green-700 font-semibold">-{{ "%.2f"|format(discount_percent) }}%</span>
+                        </div>
+                        <div class="mt-1 flex items-center justify-between text-sm text-gray-500">
+                            <span>Asl narx</span>
+                            <span>{{ "%.2f"|format(original_amount) }} {{ currency|upper }}</span>
+                        </div>
+                        {% endif %}
                         <div class="mt-4 text-sm text-gray-500">
                             To'lovni amalga oshirgach, chek yoki skrinshotni shaxsiy kabinetdagi to'lovlar bo'limiga yuklaysiz.
                         </div>

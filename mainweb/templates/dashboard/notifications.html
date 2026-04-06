@@ -36,10 +36,14 @@
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
                     {% if item.action_url %}
-                    <a href="{{ url_for('app__dashboard_notification_open', notification_id=item.id) }}" class="inline-flex items-center gap-1 rounded-lg border border-fmmain/30 text-fmmain px-3 py-1.5 text-xs font-medium hover:bg-fmmain/10 transition-colors">
-                        <iconify-icon icon="solar:eye-bold-duotone" class="text-base"></iconify-icon>
-                        Ochish
-                    </a>
+                    <form method="POST" action="{{ url_for('app__dashboard_notification_open', notification_id=item.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
+                        <button type="submit" class="inline-flex items-center gap-1 rounded-lg border border-fmmain/30 text-fmmain px-3 py-1.5 text-xs font-medium hover:bg-fmmain/10 transition-colors">
+                            <iconify-icon icon="solar:eye-bold-duotone" class="text-base"></iconify-icon>
+                            Ochish
+                        </button>
+                    </form>
                     {% endif %}
                     {% if not item.is_read %}
                     <form method="POST" action="{{ url_for('app__dashboard_notification_read', notification_id=item.id) }}">

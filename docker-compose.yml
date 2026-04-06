@@ -68,7 +68,7 @@ services:
       - uploads_data:/var/www/journal/static/uploads
       - private_uploads_data:/var/www/journal/private_uploads
     working_dir: /app/mainweb
-    command: gunicorn --bind 0.0.0.0:5000 --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - run:app
+    command: gunicorn --bind 0.0.0.0:5000 --workers 4 --threads 1 --timeout 120 --access-logfile - --error-logfile - run:app
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5000/healthz || exit 1"]
       interval: 15s
@@ -102,7 +102,7 @@ services:
       - uploads_data:/var/www/journal/static/uploads
       - private_uploads_data:/var/www/journal/private_uploads
     working_dir: /app/fmadmin
-    command: gunicorn --bind 0.0.0.0:5001 --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - run:app
+    command: gunicorn --bind 0.0.0.0:5001 --workers 4 --threads 1 --timeout 120 --access-logfile - --error-logfile - run:app
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5001/healthz || exit 1"]
       interval: 15s

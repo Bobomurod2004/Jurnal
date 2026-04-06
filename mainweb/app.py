@@ -61,7 +61,7 @@ def create_app():
     # Session security
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV') == 'production'
+    app.config['SESSION_COOKIE_SECURE'] = bool(settings.IS_PRODUCTION)
     app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
 
     @app.get('/healthz')
@@ -88,7 +88,7 @@ def create_app():
         "info": {
             "title": "Philology Matters Journal API",
             "description": "API documentation for journal management system. **Note:** Most endpoints require authentication. Please login first at `/login` endpoint.",
-            "version": "1.0.0",
+            "version": "1.0.1",
             "contact": {
                 "name": "API Support",
                 "email": "support@journal.com"

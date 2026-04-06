@@ -1,6 +1,6 @@
 {
   "name": "mainweb",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Journal management system with Tailwind CSS compilation",
   "scripts": {
     "build:css": "postcss src/styles.css -o static/styles.css",

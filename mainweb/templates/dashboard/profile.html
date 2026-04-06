@@ -73,12 +73,32 @@
                                         <option value="doctoral" {% if user_doc_upload and user_doc_upload.work_title == 'doctoral' %}selected{% endif %}>{{ t('track_phd_title') if t('track_phd_title') != 'track_phd_title' else "Doktorant" }}</option>
                                         <option value="postgraduate" {% if user_doc_upload and user_doc_upload.work_title == 'postgraduate' %}selected{% endif %}>{{ t('postgraduate') if t('postgraduate') != 'postgraduate' else "Aspirant" }}</option>
                                         <option value="doctor" {% if user_doc_upload and user_doc_upload.work_title == 'doctor' %}selected{% endif %}>{{ t('doctor_science') if t('doctor_science') != 'doctor_science' else "Fan doktori" }}</option>
+                                        <option value="researcher" {% if user_doc_upload and user_doc_upload.work_title == 'researcher' %}selected{% endif %}>{{ t('researcher') if t('researcher') != 'researcher' else "Tadqiqotchi" }}</option>
+                                        <option value="university_researcher" {% if user_doc_upload and user_doc_upload.work_title == 'university_researcher' %}selected{% endif %}>{{ t('university_researcher') if t('university_researcher') != 'university_researcher' else "Universitet tadqiqotchisi" }}</option>
+                                        <option value="independent_researcher" {% if user_doc_upload and user_doc_upload.work_title == 'independent_researcher' %}selected{% endif %}>{{ t('independent_researcher') if t('independent_researcher') != 'independent_researcher' else "Mustaqil tadqiqotchi" }}</option>
                                     </select>
                                 </div>
 
                                 <div class="col-span-6" id="document_upload_section" style="display: none;">
                                     <label class="block mb-2 text-sm font-medium text-gray-900">{{ t('supporting_document') if t('supporting_document') != 'supporting_document' else "Tasdiqlovchi hujjat (ixtiyoriy)" }}</label>
                                     <div class="mb-4">
+                                        <div class="mb-3">
+                                            <label for="document_type" class="block mb-2 text-sm font-medium text-gray-900">{{ t('document_type') if t('document_type') != 'document_type' else "Hujjat turi" }}</label>
+                                            <select id="document_type" name="document_type" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                                                <option value="">{{ t('not_specified') if t('not_specified') != 'not_specified' else "Tanlanmagan" }}</option>
+                                                {% for doc_value, doc_label in document_type_choices %}
+                                                    <option value="{{ doc_value }}" {% if user_doc_upload and user_doc_upload.document_type == doc_value %}selected{% endif %}>{{ doc_label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="document_holder_name" class="block mb-2 text-sm font-medium text-gray-900">{{ t('document_holder_name') if t('document_holder_name') != 'document_holder_name' else "Hujjat egasi F.I.Sh" }}</label>
+                                            <input type="text" id="document_holder_name" name="document_holder_name" value="{{ user_doc_upload.document_holder_name if user_doc_upload else ((user.name or '') ~ ' ' ~ (user.second_name or ''))|trim }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="institution_name" class="block mb-2 text-sm font-medium text-gray-900">{{ t('institution_name') if t('institution_name') != 'institution_name' else "Universitet / muassasa nomi" }}</label>
+                                            <input type="text" id="institution_name" name="institution_name" value="{{ user_doc_upload.institution_name if user_doc_upload else '' }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                                        </div>
                                         {% if user_doc_upload and user_doc_upload.file_path %}
                                         <div class="bg-green-50 border border-green-200 rounded-lg p-3 mb-3" id="current_document">
                                             <div class="flex items-center gap-2">

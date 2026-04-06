@@ -30,6 +30,10 @@
           <th class="text-center">{{ t("admin_label_amount_uzs") }}</th>
           <th class="text-center">{{ t("admin_label_amount_usd") }}</th>
           <th class="text-center">{{ t("admin_label_user_limit") }}</th>
+          <th class="text-center">Kirish modeli</th>
+          <th class="text-center">Chegirmalar</th>
+          <th class="text-center">Yuklab olish</th>
+          <th class="text-center">Talablar</th>
           <th class="text-center">{{ t("admin_label_default") }}</th>
           <th class="text-center">{{ t("admin_label_for_verified") }}</th>
           <th class="w-1"></th>
@@ -38,6 +42,7 @@
       <tbody>
         {% for tariff in tariffs %}
         <tr>
+          {% set permissions = tariff.feature_permissions or [] %}
           <td class="align-middle">{{ tariff.name }}</td>
           <td class="align-middle text-center">{{ tariff.price_rub|int }} ₽{% if tariff.price_rub > 0 %}{{
             t("admin_label_per_month") }}{% endif %}</td>
@@ -46,6 +51,87 @@
           <td class="align-middle text-center">{{ tariff.price_usd }} $ {% if tariff.price_usd > 0 %}{{
             t("admin_label_per_month") }}{% endif %}</td>
           <td class="align-middle text-center">{{ tariff.duration_days or tariff.user_limit or 0 }}</td>
+          <td class="align-middle text-center">
+            {% if permissions %}
+              {% if 'access_latest_content' in permissions and 'access_archive_content' in permissions %}
+                To'liq (yangi + arxiv)
+              {% elif 'access_archive_content' in permissions %}
+                Arxiv ({{ tariff.archive_days_threshold or 365 }}+ kun)
+              {% elif 'access_latest_content' in permissions %}
+                Faqat yangi materiallar
+              {% else %}
+                Cheklangan
+              {% endif %}
+            {% elif (tariff.entitlement_scope or 'all') == 'archive' %}
+              Arxiv ({{ tariff.archive_days_threshold or 365 }}+ kun)
+            {% else %}
+              To'liq
+            {% endif %}
+          </td>
+          <td class="align-middle text-center">
+            {% if (not permissions) or ('article_discount' in permissions) %}
+              M: {{ "%.2f"|format(tariff.article_discount_pct or 0) }}%
+            {% else %}
+              M: off
+            {% endif %}
+            <br>
+            {% if (not permissions) or ('issue_discount' in permissions) %}
+              S: {{ "%.2f"|format(tariff.issue_discount_pct or 0) }}%
+            {% else %}
+              S: off
+            {% endif %}
+            <br>
+            O: {{ "%.2f"|format(tariff.subscription_discount_pct or 0) }}%
+          </td>
+          <td class="align-middle text-center">
+            {% set monthly_limit = tariff.monthly_download_limit or 0 %}
+            {% if permissions and ('download_subscription_files' not in permissions) %}
+              Yuklab olish yo'q
+            {% elif monthly_limit > 0 %}
+              {{ monthly_limit }}/oy
+            {% else %}
+              Cheksiz
+            {% endif %}
+          </td>
+          <td class="align-middle text-center">
+            {% set req_positions = tariff.required_academic_positions or [] %}
+            {% if req_positions %}
+              {% for pos in req_positions %}
+                {% if pos == 'student' %}Talaba
+                {% elif pos == 'master' %}Magistrant
+                {% elif pos == 'doctoral' %}Doktorant
+                {% elif pos == 'researcher' %}Tadqiqotchi
+                {% elif pos == 'university_researcher' %}Universitet tadqiqotchisi
+                {% elif pos == 'independent_researcher' %}Mustaqil tadqiqotchi
+                {% elif pos == 'teacher' %}O'qituvchi
+                {% elif pos == 'postgraduate' %}Aspirant
+                {% elif pos == 'doctor' %}Fan doktori
+                {% else %}{{ pos }}
+                {% endif %}{% if not loop.last %}, {% endif %}
+              {% endfor %}
+            {% else %}
+              Umumiy
+            {% endif %}
+            {% set req_doc_types = tariff.required_document_types or [] %}
+            {% if req_doc_types %}
+              <br><span class="text-muted">
+                {% for doc_type in req_doc_types %}
+                  {% if doc_type == 'student_id' %}Talabalik guvohnomasi
+                  {% elif doc_type == 'enrollment_certificate' %}O'qishdan ma'lumotnoma
+                  {% elif doc_type == 'master_certificate' %}Magistratura hujjati
+                  {% elif doc_type == 'phd_certificate' %}Doktorantura hujjati
+                  {% elif doc_type == 'researcher_certificate' %}Tadqiqotchi tasdiq hujjati
+                  {% elif doc_type == 'employment_certificate' %}Ish joyidan ma'lumotnoma
+                  {% elif doc_type == 'other_academic' %}Boshqa akademik hujjat
+                  {% else %}{{ doc_type }}
+                  {% endif %}{% if not loop.last %}, {% endif %}
+                {% endfor %}
+              </span>
+            {% endif %}
+            {% if tariff.requires_verified_document %}
+              <br><span class="text-muted">Verified hujjat</span>
+            {% endif %}
+          </td>
           <td class="align-middle text-center">
             {% if tariff.is_default %}
             <i class="ti ti-check text-success"></i>
@@ -57,12 +143,13 @@
             {% endif %}
           </td>
           <td class="align-middle">
-            <a href="#" class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1" data-bs-toggle="modal"
+            <a href="#" class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1" data-tariff-id="{{ tariff.id }}" data-bs-toggle="modal"
               data-bs-target="#modal-edit-tariff">
               {{ t("admin_btn_edit") }}
             </a>
             {% if not tariff.is_default %}
             <a href="#" class="btn btn-icon btn-outline-danger bg-danger-lt btn-sm px-2 py-1 ms-1"
+              data-tariff-id="{{ tariff.id }}"
               data-bs-toggle="modal" data-bs-target="#modal-delete-tariff">
               {{ t("admin_btn_delete") }}
             </a>
@@ -104,6 +191,89 @@
             class="form-control" id="add-price-usd"></div>
         <div class="mb-3"><label class="form-label">{{ t("admin_label_user_limit") }}</label><input type="number"
             class="form-control" id="add-duration-days" min="1" value="30"></div>
+        <div class="mb-3">
+          <label class="form-label">Kirish modeli</label>
+          <select class="form-select" id="add-entitlement-scope">
+            <option value="all">To'liq kirish</option>
+            <option value="archive">Faqat arxiv</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Arxiv chegarasi (kun)</label>
+          <input type="number" class="form-control" id="add-archive-days-threshold" min="1" value="365">
+        </div>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Maqola chegirmasi (%)</label>
+            <input type="number" class="form-control" id="add-article-discount-pct" min="0" max="100" step="0.01" value="0">
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Son chegirmasi (%)</label>
+            <input type="number" class="form-control" id="add-issue-discount-pct" min="0" max="100" step="0.01" value="0">
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">Obuna aksiyasi (%)</label>
+            <input type="number" class="form-control" id="add-subscription-discount-pct" min="0" max="100" step="0.01" value="0">
+          </div>
+          <div class="col-md-4 mb-3">
+            <label class="form-label">Aksiya boshlanishi</label>
+            <input type="datetime-local" class="form-control" id="add-subscription-discount-start-at">
+          </div>
+          <div class="col-md-4 mb-3">
+            <label class="form-label">Aksiya tugashi</label>
+            <input type="datetime-local" class="form-control" id="add-subscription-discount-end-at">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Oyiga yuklab olish limiti (0 = cheksiz)</label>
+          <input type="number" class="form-control" id="add-monthly-download-limit" min="0" value="0">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Faqat quyidagi toifalar uchun (ixtiyoriy)</label>
+          <div class="d-flex flex-wrap gap-2">
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-position" value="student"><span class="form-check-label">Talaba</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-position" value="master"><span class="form-check-label">Magistrant</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-position" value="doctoral"><span class="form-check-label">Doktorant</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-position" value="postgraduate"><span class="form-check-label">Aspirant</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-position" value="doctor"><span class="form-check-label">Fan doktori</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-position" value="researcher"><span class="form-check-label">Tadqiqotchi</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-position" value="university_researcher"><span class="form-check-label">Universitet tadqiqotchisi</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-position" value="independent_researcher"><span class="form-check-label">Mustaqil tadqiqotchi</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-position" value="teacher"><span class="form-check-label">O'qituvchi</span></label>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Talab qilinadigan hujjat turi (ixtiyoriy)</label>
+          <div class="d-flex flex-wrap gap-2">
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-document-type" value="student_id"><span class="form-check-label">Talabalik guvohnomasi</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-document-type" value="enrollment_certificate"><span class="form-check-label">O'qishdan ma'lumotnoma</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-document-type" value="master_certificate"><span class="form-check-label">Magistratura hujjati</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-document-type" value="phd_certificate"><span class="form-check-label">Doktorantura hujjati</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-document-type" value="researcher_certificate"><span class="form-check-label">Tadqiqotchi hujjati</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-document-type" value="employment_certificate"><span class="form-check-label">Ish joyidan ma'lumotnoma</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-required-document-type" value="other_academic"><span class="form-check-label">Boshqa akademik hujjat</span></label>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Tarif ruxsatlari</label>
+          <div class="d-flex flex-wrap gap-2">
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-feature-permission" value="access_latest_content" checked><span class="form-check-label">Yangi materiallarga kirish</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-feature-permission" value="access_archive_content" checked><span class="form-check-label">Arxivga kirish</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-feature-permission" value="download_subscription_files" checked><span class="form-check-label">PDF yuklab olish</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-feature-permission" value="article_discount" checked><span class="form-check-label">Maqola chegirmasi</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input add-feature-permission" value="issue_discount" checked><span class="form-check-label">Son chegirmasi</span></label>
+          </div>
+        </div>
+        <div class="mb-3 form-check">
+          <input type="checkbox" class="form-check-input" id="add-requires-verified-document">
+          <label class="form-check-label" for="add-requires-verified-document">Tasdiqlangan hujjat majburiy</label>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Eligibility izohi</label>
+          <input type="text" class="form-control" id="add-eligibility-note" placeholder="Masalan: Talabalik guvohnomasi verified bo'lishi kerak">
+        </div>
         <div class="mb-3 form-check"><input type="checkbox" class="form-check-input" id="add-is-default"><label
             class="form-check-label" for="add-is-default">{{ t("admin_label_default") }}</label></div>
         <div class="mb-3 form-check"><input type="checkbox" class="form-check-input" id="add-is-verified"><label
@@ -148,6 +318,89 @@
             class="form-control" id="edit-price-usd"></div>
         <div class="mb-3"><label class="form-label">{{ t("admin_label_user_limit") }}</label><input type="number"
             class="form-control" id="edit-duration-days" min="1"></div>
+        <div class="mb-3">
+          <label class="form-label">Kirish modeli</label>
+          <select class="form-select" id="edit-entitlement-scope">
+            <option value="all">To'liq kirish</option>
+            <option value="archive">Faqat arxiv</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Arxiv chegarasi (kun)</label>
+          <input type="number" class="form-control" id="edit-archive-days-threshold" min="1">
+        </div>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Maqola chegirmasi (%)</label>
+            <input type="number" class="form-control" id="edit-article-discount-pct" min="0" max="100" step="0.01">
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Son chegirmasi (%)</label>
+            <input type="number" class="form-control" id="edit-issue-discount-pct" min="0" max="100" step="0.01">
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">Obuna aksiyasi (%)</label>
+            <input type="number" class="form-control" id="edit-subscription-discount-pct" min="0" max="100" step="0.01">
+          </div>
+          <div class="col-md-4 mb-3">
+            <label class="form-label">Aksiya boshlanishi</label>
+            <input type="datetime-local" class="form-control" id="edit-subscription-discount-start-at">
+          </div>
+          <div class="col-md-4 mb-3">
+            <label class="form-label">Aksiya tugashi</label>
+            <input type="datetime-local" class="form-control" id="edit-subscription-discount-end-at">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Oyiga yuklab olish limiti (0 = cheksiz)</label>
+          <input type="number" class="form-control" id="edit-monthly-download-limit" min="0">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Faqat quyidagi toifalar uchun (ixtiyoriy)</label>
+          <div class="d-flex flex-wrap gap-2">
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-position" value="student"><span class="form-check-label">Talaba</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-position" value="master"><span class="form-check-label">Magistrant</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-position" value="doctoral"><span class="form-check-label">Doktorant</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-position" value="postgraduate"><span class="form-check-label">Aspirant</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-position" value="doctor"><span class="form-check-label">Fan doktori</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-position" value="researcher"><span class="form-check-label">Tadqiqotchi</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-position" value="university_researcher"><span class="form-check-label">Universitet tadqiqotchisi</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-position" value="independent_researcher"><span class="form-check-label">Mustaqil tadqiqotchi</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-position" value="teacher"><span class="form-check-label">O'qituvchi</span></label>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Talab qilinadigan hujjat turi (ixtiyoriy)</label>
+          <div class="d-flex flex-wrap gap-2">
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-document-type" value="student_id"><span class="form-check-label">Talabalik guvohnomasi</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-document-type" value="enrollment_certificate"><span class="form-check-label">O'qishdan ma'lumotnoma</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-document-type" value="master_certificate"><span class="form-check-label">Magistratura hujjati</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-document-type" value="phd_certificate"><span class="form-check-label">Doktorantura hujjati</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-document-type" value="researcher_certificate"><span class="form-check-label">Tadqiqotchi hujjati</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-document-type" value="employment_certificate"><span class="form-check-label">Ish joyidan ma'lumotnoma</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-required-document-type" value="other_academic"><span class="form-check-label">Boshqa akademik hujjat</span></label>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Tarif ruxsatlari</label>
+          <div class="d-flex flex-wrap gap-2">
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-feature-permission" value="access_latest_content"><span class="form-check-label">Yangi materiallarga kirish</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-feature-permission" value="access_archive_content"><span class="form-check-label">Arxivga kirish</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-feature-permission" value="download_subscription_files"><span class="form-check-label">PDF yuklab olish</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-feature-permission" value="article_discount"><span class="form-check-label">Maqola chegirmasi</span></label>
+            <label class="form-check form-check-inline"><input type="checkbox" class="form-check-input edit-feature-permission" value="issue_discount"><span class="form-check-label">Son chegirmasi</span></label>
+          </div>
+        </div>
+        <div class="mb-3 form-check">
+          <input type="checkbox" class="form-check-input" id="edit-requires-verified-document">
+          <label class="form-check-label" for="edit-requires-verified-document">Tasdiqlangan hujjat majburiy</label>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Eligibility izohi</label>
+          <input type="text" class="form-control" id="edit-eligibility-note">
+        </div>
         <div class="mb-3 form-check"><input type="checkbox" class="form-check-input" id="edit-is-default"><label
             class="form-check-label" for="edit-is-default">{{ t("admin_label_default") }}</label></div>
         <div class="mb-3 form-check"><input type="checkbox" class="form-check-input" id="edit-is-verified"><label
@@ -195,6 +448,60 @@
 <script>
   window.TARIFFS = {{ tariffs | tojson }};
   document.addEventListener('DOMContentLoaded', function () {
+    var tariffsById = {};
+    for (var i = 0; i < window.TARIFFS.length; i++) {
+      var current = window.TARIFFS[i];
+      tariffsById[String(current.id)] = current;
+    }
+
+    function getCheckedValues(selector) {
+      var values = [];
+      document.querySelectorAll(selector).forEach(function (checkbox) {
+        if (checkbox.checked) {
+          values.push(String(checkbox.value || '').trim().toLowerCase());
+        }
+      });
+      return values;
+    }
+
+    function setCheckedValues(selector, values) {
+      var normalized = {};
+      (values || []).forEach(function (item) {
+        normalized[String(item || '').trim().toLowerCase()] = true;
+      });
+      document.querySelectorAll(selector).forEach(function (checkbox) {
+        checkbox.checked = !!normalized[String(checkbox.value || '').trim().toLowerCase()];
+      });
+    }
+
+    function fallbackFeaturePermissions(tariff) {
+      var scope = String((tariff && tariff.entitlement_scope) || 'all').trim().toLowerCase();
+      if (scope === 'archive') {
+        return ['access_archive_content', 'download_subscription_files', 'article_discount', 'issue_discount'];
+      }
+      return ['access_latest_content', 'access_archive_content', 'download_subscription_files', 'article_discount', 'issue_discount'];
+    }
+
+    function datetimeLocalToUnix(value) {
+      var text = String(value || '').trim();
+      if (!text) return null;
+      var timestamp = Date.parse(text);
+      if (Number.isNaN(timestamp)) return null;
+      return Math.floor(timestamp / 1000);
+    }
+
+    function unixToDatetimeLocal(value) {
+      var seconds = Number(value);
+      if (!seconds || Number.isNaN(seconds)) return '';
+      var date = new Date(seconds * 1000);
+      var year = date.getFullYear();
+      var month = String(date.getMonth() + 1).padStart(2, '0');
+      var day = String(date.getDate()).padStart(2, '0');
+      var hours = String(date.getHours()).padStart(2, '0');
+      var minutes = String(date.getMinutes()).padStart(2, '0');
+      return year + '-' + month + '-' + day + 'T' + hours + ':' + minutes;
+    }
+
     // Добавление тарифа
     document.getElementById('save-tariff-btn').onclick = function () {
       fetch('/fmadmin/api/tariff', {
@@ -212,6 +519,19 @@
           price_usd: parseFloat(document.getElementById('add-price-usd').value) || 0,
           duration_days: parseInt(document.getElementById('add-duration-days').value) || 30,
           user_limit: parseInt(document.getElementById('add-duration-days').value) || 30,
+          entitlement_scope: document.getElementById('add-entitlement-scope').value || 'all',
+          archive_days_threshold: parseInt(document.getElementById('add-archive-days-threshold').value) || 365,
+          article_discount_pct: parseFloat(document.getElementById('add-article-discount-pct').value) || 0,
+          issue_discount_pct: parseFloat(document.getElementById('add-issue-discount-pct').value) || 0,
+          subscription_discount_pct: parseFloat(document.getElementById('add-subscription-discount-pct').value) || 0,
+          subscription_discount_start_at: datetimeLocalToUnix(document.getElementById('add-subscription-discount-start-at').value),
+          subscription_discount_end_at: datetimeLocalToUnix(document.getElementById('add-subscription-discount-end-at').value),
+          monthly_download_limit: parseInt(document.getElementById('add-monthly-download-limit').value) || 0,
+          required_academic_positions: getCheckedValues('.add-required-position'),
+          required_document_types: getCheckedValues('.add-required-document-type'),
+          feature_permissions: getCheckedValues('.add-feature-permission'),
+          requires_verified_document: document.getElementById('add-requires-verified-document').checked,
+          eligibility_note: document.getElementById('add-eligibility-note').value,
           is_default: document.getElementById('add-is-default').checked,
           is_verified: document.getElementById('add-is-verified').checked
         })
@@ -223,14 +543,8 @@
     // Открытие модалки редактирования тарифа
     document.querySelectorAll('[data-bs-target="#modal-edit-tariff"]').forEach(function (btn, idx) {
       btn.addEventListener('click', function () {
-        var row = btn.closest('tr');
-        var tds = row.querySelectorAll('td');
-        var name = tds[0].innerText.trim();
-        var tariff = null;
-        for (var i = 0; i < window.TARIFFS.length; i++) {
-          var t = window.TARIFFS[i];
-          if (t.name === name) tariff = t;
-        }
+        var tariffId = String(btn.getAttribute('data-tariff-id') || '');
+        var tariff = tariffsById[tariffId] || null;
         if (tariff) {
           document.getElementById('edit-tariff-id').value = tariff.id;
           document.getElementById('edit-name').value = tariff.name || '';
@@ -243,6 +557,23 @@
           document.getElementById('edit-price-uzs').value = tariff.price_uzs || 0;
           document.getElementById('edit-price-usd').value = tariff.price_usd || 0;
           document.getElementById('edit-duration-days').value = tariff.duration_days || tariff.user_limit || 30;
+          document.getElementById('edit-entitlement-scope').value = tariff.entitlement_scope || 'all';
+          document.getElementById('edit-archive-days-threshold').value = tariff.archive_days_threshold || 365;
+          document.getElementById('edit-article-discount-pct').value = tariff.article_discount_pct || 0;
+          document.getElementById('edit-issue-discount-pct').value = tariff.issue_discount_pct || 0;
+          document.getElementById('edit-subscription-discount-pct').value = tariff.subscription_discount_pct || 0;
+          document.getElementById('edit-subscription-discount-start-at').value = unixToDatetimeLocal(tariff.subscription_discount_start_at);
+          document.getElementById('edit-subscription-discount-end-at').value = unixToDatetimeLocal(tariff.subscription_discount_end_at);
+          document.getElementById('edit-monthly-download-limit').value = tariff.monthly_download_limit || 0;
+          setCheckedValues('.edit-required-position', tariff.required_academic_positions || []);
+          setCheckedValues('.edit-required-document-type', tariff.required_document_types || []);
+          var existingFeaturePermissions = tariff.feature_permissions || [];
+          if (!Array.isArray(existingFeaturePermissions) || existingFeaturePermissions.length === 0) {
+            existingFeaturePermissions = fallbackFeaturePermissions(tariff);
+          }
+          setCheckedValues('.edit-feature-permission', existingFeaturePermissions);
+          document.getElementById('edit-requires-verified-document').checked = !!tariff.requires_verified_document;
+          document.getElementById('edit-eligibility-note').value = tariff.eligibility_note || '';
           document.getElementById('edit-is-default').checked = !!tariff.is_default;
           document.getElementById('edit-is-verified').checked = !!tariff.is_verified;
         }
@@ -267,6 +598,19 @@
           price_usd: parseFloat(document.getElementById('edit-price-usd').value) || 0,
           duration_days: parseInt(document.getElementById('edit-duration-days').value) || 30,
           user_limit: parseInt(document.getElementById('edit-duration-days').value) || 30,
+          entitlement_scope: document.getElementById('edit-entitlement-scope').value || 'all',
+          archive_days_threshold: parseInt(document.getElementById('edit-archive-days-threshold').value) || 365,
+          article_discount_pct: parseFloat(document.getElementById('edit-article-discount-pct').value) || 0,
+          issue_discount_pct: parseFloat(document.getElementById('edit-issue-discount-pct').value) || 0,
+          subscription_discount_pct: parseFloat(document.getElementById('edit-subscription-discount-pct').value) || 0,
+          subscription_discount_start_at: datetimeLocalToUnix(document.getElementById('edit-subscription-discount-start-at').value),
+          subscription_discount_end_at: datetimeLocalToUnix(document.getElementById('edit-subscription-discount-end-at').value),
+          monthly_download_limit: parseInt(document.getElementById('edit-monthly-download-limit').value) || 0,
+          required_academic_positions: getCheckedValues('.edit-required-position'),
+          required_document_types: getCheckedValues('.edit-required-document-type'),
+          feature_permissions: getCheckedValues('.edit-feature-permission'),
+          requires_verified_document: document.getElementById('edit-requires-verified-document').checked,
+          eligibility_note: document.getElementById('edit-eligibility-note').value,
           is_default: document.getElementById('edit-is-default').checked,
           is_verified: document.getElementById('edit-is-verified').checked
         })
@@ -278,14 +622,8 @@
     // Открытие модалки удаления тарифа
     document.querySelectorAll('[data-bs-target="#modal-delete-tariff"]').forEach(function (btn, idx) {
       btn.addEventListener('click', function () {
-        var row = btn.closest('tr');
-        var tds = row.querySelectorAll('td');
-        var name = tds[0].innerText.trim();
-        var tariff = null;
-        for (var i = 0; i < window.TARIFFS.length; i++) {
-          var t = window.TARIFFS[i];
-          if (t.name === name) tariff = t;
-        }
+        var tariffId = String(btn.getAttribute('data-tariff-id') || '');
+        var tariff = tariffsById[tariffId] || null;
         if (tariff) {
           document.getElementById('delete-tariff-id').value = tariff.id;
           document.getElementById('delete-tariff-name').textContent = tariff.name;

@@ -1,4 +1,4 @@
-{% macro subscription_modal(tariffs, currency, is_verified, t) %}
+{% macro subscription_modal(tariffs, currency, is_verified, t, user_full_name='', user_document_holder_name='', user_document_institution_name='') %}
 <!-- Subscription Modal -->
 <div class="relative z-60 hidden" id="subscription_modal" aria-labelledby="modal-title" role="dialog" aria-modal="true">
     <div class="fixed inset-0 bg-gray-500/75 transition-opacity" aria-hidden="true"></div>
@@ -34,9 +34,13 @@
                     <!-- Subscription Options -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {% for tariff in tariffs %}
-                        {% if is_verified or not tariff.is_verified %}
-                        <div class="subscription-option border rounded-lg p-8 {% if tariff.selected_price > 0 %}cursor-pointer transition-colors border-gray-200 hover:border-blue-300 hover:bg-blue-50/30{% else %}opacity-50 cursor-not-allowed border-gray-300{% endif %}" 
-                             {% if tariff.selected_price > 0 %}data-tariff-id="{{ tariff.id }}" data-amount="{{ tariff.selected_price }}"{% endif %}>
+                        {% set can_select = (tariff.can_select if tariff.can_select is defined else (tariff.selected_price > 0 and tariff.eligible_for_user)) %}
+                        <div class="subscription-option border rounded-lg p-8 {% if can_select %}cursor-pointer transition-colors border-gray-200 hover:border-blue-300 hover:bg-blue-50/30{% else %}opacity-70 cursor-not-allowed border-gray-300 bg-gray-50/70{% endif %}" 
+                             {% if can_select %}data-tariff-id="{{ tariff.id }}" data-amount="{{ tariff.selected_price }}" data-currency="{{ tariff.selected_currency or currency }}"{% endif %}
+                             data-needs-document-upload="{{ 1 if tariff.needs_document_upload else 0 }}"
+                             data-needs-document-verification="{{ 1 if tariff.needs_document_verification else 0 }}"
+                             data-requires-verified-document="{{ 1 if tariff.requires_verified_document else 0 }}"
+                             data-required-document-types="{{ (tariff.required_document_types or [])|join(',') }}">
                             <div class="flex justify-between items-start mb-6">
                                 <div>
                                     <h6 class="text-lg font-medium">{{ tariff.name }}</h6>
@@ -44,8 +48,16 @@
                                 </div>
                                 <div class="text-right">
                                     <div class="text-2xl font-bold {% if tariff.selected_price > 0 %}text-blue-600{% else %}text-gray-400{% endif %}">
-                                        {{ tariff.selected_price|format_currency(currency) }}
+                                        {{ tariff.selected_price|format_currency(tariff.selected_currency or currency) }}
                                     </div>
+                                    {% if tariff.subscription_discount_active and (tariff.base_selected_price or 0) > (tariff.selected_price or 0) %}
+                                    <div class="text-xs text-rose-600 mt-1">
+                                        -{{ tariff.subscription_discount_percent|round(2) }}% aksiya
+                                    </div>
+                                    <div class="text-xs text-gray-400 line-through">
+                                        {{ tariff.base_selected_price|format_currency(tariff.selected_currency or currency) }}
+                                    </div>
+                                    {% endif %}
                                     {% set duration_days = tariff.duration_days or tariff.user_limit %}
                                     {% if duration_days %}
                                     <div class="text-sm text-gray-500">{{ duration_days }} {{ t('days') }}</div>
@@ -67,30 +79,141 @@
                                 </div>
                             </div>
                             {% endif %}
-                            
+                            {% if tariff.required_academic_position_labels %}
+                            <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4 text-sm text-blue-800">
+                                Toifa: {{ tariff.required_academic_position_labels|join(', ') }}
+                            </div>
+                            {% endif %}
+                            {% if tariff.required_document_type_labels %}
+                            <div class="bg-sky-50 border border-sky-100 rounded-lg p-3 mb-4 text-sm text-sky-800">
+                                Hujjat turi: {{ tariff.required_document_type_labels|join(', ') }}
+                            </div>
+                            {% endif %}
+                            {% if tariff.requires_verified_document %}
+                            <div class="bg-amber-50 border border-amber-100 rounded-lg p-3 mb-4 text-sm text-amber-800">
+                                Tasdiqlangan akademik hujjat talab qilinadi.
+                            </div>
+                            {% endif %}
+                            {% if tariff.eligibility_note %}
+                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 text-sm text-gray-700">
+                                {{ tariff.eligibility_note }}
+                            </div>
+                            {% endif %}
+                            {% if not tariff.eligible_for_user %}
+                            <div class="bg-red-50 border border-red-100 rounded-lg p-3 mb-4 text-sm text-red-700">
+                                {% if tariff.eligibility_reasons %}
+                                    {{ tariff.eligibility_reasons|join('. ') }}
+                                {% else %}
+                                    Ushbu tarif uchun hozircha eligibility talablari bajarilmagan.
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% if tariff.needs_document_upload %}
+                            <div class="bg-amber-50 border border-amber-100 rounded-lg p-3 mb-4 text-sm text-amber-800">
+                                Ushbu tarifni faollashtirishda hujjat topshirish talab qilinadi.
+                            </div>
+                            {% endif %}
+                            {% if tariff.needs_document_verification %}
+                            <div class="bg-sky-50 border border-sky-100 rounded-lg p-3 mb-4 text-sm text-sky-800">
+                                Hujjatingiz yuklangan. Tarif faollashishi uchun admin tasdiqlashi kutilmoqda.
+                            </div>
+                            {% endif %}
+
+                            {% set entitlement_scope = (tariff.entitlement_scope or 'all') %}
+                            {% set feature_permissions = tariff.feature_permissions or [] %}
+                            {% set archive_days = (tariff.archive_days_threshold or 365)|int %}
+                            {% set monthly_download_limit = (tariff.monthly_download_limit or 0)|int %}
+                            {% set article_discount_pct = (tariff.article_discount_pct or 0)|float %}
+                            {% set issue_discount_pct = (tariff.issue_discount_pct or 0)|float %}
                             <ul class="space-y-3">
                                 <li class="flex items-center text-sm">
                                     <iconify-icon icon="tabler:check" class="text-green-500 me-2"></iconify-icon>
-                                    {{ t('full_article_access') }}
+                                    {% if 'access_latest_content' in feature_permissions and 'access_archive_content' in feature_permissions %}
+                                        Yangi va arxiv materiallari
+                                    {% elif 'access_archive_content' in feature_permissions %}
+                                        Arxiv materiallari ({{ archive_days }}+ kun)
+                                    {% elif 'access_latest_content' in feature_permissions %}
+                                        Faqat yangi materiallar ({{ archive_days }} kundan yangi)
+                                    {% elif entitlement_scope == 'archive' %}
+                                        Arxiv materiallari
+                                    {% else %}
+                                        To'liq obuna materiali
+                                    {% endif %}
                                 </li>
                                 <li class="flex items-center text-sm">
-                                    <iconify-icon icon="tabler:check" class="text-green-500 me-2"></iconify-icon>
-                                    {{ t('unlimited_downloads') }}
+                                    {% if 'download_subscription_files' in feature_permissions %}
+                                        <iconify-icon icon="tabler:check" class="text-green-500 me-2"></iconify-icon>
+                                        {% if monthly_download_limit > 0 %}
+                                            Oyiga {{ monthly_download_limit }} ta yuklab olish
+                                        {% else %}
+                                            Cheksiz yuklab olish
+                                        {% endif %}
+                                    {% else %}
+                                        <iconify-icon icon="tabler:x" class="text-red-500 me-2"></iconify-icon>
+                                        PDF yuklab olish yo'q
+                                    {% endif %}
                                 </li>
+                                {% if ('article_discount' in feature_permissions) and article_discount_pct > 0 %}
                                 <li class="flex items-center text-sm">
                                     <iconify-icon icon="tabler:check" class="text-green-500 me-2"></iconify-icon>
-                                    {{ t('early_access') }}
+                                    Maqola xaridida -{{ article_discount_pct|round(2) }}%
                                 </li>
+                                {% endif %}
+                                {% if ('issue_discount' in feature_permissions) and issue_discount_pct > 0 %}
+                                <li class="flex items-center text-sm">
+                                    <iconify-icon icon="tabler:check" class="text-green-500 me-2"></iconify-icon>
+                                    Son xaridida -{{ issue_discount_pct|round(2) }}%
+                                </li>
+                                {% endif %}
+                                {% if (('article_discount' not in feature_permissions) or article_discount_pct <= 0) and (('issue_discount' not in feature_permissions) or issue_discount_pct <= 0) %}
+                                <li class="flex items-center text-sm">
+                                    <iconify-icon icon="tabler:check" class="text-green-500 me-2"></iconify-icon>
+                                    Xaridlar uchun standart narx
+                                </li>
+                                {% endif %}
                                 {% if tariff.is_default %}
                                 <li class="flex items-center text-sm">
                                     <iconify-icon icon="tabler:check" class="text-green-500 me-2"></iconify-icon>
                                     {{ t('basic_plan') }}
                                 </li>
                                 {% endif %}
+                                {% if tariff.is_verified %}
+                                <li class="flex items-center text-sm">
+                                    <iconify-icon icon="tabler:shield-check" class="text-blue-500 me-2"></iconify-icon>
+                                    Tasdiqlangan mualliflar uchun
+                                </li>
+                                {% endif %}
                             </ul>
                         </div>
-                        {% endif %}
                         {% endfor %}
+                    </div>
+
+                    <div id="subscription_activation_doc_box" class="mt-6 hidden rounded-lg border border-amber-200 bg-amber-50 p-4">
+                        <h6 class="text-base font-semibold text-amber-900 mb-3">Tarif faollashtirish uchun hujjat</h6>
+                        <p class="text-sm text-amber-800 mb-3">
+                            Ushbu tarifni ochish uchun tasdiqlovchi hujjat yuklashingiz kerak.
+                        </p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label for="subscription_document_type" class="block text-sm font-medium text-amber-900 mb-1">Hujjat turi</label>
+                                <select id="subscription_document_type" class="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-sm">
+                                    <option value="">Tanlang</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="subscription_document_holder_name" class="block text-sm font-medium text-amber-900 mb-1">Hujjat egasi F.I.Sh</label>
+                                <input id="subscription_document_holder_name" type="text" class="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-sm" value="{{ user_document_holder_name or user_full_name }}">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="subscription_institution_name" class="block text-sm font-medium text-amber-900 mb-1">Universitet / muassasa</label>
+                                <input id="subscription_institution_name" type="text" class="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-sm" value="{{ user_document_institution_name }}">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="subscription_document_file" class="block text-sm font-medium text-amber-900 mb-1">Hujjat fayli</label>
+                                <input id="subscription_document_file" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-sm">
+                            </div>
+                        </div>
+                        <p class="mt-2 text-xs text-amber-700">Eslatma: hujjatdagi ism-familiya akkauntdagi ism-familiya bilan bir xil bo'lishi kerak.</p>
                     </div>
                 </div>
                 <div class="bg-gray-50 px-4 sm:px-8 lg:px-12 py-4 sm:flex sm:flex-row-reverse">

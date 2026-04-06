@@ -542,7 +542,7 @@
                                         {{ t('change_corresponding_author') }}
                                     </a>
 
-                                    <a href="javascript:;" data-set-cauthor="me" class="flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-gray-50 border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-100 hover:cursor-pointer transition-colors" id="menu-button" aria-expanded="true" aria-haspopup="true">
+                                    <a href="javascript:;" data-set-cauthor="me" class="hidden flex w-fit text-nowrap items-center justify-center gap-x-1.5 rounded-md bg-gray-50 border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-100 hover:cursor-pointer transition-colors" id="menu-button" aria-expanded="true" aria-haspopup="true">
                                         {{ t('i_am_corresponding_author') }}
                                     </a>
                                 </div>
@@ -1761,6 +1761,10 @@
             errors.push('classifications');
         }
 
+        if (strictMode && !parseInt(corresponding_author_id, 10)) {
+            errors.push('author');
+        }
+
         return { errors, langData };
     }
 
@@ -1946,6 +1950,7 @@
     $(document).ready(function() {
         // Initialize subauthors section state
         $('#no_subauthors_message').show();
+        $('[data-set-cauthor="me"]').addClass('hidden');
         
         // Get current user's author profile
         $.ajax({
@@ -1954,8 +1959,14 @@
             success: function(response) {
                 if (response.success && response.author) {
                     CURRENT_USER_AUTHOR_DATA = response.author;
-                    update_set_me();
+                } else {
+                    CURRENT_USER_AUTHOR_DATA = null;
                 }
+                update_set_me();
+            },
+            error: function() {
+                CURRENT_USER_AUTHOR_DATA = null;
+                update_set_me();
             }
         });
 
@@ -2084,7 +2095,6 @@
                 set_corresponding(CURRENT_USER_AUTHOR_DATA);
             } else {
                 alert(TRANSLATIONS.completeAuthorProfile);
-                window.location.href = '/dashboard/profile';
             }
         });
 
@@ -2661,7 +2671,7 @@
     var corresponding_author = null;
 
     function update_set_me() {
-        if (!CURRENT_USER_AUTHOR_DATA) {
+        if (!CURRENT_USER_AUTHOR_DATA || !CURRENT_USER_AUTHOR_DATA.id) {
             $('[data-set-cauthor="me"]').addClass('hidden');
             return;
         }
@@ -2857,9 +2867,14 @@
     }
 
     function set_corresponding(author_data) {
+        if (!author_data || !author_data.id) {
+            return;
+        }
         corresponding_author = author_data;
         corresponding_author_id = author_data.id;
-        $('#current_corresponding_author').text(`${corresponding_author.name}, ORCID: ${corresponding_author.orcid}`);
+        const authorName = corresponding_author.name || 'Unknown author';
+        const authorOrcid = corresponding_author.orcid || '-';
+        $('#current_corresponding_author').text(`${authorName}, ORCID: ${authorOrcid}`);
         update_set_me();
     }
 

@@ -63,6 +63,14 @@ PENDING_REGISTRATION_SESSION_KEY = 'pending_registration_email'
 RESET_PASSWORD_VERIFICATION_PURPOSE = 'password_reset'
 PENDING_PASSWORD_RESET_SESSION_KEY = 'pending_password_reset_email'
 EMAIL_VERIFICATION_STORAGE_READY = False
+LOGIN_RATE_LIMIT_WINDOW_SECONDS = 15 * 60
+LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5
+LOGIN_RATE_LIMIT_BASE_LOCK_SECONDS = 60
+LOGIN_RATE_LIMIT_MAX_LOCK_SECONDS = 30 * 60
+LOGIN_RATE_LIMIT_STATE = {}
+LOGIN_RATE_LIMIT_SCOPE = 'mainweb'
+LOGIN_RATE_LIMIT_TABLE = 'auth_login_rate_limits'
+LOGIN_RATE_LIMIT_STORAGE_READY = False
 
 
 def _normalize_country_name(name):
@@ -166,23 +174,58 @@ def _post_auth_redirect(user_row, next_url=None):
     return redirect(url_for('app__index'))
 
 
+def _email_language(preferred=None):
+    default_lang = 'en'
+    if has_request_context():
+        default_lang = normalize_notification_language(session.get('language') or 'en', default='en')
+    return normalize_notification_language(preferred, default=default_lang)
+
+
+def _email_text(lang, uz_text, ru_text, en_text):
+    if lang == 'uz':
+        return uz_text
+    if lang == 'ru':
+        return ru_text
+    return en_text
+
+
 def _send_registration_welcome_email(user_row, is_google=False):
     email = (user_row or {}).get('email')
     if not email or not user_allows_email_notifications(user_row):
         return False
 
-    first_name = (user_row or {}).get('name') or 'Author'
-    body_lines = ['You can now complete your profile and submit new articles.']
+    lang = _email_language((user_row or {}).get('ui_language'))
+    first_name = (user_row or {}).get('name') or _email_text(lang, 'Muallif', 'Автор', 'Author')
+    body_lines = [
+        _email_text(
+            lang,
+            "Endi profilingizni to'ldirib, yangi maqolalar yuborishingiz mumkin.",
+            'Теперь вы можете заполнить профиль и отправлять новые статьи.',
+            'You can now complete your profile and submit new articles.',
+        )
+    ]
     if is_google:
-        body_lines.append('Google sign-in has been linked to your journal account.')
+        body_lines.append(
+            _email_text(
+                lang,
+                'Google orqali kirish jurnaldagi akkauntingizga bog‘landi.',
+                'Вход через Google был привязан к вашему аккаунту журнала.',
+                'Google sign-in has been linked to your journal account.',
+            )
+        )
 
     return send_notification_email(
         recipients=[email],
-        subject='Welcome to Philology Matters',
-        intro=f'Hello {first_name}, your account is now active.',
+        subject=_email_text(lang, 'Philology Matters platformasiga xush kelibsiz', 'Добро пожаловать в Philology Matters', 'Welcome to Philology Matters'),
+        intro=_email_text(
+            lang,
+            f"Salom {first_name}, akkauntingiz muvaffaqiyatli faollashtirildi.",
+            f"Здравствуйте, {first_name}! Ваш аккаунт успешно активирован.",
+            f'Hello {first_name}, your account is now active.',
+        ),
         body_lines=body_lines,
         cta_url=url_for('app__dashboard_profile'),
-        cta_label='Open dashboard',
+        cta_label=_email_text(lang, 'Dashboardni ochish', 'Открыть кабинет', 'Open dashboard'),
         fail_silently=True,
     )
 
@@ -233,6 +276,203 @@ def _get_request_ip():
     if forwarded_for:
         return forwarded_for.split(',')[0].strip()
     return (request.remote_addr or '').strip()
+
+
+def _login_rate_limit_key(email):
+    return f"{_get_request_ip() or 'unknown'}::{(email or '').strip().lower()}"
+
+
+def _ensure_login_rate_limit_storage():
+    global LOGIN_RATE_LIMIT_STORAGE_READY
+    if LOGIN_RATE_LIMIT_STORAGE_READY:
+        return True
+
+    try:
+        cursor = dbc.conn.cursor()
+        cursor.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {LOGIN_RATE_LIMIT_TABLE} (
+                scope TEXT NOT NULL,
+                rate_key TEXT NOT NULL,
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                first_attempt_at DOUBLE PRECISION NOT NULL DEFAULT 0,
+                last_attempt_at DOUBLE PRECISION NOT NULL DEFAULT 0,
+                locked_until DOUBLE PRECISION NOT NULL DEFAULT 0,
+                updated_at BIGINT NOT NULL DEFAULT EXTRACT(epoch FROM now()),
+                PRIMARY KEY (scope, rate_key)
+            );
+            """
+        )
+        cursor.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_{LOGIN_RATE_LIMIT_TABLE}_cleanup "
+            f"ON {LOGIN_RATE_LIMIT_TABLE}(scope, last_attempt_at, locked_until);"
+        )
+        dbc.conn.commit()
+        cursor.close()
+        LOGIN_RATE_LIMIT_STORAGE_READY = True
+        return True
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+        return False
+
+
+def _load_login_rate_limit_state(key):
+    state = LOGIN_RATE_LIMIT_STATE.get(key)
+    if not _ensure_login_rate_limit_storage():
+        return state
+
+    try:
+        cursor = dbc.conn.cursor()
+        cursor.execute(
+            f"SELECT attempt_count, first_attempt_at, last_attempt_at, locked_until "
+            f"FROM {LOGIN_RATE_LIMIT_TABLE} WHERE scope = %s AND rate_key = %s",
+            (LOGIN_RATE_LIMIT_SCOPE, key),
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        if not row:
+            return state
+        return {
+            'count': int(row[0] or 0),
+            'first_attempt_at': float(row[1] or 0),
+            'last_attempt_at': float(row[2] or 0),
+            'locked_until': float(row[3] or 0),
+        }
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+        return state
+
+
+def _save_login_rate_limit_state(key, state):
+    LOGIN_RATE_LIMIT_STATE[key] = state
+    if not _ensure_login_rate_limit_storage():
+        return
+
+    try:
+        cursor = dbc.conn.cursor()
+        cursor.execute(
+            f"""
+            INSERT INTO {LOGIN_RATE_LIMIT_TABLE}
+                (scope, rate_key, attempt_count, first_attempt_at, last_attempt_at, locked_until, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (scope, rate_key) DO UPDATE
+            SET attempt_count = EXCLUDED.attempt_count,
+                first_attempt_at = EXCLUDED.first_attempt_at,
+                last_attempt_at = EXCLUDED.last_attempt_at,
+                locked_until = EXCLUDED.locked_until,
+                updated_at = EXCLUDED.updated_at
+            """,
+            (
+                LOGIN_RATE_LIMIT_SCOPE,
+                key,
+                int(state.get('count') or 0),
+                float(state.get('first_attempt_at') or 0),
+                float(state.get('last_attempt_at') or 0),
+                float(state.get('locked_until') or 0),
+                int(time.time()),
+            ),
+        )
+        dbc.conn.commit()
+        cursor.close()
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+
+
+def _delete_login_rate_limit_state(key):
+    LOGIN_RATE_LIMIT_STATE.pop(key, None)
+    if not _ensure_login_rate_limit_storage():
+        return
+
+    try:
+        cursor = dbc.conn.cursor()
+        cursor.execute(
+            f"DELETE FROM {LOGIN_RATE_LIMIT_TABLE} WHERE scope = %s AND rate_key = %s",
+            (LOGIN_RATE_LIMIT_SCOPE, key),
+        )
+        dbc.conn.commit()
+        cursor.close()
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+
+
+def _prune_login_rate_limits(now_ts):
+    stale_before_ts = now_ts - LOGIN_RATE_LIMIT_WINDOW_SECONDS
+    if _ensure_login_rate_limit_storage():
+        try:
+            cursor = dbc.conn.cursor()
+            cursor.execute(
+                f"DELETE FROM {LOGIN_RATE_LIMIT_TABLE} "
+                f"WHERE scope = %s AND last_attempt_at < %s AND locked_until <= %s",
+                (LOGIN_RATE_LIMIT_SCOPE, float(stale_before_ts), float(now_ts)),
+            )
+            dbc.conn.commit()
+            cursor.close()
+        except Exception:
+            try:
+                dbc.conn.rollback()
+            except Exception:
+                pass
+
+    stale_keys = []
+    for key, state in LOGIN_RATE_LIMIT_STATE.items():
+        last_attempt_at = float(state.get('last_attempt_at') or 0)
+        locked_until = float(state.get('locked_until') or 0)
+        if (now_ts - last_attempt_at) > LOGIN_RATE_LIMIT_WINDOW_SECONDS and locked_until <= now_ts:
+            stale_keys.append(key)
+    for key in stale_keys:
+        LOGIN_RATE_LIMIT_STATE.pop(key, None)
+
+
+def _remaining_login_lock_seconds(email):
+    now_ts = time.time()
+    _prune_login_rate_limits(now_ts)
+    state = _load_login_rate_limit_state(_login_rate_limit_key(email))
+    if not state:
+        return 0
+    return max(0, int((state.get('locked_until') or 0) - now_ts))
+
+
+def _record_login_failure(email):
+    now_ts = time.time()
+    _prune_login_rate_limits(now_ts)
+    key = _login_rate_limit_key(email)
+    state = _load_login_rate_limit_state(key)
+    if not state or (now_ts - float(state.get('first_attempt_at') or 0)) > LOGIN_RATE_LIMIT_WINDOW_SECONDS:
+        state = {
+            'count': 0,
+            'first_attempt_at': now_ts,
+            'last_attempt_at': now_ts,
+            'locked_until': 0,
+        }
+
+    state['count'] = int(state.get('count') or 0) + 1
+    state['last_attempt_at'] = now_ts
+    if state['count'] >= LOGIN_RATE_LIMIT_MAX_ATTEMPTS:
+        lock_step = state['count'] - LOGIN_RATE_LIMIT_MAX_ATTEMPTS
+        lock_seconds = min(
+            LOGIN_RATE_LIMIT_BASE_LOCK_SECONDS * (2 ** lock_step),
+            LOGIN_RATE_LIMIT_MAX_LOCK_SECONDS,
+        )
+        state['locked_until'] = now_ts + lock_seconds
+
+    _save_login_rate_limit_state(key, state)
+    return max(0, int((state.get('locked_until') or 0) - now_ts))
+
+
+def _clear_login_failures(email):
+    _delete_login_rate_limit_state(_login_rate_limit_key(email))
 
 
 def _cursor_fetchone_dict(cursor):
@@ -414,44 +654,76 @@ def _restore_email_verification_state(previous_record, current_record_id):
             cursor.close()
 
 
-def _send_registration_code_email(email, first_name, code):
+def _send_registration_code_email(email, first_name, code, language=None):
     ttl_minutes = _verification_ttl_minutes()
-    intro_name = (first_name or '').strip() or 'there'
+    lang = _email_language(language)
+    intro_name = (first_name or '').strip() or _email_text(lang, "foydalanuvchi", "пользователь", "there")
     return send_notification_email(
         recipients=[email],
-        subject='Verify your email address',
-        intro=f'Hello {intro_name}, use this code to finish creating your Philology Matters account.',
+        subject=_email_text(lang, 'Email manzilingizni tasdiqlang', 'Подтвердите адрес электронной почты', 'Verify your email address'),
+        intro=_email_text(
+            lang,
+            f"Salom {intro_name}, Philology Matters akkauntini yakunlash uchun ushbu koddan foydalaning.",
+            f"Здравствуйте, {intro_name}! Используйте этот код, чтобы завершить создание аккаунта Philology Matters.",
+            f'Hello {intro_name}, use this code to finish creating your Philology Matters account.',
+        ),
         details=[
-            ('Verification code', code),
-            ('Valid for', f'{ttl_minutes} minute(s)'),
+            (_email_text(lang, 'Tasdiqlash kodi', 'Код подтверждения', 'Verification code'), code),
+            (_email_text(lang, 'Amal qilish muddati', 'Срок действия', 'Valid for'), _email_text(lang, f'{ttl_minutes} daqiqa', f'{ttl_minutes} минут', f'{ttl_minutes} minute(s)')),
         ],
         body_lines=[
-            'Enter this one-time code on the verification page to activate your account.',
-            'If you did not request this code, you can safely ignore this email.',
+            _email_text(
+                lang,
+                "Akkauntingizni faollashtirish uchun ushbu bir martalik kodni tasdiqlash sahifasiga kiriting.",
+                'Введите этот одноразовый код на странице подтверждения, чтобы активировать аккаунт.',
+                'Enter this one-time code on the verification page to activate your account.',
+            ),
+            _email_text(
+                lang,
+                "Agar bu kodni siz so'ramagan bo'lsangiz, ushbu xatni e'tiborsiz qoldirishingiz mumkin.",
+                'Если вы не запрашивали этот код, просто проигнорируйте это письмо.',
+                'If you did not request this code, you can safely ignore this email.',
+            ),
         ],
         cta_url=_registration_verify_url(email=email),
-        cta_label='Open verification page',
+        cta_label=_email_text(lang, 'Tasdiqlash sahifasini ochish', 'Открыть страницу подтверждения', 'Open verification page'),
         fail_silently=True,
     )
 
 
-def _send_password_reset_code_email(email, first_name, code):
+def _send_password_reset_code_email(email, first_name, code, language=None):
     ttl_minutes = _verification_ttl_minutes()
-    intro_name = (first_name or '').strip() or 'there'
+    lang = _email_language(language)
+    intro_name = (first_name or '').strip() or _email_text(lang, "foydalanuvchi", "пользователь", "there")
     return send_notification_email(
         recipients=[email],
-        subject='Reset your password',
-        intro=f'Hello {intro_name}, use this code to reset your Philology Matters password.',
+        subject=_email_text(lang, 'Parolingizni tiklang', 'Сбросьте пароль', 'Reset your password'),
+        intro=_email_text(
+            lang,
+            f"Salom {intro_name}, Philology Matters parolingizni tiklash uchun ushbu koddan foydalaning.",
+            f"Здравствуйте, {intro_name}! Используйте этот код для сброса пароля Philology Matters.",
+            f'Hello {intro_name}, use this code to reset your Philology Matters password.',
+        ),
         details=[
-            ('Verification code', code),
-            ('Valid for', f'{ttl_minutes} minute(s)'),
+            (_email_text(lang, 'Tasdiqlash kodi', 'Код подтверждения', 'Verification code'), code),
+            (_email_text(lang, 'Amal qilish muddati', 'Срок действия', 'Valid for'), _email_text(lang, f'{ttl_minutes} daqiqa', f'{ttl_minutes} минут', f'{ttl_minutes} minute(s)')),
         ],
         body_lines=[
-            'Enter this one-time code on the password reset page to set a new password.',
-            'If you did not request this code, you can safely ignore this email.',
+            _email_text(
+                lang,
+                'Yangi parol o‘rnatish uchun ushbu bir martalik kodni parolni tiklash sahifasiga kiriting.',
+                'Введите этот одноразовый код на странице сброса пароля, чтобы задать новый пароль.',
+                'Enter this one-time code on the password reset page to set a new password.',
+            ),
+            _email_text(
+                lang,
+                "Agar bu so'rovni siz yubormagan bo'lsangiz, ushbu xatni e'tiborsiz qoldirishingiz mumkin.",
+                'Если вы не запрашивали сброс пароля, просто проигнорируйте это письмо.',
+                'If you did not request this code, you can safely ignore this email.',
+            ),
         ],
         cta_url=_password_reset_verify_url(email=email),
-        cta_label='Open password reset page',
+        cta_label=_email_text(lang, 'Parolni tiklash sahifasini ochish', 'Открыть страницу сброса пароля', 'Open password reset page'),
         fail_silently=True,
     )
 
@@ -556,7 +828,12 @@ def _create_or_refresh_registration_verification(registration_payload):
         if cursor is not None:
             cursor.close()
 
-    if not _send_registration_code_email(email, first_name, code):
+    if not _send_registration_code_email(
+        email,
+        first_name,
+        code,
+        language=(registration_payload or {}).get('ui_language'),
+    ):
         _restore_email_verification_state(previous_record, current_record_id)
         return False, 'Verification email could not be sent. Please try again.'
 
@@ -576,6 +853,7 @@ def _create_or_refresh_password_reset_verification(user_row):
         'user_id': (user_row or {}).get('id'),
         'email': email,
         'name': (user_row or {}).get('name', ''),
+        'ui_language': normalize_notification_language((user_row or {}).get('ui_language'), default='en'),
     }, ensure_ascii=True)
     first_name = (user_row or {}).get('name', '')
     now_ts = _now_ts()
@@ -663,7 +941,12 @@ def _create_or_refresh_password_reset_verification(user_row):
         if cursor is not None:
             cursor.close()
 
-    if not _send_password_reset_code_email(email, first_name, code):
+    if not _send_password_reset_code_email(
+        email,
+        first_name,
+        code,
+        language=(user_row or {}).get('ui_language'),
+    ):
         _restore_email_verification_state(previous_record, current_record_id)
         return False, 'Verification email could not be sent. Please try again.'
 
@@ -739,7 +1022,12 @@ def _resend_registration_verification(email):
         if cursor is not None:
             cursor.close()
 
-    if not _send_registration_code_email(email, first_name, code):
+    if not _send_registration_code_email(
+        email,
+        first_name,
+        code,
+        language=(payload or {}).get('ui_language'),
+    ):
         _restore_email_verification_state(pending_record, pending_record['id'])
         return False, 'Verification email could not be sent. Please try again.', 'error'
 
@@ -815,7 +1103,12 @@ def _resend_password_reset_verification(email):
         if cursor is not None:
             cursor.close()
 
-    if not _send_password_reset_code_email(email, first_name, code):
+    if not _send_password_reset_code_email(
+        email,
+        first_name,
+        code,
+        language=(payload or {}).get('ui_language'),
+    ):
         _restore_email_verification_state(pending_record, pending_record['id'])
         return False, 'Verification email could not be sent. Please try again.', 'error'
 
@@ -1460,14 +1753,20 @@ def app__login():
         next_url = _sanitize_next_url(request.form.get('next') or request.args.get('next'))
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
+        login_redirect = url_for('app__login', next=next_url) if next_url else url_for('app__login')
 
         if not email or not password:
             flash('Email and password are required', 'error')
-            return redirect(url_for('app__login', next=next_url) if next_url else url_for('app__login'))
+            return redirect(login_redirect)
 
         if not is_valid_email(email):
             flash('Invalid email format', 'error')
-            return redirect(url_for('app__login', next=next_url) if next_url else url_for('app__login'))
+            return redirect(login_redirect)
+
+        remaining_lock = _remaining_login_lock_seconds(email)
+        if remaining_lock > 0:
+            flash(f'Too many failed attempts. Please try again in {remaining_lock} seconds.', 'error')
+            return redirect(login_redirect)
 
         try:
             _user = dbc.users.get(email=email).exec()
@@ -1475,8 +1774,9 @@ def app__login():
                 user = _normalize_user_for_session(_user[0])
 
                 if user.get('is_blocked') or user.get('is_hidden'):
+                    _record_login_failure(email)
                     flash('Your account is blocked. Please contact support.', 'error')
-                    return redirect(url_for('app__login', next=next_url) if next_url else url_for('app__login'))
+                    return redirect(login_redirect)
 
                 password_valid = False
                 stored_pw = user.get('password', '')
@@ -1492,6 +1792,7 @@ def app__login():
                     password_valid = False
 
                 if password_valid:
+                    _clear_login_failures(email)
                     _set_user_session(user)
                     return _post_auth_redirect(user, next_url=next_url)
             else:
@@ -1506,12 +1807,17 @@ def app__login():
                     )
                     return redirect(url_for('app__register_verify', email=email))
 
+            remaining_lock = _record_login_failure(email)
+            if remaining_lock > 0:
+                flash(f'Too many failed attempts. Please try again in {remaining_lock} seconds.', 'error')
+                return redirect(login_redirect)
             flash('Invalid login or password. Try again.', 'error')
-            return redirect(url_for('app__login', next=next_url) if next_url else url_for('app__login'))
+            return redirect(login_redirect)
 
         except Exception:
+            logger.exception('Login failed for email=%s', email)
             flash('System error. Please try again later.', 'error')
-            return redirect(url_for('app__login', next=next_url) if next_url else url_for('app__login'))
+            return redirect(login_redirect)
 
     next_url = _sanitize_next_url(request.args.get('next'))
     return render_template('auth/login.html', google_auth_enabled=_is_google_auth_available(), next_url=next_url)

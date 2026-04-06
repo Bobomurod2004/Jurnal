@@ -14,8 +14,10 @@ build/
 
 # Virtual environments
 .venv/
+.venv-test/
 venv/
 env/
+.env.bak.*
 
 # IDE
 .idea/
@@ -37,7 +39,6 @@ package-lock.json
 
 # Database backups (keep only in secure storage)
 *.sql
-!db_backup.sql
 !db_schema.sql
 !translations_seed.sql
 !migrations/versions/

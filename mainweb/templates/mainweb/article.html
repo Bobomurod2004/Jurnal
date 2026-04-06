@@ -204,7 +204,7 @@
 
                 <hr class="h-px my-8 bg-fmmain-bg border-0">
 
-                {% if not publication.is_paid or has_access %}
+                {% if has_access %}
                     {% if publication.file_ids %}
                     <div class="mb-8" id="download">
                         <a href="{{ url_for('app__download_article', article_id=publication.id) }}" class="inline-flex items-center px-4 py-2 bg-fmmain text-white rounded-md hover:bg-fmmain-dark transition-colors">
@@ -229,18 +229,31 @@
                                 <a href="{{ url_for('app__purchase_article', article_id=publication.id) }}"
                                    class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
                                     <iconify-icon icon="tabler:shopping-cart" class="me-2"></iconify-icon>
-                                    {{ t('purchase_article') }} (${{ "%.2f"|format(publication.price or 0) }})
+                                    {{ t('purchase_article') }} ({{ purchase_amount|format_currency(purchase_currency) }})
                                 </a>
                             </div>
+                            {% if purchase_discount_percent > 0 %}
+                                <p class="mt-3 text-sm text-green-700">
+                                    {{ purchase_discount_percent|round(2) }}% discount applied
+                                </p>
+                            {% endif %}
                         {% elif publication.is_paid and not publication.subscription_enable %}
                             <p class="text-yellow-700 mb-4">{{ t('purchase_this_article_to_get_access') }}</p>
                             <div class="flex gap-3">
+                                <a href="{{ url_for('app__dashboard_payments') }}" class="inline-flex items-center px-4 py-2 bg-fmmain text-white rounded-md hover:bg-fmmain-dark transition-colors">
+                                    {{ t('view_subscription_options') }}
+                                </a>
                                 <a href="{{ url_for('app__purchase_article', article_id=publication.id) }}"
                                    class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
                                     <iconify-icon icon="tabler:shopping-cart" class="me-2"></iconify-icon>
-                                    {{ t('purchase_article') }} (${{ "%.2f"|format(publication.price or 0) }})
+                                    {{ t('purchase_article') }} ({{ purchase_amount|format_currency(purchase_currency) }})
                                 </a>
                             </div>
+                            {% if purchase_discount_percent > 0 %}
+                                <p class="mt-3 text-sm text-green-700">
+                                    {{ purchase_discount_percent|round(2) }}% discount applied
+                                </p>
+                            {% endif %}
                         {% else %}
                             <p class="text-yellow-700 mb-4">{{ t('subscription_required_message') }}</p>
                             <a href="{{ url_for('app__dashboard_payments') }}" class="inline-flex items-center px-4 py-2 bg-fmmain text-white rounded-md hover:bg-fmmain-dark transition-colors">
@@ -250,10 +263,10 @@
                     </div>
                 {% endif %}
 
-                {% if not publication.is_paid or has_access %}
+                {% if has_access %}
                     <!-- Dynamic content from publication_parts -->
                     {% if publication_parts %}
-                        {% for part in publication_parts[::-1] %}
+                        {% for part in publication_parts %}
                             <div class="mb-8 intersect intersect-full font-sserif" data-block-id="{{ loop.index }}" id="section-{{ loop.index }}">
                                 <h4 class="text-xl font-medium mb-4">{{ part.title }}</h4>
                                 <div class="mb-4 article-content">
@@ -473,9 +486,9 @@
                         <h4 class="text-lg font-medium mb-6">{{ t('outline') }}</h4>
                         <div class="flex flex-col text-sm">
                             <a href="#abstract" data-block-id="0" class="text-blue-600 hover:text-blue-800 bg-gray-50 px-2 py-1 border-s-2 border-fmmain mb-2">{{ t('abstract') }}</a>
-                            {% if not publication.is_paid or has_access %}
+                            {% if has_access %}
                                 {% if publication_parts %}
-                                    {% for part in publication_parts[::-1] %}
+                                    {% for part in publication_parts %}
                                         <a href="#section-{{ loop.index }}" data-block-id="{{ loop.index }}" class="text-blue-600 hover:text-blue-800 bg-gray-50/0 px-2 py-1 border-s-2 border-fmmain/0 mb-2">{{ part.title }}</a>
                                     {% endfor %}
                                 {% endif %}

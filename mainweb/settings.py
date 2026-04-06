@@ -86,6 +86,40 @@ APP_BASE_URL = _get_env(
 APP_VERSION = _get_env('APP_VERSION', '0.0.0')
 LOG_LEVEL = _get_env('LOG_LEVEL', 'INFO')
 
+
+def _ensure_production_secret(name, value, disallowed):
+    if not IS_PRODUCTION:
+        return
+    normalized = str(value or '').strip()
+    if not normalized:
+        raise RuntimeError(f'{name} environment variable must be set in production')
+    if normalized in disallowed:
+        raise RuntimeError(f'{name} uses an insecure default value in production; set a strong unique value')
+
+
+_ensure_production_secret(
+    'DB_PASSWORD',
+    DB_PASSWORD,
+    {'1', 'postgres', 'password', 'change-this-db-password'},
+)
+_ensure_production_secret(
+    'SECRET_KEY',
+    SECRET_KEY,
+    {'dev-mainweb-secret-key-change-me', 'change-this-mainweb-secret'},
+)
+_ensure_production_secret(
+    'TRANSLATION_SYNC_TOKEN',
+    TRANSLATION_SYNC_TOKEN,
+    {'local-translation-sync-token', 'change-this-sync-token'},
+)
+
+if IS_PRODUCTION and len(str(SECRET_KEY)) < 32:
+    raise RuntimeError('SECRET_KEY must be at least 32 characters in production')
+if IS_PRODUCTION and len(str(TRANSLATION_SYNC_TOKEN)) < 16:
+    raise RuntimeError('TRANSLATION_SYNC_TOKEN must be at least 16 characters in production')
+if IS_PRODUCTION and str(TRANSLATION_SYNC_TOKEN) == str(SECRET_KEY):
+    raise RuntimeError('TRANSLATION_SYNC_TOKEN must differ from SECRET_KEY in production')
+
 MAIL_ENABLED = _get_env_bool('MAIL_ENABLED', True)
 MAIL_HOST = _get_env('MAIL_HOST', '')
 MAIL_PORT = int(_get_env('MAIL_PORT', '587'))

@@ -1,211 +1,350 @@
 {% extends 'basic.html' %}
 
 {% block content %}
-<!-- Page header -->
-<div class="page-header d-print-none">
-  <div class="container-xl">
+{% set title_dashboard = t("admin_dashboard_title") %}
+{% set subtitle_dashboard = t("admin_dashboard_subtitle") %}
+{% set label_total_articles = t("admin_stats_total_articles") %}
+{% set label_active_submissions = t("admin_stats_active_submissions") %}
+{% set label_total_views = t("admin_stats_total_views") %}
+{% set label_total_users = t("admin_stats_total_users") %}
+{% set label_recent_submissions = t("admin_recent_submissions") %}
+{% set label_top_articles = t("admin_top_articles") %}
+{% set label_chart_status = t("admin_chart_submissions_by_status") %}
+{% set label_chart_published = t("admin_chart_published_articles_6m") %}
+{% set label_views_short = t("admin_views_short") %}
+
+<style>
+  .admin-dashboard .kpi-card {
+    height: 100%;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--tblr-border-radius-lg);
+    background: var(--tblr-bg-surface);
+  }
+
+  .admin-dashboard .kpi-label {
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--tblr-secondary);
+    font-weight: 700;
+  }
+
+  .admin-dashboard .kpi-value {
+    font-size: 1.9rem;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--tblr-body-color);
+  }
+
+  .admin-dashboard .kpi-meta {
+    font-size: 0.82rem;
+    color: var(--tblr-secondary);
+  }
+
+  .admin-dashboard .kpi-accent {
+    height: 4px;
+    border-radius: 99px;
+  }
+
+  .admin-dashboard .stage-card {
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--tblr-border-radius);
+    background: var(--tblr-bg-surface);
+    padding: 0.875rem 1rem;
+    height: 100%;
+  }
+
+  .admin-dashboard .stage-card .stage-count {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .admin-dashboard .chart-wrap {
+    height: 320px;
+  }
+
+  .admin-dashboard .list-item {
+    border-bottom: 1px solid var(--tblr-border-color-translucent);
+    padding: 0.875rem 1rem;
+  }
+
+  .admin-dashboard .list-item:last-child {
+    border-bottom: 0;
+  }
+
+  .admin-dashboard .item-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--tblr-body-color);
+    line-height: 1.35;
+  }
+
+  .admin-dashboard .item-subtitle {
+    font-size: 0.8rem;
+    color: var(--tblr-secondary);
+  }
+
+  .admin-dashboard .badge-soft-warning {
+    background: rgba(245, 158, 11, 0.14);
+    color: #b45309;
+  }
+
+  .admin-dashboard .badge-soft-danger {
+    background: rgba(239, 68, 68, 0.14);
+    color: #b91c1c;
+  }
+
+  .admin-dashboard .dashboard-toolbar .btn {
+    white-space: nowrap;
+  }
+</style>
+
+<div class="admin-dashboard">
+  <div class="page-header d-print-none mb-3">
     <div class="row g-2 align-items-center">
       <div class="col">
-        <h2 class="page-title">{{ t("admin_dashboard_title") }}</h2>
-        <div class="text-secondary mt-1">{{ t("admin_dashboard_subtitle") }}</div>
+        <h2 class="page-title">{{ title_dashboard }}</h2>
+        <div class="text-secondary mt-1">
+          {{ subtitle_dashboard }}
+          <span class="ms-2">•</span>
+          <span class="ms-2">{{ stats.generated_at | timestamp_to_date if stats.generated_at else '-' }}</span>
+        </div>
+      </div>
+      <div class="col-auto ms-auto d-print-none dashboard-toolbar">
+        <div class="btn-list">
+          <a href="{{ url_for('submissions') }}" class="btn btn-outline-primary">
+            <i class="ti ti-file-text me-1"></i>
+            Arizalar
+          </a>
+          <a href="{{ url_for('articles') }}" class="btn btn-outline-secondary">
+            <i class="ti ti-news me-1"></i>
+            Maqolalar
+          </a>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- Page body -->
-<div class="page-body">
-  <div class="container-xl">
-
-    <!-- Key Metrics -->
-    <div class="row row-deck row-cards mb-4">
-      <div class="col-sm-6 col-lg-3">
-        <div class="card">
-          <div class="card-body">
-            <div class="d-flex align-items-center">
-              <div class="subheader">{{ t("admin_stats_total_articles") }}</div>
-            </div>
-            <div class="h1 mb-3">{{ stats.total_articles }}</div>
-            <div class="d-flex mb-2">
-              <div class="flex-fill">
-                <div class="progress progress-sm">
-                  <div class="progress-bar bg-primary" style="width: 100%" role="progressbar"></div>
-                </div>
-              </div>
-            </div>
-            <div class="text-secondary">{{ t("admin_stats_total_articles_desc") }}</div>
-          </div>
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-2">
+      <div class="card kpi-card">
+        <div class="card-body">
+          <div class="kpi-label">{{ label_total_articles }}</div>
+          <div class="kpi-value mt-2">{{ stats.total_articles or 0 }}</div>
+          <div class="kpi-meta mt-2">{{ t("admin_stats_total_articles_desc") }}</div>
         </div>
+        <div class="kpi-accent bg-blue"></div>
       </div>
+    </div>
 
-      <div class="col-sm-6 col-lg-3">
-        <div class="card">
-          <div class="card-body">
-            <div class="d-flex align-items-center">
-              <div class="subheader">{{ t("admin_stats_active_submissions") }}</div>
-            </div>
-            <div class="h1 mb-3">{{ stats.active_submissions }}</div>
-            <div class="d-flex mb-2">
-              <div class="flex-fill">
-                <div class="progress progress-sm">
-                  <div class="progress-bar bg-warning" style="width: 75%" role="progressbar"></div>
-                </div>
-              </div>
-            </div>
-            <div class="text-secondary">{{ t("admin_stats_active_submissions_desc") }}</div>
-          </div>
+    <div class="col-sm-6 col-xl-2">
+      <div class="card kpi-card">
+        <div class="card-body">
+          <div class="kpi-label">{{ label_active_submissions }}</div>
+          <div class="kpi-value mt-2">{{ stats.active_submissions or 0 }}</div>
+          <div class="kpi-meta mt-2">14+ kun kutayotganlar: {{ stats.stalled_submissions or 0 }}</div>
         </div>
+        <div class="kpi-accent bg-yellow"></div>
       </div>
+    </div>
 
-      <div class="col-sm-6 col-lg-3">
-        <div class="card">
-          <div class="card-body">
-            <div class="d-flex align-items-center">
-              <div class="subheader">{{ t("admin_stats_total_views") }}</div>
-            </div>
-            <div class="h1 mb-3">{{ stats.total_views | number_format }}</div>
-            <div class="d-flex mb-2">
-              <div class="flex-fill">
-                <div class="progress progress-sm">
-                  <div class="progress-bar bg-success" style="width: 85%" role="progressbar"></div>
-                </div>
-              </div>
-            </div>
-            <div class="text-secondary">{{ t("admin_stats_total_views_desc") }}</div>
-          </div>
+    <div class="col-sm-6 col-xl-2">
+      <div class="card kpi-card">
+        <div class="card-body">
+          <div class="kpi-label">Qabul foizi</div>
+          <div class="kpi-value mt-2">{{ stats.acceptance_rate or 0 }}%</div>
+          <div class="kpi-meta mt-2">Qaror chiqqanlar: {{ (stats.published_submissions or 0) + (stats.rejected_submissions or 0) }}</div>
         </div>
+        <div class="kpi-accent bg-green"></div>
       </div>
+    </div>
 
-      <div class="col-sm-6 col-lg-3">
-        <div class="card">
-          <div class="card-body">
-            <div class="d-flex align-items-center">
-              <div class="subheader">{{ t("admin_stats_total_users") }}</div>
-            </div>
-            <div class="h1 mb-3">{{ stats.total_users }}</div>
-            <div class="d-flex mb-2">
-              <div class="flex-fill">
-                <div class="progress progress-sm">
-                  <div class="progress-bar bg-info" style="width: 60%" role="progressbar"></div>
-                </div>
-              </div>
-            </div>
-            <div class="text-secondary">{{ t("admin_stats_total_users_desc") }}</div>
+    <div class="col-sm-6 col-xl-2">
+      <div class="card kpi-card">
+        <div class="card-body">
+          <div class="kpi-label">O'rtacha qaror vaqti</div>
+          <div class="kpi-value mt-2">{{ stats.avg_decision_days or 0 }}</div>
+          <div class="kpi-meta mt-2">kun</div>
+        </div>
+        <div class="kpi-accent bg-orange"></div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-2">
+      <div class="card kpi-card">
+        <div class="card-body">
+          <div class="kpi-label">{{ label_total_views }}</div>
+          <div class="kpi-value mt-2">{{ stats.total_views | number_format }}</div>
+          <div class="kpi-meta mt-2">Oxirgi 30 kun maqolalari: {{ stats.new_articles_30d or 0 }}</div>
+        </div>
+        <div class="kpi-accent bg-cyan"></div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-2">
+      <div class="card kpi-card">
+        <div class="card-body">
+          <div class="kpi-label">{{ label_total_users }}</div>
+          <div class="kpi-value mt-2">{{ stats.total_users or 0 }}</div>
+          <div class="kpi-meta mt-2">Oxirgi 30 kun arizalar: {{ stats.new_submissions_30d or 0 }}</div>
+        </div>
+        <div class="kpi-accent bg-indigo"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    {% for item in workflow_cards %}
+    <div class="col-6 col-md-4 col-xl-3">
+      <div class="stage-card">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="text-secondary small">{{ item.label }}</div>
+          <span class="badge bg-{{ item.tone }}-lt">{{ item.key }}</span>
+        </div>
+        <div class="stage-count mt-2 text-{{ item.tone }}">{{ item.count }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-lg-5">
+      <div class="card h-100">
+        <div class="card-header">
+          <h3 class="card-title">{{ label_chart_status }}</h3>
+          <div class="card-actions text-secondary small">Jami: {{ status_chart.total or 0 }}</div>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrap">
+            <canvas id="statusChart"></canvas>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Charts Row -->
-    <div class="row row-deck row-cards mb-4">
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h3 class="card-title">{{ t("admin_chart_submissions_by_status") }}</h3>
-          </div>
-          <div class="card-body">
-            <div style="height: 300px;">
-              <canvas id="submissionsChart"></canvas>
-            </div>
-          </div>
+    <div class="col-lg-7">
+      <div class="card h-100">
+        <div class="card-header">
+          <h3 class="card-title">{{ label_chart_published }}</h3>
         </div>
-      </div>
-
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h3 class="card-title">{{ t("admin_chart_published_articles_6m") }}</h3>
-          </div>
-          <div class="card-body">
-            <div style="height: 300px;">
-              <canvas id="articlesChart"></canvas>
-            </div>
+        <div class="card-body">
+          <div class="chart-wrap">
+            <canvas id="timelineChart"></canvas>
           </div>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Recent Activity & Top Articles -->
-    <div class="row row-deck row-cards">
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h3 class="card-title">{{ t("admin_recent_submissions") }}</h3>
-          </div>
-          <div class="card-body p-0">
-            <div class="list-group list-group-flush">
-              {% for submission in recent_submissions %}
-              <div class="list-group-item">
-                <div class="row align-items-center">
-                  <div class="col-auto">
-                    <span class="status-dot 
-                      {% if submission.status == 'published' %}status-dot-animated bg-green
-                      {% elif submission.status == 'under_review' %}status-dot-animated bg-yellow
-                      {% elif submission.status == 'rejected' %}status-dot bg-red
-                      {% else %}status-dot bg-gray{% endif %}"></span>
-                  </div>
-                  <div class="col text-truncate">
-                    <div class="text-reset d-block">{{ submission.title[:50] }}{% if submission.title|length > 50
-                      %}...{% endif %}</div>
-                    <div class="d-block text-secondary text-truncate mt-n1">
-                      {% if submission.author_name %}{{ submission.author_name }}{% else %}{{ t("admin_unknown_author")
-                      }}{% endif %}
-                    </div>
-                  </div>
-                  <div class="col-auto">
-                    <span class="badge 
-                      {% if submission.status == 'published' %}bg-green
-                      {% elif submission.status == 'under_review' %}bg-yellow
-                      {% elif submission.status == 'rejected' %}bg-red
-                      {% else %}bg-gray{% endif %}">
-                      {{ submission.status.replace('_', ' ').title() }}
-                    </span>
-                    <div class="text-secondary small mt-1">{{ submission.created_at|timestamp_to_date }}</div>
-                  </div>
-                </div>
-              </div>
-              {% endfor %}
-            </div>
-          </div>
+  <div class="row g-3 mb-4">
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header">
+          <h3 class="card-title">Diqqat talab qiladigan arizalar</h3>
         </div>
-      </div>
-
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-header">
-            <h3 class="card-title">{{ t("admin_top_articles") }}</h3>
-          </div>
-          <div class="card-body p-0">
-            <div class="list-group list-group-flush">
-              {% for article in top_articles %}
-              <div class="list-group-item">
-                <div class="row align-items-center">
-                  <div class="col-auto">
-                    <span class="avatar bg-blue text-white">
-                      <i class="ti ti-eye"></i>
-                    </span>
-                  </div>
-                  <div class="col text-truncate">
-                    <div class="text-reset d-block">{{ article.title[:50] }}{% if article.title|length > 50 %}...{%
-                      endif %}</div>
-                    <div class="d-block text-secondary text-truncate mt-n1">
-                      {% if article.author_name %}{{ article.author_name }}{% else %}{{ t("admin_unknown_author") }}{%
-                      endif %}
-                      {% if article.doi %} • DOI: {{ article.doi }}{% endif %}
-                    </div>
-                  </div>
-                  <div class="col-auto">
-                    <span class="badge bg-blue">{{ article.stat_views or 0 }} {{ t("admin_views_short") }}</span>
-                  </div>
+        <div class="card-body p-0">
+          {% if attention_submissions %}
+          {% for submission in attention_submissions %}
+          <div class="list-item">
+            <div class="d-flex justify-content-between gap-3 align-items-start">
+              <div class="min-w-0">
+                <a href="{{ url_for('submission_detail', submission_id=submission.id) }}" class="item-title text-decoration-none d-block">
+                  {{ submission.title[:90] }}{% if submission.title|length > 90 %}...{% endif %}
+                </a>
+                <div class="item-subtitle mt-1">
+                  {{ submission.author_name }} • {{ submission.created_at | timestamp_to_date if submission.created_at else '-' }}
                 </div>
               </div>
-              {% endfor %}
+              <div class="text-end">
+                {% if submission.age_days >= 30 %}
+                <span class="badge badge-soft-danger">{{ submission.age_days }} kun</span>
+                {% else %}
+                <span class="badge badge-soft-warning">{{ submission.age_days }} kun</span>
+                {% endif %}
+                <div class="item-subtitle mt-1">{{ submission.workflow_stage }}</div>
+              </div>
             </div>
           </div>
+          {% endfor %}
+          {% else %}
+          <div class="p-3 text-secondary">Hozircha kechikkan arizalar yo'q.</div>
+          {% endif %}
         </div>
       </div>
     </div>
 
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header">
+          <h3 class="card-title">{{ label_recent_submissions }}</h3>
+        </div>
+        <div class="card-body p-0">
+          {% if recent_submissions %}
+          {% for submission in recent_submissions %}
+          <div class="list-item">
+            <div class="d-flex justify-content-between gap-3 align-items-start">
+              <div class="min-w-0">
+                <a href="{{ url_for('submission_detail', submission_id=submission.id) }}" class="item-title text-decoration-none d-block">
+                  {{ submission.title[:90] }}{% if submission.title|length > 90 %}...{% endif %}
+                </a>
+                <div class="item-subtitle mt-1">{{ submission.author_name }}</div>
+              </div>
+              <div class="text-end">
+                {% if submission.status == 'published' %}
+                <span class="badge bg-green-lt">published</span>
+                {% elif submission.status == 'rejected' %}
+                <span class="badge bg-red-lt">rejected</span>
+                {% elif submission.status in ['under_review', 'in_process'] %}
+                <span class="badge bg-orange-lt">{{ submission.status }}</span>
+                {% else %}
+                <span class="badge bg-secondary-lt">{{ submission.status }}</span>
+                {% endif %}
+                <div class="item-subtitle mt-1">{{ submission.created_at | timestamp_to_date if submission.created_at else '-' }}</div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+          {% else %}
+          <div class="p-3 text-secondary">Arizalar topilmadi.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-12">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">{{ label_top_articles }}</h3>
+        </div>
+        <div class="card-body p-0">
+          {% if top_articles %}
+          {% for article in top_articles %}
+          <div class="list-item">
+            <div class="d-flex justify-content-between gap-3 align-items-start">
+              <div class="min-w-0">
+                <a href="{{ url_for('article_edit', article_id=article.id) }}" class="item-title text-decoration-none d-block">
+                  {{ article.title[:120] }}{% if article.title|length > 120 %}...{% endif %}
+                </a>
+                <div class="item-subtitle mt-1">
+                  {{ article.author_name }}{% if article.doi %} • DOI: {{ article.doi }}{% endif %}
+                </div>
+              </div>
+              <div class="text-end">
+                <span class="badge bg-blue-lt">{{ article.stat_views or 0 }} {{ label_views_short }}</span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+          {% else %}
+          <div class="p-3 text-secondary">Maqolalar topilmadi.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -213,69 +352,122 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  // Submissions by Status Chart
-  const submissionsCtx = document.getElementById('submissionsChart').getContext('2d');
-  new Chart(submissionsCtx, {
-    type: 'doughnut',
-    data: {
-      labels: {{ submissions_stats.labels | tojson }},
-    datasets: [{
-      data: {{ submissions_stats.data | tojson }},
-    backgroundColor: [
-      '#10B981', // green
-      '#F59E0B', // yellow
-      '#EF4444', // red
-      '#6B7280', // gray
-      '#3B82F6'  // blue
-    ],
-    borderWidth: 2,
-    borderColor: '#fff'
-            }]
-        },
-    options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom'
-      }
-    }
-  }
+  (function () {
+    const statusCodes = {{ status_chart.codes | default([], true) | tojson }};
+    const statusData = {{ status_chart.data | default([], true) | tojson }};
+    const statusLabelMap = {
+      submitted: "Yuborilgan",
+      pending: "Kutilmoqda",
+      in_process: "Jarayonda",
+      under_review: "Ko'rib chiqilmoqda",
+      accepted: "Qabul qilingan",
+      paid: "To'langan",
+      published: "Nashr qilingan",
+      rejected: "Rad etilgan",
+      unknown: "Noma'lum"
+    };
+
+    const statusLabels = statusCodes.map(function (code) {
+      return statusLabelMap[code] || code;
     });
 
-  // Monthly Articles Chart
-  const articlesCtx = document.getElementById('articlesChart').getContext('2d');
-  new Chart(articlesCtx, {
-    type: 'line',
-    data: {
-      labels: {{ monthly_stats.labels | tojson }},
-    datasets: [{
-      label: '{{ t("admin_chart_published_articles_label") }}',
-      data: {{ monthly_stats.data | tojson }},
-    borderColor: '#3B82F6',
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderWidth: 2,
-    fill: true,
-    tension: 0.4
-            }]
+    const statusCtx = document.getElementById('statusChart');
+    if (statusCtx) {
+      new Chart(statusCtx.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: statusLabels,
+          datasets: [{
+            data: statusData,
+            backgroundColor: [
+              '#2563EB',
+              '#0EA5E9',
+              '#F59E0B',
+              '#8B5CF6',
+              '#10B981',
+              '#14B8A6',
+              '#22C55E',
+              '#EF4444',
+              '#94A3B8'
+            ],
+            borderWidth: 0
+          }]
         },
-    options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: {
-          stepSize: 1
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '62%',
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                boxWidth: 10,
+                boxHeight: 10,
+                usePointStyle: true,
+                pointStyle: 'circle'
+              }
+            }
+          }
         }
-      }
-    },
-    plugins: {
-      legend: {
-        display: false
-      }
+      });
     }
-  }
-    });
+
+    const timelineCtx = document.getElementById('timelineChart');
+    if (timelineCtx) {
+      const labels = {{ timeline_chart.labels | default([], true) | tojson }};
+      const submissionSeries = {{ timeline_chart.submissions | default([], true) | tojson }};
+      const publishedSeries = {{ timeline_chart.published | default([], true) | tojson }};
+
+      new Chart(timelineCtx.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "Yangi arizalar",
+              data: submissionSeries,
+              borderColor: '#2563EB',
+              backgroundColor: 'rgba(37, 99, 235, 0.14)',
+              borderWidth: 2.5,
+              fill: true,
+              tension: 0.3,
+              pointRadius: 3,
+              pointHoverRadius: 4
+            },
+            {
+              label: "Chop etilgan maqolalar",
+              data: publishedSeries,
+              borderColor: '#16A34A',
+              backgroundColor: 'rgba(22, 163, 74, 0.08)',
+              borderWidth: 2.5,
+              fill: true,
+              tension: 0.3,
+              pointRadius: 3,
+              pointHoverRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0 }
+            }
+          },
+          plugins: {
+            legend: {
+              position: 'bottom'
+            }
+          }
+        }
+      });
+    }
+  })();
 </script>
 {% endblock %}

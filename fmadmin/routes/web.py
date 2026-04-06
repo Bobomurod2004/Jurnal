@@ -7,7 +7,9 @@ import secrets
 import re
 import json
 import logging
-from urllib.parse import urlencode
+from html import escape as html_escape
+from html.parser import HTMLParser
+from urllib.parse import urlencode, urlparse
 from flask import Blueprint, send_from_directory, render_template, request, jsonify, flash, redirect, url_for, session, send_file, abort
 from werkzeug.utils import secure_filename
 from modules.translate import t, translate
@@ -36,22 +38,24 @@ from utils.roles import (
     user_has_permission,
     user_has_role,
 )
-from services.stats import (
-    calculate_dashboard_stats,
-    get_submissions_stats,
-    get_monthly_articles_stats,
-    get_recent_submissions,
-    get_top_articles,
-)
+from services.stats import get_dashboard_snapshot
 
 bp = Blueprint('fmadmin_web', __name__)
 logger = logging.getLogger(__name__)
+LOGIN_RATE_LIMIT_WINDOW_SECONDS = 15 * 60
+LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5
+LOGIN_RATE_LIMIT_BASE_LOCK_SECONDS = 60
+LOGIN_RATE_LIMIT_MAX_LOCK_SECONDS = 30 * 60
+LOGIN_RATE_LIMIT_STATE = {}
+LOGIN_RATE_LIMIT_SCOPE = 'fmadmin'
+LOGIN_RATE_LIMIT_TABLE = 'auth_login_rate_limits'
+LOGIN_RATE_LIMIT_STORAGE_READY = False
 
 WORKFLOW_STAGE_CHOICES = [
     ('waiting', "Kutilmoqda"),
     ('technical_check', "Texnik talablarga mos"),
     ('anti_plagiarism', "Antiplagiatga tekshirish"),
-    ('in_review', "Tahrizda"),
+    ('in_review', "Taqrizda"),
     ('recommended', "Nashrga tavsiya etildi"),
     ('payment', "To'lov"),
     ('published', "Nashr qilindi"),
@@ -334,6 +338,422 @@ def _clean_text(value):
     return str(value).strip()
 
 
+ARTICLE_HTML_ALLOWED_TAGS = {
+    'p', 'br', 'hr',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'strong', 'b', 'em', 'i', 'u', 's',
+    'ul', 'ol', 'li',
+    'blockquote',
+    'pre', 'code',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'figure', 'figcaption',
+    'a', 'img',
+}
+ARTICLE_HTML_VOID_TAGS = {'br', 'hr', 'img'}
+ARTICLE_HTML_STRIP_CONTENT_TAGS = {
+    'script', 'style', 'iframe', 'object', 'embed', 'form',
+    'input', 'button', 'textarea', 'select', 'option', 'svg', 'math',
+}
+ARTICLE_HTML_ALLOWED_PROTOCOLS = {'http', 'https', 'mailto', 'tel'}
+ARTICLE_HTML_ALLOWED_ATTRS = {
+    '*': {'title'},
+    'a': {'href', 'target', 'rel'},
+    'img': {'src', 'alt', 'width', 'height', 'loading'},
+    'th': {'colspan', 'rowspan'},
+    'td': {'colspan', 'rowspan'},
+    'ol': {'start'},
+    'blockquote': {'cite'},
+}
+
+
+class _ArticleHTMLSanitizer(HTMLParser):
+    """Keep semantic content and drop noisy/unsafe Word-style inline markup."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=False)
+        self._chunks = []
+        self._ignore_depth = 0
+
+    @property
+    def html(self):
+        return ''.join(self._chunks)
+
+    def _sanitize_url(self, raw_value):
+        value = _clean_text(raw_value)
+        if not value:
+            return ''
+        lowered = value.lower()
+        if lowered.startswith(('javascript:', 'vbscript:', 'data:')):
+            return ''
+        if value.startswith(('#', '/', './', '../', '//')):
+            return value
+        parsed = urlparse(value)
+        if parsed.scheme and parsed.scheme.lower() not in ARTICLE_HTML_ALLOWED_PROTOCOLS:
+            return ''
+        return value
+
+    def _sanitize_attrs(self, tag, attrs):
+        allowed = set(ARTICLE_HTML_ALLOWED_ATTRS.get('*', set()))
+        allowed.update(ARTICLE_HTML_ALLOWED_ATTRS.get(tag, set()))
+        cleaned = []
+
+        for name, value in attrs:
+            attr_name = (name or '').strip().lower()
+            if not attr_name or attr_name.startswith('on') or attr_name not in allowed:
+                continue
+
+            attr_value = '' if value is None else str(value).strip()
+            if attr_name in {'href', 'src', 'cite'}:
+                attr_value = self._sanitize_url(attr_value)
+                if not attr_value:
+                    continue
+            elif attr_name == 'target':
+                if attr_value not in {'_blank', '_self'}:
+                    continue
+            elif attr_name in {'colspan', 'rowspan', 'start'}:
+                if not re.fullmatch(r'\d{1,2}', attr_value):
+                    continue
+            elif attr_name in {'width', 'height'}:
+                if not re.fullmatch(r'\d{1,4}', attr_value):
+                    continue
+            elif attr_name == 'loading':
+                if attr_value not in {'lazy', 'eager'}:
+                    continue
+            elif attr_name == 'rel':
+                rel_values = []
+                for part in re.split(r'\s+', attr_value):
+                    normalized = part.strip().lower()
+                    if normalized in {'noopener', 'noreferrer', 'nofollow'} and normalized not in rel_values:
+                        rel_values.append(normalized)
+                attr_value = ' '.join(rel_values)
+                if not attr_value:
+                    continue
+
+            cleaned.append((attr_name, attr_value))
+
+        if tag == 'a':
+            attrs_map = {k: v for k, v in cleaned}
+            if attrs_map.get('target') == '_blank':
+                rel_tokens = set(attrs_map.get('rel', '').split()) if attrs_map.get('rel') else set()
+                rel_tokens.update({'noopener', 'noreferrer'})
+                rel_value = ' '.join(sorted(token for token in rel_tokens if token))
+                cleaned = [(k, v) for k, v in cleaned if k != 'rel']
+                cleaned.append(('rel', rel_value))
+
+        return cleaned
+
+    def _write_start_tag(self, tag, attrs):
+        attrs_text = ''.join(f' {key}="{html_escape(val, quote=True)}"' for key, val in attrs)
+        self._chunks.append(f'<{tag}{attrs_text}>')
+
+    def handle_starttag(self, tag, attrs):
+        normalized_tag = (tag or '').lower()
+        if self._ignore_depth:
+            if normalized_tag in ARTICLE_HTML_STRIP_CONTENT_TAGS:
+                self._ignore_depth += 1
+            return
+
+        if normalized_tag in ARTICLE_HTML_STRIP_CONTENT_TAGS:
+            self._ignore_depth = 1
+            return
+        if normalized_tag not in ARTICLE_HTML_ALLOWED_TAGS:
+            return
+
+        cleaned_attrs = self._sanitize_attrs(normalized_tag, attrs)
+        self._write_start_tag(normalized_tag, cleaned_attrs)
+
+    def handle_startendtag(self, tag, attrs):
+        normalized_tag = (tag or '').lower()
+        if normalized_tag in ARTICLE_HTML_VOID_TAGS:
+            self.handle_starttag(normalized_tag, attrs)
+            return
+        self.handle_starttag(normalized_tag, attrs)
+        self.handle_endtag(normalized_tag)
+
+    def handle_endtag(self, tag):
+        normalized_tag = (tag or '').lower()
+        if self._ignore_depth:
+            if normalized_tag in ARTICLE_HTML_STRIP_CONTENT_TAGS:
+                self._ignore_depth -= 1
+            return
+        if normalized_tag in ARTICLE_HTML_ALLOWED_TAGS and normalized_tag not in ARTICLE_HTML_VOID_TAGS:
+            self._chunks.append(f'</{normalized_tag}>')
+
+    def handle_data(self, data):
+        if self._ignore_depth or not data:
+            return
+        self._chunks.append(html_escape(data, quote=False))
+
+    def handle_entityref(self, name):
+        if self._ignore_depth:
+            return
+        self._chunks.append(f'&{name};')
+
+    def handle_charref(self, name):
+        if self._ignore_depth:
+            return
+        self._chunks.append(f'&#{name};')
+
+
+def _normalize_plain_article_text(raw_text):
+    text = str(raw_text or '').replace('\r\n', '\n').replace('\r', '\n')
+    text = re.sub(r'[ \t]+\n', '\n', text)
+    text = text.strip()
+    if not text:
+        return ''
+
+    paragraphs = []
+    for paragraph in re.split(r'\n\s*\n+', text):
+        lines = [line.strip() for line in paragraph.split('\n') if line.strip()]
+        if not lines:
+            continue
+        paragraphs.append(f"<p>{'<br>'.join(html_escape(line, quote=False) for line in lines)}</p>")
+    return ''.join(paragraphs)
+
+
+def _sanitize_article_block_html(raw_html):
+    source = str(raw_html or '').strip()
+    if not source:
+        return ''
+
+    if '<' not in source and '>' not in source:
+        return _normalize_plain_article_text(source)
+
+    sanitizer = _ArticleHTMLSanitizer()
+    sanitizer.feed(source)
+    sanitizer.close()
+    cleaned = sanitizer.html
+
+    cleaned = re.sub(r'(<br\s*/?>\s*){3,}', '<br><br>', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'<p>\s*(?:&nbsp;|\s|<br\s*/?>)*</p>', '', cleaned, flags=re.IGNORECASE)
+    cleaned = cleaned.strip()
+
+    has_block_tag = re.search(r'<(p|h[1-6]|ul|ol|blockquote|pre|table|figure)\b', cleaned, flags=re.IGNORECASE)
+    if cleaned and not has_block_tag:
+        cleaned = f'<p>{cleaned}</p>'
+    return cleaned
+
+
+def _safe_internal_redirect(target, fallback_endpoint):
+    fallback_url = url_for(fallback_endpoint)
+    target_text = _clean_text(target)
+    if not target_text:
+        return fallback_url
+
+    parsed = urlparse(target_text)
+    if parsed.scheme or parsed.netloc:
+        request_host = (request.host or '').split(':')[0]
+        parsed_host = (parsed.hostname or '').split(':')[0] if parsed.hostname else ''
+        if parsed_host != request_host:
+            return fallback_url
+        path = parsed.path or '/'
+        query = f"?{parsed.query}" if parsed.query else ''
+        return f"{path}{query}"
+
+    if not target_text.startswith('/') or target_text.startswith('//'):
+        return fallback_url
+    return target_text
+
+
+def _login_rate_limit_key(email):
+    forwarded_for = request.headers.get('X-Forwarded-For', '').strip()
+    ip_address = forwarded_for.split(',')[0].strip() if forwarded_for else (request.remote_addr or '').strip()
+    return f"{ip_address or 'unknown'}::{(email or '').strip().lower()}"
+
+
+def _ensure_login_rate_limit_storage():
+    global LOGIN_RATE_LIMIT_STORAGE_READY
+    if LOGIN_RATE_LIMIT_STORAGE_READY:
+        return True
+
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {LOGIN_RATE_LIMIT_TABLE} (
+                scope TEXT NOT NULL,
+                rate_key TEXT NOT NULL,
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                first_attempt_at DOUBLE PRECISION NOT NULL DEFAULT 0,
+                last_attempt_at DOUBLE PRECISION NOT NULL DEFAULT 0,
+                locked_until DOUBLE PRECISION NOT NULL DEFAULT 0,
+                updated_at BIGINT NOT NULL DEFAULT EXTRACT(epoch FROM now()),
+                PRIMARY KEY (scope, rate_key)
+            );
+            """
+        )
+        cursor.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_{LOGIN_RATE_LIMIT_TABLE}_cleanup "
+            f"ON {LOGIN_RATE_LIMIT_TABLE}(scope, last_attempt_at, locked_until);"
+        )
+        db.conn.commit()
+        cursor.close()
+        LOGIN_RATE_LIMIT_STORAGE_READY = True
+        return True
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        return False
+
+
+def _load_login_rate_limit_state(key):
+    state = LOGIN_RATE_LIMIT_STATE.get(key)
+    if not _ensure_login_rate_limit_storage():
+        return state
+
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute(
+            f"SELECT attempt_count, first_attempt_at, last_attempt_at, locked_until "
+            f"FROM {LOGIN_RATE_LIMIT_TABLE} WHERE scope = %s AND rate_key = %s",
+            (LOGIN_RATE_LIMIT_SCOPE, key),
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        if not row:
+            return state
+        return {
+            'count': int(row[0] or 0),
+            'first_attempt_at': float(row[1] or 0),
+            'last_attempt_at': float(row[2] or 0),
+            'locked_until': float(row[3] or 0),
+        }
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        return state
+
+
+def _save_login_rate_limit_state(key, state):
+    LOGIN_RATE_LIMIT_STATE[key] = state
+    if not _ensure_login_rate_limit_storage():
+        return
+
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute(
+            f"""
+            INSERT INTO {LOGIN_RATE_LIMIT_TABLE}
+                (scope, rate_key, attempt_count, first_attempt_at, last_attempt_at, locked_until, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (scope, rate_key) DO UPDATE
+            SET attempt_count = EXCLUDED.attempt_count,
+                first_attempt_at = EXCLUDED.first_attempt_at,
+                last_attempt_at = EXCLUDED.last_attempt_at,
+                locked_until = EXCLUDED.locked_until,
+                updated_at = EXCLUDED.updated_at
+            """,
+            (
+                LOGIN_RATE_LIMIT_SCOPE,
+                key,
+                int(state.get('count') or 0),
+                float(state.get('first_attempt_at') or 0),
+                float(state.get('last_attempt_at') or 0),
+                float(state.get('locked_until') or 0),
+                int(time.time()),
+            ),
+        )
+        db.conn.commit()
+        cursor.close()
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+
+
+def _delete_login_rate_limit_state(key):
+    LOGIN_RATE_LIMIT_STATE.pop(key, None)
+    if not _ensure_login_rate_limit_storage():
+        return
+
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute(
+            f"DELETE FROM {LOGIN_RATE_LIMIT_TABLE} WHERE scope = %s AND rate_key = %s",
+            (LOGIN_RATE_LIMIT_SCOPE, key),
+        )
+        db.conn.commit()
+        cursor.close()
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+
+
+def _prune_login_rate_limits(now_ts):
+    stale_before_ts = now_ts - LOGIN_RATE_LIMIT_WINDOW_SECONDS
+    if _ensure_login_rate_limit_storage():
+        try:
+            cursor = db.conn.cursor()
+            cursor.execute(
+                f"DELETE FROM {LOGIN_RATE_LIMIT_TABLE} "
+                f"WHERE scope = %s AND last_attempt_at < %s AND locked_until <= %s",
+                (LOGIN_RATE_LIMIT_SCOPE, float(stale_before_ts), float(now_ts)),
+            )
+            db.conn.commit()
+            cursor.close()
+        except Exception:
+            try:
+                db.conn.rollback()
+            except Exception:
+                pass
+
+    stale_keys = []
+    for key, state in LOGIN_RATE_LIMIT_STATE.items():
+        last_attempt_at = float(state.get('last_attempt_at') or 0)
+        locked_until = float(state.get('locked_until') or 0)
+        if (now_ts - last_attempt_at) > LOGIN_RATE_LIMIT_WINDOW_SECONDS and locked_until <= now_ts:
+            stale_keys.append(key)
+    for key in stale_keys:
+        LOGIN_RATE_LIMIT_STATE.pop(key, None)
+
+
+def _remaining_login_lock_seconds(email):
+    now_ts = time.time()
+    _prune_login_rate_limits(now_ts)
+    state = _load_login_rate_limit_state(_login_rate_limit_key(email))
+    if not state:
+        return 0
+    return max(0, int((state.get('locked_until') or 0) - now_ts))
+
+
+def _record_login_failure(email):
+    now_ts = time.time()
+    _prune_login_rate_limits(now_ts)
+    key = _login_rate_limit_key(email)
+    state = _load_login_rate_limit_state(key)
+    if not state or (now_ts - float(state.get('first_attempt_at') or 0)) > LOGIN_RATE_LIMIT_WINDOW_SECONDS:
+        state = {
+            'count': 0,
+            'first_attempt_at': now_ts,
+            'last_attempt_at': now_ts,
+            'locked_until': 0,
+        }
+
+    state['count'] = int(state.get('count') or 0) + 1
+    state['last_attempt_at'] = now_ts
+    if state['count'] >= LOGIN_RATE_LIMIT_MAX_ATTEMPTS:
+        lock_step = state['count'] - LOGIN_RATE_LIMIT_MAX_ATTEMPTS
+        lock_seconds = min(
+            LOGIN_RATE_LIMIT_BASE_LOCK_SECONDS * (2 ** lock_step),
+            LOGIN_RATE_LIMIT_MAX_LOCK_SECONDS,
+        )
+        state['locked_until'] = now_ts + lock_seconds
+
+    _save_login_rate_limit_state(key, state)
+    return max(0, int((state.get('locked_until') or 0) - now_ts))
+
+
+def _clear_login_failures(email):
+    _delete_login_rate_limit_state(_login_rate_limit_key(email))
+
+
 def _parse_text_list(value):
     if value is None:
         return []
@@ -420,6 +840,181 @@ def _ensure_tariff_duration_column(default_days=30):
             db.conn.rollback()
         except Exception:
             pass
+
+
+def _ensure_tariff_archive_column():
+    try:
+        existing_columns = set(db.columns.get('tariffs', []))
+        if 'is_archived' in existing_columns:
+            return
+        cursor = db.conn.cursor()
+        cursor.execute("ALTER TABLE tariffs ADD COLUMN IF NOT EXISTS is_archived boolean DEFAULT false;")
+        cursor.execute("UPDATE tariffs SET is_archived = false WHERE is_archived IS NULL;")
+        db.conn.commit()
+        cursor.close()
+        db._init_tables()
+        db._init_columns()
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+
+
+def _ensure_tariff_entitlement_columns():
+    try:
+        existing_columns = set(db.columns.get('tariffs', []))
+        if not existing_columns:
+            return
+
+        missing_columns = {}
+        if 'entitlement_scope' not in existing_columns:
+            missing_columns['entitlement_scope'] = "text DEFAULT 'all'"
+        if 'archive_days_threshold' not in existing_columns:
+            missing_columns['archive_days_threshold'] = "integer DEFAULT 365"
+        if 'article_discount_pct' not in existing_columns:
+            missing_columns['article_discount_pct'] = "double precision DEFAULT 0"
+        if 'issue_discount_pct' not in existing_columns:
+            missing_columns['issue_discount_pct'] = "double precision DEFAULT 0"
+        if 'subscription_discount_pct' not in existing_columns:
+            missing_columns['subscription_discount_pct'] = "double precision DEFAULT 0"
+        if 'subscription_discount_start_at' not in existing_columns:
+            missing_columns['subscription_discount_start_at'] = "bigint"
+        if 'subscription_discount_end_at' not in existing_columns:
+            missing_columns['subscription_discount_end_at'] = "bigint"
+        if 'monthly_download_limit' not in existing_columns:
+            missing_columns['monthly_download_limit'] = "integer DEFAULT 0"
+        if 'required_academic_positions' not in existing_columns:
+            missing_columns['required_academic_positions'] = "text[] DEFAULT '{}'::text[]"
+        if 'requires_verified_document' not in existing_columns:
+            missing_columns['requires_verified_document'] = "boolean DEFAULT false"
+        if 'eligibility_note' not in existing_columns:
+            missing_columns['eligibility_note'] = "text"
+        if 'feature_permissions' not in existing_columns:
+            missing_columns['feature_permissions'] = "text[] DEFAULT '{}'::text[]"
+        if 'required_document_types' not in existing_columns:
+            missing_columns['required_document_types'] = "text[] DEFAULT '{}'::text[]"
+
+        cursor = db.conn.cursor()
+        for column_name, column_type in missing_columns.items():
+            cursor.execute(f"ALTER TABLE tariffs ADD COLUMN IF NOT EXISTS {column_name} {column_type};")
+
+        cursor.execute(
+            "UPDATE tariffs "
+            "SET entitlement_scope = COALESCE(NULLIF(TRIM(entitlement_scope), ''), 'all') "
+            "WHERE entitlement_scope IS NULL OR NULLIF(TRIM(entitlement_scope), '') IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET archive_days_threshold = COALESCE(archive_days_threshold, 365) "
+            "WHERE archive_days_threshold IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET article_discount_pct = COALESCE(article_discount_pct, 0) "
+            "WHERE article_discount_pct IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET issue_discount_pct = COALESCE(issue_discount_pct, 0) "
+            "WHERE issue_discount_pct IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET subscription_discount_pct = COALESCE(subscription_discount_pct, 0) "
+            "WHERE subscription_discount_pct IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET monthly_download_limit = COALESCE(monthly_download_limit, 0) "
+            "WHERE monthly_download_limit IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET required_academic_positions = COALESCE(required_academic_positions, ARRAY[]::text[]) "
+            "WHERE required_academic_positions IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET requires_verified_document = COALESCE(requires_verified_document, false) "
+            "WHERE requires_verified_document IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET feature_permissions = COALESCE(feature_permissions, ARRAY[]::text[]) "
+            "WHERE feature_permissions IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET required_document_types = COALESCE(required_document_types, ARRAY[]::text[]) "
+            "WHERE required_document_types IS NULL;"
+        )
+        db.conn.commit()
+        cursor.close()
+        db._init_tables()
+        db._init_columns()
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+
+
+def _ensure_payment_snapshot_columns():
+    try:
+        existing_columns = set(db.columns.get('payments', []))
+        missing_columns = []
+        if 'snapshot_duration_days' not in existing_columns:
+            missing_columns.append(('snapshot_duration_days', 'integer'))
+        if 'snapshot_start_at' not in existing_columns:
+            missing_columns.append(('snapshot_start_at', 'bigint'))
+        if 'snapshot_end_at' not in existing_columns:
+            missing_columns.append(('snapshot_end_at', 'bigint'))
+        if not missing_columns:
+            return
+        cursor = db.conn.cursor()
+        for column_name, column_type in missing_columns:
+            cursor.execute(f"ALTER TABLE payments ADD COLUMN IF NOT EXISTS {column_name} {column_type};")
+        db.conn.commit()
+        cursor.close()
+        db._init_tables()
+        db._init_columns()
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+
+
+def _ensure_user_doc_upload_columns():
+    try:
+        existing_columns = set(db.columns.get('user_doc_uploads', []))
+        if not existing_columns:
+            return
+        missing_columns = []
+        if 'document_type' not in existing_columns:
+            missing_columns.append(('document_type', 'text'))
+        if 'document_holder_name' not in existing_columns:
+            missing_columns.append(('document_holder_name', 'text'))
+        if 'institution_name' not in existing_columns:
+            missing_columns.append(('institution_name', 'text'))
+        if not missing_columns:
+            return
+        cursor = db.conn.cursor()
+        for column_name, column_type in missing_columns:
+            cursor.execute(f"ALTER TABLE user_doc_uploads ADD COLUMN IF NOT EXISTS {column_name} {column_type};")
+        cursor.execute(
+            "UPDATE user_doc_uploads "
+            "SET document_type = 'other_academic' "
+            "WHERE document_type IS NULL AND COALESCE(TRIM(file_path), '') <> '';"
+        )
+        db.conn.commit()
+        cursor.close()
+        db._init_tables()
+        db._init_columns()
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+
+
+def _is_tariff_archived(tariff):
+    value = (tariff or {}).get('is_archived')
+    if isinstance(value, str):
+        return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+    return bool(value)
 
 
 HOME_VIDEO_USAGE_KEY = 'home_video_site_usage_url'
@@ -2166,26 +2761,69 @@ def _user_display_name(user_row):
     return full_name or _clean_text((user_row or {}).get('name')) or _clean_text((user_row or {}).get('email'))
 
 
+def _resolve_localized_text(value, user_row=None):
+    if isinstance(value, dict):
+        preferred = normalize_notification_language(
+            (user_row or {}).get('ui_language'),
+            default=current_notification_language()
+        )
+        fallback_order = [preferred, 'uz', 'ru', 'en']
+        for language in fallback_order:
+            text = _clean_text(value.get(language))
+            if text:
+                return text
+        for text in value.values():
+            resolved = _clean_text(text)
+            if resolved:
+                return resolved
+        return ''
+    return _clean_text(value)
+
+
+def _normalize_localized_details(details, user_row=None):
+    normalized = []
+    for label, value in details or []:
+        label_text = _resolve_localized_text(label, user_row=user_row)
+        value_text = _resolve_localized_text(value, user_row=user_row)
+        if not label_text or not value_text:
+            continue
+        normalized.append((label_text, value_text))
+    return normalized
+
+
+def _normalize_localized_body_lines(body_lines, user_row=None):
+    normalized = []
+    for line in body_lines or []:
+        line_text = _resolve_localized_text(line, user_row=user_row)
+        if line_text:
+            normalized.append(line_text)
+    return normalized
+
+
 def _send_user_email(user_row, subject, intro, details=None, body_lines=None, cta_url=None, cta_label=None, reply_to=None):
     email = _clean_text((user_row or {}).get('email'))
     if not email or not user_allows_email_notifications(user_row):
         return False
+    preferred_language = normalize_notification_language(
+        (user_row or {}).get('ui_language'),
+        default=current_notification_language()
+    )
     subject_text, intro_text, _ = prepare_notification_content(
         title=subject,
         message=intro,
-        default_language=normalize_notification_language(
-            (user_row or {}).get('ui_language'),
-            default=current_notification_language()
-        )
+        default_language=preferred_language
     )
+    details_rows = _normalize_localized_details(details, user_row=user_row)
+    body_rows = _normalize_localized_body_lines(body_lines, user_row=user_row)
+    cta_label_text = _resolve_localized_text(cta_label, user_row=user_row) or 'Open'
     return send_notification_email(
         recipients=[email],
         subject=subject_text,
         intro=intro_text,
-        details=details,
-        body_lines=body_lines,
+        details=details_rows,
+        body_lines=body_rows,
         cta_url=cta_url,
-        cta_label=cta_label,
+        cta_label=cta_label_text,
         reply_to=reply_to,
         fail_silently=True,
     )
@@ -2227,7 +2865,7 @@ WORKFLOW_STAGE_LABEL_TRANSLATIONS = {
     'waiting': {'uz': 'Kutilmoqda', 'ru': 'Ожидание', 'en': 'Waiting'},
     'technical_check': {'uz': 'Texnik tekshiruv', 'ru': 'Техническая проверка', 'en': 'Technical check'},
     'anti_plagiarism': {'uz': 'Antiplagiat tekshiruvi', 'ru': 'Проверка на антиплагиат', 'en': 'Anti-plagiarism check'},
-    'in_review': {'uz': 'Tahrizda', 'ru': 'На рецензии', 'en': 'In review'},
+    'in_review': {'uz': 'Taqrizda', 'ru': 'На рецензии', 'en': 'In review'},
     'recommended': {'uz': "Nashrga tavsiya etildi", 'ru': 'Рекомендовано к публикации', 'en': 'Recommended'},
     'payment': {'uz': "To'lov", 'ru': 'Оплата', 'en': 'Payment'},
     'published': {'uz': 'Nashr qilindi', 'ru': 'Опубликовано', 'en': 'Published'},
@@ -2249,31 +2887,11 @@ def _workflow_stage_label_text(stage, lang='uz'):
     return WORKFLOW_STAGE_LABEL_TRANSLATIONS.get(key, {}).get(lang, key)
 
 
-def _status_stage_change_message(submission_title, old_status, new_status, old_stage, new_stage, changed_at_label):
-    old_status_key = old_status or '-'
-    new_status_key = new_status or '-'
-    old_stage_key = old_stage or '-'
-    new_stage_key = new_stage or '-'
-
+def _status_stage_change_message(submission_title, new_status, new_stage):
     return localized_texts(
-        (
-            f'"{submission_title}" holati yangilandi: '
-            f'{_status_label_text(old_status, "uz")} ({old_status_key}) -> {_status_label_text(new_status, "uz")} ({new_status_key}). '
-            f'Bosqich: {_workflow_stage_label_text(old_stage, "uz")} ({old_stage_key}) -> {_workflow_stage_label_text(new_stage, "uz")} ({new_stage_key}). '
-            f'Sana: {changed_at_label}'
-        ),
-        (
-            f'Статус "{submission_title}" обновлён: '
-            f'{_status_label_text(old_status, "ru")} ({old_status_key}) -> {_status_label_text(new_status, "ru")} ({new_status_key}). '
-            f'Этап: {_workflow_stage_label_text(old_stage, "ru")} ({old_stage_key}) -> {_workflow_stage_label_text(new_stage, "ru")} ({new_stage_key}). '
-            f'Дата: {changed_at_label}'
-        ),
-        (
-            f'Submission "{submission_title}" updated: '
-            f'{_status_label_text(old_status, "en")} ({old_status_key}) -> {_status_label_text(new_status, "en")} ({new_status_key}). '
-            f'Stage: {_workflow_stage_label_text(old_stage, "en")} ({old_stage_key}) -> {_workflow_stage_label_text(new_stage, "en")} ({new_stage_key}). '
-            f'Date: {changed_at_label}'
-        )
+        f'"{submission_title}" yangilandi. Holat: {_status_label_text(new_status, "uz")}. Bosqich: {_workflow_stage_label_text(new_stage, "uz")}.',
+        f'"{submission_title}" обновлена. Статус: {_status_label_text(new_status, "ru")}. Этап: {_workflow_stage_label_text(new_stage, "ru")}.',
+        f'"{submission_title}" was updated. Status: {_status_label_text(new_status, "en")}. Stage: {_workflow_stage_label_text(new_stage, "en")}.',
     )
 
 
@@ -2360,7 +2978,7 @@ def _redirect_to_role_dashboard(user=None):
     return redirect(url_for('index'))
 
 
-@bp.route('/fmadmin/lang/<lang_code>')
+@bp.route('/fmadmin/lang/<lang_code>', methods=['POST'])
 def set_language(lang_code):
     if lang_code in ['en', 'ru', 'uz']:
         session['language'] = lang_code
@@ -2376,7 +2994,7 @@ def set_language(lang_code):
                     pass
             fmadmin_user['ui_language'] = lang_code
             session['fmadmin_user'] = fmadmin_user
-    return redirect(request.referrer or url_for('index'))
+    return redirect(_safe_internal_redirect(request.form.get('redirect_url') or request.referrer, 'index'))
 
 @bp.route('/fmadmin/')
 @is_admin_or_editor
@@ -2385,27 +3003,18 @@ def index():
     if current_user.get('rolename') == 'editor':
         return redirect(url_for('editor_dashboard'))
 
-    # Calculate dashboard statistics
-    stats = calculate_dashboard_stats()
-    
-    # Get submissions statistics for chart
-    submissions_stats = get_submissions_stats()
-    
-    # Get monthly articles statistics for chart
-    monthly_stats = get_monthly_articles_stats()
-    
-    # Get recent submissions
-    recent_submissions = get_recent_submissions()
-    
-    # Get top articles by views
-    top_articles = get_top_articles()
-    
-    return render_template('index.html', 
-                         stats=stats,
-                         submissions_stats=submissions_stats,
-                         monthly_stats=monthly_stats,
-                         recent_submissions=recent_submissions,
-                         top_articles=top_articles)
+    dashboard_snapshot = get_dashboard_snapshot(months=6, recent_limit=6, top_limit=6, stale_days=14)
+
+    return render_template(
+        'index.html',
+        stats=dashboard_snapshot.get('stats', {}),
+        status_chart=dashboard_snapshot.get('status_chart', {}),
+        timeline_chart=dashboard_snapshot.get('timeline_chart', {}),
+        workflow_cards=dashboard_snapshot.get('workflow_cards', []),
+        attention_submissions=dashboard_snapshot.get('attention_submissions', []),
+        recent_submissions=dashboard_snapshot.get('recent_submissions', []),
+        top_articles=dashboard_snapshot.get('top_articles', []),
+    )
 
 
 @bp.route('/fmadmin/editor/dashboard')
@@ -2467,16 +3076,25 @@ def login():
         return _redirect_to_role_dashboard()
 
     if request.method == 'POST':
-        email = request.form.get('email')
+        email = (request.form.get('email') or '').strip().lower()
         password = request.form.get('password')
 
         if not email or not password:
             flash(t('admin_error_fill_all_fields'), 'danger')
             return render_template('auth/login.html')
 
+        remaining_lock = _remaining_login_lock_seconds(email)
+        if remaining_lock > 0:
+            flash(f"Juda ko'p noto'g'ri urinish. {remaining_lock} soniyadan keyin qayta urinib ko'ring.", 'danger')
+            return render_template('auth/login.html')
+
         user = db.users.all().equal(email=email).exec()
         if not user:
-            flash(t('admin_error_invalid_credentials'), 'danger')
+            remaining_lock = _record_login_failure(email)
+            if remaining_lock > 0:
+                flash(f"Juda ko'p noto'g'ri urinish. {remaining_lock} soniyadan keyin qayta urinib ko'ring.", 'danger')
+            else:
+                flash(t('admin_error_invalid_credentials'), 'danger')
             return render_template('auth/login.html')
 
         from werkzeug.security import check_password_hash, generate_password_hash
@@ -2497,18 +3115,26 @@ def login():
                 db.users.all().equal(id=user['id']).update(password=hashed).exec()
 
         if not password_valid:
-            flash(t('admin_error_invalid_credentials'), 'danger')
+            remaining_lock = _record_login_failure(email)
+            if remaining_lock > 0:
+                flash(f"Juda ko'p noto'g'ri urinish. {remaining_lock} soniyadan keyin qayta urinib ko'ring.", 'danger')
+            else:
+                flash(t('admin_error_invalid_credentials'), 'danger')
             return render_template('auth/login.html')
 
         if user.get('is_blocked') or user.get('is_hidden'):
+            _record_login_failure(email)
             flash(t('admin_error_no_access'), 'danger')
             return render_template('auth/login.html')
 
         # Проверяем роль (только админы и редакторы)
         user = hydrate_user_roles(user)
         if not user_has_permission(user, 'fmadmin.access'):
+            _record_login_failure(email)
             flash(t('admin_error_no_access'), 'danger')
             return render_template('auth/login.html')
+
+        _clear_login_failures(email)
 
         # Сохраняем пользователя в сессии
         session['fmadmin_user'] = _session_admin_user_payload(user)
@@ -2860,6 +3486,7 @@ def user_edit(user_id):
     user['has_author_role'] = user_has_role(user, AUTHOR_ROLE)
     user['admin_tracks'] = _admin_tracks_for_user(user)
     countries = db.fix_country.all().exec()
+    _ensure_tariff_archive_column()
     tariffs = db.tariffs.all().exec()
     active_admins = _active_admins()
     role_choices = []
@@ -2876,16 +3503,23 @@ def user_edit(user_id):
             label = role_name.title()
         role_choices.append((role_name, label))
     
-    # Проверяем, есть ли у пользователя загруженные документы (для фильтрации тарифов)
-    user_has_documents = False
+    # Проверяем, есть ли у пользователя верифицированные документы (для фильтрации тарифов)
+    user_has_verified_documents = False
     if user_id > 0:
         user_docs = db.user_doc_uploads.all().equal(user_id=user_id).exec()
-        user_has_documents = len(user_docs) > 0
+        user_has_verified_documents = any(
+            _clean_text(item.get('verification_status')).lower() in {'verified', 'approved'}
+            for item in user_docs
+        )
     
     # Фильтруем тарифы: если у пользователя нет документов, скрываем тарифы "для верифицированных"
     filtered_tariffs = []
+    current_tariff_id = _parse_int(user.get('tariff_id'))
     for tariff in tariffs:
-        if tariff.get('is_verified', False) and not user_has_documents:
+        tariff_id = _parse_int(tariff.get('id'))
+        if _is_tariff_archived(tariff) and tariff_id != current_tariff_id:
+            continue  # Показываем архивный тариф только если он уже назначен пользователю
+        if tariff.get('is_verified', False) and not user_has_verified_documents:
             continue  # Пропускаем тарифы для верифицированных, если у пользователя нет документов
         filtered_tariffs.append(tariff)
     
@@ -3538,8 +4172,16 @@ def article_edit(article_id):
                     file_id = save_file_to_db(file, 'articles', f'PDF для статьи {article_id}')
                     if file_id:
                         file_ids.append(file_id)
-                except Exception as e:
-                    new_alert(_msg_text(f'{file.filename} faylini yuklashda xatolik: {str(e)}', f'Ошибка загрузки файла {file.filename}: {str(e)}', f'File upload error {file.filename}: {str(e)}'), 'danger')
+                except Exception:
+                    logger.exception('Failed to upload PDF file for article_id=%s', article_id)
+                    new_alert(
+                        _msg_text(
+                            f'{file.filename} faylini yuklashda xatolik',
+                            f'Ошибка загрузки файла {file.filename}',
+                            f'File upload error: {file.filename}'
+                        ),
+                        'danger'
+                    )
         is_paid = bool(request.form.get('is_paid'))
         price = request.form.get('price', 0, float)
         price_uz = request.form.get('price_uz', 0, float)
@@ -3685,9 +4327,9 @@ def article_content(article_id):
             return redirect(url_for('article_content', article_id=article_id))
         block_id = request.form.get('block_id')
         block_type = request.form.get('block_type')
-        block_title = request.form.get('block_title')
+        block_title = _clean_text(request.form.get('block_title'))
         if block_type == 'text':
-            block_text = request.form.get('block_text')
+            block_text = _sanitize_article_block_html(request.form.get('block_text'))
             if block_id:
                 db.publication_parts.all().equal(id=block_id).update(
                     title=block_title,
@@ -3717,8 +4359,8 @@ def article_content(article_id):
             if file and file.filename:
                 try:
                     filepath = save_file('figures', file, ['jpg', 'jpeg', 'png', 'gif', 'webp'])
-                except ValueError as e:
-                    new_alert(str(e), 'danger')
+                except ValueError:
+                    new_alert(_msg_text("Fayl formati noto'g'ri", 'Недопустимый формат файла', 'Invalid file format'), 'danger')
                     return redirect(url_for('article_content', article_id=article_id))
             if block_id:
                 db.publication_figures.all().equal(id=block_id).update(
@@ -3794,7 +4436,10 @@ def announcements():
 @is_superadmin_required
 def tariffs():
     _ensure_tariff_duration_column()
+    _ensure_tariff_archive_column()
+    _ensure_tariff_entitlement_columns()
     tariffs = db.tariffs.all().exec()
+    tariffs = [item for item in tariffs if not _is_tariff_archived(item)]
     # Считаем количество пользователей на каждом тарифе
     users = db.users.all().exec()
     tariffs_user_count = {}
@@ -4147,103 +4792,203 @@ def payments():
 @is_superadmin_required
 def payment_edit():
     try:
+        _ensure_payment_snapshot_columns()
         payment_id = _parse_int(request.form.get('payment_id'))
         status = request.form.get('status')
         amount = request.form.get('amount')
         comment = request.form.get('comment', '')
-        
+
         amount_value = _parse_amount(amount)
-        if payment_id is None or not status or amount_value is None:
-            return jsonify({'success': False, 'error': 'Не все обязательные поля заполнены'})
-
-        payment_rows = db.payments.all().equal(id=payment_id).exec()
-        if not payment_rows:
-            return jsonify({'success': False, 'error': 'Платеж не найден'})
-        payment = payment_rows[0]
-        previous_status = _clean_text(payment.get('status')).lower()
-        
-        # Обновляем платеж
-        update_data = {
-            'status': status,
-            'amount': amount_value
-        }
         normalized_status = _clean_text(status).lower()
+        if payment_id is None or not normalized_status or amount_value is None:
+            return jsonify({'success': False, 'error': 'Не все обязательные поля заполнены'})
+        if normalized_status not in {'pending', 'paid', 'rejected'}:
+            return jsonify({'success': False, 'error': 'Недопустимый статус платежа'})
+
         now_ts = int(time.time())
-        if normalized_status == 'paid' and not payment.get('payment_date'):
-            update_data['payment_date'] = now_ts
-        
-        if comment:
-            update_data['note'] = comment
-        
-        result = db.payments.all().equal(id=int(payment_id)).update(**update_data).exec()
-        
-        if result:
-            user_rows = db.users.all().equal(id=payment.get('user_id')).exec()
-            payment_user = user_rows[0] if user_rows else None
-            if payment_user and normalized_status != previous_status:
-                payment_type = 'Subscription' if _clean_text(payment.get('payment_type')).lower() == 'subscription' else 'Issue purchase'
-                amount_label = f"{update_data['amount']} {(_clean_text(payment.get('currency')) or 'usd').upper()}"
-                if normalized_status == 'paid':
-                    email_subject = 'Your payment has been approved'
-                    email_intro = f'Your {payment_type.lower()} payment was approved.'
-                elif normalized_status == 'rejected':
-                    email_subject = 'Your payment was rejected'
-                    email_intro = f'Your {payment_type.lower()} payment was rejected by the finance team.'
-                else:
-                    email_subject = 'Your payment is being reviewed'
-                    email_intro = f'Your {payment_type.lower()} payment is now under review.'
+        payment = None
+        updated_payment = None
+        payment_user = None
+        status_changed = False
 
-                body_lines = []
+        with db._lock:
+            cursor = db.conn.cursor()
+            try:
+                cursor.execute("SELECT * FROM payments WHERE id = %s FOR UPDATE", (payment_id,))
+                payment_row = cursor.fetchone()
+                if not payment_row:
+                    db.conn.rollback()
+                    return jsonify({'success': False, 'error': 'Платеж не найден'})
+                payment_columns = [desc[0] for desc in cursor.description]
+                payment = dict(zip(payment_columns, payment_row))
+
+                previous_status = _clean_text(payment.get('status')).lower()
+                status_changed = normalized_status != previous_status
+
+                update_data = {
+                    'status': normalized_status,
+                    'amount': amount_value,
+                }
+                if normalized_status == 'paid' and not payment.get('payment_date'):
+                    update_data['payment_date'] = now_ts
                 if comment:
-                    body_lines.append(f'Comment: {comment}')
+                    update_data['note'] = comment
 
-                _send_user_email(
-                    payment_user,
-                    subject=email_subject,
-                    intro=email_intro,
-                    details=[
-                        ('Payment ID', payment_id),
-                        ('Type', payment_type),
-                        ('Amount', amount_label),
-                        ('Status', normalized_status),
-                    ],
-                    body_lines=body_lines,
-                    cta_url='/dashboard/payments',
-                    cta_label='Open payments',
+                update_clauses = []
+                update_args = []
+                for column_name, column_value in update_data.items():
+                    update_clauses.append(f"{column_name} = %s")
+                    update_args.append(column_value)
+                update_args.append(payment_id)
+
+                cursor.execute(
+                    f"UPDATE payments SET {', '.join(update_clauses)} WHERE id = %s RETURNING *",
+                    tuple(update_args),
                 )
-            if payment_user and normalized_status == 'paid' and _clean_text(payment.get('payment_type')).lower() == 'subscription':
-                _ensure_tariff_duration_column()
-                ids = payment.get('ids') or []
-                tariff_id = ids[0] if isinstance(ids, (list, tuple)) and ids else None
-                if tariff_id:
-                    tariff_rows = db.tariffs.get(id=tariff_id).exec()
-                    tariff = tariff_rows[0] if tariff_rows else {}
-                    duration_days = _parse_int(tariff.get('duration_days') or tariff.get('user_limit')) or 30
+                updated_row = cursor.fetchone()
+                if not updated_row:
+                    db.conn.rollback()
+                    return jsonify({'success': False, 'error': 'Платеж не найден'})
+                updated_payment_columns = [desc[0] for desc in cursor.description]
+                updated_payment = dict(zip(updated_payment_columns, updated_row))
+
+                payment_user_id = _parse_int(payment.get('user_id'))
+                if payment_user_id is not None:
+                    cursor.execute("SELECT * FROM users WHERE id = %s FOR UPDATE", (payment_user_id,))
+                    payment_user_row = cursor.fetchone()
+                    if payment_user_row:
+                        payment_user_columns = [desc[0] for desc in cursor.description]
+                        payment_user = dict(zip(payment_user_columns, payment_user_row))
+
+                if (
+                    payment_user
+                    and status_changed
+                    and normalized_status == 'paid'
+                    and _clean_text(payment.get('payment_type')).lower() == 'subscription'
+                ):
+                    ids = payment.get('ids') or []
+                    tariff_id = ids[0] if isinstance(ids, (list, tuple)) and ids else None
+                    snapshot_duration_days = _parse_int(payment.get('snapshot_duration_days'))
+                    resolved_tariff_id = _parse_int(payment_user.get('tariff_id'))
+                    duration_days = snapshot_duration_days
+                    tariff = {}
+
+                    if tariff_id:
+                        cursor.execute("SELECT * FROM tariffs WHERE id = %s", (tariff_id,))
+                        tariff_row = cursor.fetchone()
+                        if tariff_row:
+                            tariff_columns = [desc[0] for desc in cursor.description]
+                            tariff = dict(zip(tariff_columns, tariff_row))
+                            resolved_tariff_id = _parse_int(tariff.get('id'))
+                        if duration_days is None:
+                            duration_days = _parse_int(tariff.get('duration_days') or tariff.get('user_limit'))
+
+                    if duration_days is None:
+                        db.conn.rollback()
+                        return jsonify({
+                            'success': False,
+                            'error': "Невозможно активировать подписку: не найдена длительность тарифа."
+                        })
+
                     base_ts = now_ts
                     current_end = _parse_int(payment_user.get('subscription_end_date'))
                     if current_end and current_end > now_ts:
                         base_ts = current_end
                     new_end = base_ts + (duration_days * 24 * 60 * 60)
-                    db.users.all().equal(id=payment_user.get('id')).update(
-                        tariff_id=tariff_id,
-                        subscription_end_date=new_end
-                    ).exec()
-            return jsonify({'success': True})
-        else:
-            return jsonify({'success': False, 'error': 'Платеж не найден'})
-            
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+                    cursor.execute(
+                        "UPDATE payments SET snapshot_start_at = %s, snapshot_end_at = %s WHERE id = %s",
+                        (base_ts, new_end, payment_id),
+                    )
+                    cursor.execute(
+                        "UPDATE users SET tariff_id = %s, subscription_end_date = %s WHERE id = %s RETURNING *",
+                        (resolved_tariff_id, new_end, payment_user.get('id')),
+                    )
+                    updated_user_row = cursor.fetchone()
+                    if updated_user_row:
+                        updated_user_columns = [desc[0] for desc in cursor.description]
+                        payment_user = dict(zip(updated_user_columns, updated_user_row))
 
-def _private_upload_exists(storage_key):
+                db.conn.commit()
+            except Exception:
+                db.conn.rollback()
+                raise
+            finally:
+                cursor.close()
+
+        if payment_user and status_changed:
+            if normalized_status == 'paid':
+                email_subject = localized_texts("To'lovingiz tasdiqlandi", 'Ваш платеж подтверждён', 'Your payment has been approved')
+                email_intro = localized_texts(
+                    "Sizning to'lovingiz moliya bo'limi tomonidan tasdiqlandi.",
+                    'Ваш платеж был подтверждён финансовым отделом.',
+                    'Your payment was approved by the finance team.',
+                )
+            elif normalized_status == 'rejected':
+                email_subject = localized_texts("To'lovingiz rad etildi", 'Ваш платеж отклонён', 'Your payment was rejected')
+                email_intro = localized_texts(
+                    "Sizning to'lovingiz moliya bo'limi tomonidan rad etildi.",
+                    'Ваш платеж был отклонён финансовым отделом.',
+                    'Your payment was rejected by the finance team.',
+                )
+            else:
+                email_subject = localized_texts("To'lovingiz ko'rib chiqilmoqda", 'Ваш платеж рассматривается', 'Your payment is being reviewed')
+                email_intro = localized_texts(
+                    "Sizning to'lovingiz hozir ko'rib chiqish jarayonida.",
+                    'Ваш платеж сейчас находится на рассмотрении.',
+                    'Your payment is now under review.',
+                )
+
+            body_lines = []
+            if comment:
+                body_lines.append(localized_texts(
+                    f'Izoh: {comment}',
+                    f'Комментарий: {comment}',
+                    f'Comment: {comment}',
+                ))
+
+            _send_user_email(
+                payment_user,
+                subject=email_subject,
+                intro=email_intro,
+                details=[],
+                body_lines=body_lines,
+                cta_url='/dashboard/payments',
+                cta_label=localized_texts("To'lovlarni ochish", 'Открыть оплаты', 'Open payments'),
+            )
+
+        return jsonify({'success': True})
+            
+    except Exception:
+        logger.exception('Payment update failed in payment_edit')
+        return jsonify({'success': False, 'error': 'Internal server error'})
+
+def _submission_has_private_upload(submission, storage_key):
+    return (
+        extract_private_upload_key((submission or {}).get('file_authors')) == storage_key
+        or extract_private_upload_key((submission or {}).get('file_anonymized')) == storage_key
+        or extract_private_upload_key((submission or {}).get('anti_plagiarism_file')) == storage_key
+    )
+
+
+def _current_user_can_access_private_upload(current_user, storage_key):
     if not storage_key:
         return False
+    if user_has_role(current_user, 'superadmin'):
+        return True
+
+    can_access_admin_files = user_has_role(current_user, 'admin')
+    can_access_editor_files = user_has_role(current_user, 'editor')
+    current_user_id = _parse_int((current_user or {}).get('id'))
 
     if storage_key.startswith('documents/'):
+        if not can_access_admin_files:
+            return False
         rows = db.user_doc_uploads.all().exec()
         return any(extract_private_upload_key(row.get('file_path')) == storage_key for row in rows)
 
     if storage_key.startswith('payments/'):
+        if not can_access_admin_files:
+            return False
         rows = db.payments.all().exec()
         return any(
             extract_private_upload_key(row.get('proof')) == storage_key
@@ -4252,13 +4997,25 @@ def _private_upload_exists(storage_key):
         )
 
     if storage_key.startswith('articles/'):
-        rows = db.submissions.all().exec()
-        return any(
-            extract_private_upload_key(row.get('file_authors')) == storage_key
-            or extract_private_upload_key(row.get('file_anonymized')) == storage_key
-            or extract_private_upload_key(row.get('anti_plagiarism_file')) == storage_key
-            for row in rows
-        )
+        editor_submission_ids = set()
+        if can_access_editor_files and current_user_id is not None:
+            assignment_rows = db.editor_assignments.all().equal(editor_id=current_user_id).exec()
+            editor_submission_ids = {
+                _parse_int(item.get('submission_id'))
+                for item in assignment_rows
+                if _parse_int(item.get('submission_id')) is not None
+            }
+
+        submissions = db.submissions.all().exec()
+        for submission in submissions:
+            if not _submission_has_private_upload(submission, storage_key):
+                continue
+            if can_access_admin_files and _can_access_submission(current_user, submission):
+                return True
+            submission_id = _parse_int(submission.get('id'))
+            if submission_id is not None and submission_id in editor_submission_ids:
+                return True
+        return False
 
     return False
 
@@ -4266,8 +5023,9 @@ def _private_upload_exists(storage_key):
 @bp.route('/fmadmin/files/<path:storage_key>')
 @is_admin_or_editor
 def serve_private_file(storage_key):
+    current_user = get_current_user() or {}
     resolved_key = extract_private_upload_key(storage_key)
-    if not resolved_key or not _private_upload_exists(resolved_key):
+    if not resolved_key or not _current_user_can_access_private_upload(current_user, resolved_key):
         abort(404)
 
     file_path = private_upload_abspath(resolved_key)
@@ -4544,6 +5302,7 @@ def submission_detail(submission_id):
 @bp.route('/fmadmin/submissions/documents')
 @is_allowed
 def submission_documents():
+    _ensure_user_doc_upload_columns()
     page = request.args.get('page', 1, type=int)
     per_page = 25
     status_filter = request.args.get('status', '').strip()
@@ -4686,20 +5445,30 @@ def submission_edit():
             if status_or_stage_changed or notes_changed:
                 changed_at_label = datetime.datetime.fromtimestamp(now_ts).strftime('%d.%m.%Y %H:%M')
                 if status_or_stage_changed:
-                    notification_title = localized_texts(
-                        "Maqola holati yangilandi",
-                        "Статус статьи обновлён",
-                        "Submission status updated"
-                    )
-                    notification_message = _status_stage_change_message(
-                        submission_title,
-                        old_status,
-                        new_status,
-                        old_stage,
-                        new_stage,
-                        changed_at_label
-                    )
-                    notification_event = 'submission_status_updated'
+                    if new_status == 'published' or new_stage == 'published':
+                        notification_title = localized_texts(
+                            "Tabriklaymiz! Maqolangiz nashr qilindi",
+                            "Поздравляем! Ваша статья опубликована",
+                            "Congratulations! Your article is published"
+                        )
+                        notification_message = localized_texts(
+                            f'"{submission_title}" maqolangiz muvaffaqiyatli nashr qilindi.',
+                            f'Ваша статья "{submission_title}" успешно опубликована.',
+                            f'Your article "{submission_title}" was published successfully.',
+                        )
+                        notification_event = 'submission_published'
+                    else:
+                        notification_title = localized_texts(
+                            "Maqolangiz holati yangilandi",
+                            "Статус вашей статьи обновлён",
+                            "Your article status was updated"
+                        )
+                        notification_message = _status_stage_change_message(
+                            submission_title,
+                            new_status,
+                            new_stage,
+                        )
+                        notification_event = 'submission_status_updated'
                 else:
                     notification_title = localized_texts(
                         "Maqola izohi yangilandi",
@@ -4730,7 +5499,7 @@ def submission_edit():
                         email_body_lines.append(
                             _msg_text(
                                 "Iltimos, dashboard orqali antiplagiat hujjatini yuklang.",
-                                "Pozhaluysta, zagruzite antiplagiat-dokument cherez lichnyy kabinet.",
+                                "Пожалуйста, загрузите антиплагиат-документ через личный кабинет.",
                                 "Please upload the anti-plagiarism document from your dashboard."
                             )
                         )
@@ -4738,7 +5507,7 @@ def submission_edit():
                         email_body_lines.append(
                             _msg_text(
                                 f"Admin izohi: {new_notes}",
-                                f"Kommentariy administratora: {new_notes}",
+                                f"Комментарий администратора: {new_notes}",
                                 f"Admin note: {new_notes}"
                             )
                         )
@@ -4747,13 +5516,9 @@ def submission_edit():
                         author_user,
                         subject=notification_title,
                         intro=notification_message,
-                        details=[
-                            ('Submission', submission_title),
-                            ('Submission ID', submission_id_int),
-                        ],
                         body_lines=email_body_lines,
                         cta_url=author_url,
-                        cta_label='Open dashboard',
+                        cta_label=localized_texts("Dashboardga o'tish", 'Перейти в кабинет', 'Go to dashboard'),
                     )
 
                 if assigned_admin_id is not None and assigned_admin_id != actor_id:
@@ -4840,13 +5605,15 @@ def submission_edit():
         else:
             return jsonify({'success': False, 'error': 'Подача не найдена'})
             
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+    except Exception:
+        logger.exception('Submission edit failed in submission_edit')
+        return jsonify({'success': False, 'error': 'Internal server error'})
 
 @bp.route('/fmadmin/submissions/documents/edit', methods=['POST'])
 @is_allowed
 def document_edit():
     try:
+        _ensure_user_doc_upload_columns()
         doc_id = request.form.get('doc_id')
         verification_status = request.form.get('verification_status')
         
@@ -4866,8 +5633,9 @@ def document_edit():
         else:
             return jsonify({'success': False, 'error': 'Документ не найден'})
             
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+    except Exception:
+        logger.exception('Document edit failed in document_edit')
+        return jsonify({'success': False, 'error': 'Internal server error'})
 
 # ==================== РЕДАКТОРЫ ====================
 
@@ -5043,7 +5811,7 @@ def editor_edit(editor_id):
 def editor_delete(editor_id):
     current_user = session.get('fmadmin_user') or {}
     current_user_id = _parse_int(current_user.get('id'))
-    redirect_url = request.referrer or url_for('editors')
+    redirect_url = _safe_internal_redirect(request.form.get('redirect_url') or request.referrer, 'editors')
 
     editor_rows = _load_user_from_db(editor_id)
     if not editor_rows or not user_has_role(editor_rows, 'editor'):
@@ -5318,7 +6086,7 @@ def editorial_member_edit(member_id):
 @bp.route('/fmadmin/editorial-members/<int:member_id>/delete', methods=['POST'])
 @is_superadmin_required
 def editorial_member_delete(member_id):
-    redirect_url = request.referrer or url_for('editorial_members')
+    redirect_url = _safe_internal_redirect(request.form.get('redirect_url') or request.referrer, 'editorial_members')
     rows = db.editorial_members.all().equal(id=member_id).exec()
     if not rows:
         new_alert(
@@ -5487,23 +6255,30 @@ def role_notifications():
 def role_notification_read(notification_id):
     current_user = get_current_user() or {}
     _mark_role_notification_as_read(notification_id, current_user)
-    redirect_url = request.form.get('redirect_url') or request.referrer or url_for('role_notifications')
+    redirect_url = _safe_internal_redirect(
+        request.form.get('redirect_url') or request.referrer,
+        'role_notifications',
+    )
     return redirect(redirect_url)
 
 
-@bp.route('/fmadmin/notifications/open/<int:notification_id>')
+@bp.route('/fmadmin/notifications/open/<int:notification_id>', methods=['POST'])
 @is_admin_or_editor
 def role_notification_open(notification_id):
     current_user = get_current_user() or {}
+    fallback_url = _safe_internal_redirect(
+        request.form.get('redirect_url') or request.referrer,
+        'role_notifications',
+    )
     notification = _get_role_notification_for_user(notification_id, current_user)
     if not notification:
-        return redirect(url_for('role_notifications'))
+        return redirect(fallback_url)
 
     _mark_role_notification_as_read(notification_id, current_user)
     action_url = _clean_text(notification.get('action_url'))
-    if action_url and action_url.startswith('/'):
-        return redirect(action_url)
-    return redirect(url_for('role_notifications'))
+    if action_url:
+        return redirect(_safe_internal_redirect(action_url, 'role_notifications'))
+    return redirect(fallback_url)
 
 
 @bp.route('/fmadmin/notifications/read-all', methods=['POST'])
@@ -5520,7 +6295,10 @@ def role_notification_read_all():
             ),
             'success'
         )
-    redirect_url = request.form.get('redirect_url') or request.referrer or url_for('role_notifications')
+    redirect_url = _safe_internal_redirect(
+        request.form.get('redirect_url') or request.referrer,
+        'role_notifications',
+    )
     return redirect(redirect_url)
 
 
@@ -5877,8 +6655,8 @@ def review_assignment(assignment_id):
             try:
                 editor_file = save_file('editor_reviews', file, ['pdf', 'doc', 'docx', 'txt'])
                 has_uploaded_file = True
-            except ValueError as e:
-                new_alert(str(e), 'danger')
+            except ValueError:
+                new_alert(_msg_text("Fayl formati noto'g'ri", 'Недопустимый формат файла', 'Invalid file format'), 'danger')
                 return redirect(url_for('review_assignment', assignment_id=assignment_id))
 
         if not editor_comment and not has_uploaded_file and not editor_file:

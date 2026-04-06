@@ -2,6 +2,7 @@
 import os
 import re
 import time
+from urllib.parse import urlparse
 import settings
 from flask import render_template, session, request, jsonify, flash, redirect, url_for, current_app, send_file, abort
 from extensions import dbc
@@ -46,7 +47,7 @@ SUBMISSION_WORKFLOW_STEPS = [
     ('waiting', 'workflow_stage_waiting', "Kutilmoqda"),
     ('technical_check', 'workflow_stage_technical_check', "Texnik talablarga mos"),
     ('anti_plagiarism', 'workflow_stage_anti_plagiarism', "Antiplagiatga tekshirish"),
-    ('in_review', 'workflow_stage_in_review', "Tahrizda"),
+    ('in_review', 'workflow_stage_in_review', "Taqrizda"),
     ('recommended', 'workflow_stage_recommended', "Nashrga tavsiya etildi"),
     ('payment', 'workflow_stage_payment', "To'lov"),
     ('published', 'workflow_stage_published', "Nashr qilindi")
@@ -57,7 +58,102 @@ TARIFF_CURRENCY_FIELDS = {
     'uzs': 'price_uzs',
     'rub': 'price_rub'
 }
-ACADEMIC_POSITION_CHOICES = {'teacher', 'student', 'master', 'doctoral', 'postgraduate', 'doctor'}
+LANGUAGE_DEFAULT_CURRENCY = {
+    'uz': 'uzs',
+    'ru': 'rub',
+    'en': 'usd',
+}
+ACADEMIC_POSITION_CHOICES = {
+    'teacher',
+    'student',
+    'master',
+    'doctoral',
+    'postgraduate',
+    'doctor',
+    'researcher',
+    'university_researcher',
+    'independent_researcher',
+}
+ACADEMIC_POSITION_ALIASES = {
+    'teacher': 'teacher',
+    'student': 'student',
+    'master': 'master',
+    'masters': 'master',
+    'magister': 'master',
+    'magistr': 'master',
+    'doctoral': 'doctoral',
+    'doctor': 'doctor',
+    'doctorant': 'doctoral',
+    'doktorant': 'doctoral',
+    'postgraduate': 'postgraduate',
+    'researcher': 'researcher',
+    'university_researcher': 'university_researcher',
+    'independent_researcher': 'independent_researcher',
+}
+ACADEMIC_POSITION_LABELS = {
+    'teacher': "O'qituvchi",
+    'student': 'Talaba',
+    'master': 'Magistrant',
+    'doctoral': 'Doktorant',
+    'postgraduate': 'Aspirant',
+    'doctor': 'Fan doktori',
+    'researcher': 'Tadqiqotchi',
+    'university_researcher': 'Universitet tadqiqotchisi',
+    'independent_researcher': 'Mustaqil tadqiqotchi',
+}
+ALLOWED_TARIFF_FEATURE_PERMISSIONS = {
+    'access_latest_content',
+    'access_archive_content',
+    'download_subscription_files',
+    'article_discount',
+    'issue_discount',
+}
+FEATURE_PERMISSION_LABELS = {
+    'access_latest_content': 'Yangi sonlar va maqolalar',
+    'access_archive_content': 'Arxiv materiallari',
+    'download_subscription_files': 'PDF yuklab olish',
+    'article_discount': 'Maqola xarid chegirmasi',
+    'issue_discount': 'Son xarid chegirmasi',
+}
+DOCUMENT_TYPE_ALIASES = {
+    'student_id': 'student_id',
+    'student_card': 'student_id',
+    'enrollment_certificate': 'enrollment_certificate',
+    'master_certificate': 'master_certificate',
+    'masters_certificate': 'master_certificate',
+    'phd_certificate': 'phd_certificate',
+    'doctoral_certificate': 'phd_certificate',
+    'researcher_certificate': 'researcher_certificate',
+    'employment_certificate': 'employment_certificate',
+    'other_academic': 'other_academic',
+}
+ALLOWED_DOCUMENT_TYPES = {
+    'student_id',
+    'enrollment_certificate',
+    'master_certificate',
+    'phd_certificate',
+    'researcher_certificate',
+    'employment_certificate',
+    'other_academic',
+}
+DOCUMENT_TYPE_LABELS = {
+    'student_id': 'Talabalik guvohnomasi',
+    'enrollment_certificate': "Ta'lim muassasasi ma'lumotnomasi",
+    'master_certificate': 'Magistratura tasdiq hujjati',
+    'phd_certificate': 'Doktorantura tasdiq hujjati',
+    'researcher_certificate': 'Tadqiqotchi status hujjati',
+    'employment_certificate': "Ish joyidan ma'lumotnoma",
+    'other_academic': 'Boshqa akademik hujjat',
+}
+DOCUMENT_TYPE_CHOICES = [
+    ('student_id', 'Talabalik guvohnomasi'),
+    ('enrollment_certificate', "Ta'lim muassasasi ma'lumotnomasi"),
+    ('master_certificate', 'Magistratura tasdiq hujjati'),
+    ('phd_certificate', 'Doktorantura tasdiq hujjati'),
+    ('researcher_certificate', 'Tadqiqotchi status hujjati'),
+    ('employment_certificate', "Ish joyidan ma'lumotnoma"),
+    ('other_academic', 'Boshqa akademik hujjat'),
+]
 ORCID_REGEX = re.compile(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9Xx]$')
 
 
@@ -68,6 +164,261 @@ def _parse_int(value):
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _parse_float(value, default=0.0):
+    if value in (None, ''):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_bool(value, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+    return bool(value)
+
+
+def _normalize_discount_percent(value):
+    percent = _parse_float(value, 0.0)
+    if percent < 0:
+        return 0.0
+    if percent > 100:
+        return 100.0
+    return percent
+
+
+def _apply_discount_percent(amount, discount_percent):
+    base_amount = _parse_float(amount, 0.0)
+    percent = _normalize_discount_percent(discount_percent)
+    if percent <= 0:
+        return round(base_amount, 2)
+    if percent >= 100:
+        return 0.0
+    discounted = base_amount * ((100.0 - percent) / 100.0)
+    return round(max(discounted, 0.0), 2)
+
+
+def _tariff_subscription_discount_context(tariff, now_ts=None):
+    tariff_row = tariff or {}
+    now_value = _parse_int(now_ts)
+    if now_value is None:
+        now_value = int(time.time())
+
+    discount_percent = _normalize_discount_percent(tariff_row.get('subscription_discount_pct'))
+    start_at = _parse_int(tariff_row.get('subscription_discount_start_at'))
+    end_at = _parse_int(tariff_row.get('subscription_discount_end_at'))
+
+    active = discount_percent > 0
+    if active and start_at is not None and now_value < start_at:
+        active = False
+    if active and end_at is not None and now_value > end_at:
+        active = False
+
+    return {
+        'active': active,
+        'discount_percent': discount_percent,
+        'start_at': start_at,
+        'end_at': end_at,
+    }
+
+
+def _normalize_academic_position(value):
+    normalized = str(value or '').strip().lower()
+    normalized = normalized.replace('’', "'")
+    normalized = ACADEMIC_POSITION_ALIASES.get(normalized, normalized)
+    return normalized if normalized in ACADEMIC_POSITION_CHOICES else None
+
+
+def _academic_position_label(value):
+    normalized = _normalize_academic_position(value)
+    if not normalized:
+        return ''
+    return ACADEMIC_POSITION_LABELS.get(normalized, normalized.replace('_', ' ').title())
+
+
+def _parse_required_positions(value):
+    raw_items = []
+    if isinstance(value, (list, tuple, set)):
+        raw_items = list(value)
+    else:
+        text = str(value or '').strip()
+        if text.startswith('{') and text.endswith('}'):
+            text = text[1:-1]
+        raw_items = [item.strip().strip('"').strip("'") for item in text.split(',') if item.strip()]
+
+    normalized_items = []
+    for item in raw_items:
+        normalized = _normalize_academic_position(item)
+        if normalized and normalized not in normalized_items:
+            normalized_items.append(normalized)
+    return normalized_items
+
+
+def _parse_text_array(value):
+    if isinstance(value, (list, tuple, set)):
+        return [str(item or '').strip() for item in value if str(item or '').strip()]
+    text = str(value or '').strip()
+    if text.startswith('{') and text.endswith('}'):
+        text = text[1:-1]
+    return [item.strip().strip('"').strip("'") for item in text.split(',') if item.strip()]
+
+
+def _normalize_feature_permission(value):
+    normalized = str(value or '').strip().lower()
+    return normalized if normalized in ALLOWED_TARIFF_FEATURE_PERMISSIONS else None
+
+
+def _feature_permission_label(value):
+    normalized = _normalize_feature_permission(value)
+    if not normalized:
+        return ''
+    return FEATURE_PERMISSION_LABELS.get(normalized, normalized.replace('_', ' ').title())
+
+
+def _parse_feature_permissions(value):
+    normalized_items = []
+    for item in _parse_text_array(value):
+        normalized = _normalize_feature_permission(item)
+        if normalized and normalized not in normalized_items:
+            normalized_items.append(normalized)
+    return normalized_items
+
+
+def _normalize_document_type(value):
+    normalized = str(value or '').strip().lower()
+    normalized = normalized.replace('’', "'")
+    normalized = DOCUMENT_TYPE_ALIASES.get(normalized, normalized)
+    return normalized if normalized in ALLOWED_DOCUMENT_TYPES else None
+
+
+def _document_type_label(value):
+    normalized = _normalize_document_type(value)
+    if not normalized:
+        return ''
+    return DOCUMENT_TYPE_LABELS.get(normalized, normalized.replace('_', ' ').title())
+
+
+def _parse_required_document_types(value):
+    normalized_items = []
+    for item in _parse_text_array(value):
+        normalized = _normalize_document_type(item)
+        if normalized and normalized not in normalized_items:
+            normalized_items.append(normalized)
+    return normalized_items
+
+
+def _position_document_type_candidates(position_key):
+    mapping = {
+        'student': ['student_id', 'enrollment_certificate'],
+        'master': ['master_certificate', 'enrollment_certificate'],
+        'doctoral': ['phd_certificate', 'enrollment_certificate'],
+        'postgraduate': ['phd_certificate', 'enrollment_certificate'],
+        'doctor': ['phd_certificate'],
+        'researcher': ['researcher_certificate', 'employment_certificate'],
+        'university_researcher': ['researcher_certificate', 'employment_certificate'],
+        'independent_researcher': ['researcher_certificate', 'other_academic'],
+        'teacher': ['employment_certificate'],
+    }
+    return mapping.get(position_key, [])
+
+
+def _tariff_effective_required_document_types(tariff):
+    # Explicit-only behavior: document requirement is applied only when admin configured document types.
+    return _parse_required_document_types((tariff or {}).get('required_document_types'))
+
+
+def _default_document_type_for_position(position):
+    normalized = _normalize_academic_position(position)
+    mapping = {
+        'student': 'student_id',
+        'master': 'master_certificate',
+        'doctoral': 'phd_certificate',
+        'postgraduate': 'phd_certificate',
+        'doctor': 'phd_certificate',
+        'teacher': 'employment_certificate',
+        'researcher': 'researcher_certificate',
+        'university_researcher': 'researcher_certificate',
+        'independent_researcher': 'researcher_certificate',
+    }
+    return mapping.get(normalized, 'other_academic')
+
+
+def _normalize_name_for_match(value):
+    return ' '.join(str(value or '').strip().lower().split())
+
+
+def _account_full_name(user_row):
+    user = user_row or {}
+    return str(f"{user.get('name') or ''} {user.get('second_name') or ''}").strip()
+
+
+def _ensure_user_doc_upload_columns():
+    try:
+        existing_columns = set(dbc.columns.get('user_doc_uploads', []))
+        if not existing_columns:
+            return
+        missing_columns = []
+        if 'document_type' not in existing_columns:
+            missing_columns.append(('document_type', 'text'))
+        if 'document_holder_name' not in existing_columns:
+            missing_columns.append(('document_holder_name', 'text'))
+        if 'institution_name' not in existing_columns:
+            missing_columns.append(('institution_name', 'text'))
+        if not missing_columns:
+            return
+
+        cursor = dbc.conn.cursor()
+        for column_name, column_type in missing_columns:
+            cursor.execute(f"ALTER TABLE user_doc_uploads ADD COLUMN IF NOT EXISTS {column_name} {column_type};")
+        cursor.execute(
+            "UPDATE user_doc_uploads "
+            "SET document_type = 'other_academic' "
+            "WHERE document_type IS NULL AND COALESCE(TRIM(file_path), '') <> '';"
+        )
+        dbc.conn.commit()
+        cursor.close()
+        dbc._init_tables()
+        dbc._init_columns()
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+
+
+def _user_doc_is_verified(user_doc):
+    status = str((user_doc or {}).get('verification_status') or '').strip().lower()
+    return status in {'verified', 'approved'}
+
+
+def _safe_internal_redirect(target, fallback_endpoint):
+    fallback_url = url_for(fallback_endpoint)
+    target_text = (target or '').strip()
+    if not target_text:
+        return fallback_url
+
+    parsed = urlparse(target_text)
+    if parsed.scheme or parsed.netloc:
+        request_host = (request.host or '').split(':')[0]
+        parsed_host = (parsed.hostname or '').split(':')[0] if parsed.hostname else ''
+        if parsed_host != request_host:
+            return fallback_url
+        path = parsed.path or '/'
+        query = f"?{parsed.query}" if parsed.query else ''
+        return f"{path}{query}"
+
+    if not target_text.startswith('/') or target_text.startswith('//'):
+        return fallback_url
+    return target_text
 
 
 def _resolve_publication_timestamp(publication):
@@ -188,6 +539,11 @@ def _normalize_currency(currency):
     return normalized if normalized in TARIFF_CURRENCY_FIELDS else 'usd'
 
 
+def _default_currency_for_language():
+    language = (session.get('language') or 'en').strip().lower()
+    return LANGUAGE_DEFAULT_CURRENCY.get(language, 'usd')
+
+
 def _resolve_upload_file_path(file_url):
     if not file_url:
         return None
@@ -265,21 +621,37 @@ def _user_has_private_upload_record(user_id, storage_key):
     return False
 
 
-def _resolve_tariff_price(tariff, currency):
+def _resolve_tariff_price_and_currency(tariff, currency):
     selected_key = TARIFF_CURRENCY_FIELDS[currency]
     selected_value = tariff.get(selected_key)
-
-    if selected_value in (None, ''):
-        for fallback_key in ('price_usd', 'price_uzs', 'price_rub'):
-            fallback_value = tariff.get(fallback_key)
-            if fallback_value not in (None, ''):
-                selected_value = fallback_value
-                break
+    selected_currency = currency
 
     try:
-        return float(selected_value or 0)
+        return float(selected_value or 0), selected_currency
     except (TypeError, ValueError):
-        return 0.0
+        return 0.0, selected_currency
+
+
+def _resolve_tariff_price(tariff, currency):
+    price, _ = _resolve_tariff_price_and_currency(tariff, currency)
+    return price
+
+
+def _is_tariff_archived(tariff):
+    value = (tariff or {}).get('is_archived')
+    if isinstance(value, str):
+        return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+    return bool(value)
+
+
+def _is_user_verified_for_tariff(user, user_docs):
+    if (user or {}).get('is_verified'):
+        return True
+    for user_doc in user_docs or []:
+        status = str(user_doc.get('verification_status') or '').strip().lower()
+        if status in {'verified', 'approved'}:
+            return True
+    return False
 
 
 def _is_valid_orcid(orcid):
@@ -562,6 +934,8 @@ def app__dashboard_articles_delete(submission_id):
 
 
 def app__dashboard_purchases():
+    _ensure_user_doc_upload_columns()
+    now_ts = int(time.time())
     payments = dbc.payments.get(user_id=session['user_id']).order_by('id').exec()
     for payment in payments:
         payment = translate(payment)
@@ -592,25 +966,166 @@ def app__dashboard_purchases():
                 tariff_data = translate(tariff[0])
                 payment['tariff'] = tariff_data
 
+        if payment.get('payment_type') == 'subscription':
+            subscription_start_at = _parse_int(payment.get('snapshot_start_at'))
+            subscription_end_at = _parse_int(payment.get('snapshot_end_at'))
+            snapshot_days = _parse_int(payment.get('snapshot_duration_days'))
+            paid_at = _parse_int(payment.get('payment_date')) or _parse_int(payment.get('created_at'))
+            if subscription_start_at is None and paid_at is not None:
+                subscription_start_at = paid_at
+            if subscription_end_at is None and subscription_start_at is not None and snapshot_days:
+                subscription_end_at = subscription_start_at + (snapshot_days * 24 * 60 * 60)
+
+            is_paid = (str(payment.get('status') or '').strip().lower() == 'paid')
+            payment['subscription_start_at'] = subscription_start_at
+            payment['subscription_end_at'] = subscription_end_at
+            payment['subscription_days_total'] = snapshot_days
+            payment['subscription_active_item'] = bool(
+                is_paid
+                and subscription_end_at is not None
+                and subscription_end_at > now_ts
+                and (subscription_start_at is None or subscription_start_at <= now_ts)
+            )
+            payment['subscription_upcoming_item'] = bool(
+                is_paid
+                and subscription_start_at is not None
+                and subscription_start_at > now_ts
+            )
+            payment['subscription_expired_item'] = bool(
+                is_paid
+                and subscription_end_at is not None
+                and subscription_end_at <= now_ts
+            )
+            payment['subscription_days_left'] = (
+                max(0, (subscription_end_at - now_ts) // (24 * 60 * 60))
+                if payment['subscription_active_item'] and subscription_end_at is not None else None
+            )
+            payment['subscription_days_until_start'] = (
+                max(0, (subscription_start_at - now_ts) // (24 * 60 * 60))
+                if payment['subscription_upcoming_item'] and subscription_start_at is not None else None
+            )
+
+    payments.sort(key=lambda item: _parse_int(item.get('created_at')) or 0, reverse=True)
+
+    active_subscription_items = [
+        item for item in payments
+        if item.get('payment_type') == 'subscription' and item.get('subscription_active_item')
+    ]
+    active_subscription_payment_id = active_subscription_items[0]['id'] if active_subscription_items else None
+
     subscription_active = False
     subscription_end_date = None
     days_left = None
     user = dbc.users.get(id=session['user_id']).exec()[0]
-    if user.get('subscription_end_date') and user['subscription_end_date'] > int(time.time()):
+    user_subscription_end = _parse_int(user.get('subscription_end_date'))
+    if user_subscription_end and user_subscription_end > now_ts:
         subscription_active = True
-        subscription_end_date = user['subscription_end_date']
-        days_left = (user['subscription_end_date'] - int(time.time())) // (24 * 60 * 60)
+        subscription_end_date = user_subscription_end
+    if active_subscription_items:
+        max_active_end = max(
+            (_parse_int(item.get('subscription_end_at')) or 0) for item in active_subscription_items
+        ) or None
+        if max_active_end and (subscription_end_date is None or max_active_end > subscription_end_date):
+            subscription_end_date = max_active_end
+        subscription_active = True
+    if subscription_active and subscription_end_date:
+        days_left = max(0, (subscription_end_date - now_ts) // (24 * 60 * 60))
 
-    currency = _normalize_currency(request.args.get('currency', 'usd'))
+    requested_currency = request.args.get('currency') or _default_currency_for_language()
+    currency = _normalize_currency(requested_currency)
+    user_docs = dbc.user_doc_uploads.get(user_id=session['user_id']).exec()
+    user_doc = user_docs[0] if user_docs else {}
+    user_position = _normalize_academic_position((user_doc or {}).get('work_title'))
+    user_position_label = _academic_position_label(user_position)
+    user_document_type = _normalize_document_type((user_doc or {}).get('document_type'))
+    user_document_holder_name = str((user_doc or {}).get('document_holder_name') or '').strip()
+    user_document_institution_name = str((user_doc or {}).get('institution_name') or '').strip()
+    user_doc_verified = _user_doc_is_verified(user_doc)
+    is_verified = _is_user_verified_for_tariff(user, user_docs)
+    user_full_name = _account_full_name(user)
+    name_match_ok = _normalize_name_for_match(user_document_holder_name) == _normalize_name_for_match(user_full_name)
+
     tariffs = dbc.tariffs.get().exec()
     processed_tariffs = []
     for tariff in tariffs:
+        if _is_tariff_archived(tariff):
+            continue
         tariff = translate(tariff)
-        tariff['selected_price'] = _resolve_tariff_price(tariff, currency)
+        tariff['entitlement_scope'] = (str(tariff.get('entitlement_scope') or 'all').strip().lower() or 'all')
+        tariff['archive_days_threshold'] = _parse_int(tariff.get('archive_days_threshold')) or 365
+        tariff['article_discount_pct'] = max(0.0, min(_parse_float(tariff.get('article_discount_pct'), 0.0), 100.0))
+        tariff['issue_discount_pct'] = max(0.0, min(_parse_float(tariff.get('issue_discount_pct'), 0.0), 100.0))
+        tariff['subscription_discount_pct'] = _normalize_discount_percent(tariff.get('subscription_discount_pct'))
+        tariff['subscription_discount_start_at'] = _parse_int(tariff.get('subscription_discount_start_at'))
+        tariff['subscription_discount_end_at'] = _parse_int(tariff.get('subscription_discount_end_at'))
+        tariff['monthly_download_limit'] = max(0, _parse_int(tariff.get('monthly_download_limit')) or 0)
+        feature_permissions = _parse_feature_permissions(tariff.get('feature_permissions'))
+        if not feature_permissions:
+            if tariff['entitlement_scope'] == 'archive':
+                feature_permissions = ['access_archive_content', 'download_subscription_files', 'article_discount', 'issue_discount']
+            else:
+                feature_permissions = ['access_latest_content', 'access_archive_content', 'download_subscription_files', 'article_discount', 'issue_discount']
+        tariff['feature_permissions'] = feature_permissions
+        tariff['feature_permission_labels'] = [_feature_permission_label(item) for item in feature_permissions if _feature_permission_label(item)]
+        required_positions = _parse_required_positions(tariff.get('required_academic_positions'))
+        tariff['required_academic_positions'] = required_positions
+        tariff['required_academic_position_labels'] = [_academic_position_label(item) for item in required_positions]
+        required_document_types = _tariff_effective_required_document_types(tariff)
+        tariff['required_document_types'] = required_document_types
+        tariff['required_document_type_labels'] = [_document_type_label(item) for item in required_document_types if _document_type_label(item)]
+        tariff['requires_verified_document'] = _parse_bool(tariff.get('requires_verified_document'))
+        tariff['eligibility_note'] = str(tariff.get('eligibility_note') or '').strip()
+        eligibility_reasons = []
+        if tariff.get('is_verified') and not is_verified:
+            eligibility_reasons.append("Profil tasdiqlovi talab qilinadi")
+        if required_document_types:
+            labels = [item for item in tariff['required_document_type_labels'] if item]
+            if not (user_doc or {}).get('file_path'):
+                if labels:
+                    eligibility_reasons.append("Faollashtirish uchun hujjat yuklash talab qilinadi: " + ', '.join(labels))
+                else:
+                    eligibility_reasons.append("Faollashtirish uchun akademik hujjat yuklash talab qilinadi")
+            elif user_document_type not in required_document_types:
+                if labels:
+                    eligibility_reasons.append("Mos hujjat turi: " + ', '.join(labels))
+                else:
+                    eligibility_reasons.append("Mos akademik hujjat turi talab qilinadi")
+            elif not name_match_ok:
+                eligibility_reasons.append("Hujjat egasi F.I.Sh akkauntdagi ism-familiyaga mos bo'lishi kerak")
+        if required_document_types and tariff['requires_verified_document'] and not user_doc_verified:
+            eligibility_reasons.append("Tasdiqlangan akademik hujjat talab qilinadi")
+        document_required_for_activation = bool(required_document_types)
+        needs_upload = False
+        if document_required_for_activation and not (user_doc or {}).get('file_path'):
+            needs_upload = True
+        if required_document_types and (user_doc or {}).get('file_path') and user_document_type not in required_document_types:
+            needs_upload = True
+        if document_required_for_activation and (user_doc or {}).get('file_path') and not name_match_ok:
+            needs_upload = True
+        tariff['needs_document_upload'] = needs_upload
+        tariff['needs_document_verification'] = bool(
+            required_document_types and tariff['requires_verified_document']
+            and not tariff['needs_document_upload']
+            and not user_doc_verified
+        )
+        tariff['eligible_for_user'] = len(eligibility_reasons) == 0
+        tariff['eligibility_reasons'] = eligibility_reasons
+        base_selected_price, selected_currency = _resolve_tariff_price_and_currency(tariff, currency)
+        discount_context = _tariff_subscription_discount_context(tariff)
+        discounted_selected_price = base_selected_price
+        if discount_context.get('active'):
+            discounted_selected_price = _apply_discount_percent(base_selected_price, discount_context.get('discount_percent'))
+        tariff['base_selected_price'] = base_selected_price
+        tariff['selected_price'] = discounted_selected_price
+        tariff['subscription_discount_active'] = bool(discount_context.get('active'))
+        tariff['subscription_discount_percent'] = discount_context.get('discount_percent') or 0.0
+        tariff['selected_currency'] = selected_currency
+        tariff['can_select'] = (
+            discounted_selected_price > 0
+            and (tariff['eligible_for_user'] or tariff['needs_document_upload'])
+            and not tariff['needs_document_verification']
+        )
         processed_tariffs.append(tariff)
-
-    user_docs = dbc.user_doc_uploads.get(user_id=session['user_id']).exec()
-    is_verified = bool(user.get('is_verified')) or bool(user_docs)
 
     return render_template(
         'dashboard/payments.html',
@@ -618,9 +1133,18 @@ def app__dashboard_purchases():
         subscription_active=subscription_active,
         subscription_end_date=subscription_end_date,
         days_left=days_left,
+        now_ts=now_ts,
+        active_subscription_payment_id=active_subscription_payment_id,
         tariffs=processed_tariffs,
         currency=currency,
-        is_verified=is_verified
+        is_verified=is_verified,
+        user_doc=user_doc,
+        user_position=user_position,
+        user_position_label=user_position_label,
+        user_doc_verified=user_doc_verified,
+        user_full_name=user_full_name,
+        user_document_holder_name=user_document_holder_name,
+        user_document_institution_name=user_document_institution_name
     )
 
 
@@ -700,24 +1224,31 @@ def app__dashboard_notifications():
 
 def app__dashboard_notification_read(notification_id):
     _mark_dashboard_notification_read(notification_id, session.get('user_id'))
-    redirect_url = request.form.get('redirect_url') or request.referrer or url_for('app__dashboard_notifications')
+    redirect_url = _safe_internal_redirect(
+        request.form.get('redirect_url') or request.referrer,
+        'app__dashboard_notifications',
+    )
     return redirect(redirect_url)
 
 
 def app__dashboard_notification_open(notification_id):
+    fallback_url = _safe_internal_redirect(
+        request.form.get('redirect_url') or request.referrer,
+        'app__dashboard_notifications',
+    )
     notification = _get_dashboard_notification(notification_id, session.get('user_id'))
     if not notification:
         flash(
             t('notification_not_found') if t('notification_not_found') != 'notification_not_found' else 'Notification not found',
             'error'
         )
-        return redirect(url_for('app__dashboard_notifications'))
+        return redirect(fallback_url)
 
     _mark_dashboard_notification_read(notification_id, session.get('user_id'))
     action_url = (notification.get('action_url') or '').strip()
-    if action_url.startswith('/'):
-        return redirect(action_url)
-    return redirect(url_for('app__dashboard_notifications'))
+    if action_url:
+        return redirect(_safe_internal_redirect(action_url, 'app__dashboard_notifications'))
+    return redirect(fallback_url)
 
 
 def app__dashboard_notification_read_all():
@@ -727,11 +1258,15 @@ def app__dashboard_notification_read_all():
             t('notifications_marked_read') if t('notifications_marked_read') != 'notifications_marked_read' else f'Marked as read: {changed}',
             'success'
         )
-    redirect_url = request.form.get('redirect_url') or request.referrer or url_for('app__dashboard_notifications')
+    redirect_url = _safe_internal_redirect(
+        request.form.get('redirect_url') or request.referrer,
+        'app__dashboard_notifications',
+    )
     return redirect(redirect_url)
 
 
 def app__dashboard_profile():
+    _ensure_user_doc_upload_columns()
     if request.method == 'POST':
         action = request.form.get('action')
 
@@ -835,6 +1370,9 @@ def app__dashboard_profile():
             if submitted_doc_path and not _resolve_upload_file_path(submitted_doc_path):
                 flash('Invalid document path', 'error')
                 return redirect(url_for('app__dashboard_profile'))
+            submitted_document_type = _normalize_document_type(request.form.get('document_type'))
+            submitted_document_holder_name = sanitize_input(request.form.get('document_holder_name')) or None
+            submitted_institution_name = sanitize_input(request.form.get('institution_name')) or None
 
             existing_doc_rows = dbc.user_doc_uploads.get(user_id=session['user_id']).exec()
             existing_doc = existing_doc_rows[0] if existing_doc_rows else None
@@ -845,13 +1383,36 @@ def app__dashboard_profile():
                 old_doc_path = existing_doc.get('file_path')
                 doc_changed = old_doc_path != effective_doc_path
                 title_changed = (existing_doc.get('work_title') or '').strip().lower() != academic_position
+                old_document_type = _normalize_document_type(existing_doc.get('document_type'))
+                effective_document_type = submitted_document_type or old_document_type
+                if effective_doc_path and not effective_document_type:
+                    effective_document_type = _default_document_type_for_position(academic_position)
+                doc_type_changed = old_document_type != effective_document_type
+                old_document_holder_name = sanitize_input(existing_doc.get('document_holder_name')) or None
+                old_institution_name = sanitize_input(existing_doc.get('institution_name')) or None
+                effective_document_holder_name = submitted_document_holder_name or old_document_holder_name
+                if effective_doc_path and not effective_document_holder_name:
+                    effective_document_holder_name = _account_full_name(user)
+                effective_institution_name = submitted_institution_name or old_institution_name
+                holder_name_changed = old_document_holder_name != effective_document_holder_name
+                institution_changed = old_institution_name != effective_institution_name
 
                 update_payload = {
                     'work_title': academic_position,
                     'file_path': effective_doc_path,
+                    'document_type': effective_document_type,
+                    'document_holder_name': effective_document_holder_name,
+                    'institution_name': effective_institution_name,
                     'updated_at': now_ts
                 }
-                if effective_doc_path and (doc_changed or title_changed or not existing_doc.get('verification_status')):
+                if effective_doc_path and (
+                    doc_changed
+                    or title_changed
+                    or doc_type_changed
+                    or holder_name_changed
+                    or institution_changed
+                    or not existing_doc.get('verification_status')
+                ):
                     update_payload['verification_status'] = 'pending'
 
                 dbc.user_doc_uploads.get(id=existing_doc['id']).update(**update_payload).exec()
@@ -864,10 +1425,19 @@ def app__dashboard_profile():
                         except OSError:
                             pass
             else:
+                effective_document_type = submitted_document_type
+                if effective_doc_path and not effective_document_type:
+                    effective_document_type = _default_document_type_for_position(academic_position)
+                effective_document_holder_name = submitted_document_holder_name
+                if effective_doc_path and not effective_document_holder_name:
+                    effective_document_holder_name = _account_full_name(user)
                 dbc.user_doc_uploads.add(
                     user_id=session['user_id'],
                     work_title=academic_position,
                     file_path=effective_doc_path,
+                    document_type=effective_document_type,
+                    document_holder_name=effective_document_holder_name,
+                    institution_name=submitted_institution_name,
                     verification_status='pending' if effective_doc_path else None,
                     created_at=now_ts,
                     updated_at=now_ts
@@ -983,6 +1553,7 @@ def app__dashboard_profile():
                          user=user,
                          author_profile=author_profile_row,
                          user_doc_upload=user_doc_upload[0] if user_doc_upload else None,
+                         document_type_choices=DOCUMENT_TYPE_CHOICES,
                          fix_country=fix_country,
                          profile_completion=profile_completion)
 
@@ -997,7 +1568,7 @@ def register(app):
     app.add_url_rule('/dashboard/payments', view_func=author_login_required(app__dashboard_payments))
     app.add_url_rule('/dashboard/guides', view_func=author_login_required(app__dashboard_guides))
     app.add_url_rule('/dashboard/notifications', view_func=author_login_required(app__dashboard_notifications))
-    app.add_url_rule('/dashboard/notifications/open/<int:notification_id>', view_func=author_login_required(app__dashboard_notification_open))
+    app.add_url_rule('/dashboard/notifications/open/<int:notification_id>', view_func=author_login_required(app__dashboard_notification_open), methods=['POST'])
     app.add_url_rule('/dashboard/notifications/read/<int:notification_id>', view_func=author_login_required(app__dashboard_notification_read), methods=['POST'])
     app.add_url_rule('/dashboard/notifications/read-all', view_func=author_login_required(app__dashboard_notification_read_all), methods=['POST'])
     app.add_url_rule('/dashboard/profile', view_func=author_login_required(app__dashboard_profile), methods=['GET', 'POST'])

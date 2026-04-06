@@ -263,13 +263,17 @@
               </div>
               {% if role_notifications_preview %}
               {% for item in role_notifications_preview %}
-              <a href="{{ url_for('role_notification_open', notification_id=item.id) }}" class="dropdown-item {% if not item.is_read %}fw-bold{% endif %}">
-                <div class="d-flex flex-column">
-                  <span>{{ item.title }}</span>
-                  <span class="text-secondary small text-wrap">{{ item.message }}</span>
-                  <span class="text-secondary small">{{ item.created_at | timestamp_to_date if item.created_at else '' }}</span>
-                </div>
-              </a>
+              <form method="POST" action="{{ url_for('role_notification_open', notification_id=item.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
+                <button type="submit" class="dropdown-item text-start {% if not item.is_read %}fw-bold{% endif %}">
+                  <div class="d-flex flex-column">
+                    <span>{{ item.title }}</span>
+                    <span class="text-secondary small text-wrap">{{ item.message }}</span>
+                    <span class="text-secondary small">{{ item.created_at | timestamp_to_date if item.created_at else '' }}</span>
+                  </div>
+                </button>
+              </form>
               {% endfor %}
               {% else %}
               <div class="dropdown-item text-secondary">Hozircha bildirishnoma yo'q.</div>
@@ -283,9 +287,21 @@
               {% endif %}
             </a>
             <div class="dropdown-menu">
-              <a href="/fmadmin/lang/ru" class="dropdown-item">Русский</a>
-              <a href="/fmadmin/lang/uz" class="dropdown-item">O'zbekcha</a>
-              <a href="/fmadmin/lang/en" class="dropdown-item">English</a>
+              <form method="POST" action="{{ url_for('set_language', lang_code='ru') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
+                <button type="submit" class="dropdown-item">Русский</button>
+              </form>
+              <form method="POST" action="{{ url_for('set_language', lang_code='uz') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
+                <button type="submit" class="dropdown-item">O'zbekcha</button>
+              </form>
+              <form method="POST" action="{{ url_for('set_language', lang_code='en') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
+                <button type="submit" class="dropdown-item">English</button>
+              </form>
             </div>
           </div>
 

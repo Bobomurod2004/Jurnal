@@ -2,6 +2,8 @@
 import os
 import time
 import json
+import logging
+import secrets
 from werkzeug.utils import secure_filename
 from flask import request, jsonify, session, url_for
 from extensions import dbc
@@ -16,8 +18,8 @@ from utils.notifications import (
     prepare_notification_content,
     user_allows_email_notifications,
 )
-from utils.private_uploads import build_private_upload_ref, upload_access_url
-from utils.roles import hydrate_user_roles, user_has_role
+from utils.private_uploads import build_private_upload_ref, private_upload_abspath, upload_access_url
+from utils.roles import hydrate_user_roles, user_has_permission, user_has_role
 from utils.uploads import allowed_file
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -70,6 +72,26 @@ USER_EXTRA_COLUMN_TYPES = {
     'roles': 'text[]',
     'ui_language': 'text'
 }
+PAYMENT_EXTRA_COLUMN_TYPES = {
+    'snapshot_duration_days': 'integer',
+    'snapshot_start_at': 'bigint',
+    'snapshot_end_at': 'bigint',
+}
+TARIFF_EXTRA_COLUMN_TYPES = {
+    'entitlement_scope': "text DEFAULT 'all'",
+    'archive_days_threshold': 'integer DEFAULT 365',
+    'article_discount_pct': 'double precision DEFAULT 0',
+    'issue_discount_pct': 'double precision DEFAULT 0',
+    'subscription_discount_pct': 'double precision DEFAULT 0',
+    'subscription_discount_start_at': 'bigint',
+    'subscription_discount_end_at': 'bigint',
+    'monthly_download_limit': 'integer DEFAULT 0',
+    'required_academic_positions': "text[] DEFAULT '{}'::text[]",
+    'requires_verified_document': 'boolean DEFAULT false',
+    'eligibility_note': 'text',
+    'feature_permissions': "text[] DEFAULT '{}'::text[]",
+    'required_document_types': "text[] DEFAULT '{}'::text[]",
+}
 
 ADMIN_TRACK_KEYS = ('masters', 'phd', 'teacher')
 ADMIN_TRACK_ALIASES = {
@@ -103,8 +125,91 @@ TARIFF_CURRENCY_FIELDS = {
     'uzs': 'price_uzs',
     'rub': 'price_rub'
 }
+LANGUAGE_DEFAULT_CURRENCY = {
+    'uz': 'uzs',
+    'ru': 'rub',
+    'en': 'usd',
+}
 
 SUBMISSION_COLUMNS = set()
+logger = logging.getLogger(__name__)
+TARIFF_ENTITLEMENT_SCOPES = {'all', 'archive'}
+DEFAULT_ARCHIVE_DAYS_THRESHOLD = 365
+ALLOWED_TARIFF_FEATURE_PERMISSIONS = {
+    'access_latest_content',
+    'access_archive_content',
+    'download_subscription_files',
+    'article_discount',
+    'issue_discount',
+}
+ACADEMIC_POSITION_ALIASES = {
+    'teacher': 'teacher',
+    'student': 'student',
+    'master': 'master',
+    'masters': 'master',
+    'magister': 'master',
+    'magistr': 'master',
+    'doctoral': 'doctoral',
+    'doctor': 'doctor',
+    'doctorant': 'doctoral',
+    'doktorant': 'doctoral',
+    'postgraduate': 'postgraduate',
+    'researcher': 'researcher',
+    'university_researcher': 'university_researcher',
+    'independent_researcher': 'independent_researcher',
+}
+ALLOWED_ACADEMIC_POSITIONS = {
+    'teacher',
+    'student',
+    'master',
+    'doctoral',
+    'postgraduate',
+    'doctor',
+    'researcher',
+    'university_researcher',
+    'independent_researcher',
+}
+ACADEMIC_POSITION_LABELS = {
+    'teacher': "O'qituvchi",
+    'student': 'Talaba',
+    'master': 'Magistrant',
+    'doctoral': 'Doktorant',
+    'postgraduate': 'Aspirant',
+    'doctor': 'Fan doktori',
+    'researcher': 'Tadqiqotchi',
+    'university_researcher': 'Universitet tadqiqotchisi',
+    'independent_researcher': 'Mustaqil tadqiqotchi',
+}
+DOCUMENT_TYPE_ALIASES = {
+    'student_id': 'student_id',
+    'student_card': 'student_id',
+    'enrollment_certificate': 'enrollment_certificate',
+    'master_certificate': 'master_certificate',
+    'masters_certificate': 'master_certificate',
+    'phd_certificate': 'phd_certificate',
+    'doctoral_certificate': 'phd_certificate',
+    'researcher_certificate': 'researcher_certificate',
+    'employment_certificate': 'employment_certificate',
+    'other_academic': 'other_academic',
+}
+ALLOWED_DOCUMENT_TYPES = {
+    'student_id',
+    'enrollment_certificate',
+    'master_certificate',
+    'phd_certificate',
+    'researcher_certificate',
+    'employment_certificate',
+    'other_academic',
+}
+DOCUMENT_TYPE_LABELS = {
+    'student_id': 'Talabalik guvohnomasi',
+    'enrollment_certificate': "Ta'lim muassasasi ma'lumotnomasi",
+    'master_certificate': 'Magistratura tasdiq hujjati',
+    'phd_certificate': 'Doktorantura tasdiq hujjati',
+    'researcher_certificate': 'Tadqiqotchi status hujjati',
+    'employment_certificate': "Ish joyidan ma'lumotnoma",
+    'other_academic': 'Boshqa akademik hujjat',
+}
 
 
 def _refresh_submission_columns():
@@ -210,6 +315,143 @@ def _ensure_role_notifications_table():
             pass
 
 
+def _ensure_payment_columns():
+    try:
+        existing_columns = set(dbc.columns.get('payments', []))
+        if not existing_columns:
+            return
+
+        missing_columns = [name for name in PAYMENT_EXTRA_COLUMN_TYPES.keys() if name not in existing_columns]
+        if not missing_columns:
+            return
+
+        cursor = dbc.conn.cursor()
+        for column_name in missing_columns:
+            column_type = PAYMENT_EXTRA_COLUMN_TYPES[column_name]
+            cursor.execute(f"ALTER TABLE payments ADD COLUMN IF NOT EXISTS {column_name} {column_type};")
+        dbc.conn.commit()
+        cursor.close()
+
+        dbc._init_tables()
+        dbc._init_columns()
+    except Exception as e:
+        print(f"Payment columns sync warning: {e}")
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+
+
+def _ensure_tariff_entitlement_columns():
+    try:
+        existing_columns = set(dbc.columns.get('tariffs', []))
+        if not existing_columns:
+            return
+
+        missing_columns = [name for name in TARIFF_EXTRA_COLUMN_TYPES.keys() if name not in existing_columns]
+        cursor = dbc.conn.cursor()
+        for column_name in missing_columns:
+            column_type = TARIFF_EXTRA_COLUMN_TYPES[column_name]
+            cursor.execute(f"ALTER TABLE tariffs ADD COLUMN IF NOT EXISTS {column_name} {column_type};")
+
+        cursor.execute(
+            "UPDATE tariffs "
+            "SET entitlement_scope = COALESCE(NULLIF(TRIM(entitlement_scope), ''), 'all') "
+            "WHERE entitlement_scope IS NULL OR NULLIF(TRIM(entitlement_scope), '') IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs "
+            "SET archive_days_threshold = COALESCE(archive_days_threshold, %s) "
+            "WHERE archive_days_threshold IS NULL;",
+            (int(DEFAULT_ARCHIVE_DAYS_THRESHOLD),)
+        )
+        cursor.execute(
+            "UPDATE tariffs "
+            "SET article_discount_pct = COALESCE(article_discount_pct, 0) "
+            "WHERE article_discount_pct IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs "
+            "SET issue_discount_pct = COALESCE(issue_discount_pct, 0) "
+            "WHERE issue_discount_pct IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs "
+            "SET subscription_discount_pct = COALESCE(subscription_discount_pct, 0) "
+            "WHERE subscription_discount_pct IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs "
+            "SET monthly_download_limit = COALESCE(monthly_download_limit, 0) "
+            "WHERE monthly_download_limit IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs "
+            "SET required_academic_positions = COALESCE(required_academic_positions, ARRAY[]::text[]) "
+            "WHERE required_academic_positions IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs "
+            "SET requires_verified_document = COALESCE(requires_verified_document, false) "
+            "WHERE requires_verified_document IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs "
+            "SET feature_permissions = COALESCE(feature_permissions, ARRAY[]::text[]) "
+            "WHERE feature_permissions IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs "
+            "SET required_document_types = COALESCE(required_document_types, ARRAY[]::text[]) "
+            "WHERE required_document_types IS NULL;"
+        )
+        dbc.conn.commit()
+        cursor.close()
+        dbc._init_tables()
+        dbc._init_columns()
+    except Exception as e:
+        print(f"Tariff entitlement columns sync warning: {e}")
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+
+
+def _ensure_user_doc_upload_columns():
+    try:
+        existing_columns = set(dbc.columns.get('user_doc_uploads', []))
+        if not existing_columns:
+            return
+        missing_columns = []
+        if 'document_type' not in existing_columns:
+            missing_columns.append(('document_type', 'text'))
+        if 'document_holder_name' not in existing_columns:
+            missing_columns.append(('document_holder_name', 'text'))
+        if 'institution_name' not in existing_columns:
+            missing_columns.append(('institution_name', 'text'))
+        if not missing_columns:
+            return
+
+        cursor = dbc.conn.cursor()
+        for column_name, column_type in missing_columns:
+            cursor.execute(f"ALTER TABLE user_doc_uploads ADD COLUMN IF NOT EXISTS {column_name} {column_type};")
+        cursor.execute(
+            "UPDATE user_doc_uploads "
+            "SET document_type = COALESCE(document_type, 'other_academic') "
+            "WHERE COALESCE(TRIM(file_path), '') <> '' AND (document_type IS NULL OR TRIM(document_type) = '');"
+        )
+        dbc.conn.commit()
+        cursor.close()
+        dbc._init_tables()
+        dbc._init_columns()
+    except Exception as e:
+        print(f"User document columns sync warning: {e}")
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+
+
 def _clean_text(value):
     if value is None:
         return None
@@ -233,6 +475,89 @@ def _to_response_file(value):
         'title': title,
         'download': upload_access_url(title)
     }
+
+
+def _serialize_author_profile(author_profile, include_private=False):
+    author = author_profile or {}
+    payload = {
+        'id': _parse_int(author.get('id')),
+        'name': _clean_text(author.get('name')),
+        'organization': _clean_text(author.get('organization')),
+        'department': _clean_text(author.get('department')),
+        'position': _clean_text(author.get('position')),
+        'orcid': _clean_text(author.get('orcid')),
+    }
+    if include_private:
+        payload.update({
+            'email': _clean_text(author.get('email')),
+            'phone': _clean_text(author.get('phone')),
+            'address_street': _clean_text(author.get('address_street')),
+            'address_city': _clean_text(author.get('address_city')),
+            'address_country': _clean_text(author.get('address_country')),
+            'address_zip': _clean_text(author.get('address_zip')),
+        })
+    return payload
+
+
+def _default_author_name_from_user(user_row):
+    user = user_row or {}
+    full_name = _clean_text(f"{user.get('name') or ''} {user.get('second_name') or ''}")
+    return full_name or _clean_text(user.get('name'))
+
+
+def _get_or_create_author_profile_for_user(user_id):
+    user_id_int = _parse_int(user_id)
+    if user_id_int is None:
+        return None
+
+    try:
+        author_rows = dbc.author_profile.get(user_id=user_id_int).exec()
+    except Exception:
+        author_rows = []
+    if author_rows:
+        return author_rows[0]
+
+    try:
+        user_rows = dbc.users.get(id=user_id_int).exec()
+    except Exception:
+        user_rows = []
+    if not user_rows:
+        return None
+
+    user_row = user_rows[0]
+    author_name = _default_author_name_from_user(user_row)
+    if not author_name:
+        return None
+
+    now_ts = int(time.time())
+    profile_payload = {
+        'user_id': user_id_int,
+        'name': author_name,
+        'organization': _clean_text(user_row.get('work')),
+        'department': None,
+        'position': _clean_text(user_row.get('work_title')),
+        'email': _clean_text(user_row.get('email')),
+        'phone': _clean_text(user_row.get('phone')),
+        'orcid': None,
+        'address_street': None,
+        'address_city': None,
+        'address_country': None,
+        'address_zip': None,
+        'created_at': now_ts,
+        'updated_at': now_ts,
+    }
+    try:
+        created_rows = dbc.author_profile.add(**profile_payload).exec()
+    except Exception:
+        created_rows = []
+    if created_rows:
+        return created_rows[0]
+
+    try:
+        author_rows = dbc.author_profile.get(user_id=user_id_int).exec()
+    except Exception:
+        author_rows = []
+    return author_rows[0] if author_rows else None
 
 
 def _coalesce(*values):
@@ -265,18 +590,22 @@ def _normalize_currency(currency):
     return normalized if normalized in TARIFF_CURRENCY_FIELDS else 'usd'
 
 
-def _resolve_tariff_price(tariff, currency):
+def _default_currency_for_language():
+    language = (_clean_text(session.get('language')) or 'en').lower()
+    return LANGUAGE_DEFAULT_CURRENCY.get(language, 'usd')
+
+
+def _resolve_tariff_price_and_currency(tariff, currency):
     selected_key = TARIFF_CURRENCY_FIELDS[currency]
     selected_value = tariff.get(selected_key)
+    selected_currency = currency
 
-    if selected_value in (None, ''):
-        for fallback_key in ('price_usd', 'price_uzs', 'price_rub'):
-            fallback_value = tariff.get(fallback_key)
-            if fallback_value not in (None, ''):
-                selected_value = fallback_value
-                break
+    return _parse_float(selected_value, 0.0), selected_currency
 
-    return _parse_float(selected_value, 0.0)
+
+def _resolve_tariff_price(tariff, currency):
+    amount, _ = _resolve_tariff_price_and_currency(tariff, currency)
+    return amount
 
 
 def _user_is_verified(user_id):
@@ -287,7 +616,20 @@ def _user_is_verified(user_id):
     if user.get('is_verified'):
         return True
     user_docs = dbc.user_doc_uploads.get(user_id=user_id).exec()
-    return bool(user_docs)
+    for user_doc in user_docs:
+        status = _clean_text(user_doc.get('verification_status'))
+        if status and status.lower() in {'verified', 'approved'}:
+            return True
+    return False
+
+
+def _is_tariff_archived(tariff):
+    if not tariff:
+        return True
+    value = tariff.get('is_archived')
+    if isinstance(value, str):
+        return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+    return bool(value)
 
 
 def _resolve_issue_price(issue):
@@ -303,6 +645,445 @@ def _resolve_publication_price(publication, currency='usd'):
     if normalized == 'rub':
         return _parse_float(publication.get('price_ru'), _parse_float(publication.get('price'), 0.0))
     return _parse_float(publication.get('price'), 0.0)
+
+
+def _normalize_entitlement_scope(value):
+    normalized = (_clean_text(value) or 'all').lower()
+    return normalized if normalized in TARIFF_ENTITLEMENT_SCOPES else 'all'
+
+
+def _normalize_academic_position(value):
+    normalized = (_clean_text(value) or '').lower()
+    normalized = normalized.replace('’', "'")
+    normalized = ACADEMIC_POSITION_ALIASES.get(normalized, normalized)
+    return normalized if normalized in ALLOWED_ACADEMIC_POSITIONS else None
+
+
+def _academic_position_label(value):
+    normalized = _normalize_academic_position(value)
+    if not normalized:
+        return ''
+    return ACADEMIC_POSITION_LABELS.get(normalized, normalized.replace('_', ' ').title())
+
+
+def _parse_required_positions(value):
+    raw_items = []
+    if isinstance(value, (list, tuple, set)):
+        raw_items = list(value)
+    else:
+        text = str(value or '').strip()
+        if text.startswith('{') and text.endswith('}'):
+            text = text[1:-1]
+        raw_items = [item.strip().strip('"').strip("'") for item in text.split(',') if item.strip()]
+
+    normalized_items = []
+    for item in raw_items:
+        normalized = _normalize_academic_position(item)
+        if normalized and normalized not in normalized_items:
+            normalized_items.append(normalized)
+    return normalized_items
+
+
+def _parse_text_array(value):
+    if isinstance(value, (list, tuple, set)):
+        return [str(item or '').strip() for item in value if str(item or '').strip()]
+    text = str(value or '').strip()
+    if text.startswith('{') and text.endswith('}'):
+        text = text[1:-1]
+    return [item.strip().strip('"').strip("'") for item in text.split(',') if item.strip()]
+
+
+def _normalize_feature_permission(value):
+    normalized = (_clean_text(value) or '').lower()
+    return normalized if normalized in ALLOWED_TARIFF_FEATURE_PERMISSIONS else None
+
+
+def _parse_feature_permissions(value):
+    normalized_items = []
+    for item in _parse_text_array(value):
+        normalized = _normalize_feature_permission(item)
+        if normalized and normalized not in normalized_items:
+            normalized_items.append(normalized)
+    return normalized_items
+
+
+def _tariff_feature_permissions(tariff):
+    return _parse_feature_permissions((tariff or {}).get('feature_permissions'))
+
+
+def _tariff_has_feature_permission(tariff, permission_key):
+    permission = _normalize_feature_permission(permission_key)
+    if not permission:
+        return False
+    permissions = _tariff_feature_permissions(tariff)
+    if permissions:
+        return permission in permissions
+
+    # Backward compatibility for old tariffs without explicit permissions matrix.
+    scope = _normalize_entitlement_scope((tariff or {}).get('entitlement_scope'))
+    if permission in {'access_latest_content', 'access_archive_content'}:
+        if scope == 'all':
+            return True
+        return permission == 'access_archive_content'
+    return True
+
+
+def _normalize_document_type(value):
+    normalized = (_clean_text(value) or '').lower()
+    normalized = normalized.replace('’', "'")
+    normalized = DOCUMENT_TYPE_ALIASES.get(normalized, normalized)
+    return normalized if normalized in ALLOWED_DOCUMENT_TYPES else None
+
+
+def _document_type_label(value):
+    normalized = _normalize_document_type(value)
+    if not normalized:
+        return ''
+    return DOCUMENT_TYPE_LABELS.get(normalized, normalized.replace('_', ' ').title())
+
+
+def _parse_required_document_types(value):
+    normalized_items = []
+    for item in _parse_text_array(value):
+        normalized = _normalize_document_type(item)
+        if normalized and normalized not in normalized_items:
+            normalized_items.append(normalized)
+    return normalized_items
+
+
+def _tariff_required_document_types(tariff):
+    return _parse_required_document_types((tariff or {}).get('required_document_types'))
+
+
+def _position_document_type_candidates(position_key):
+    mapping = {
+        'student': ['student_id', 'enrollment_certificate'],
+        'master': ['master_certificate', 'enrollment_certificate'],
+        'doctoral': ['phd_certificate', 'enrollment_certificate'],
+        'postgraduate': ['phd_certificate', 'enrollment_certificate'],
+        'doctor': ['phd_certificate'],
+        'researcher': ['researcher_certificate', 'employment_certificate'],
+        'university_researcher': ['researcher_certificate', 'employment_certificate'],
+        'independent_researcher': ['researcher_certificate', 'other_academic'],
+        'teacher': ['employment_certificate'],
+    }
+    return mapping.get(position_key, [])
+
+
+def _tariff_effective_required_document_types(tariff):
+    # Explicit-only behavior: document requirement is applied only when admin configured document types.
+    return _tariff_required_document_types(tariff)
+
+
+def _user_doc_record(user_id):
+    user_rows = dbc.user_doc_uploads.get(user_id=user_id).exec()
+    return user_rows[0] if user_rows else {}
+
+
+def _user_doc_verified(user_doc):
+    status = (_clean_text((user_doc or {}).get('verification_status')) or '').lower()
+    return status in {'verified', 'approved'}
+
+
+def _tariff_required_positions(tariff):
+    return _parse_required_positions((tariff or {}).get('required_academic_positions'))
+
+
+def _tariff_requires_verified_document(tariff):
+    return _parse_bool((tariff or {}).get('requires_verified_document'))
+
+
+def _user_document_type(user_doc):
+    return _normalize_document_type((user_doc or {}).get('document_type'))
+
+
+def _normalize_name_for_match(value):
+    return ' '.join((_clean_text(value) or '').lower().split())
+
+
+def _account_full_name(user_row):
+    user = user_row or {}
+    return _clean_text(f"{user.get('name') or ''} {user.get('second_name') or ''}")
+
+
+def _document_holder_matches_user(user_doc, user_row):
+    document_holder_name = _normalize_name_for_match((user_doc or {}).get('document_holder_name'))
+    account_full_name = _normalize_name_for_match(_account_full_name(user_row))
+    if not document_holder_name or not account_full_name:
+        return False
+    return document_holder_name == account_full_name
+
+
+def _validate_tariff_eligibility_for_user(tariff, user_id):
+    tariff_row = tariff or {}
+    user_doc = _user_doc_record(user_id)
+    user_rows = dbc.users.get(id=user_id).exec()
+    user_row = user_rows[0] if user_rows else {}
+    required_document_types = _tariff_effective_required_document_types(tariff_row)
+    user_document_type = _user_document_type(user_doc)
+    user_document_path = _clean_text(user_doc.get('file_path'))
+
+    if required_document_types:
+        if not user_document_path:
+            return False, 'Academic supporting document is required for this tariff.'
+        if user_document_type not in required_document_types:
+            labels = [_document_type_label(item) for item in required_document_types if _document_type_label(item)]
+            if labels:
+                return False, f"Required document type: {', '.join(labels)}."
+            return False, 'Required academic document type is not uploaded.'
+        if not _document_holder_matches_user(user_doc, user_row):
+            return False, 'Document holder full name must match your account first and last name.'
+
+    if required_document_types and _tariff_requires_verified_document(tariff_row) and not _user_doc_verified(user_doc):
+        return False, 'Verified academic document is required for this tariff.'
+
+    if tariff_row.get('is_verified') and not _user_is_verified(user_id):
+        msg = t('verification_required_for_tariff')
+        if msg == 'verification_required_for_tariff':
+            msg = 'Verification required to access this tariff'
+        return False, msg
+
+    return True, None
+
+
+def _normalize_discount_percent(value):
+    percent = _parse_float(value, 0.0)
+    if percent < 0:
+        return 0.0
+    if percent > 100:
+        return 100.0
+    return percent
+
+
+def _apply_discount_percent(amount, discount_percent):
+    base_amount = _parse_float(amount, 0.0)
+    percent = _normalize_discount_percent(discount_percent)
+    if percent <= 0:
+        return round(base_amount, 2)
+    if percent >= 100:
+        return 0.0
+    discounted = base_amount * ((100.0 - percent) / 100.0)
+    return round(max(discounted, 0.0), 2)
+
+
+def _effective_tariff_discount_percent(tariff, field_name):
+    permission_map = {
+        'article_discount_pct': 'article_discount',
+        'issue_discount_pct': 'issue_discount',
+    }
+    permission = permission_map.get(field_name)
+    if permission and not _tariff_has_feature_permission(tariff, permission):
+        return 0.0
+    return _normalize_discount_percent((tariff or {}).get(field_name))
+
+
+def _tariff_subscription_discount_context(tariff, now_ts=None):
+    tariff_row = tariff or {}
+    now_value = _parse_int(now_ts)
+    if now_value is None:
+        now_value = int(time.time())
+
+    discount_percent = _normalize_discount_percent(tariff_row.get('subscription_discount_pct'))
+    start_at = _parse_int(tariff_row.get('subscription_discount_start_at'))
+    end_at = _parse_int(tariff_row.get('subscription_discount_end_at'))
+
+    if discount_percent <= 0:
+        return {
+            'active': False,
+            'discount_percent': 0.0,
+            'start_at': start_at,
+            'end_at': end_at,
+        }
+
+    if start_at is not None and now_value < start_at:
+        return {
+            'active': False,
+            'discount_percent': discount_percent,
+            'start_at': start_at,
+            'end_at': end_at,
+        }
+    if end_at is not None and now_value > end_at:
+        return {
+            'active': False,
+            'discount_percent': discount_percent,
+            'start_at': start_at,
+            'end_at': end_at,
+        }
+
+    return {
+        'active': True,
+        'discount_percent': discount_percent,
+        'start_at': start_at,
+        'end_at': end_at,
+    }
+
+
+def _apply_subscription_discount_to_amount(amount, tariff):
+    context = _tariff_subscription_discount_context(tariff)
+    if not context.get('active'):
+        return round(_parse_float(amount, 0.0), 2), context
+    discounted = _apply_discount_percent(amount, context.get('discount_percent'))
+    return discounted, context
+
+
+def _user_subscription_is_active(user_row):
+    user = user_row or {}
+    end_ts = _parse_int(user.get('subscription_end_date'))
+    if end_ts is None:
+        return False
+    return end_ts > int(time.time())
+
+
+def _extract_content_timestamp(record, fallback_year_key=None):
+    row = record or {}
+    for key in ('date_publish', 'published_at', 'created_at', 'created_date'):
+        timestamp = _parse_int(row.get(key))
+        if timestamp and timestamp > 0:
+            return timestamp
+
+    if fallback_year_key:
+        year = _parse_int(row.get(fallback_year_key))
+        if year and 1970 <= year <= 2100:
+            try:
+                return int(time.mktime(time.strptime(f'{year}-01-01', '%Y-%m-%d')))
+            except Exception:
+                return None
+    return None
+
+
+def _record_age_days(timestamp):
+    timestamp_int = _parse_int(timestamp)
+    if timestamp_int is None:
+        return None
+    seconds = int(time.time()) - timestamp_int
+    if seconds < 0:
+        return 0
+    return seconds // (24 * 60 * 60)
+
+
+def _tariff_allows_issue_access(tariff, issue):
+    tariff_row = tariff or {}
+    permissions = _tariff_feature_permissions(tariff_row)
+    threshold_days = _parse_int(tariff_row.get('archive_days_threshold'))
+    if threshold_days is None or threshold_days < 1:
+        threshold_days = DEFAULT_ARCHIVE_DAYS_THRESHOLD
+
+    if permissions:
+        issue_timestamp = _extract_content_timestamp(issue, fallback_year_key='year')
+        age_days = _record_age_days(issue_timestamp)
+        if age_days is None:
+            return False
+        if age_days >= threshold_days:
+            return 'access_archive_content' in permissions
+        return 'access_latest_content' in permissions
+
+    scope = _normalize_entitlement_scope(tariff_row.get('entitlement_scope'))
+    if scope == 'all':
+        return True
+
+    issue_timestamp = _extract_content_timestamp(issue, fallback_year_key='year')
+    age_days = _record_age_days(issue_timestamp)
+    if age_days is None:
+        return False
+    return age_days >= threshold_days
+
+
+def _tariff_allows_publication_access(tariff, publication):
+    tariff_row = tariff or {}
+    permissions = _tariff_feature_permissions(tariff_row)
+    threshold_days = _parse_int(tariff_row.get('archive_days_threshold'))
+    if threshold_days is None or threshold_days < 1:
+        threshold_days = DEFAULT_ARCHIVE_DAYS_THRESHOLD
+
+    if permissions:
+        publication_timestamp = _extract_content_timestamp(publication)
+        if publication_timestamp is None:
+            issue_id = _parse_int((publication or {}).get('issue_id'))
+            if issue_id is not None:
+                issue_rows = dbc.issues.get(id=issue_id).exec()
+                if issue_rows:
+                    publication_timestamp = _extract_content_timestamp(issue_rows[0], fallback_year_key='year')
+
+        age_days = _record_age_days(publication_timestamp)
+        if age_days is None:
+            return False
+        if age_days >= threshold_days:
+            return 'access_archive_content' in permissions
+        return 'access_latest_content' in permissions
+
+    scope = _normalize_entitlement_scope(tariff_row.get('entitlement_scope'))
+    if scope == 'all':
+        return True
+
+    publication_timestamp = _extract_content_timestamp(publication)
+    if publication_timestamp is None:
+        issue_id = _parse_int((publication or {}).get('issue_id'))
+        if issue_id is not None:
+            issue_rows = dbc.issues.get(id=issue_id).exec()
+            if issue_rows:
+                publication_timestamp = _extract_content_timestamp(issue_rows[0], fallback_year_key='year')
+
+    age_days = _record_age_days(publication_timestamp)
+    if age_days is None:
+        return False
+    return age_days >= threshold_days
+
+
+def _active_subscription_tariff_for_user(user_id):
+    user_rows = dbc.users.get(id=user_id).exec()
+    user = user_rows[0] if user_rows else {}
+    if not _user_subscription_is_active(user):
+        return None
+
+    tariff_id = _parse_int(user.get('tariff_id'))
+    if tariff_id is None:
+        return None
+    tariff_rows = dbc.tariffs.get(id=tariff_id).exec()
+    return tariff_rows[0] if tariff_rows else None
+
+
+def _subscription_grants_issue_access(user_id, issue):
+    user_rows = dbc.users.get(id=user_id).exec()
+    user = user_rows[0] if user_rows else {}
+    if not _user_subscription_is_active(user):
+        return False
+
+    tariff = _active_subscription_tariff_for_user(user_id)
+    if tariff is None:
+        # Legacy subscription: active end_date without linked tariff.
+        return True
+    return _tariff_allows_issue_access(tariff, issue)
+
+
+def _subscription_grants_article_access(user_id, publication):
+    user_rows = dbc.users.get(id=user_id).exec()
+    user = user_rows[0] if user_rows else {}
+    if not _user_subscription_is_active(user):
+        return False
+
+    tariff = _active_subscription_tariff_for_user(user_id)
+    if tariff is None:
+        # Legacy subscription: active end_date without linked tariff.
+        return True
+    return _tariff_allows_publication_access(tariff, publication)
+
+
+def _user_has_paid_access(user_id, payment_type, target_id):
+    user_id_int = _parse_int(user_id)
+    if user_id_int is None or target_id is None:
+        return False
+
+    target_text = str(target_id)
+    payments = dbc.payments.get(user_id=user_id_int, status='paid').exec()
+    for payment in payments:
+        if (_clean_text(payment.get('payment_type')) or '').lower() != payment_type:
+            continue
+        payment_ids = payment.get('ids') or []
+        if not isinstance(payment_ids, (list, tuple)):
+            continue
+        if target_text in {str(item) for item in payment_ids}:
+            return True
+    return False
 
 
 def _password_matches(stored_password, candidate):
@@ -323,6 +1104,81 @@ def _find_existing_payment(user_id, payment_type, target_id):
         if str(target_id) in {str(item) for item in payment_ids} and status in {'unpaid', 'pending'}:
             return payment
     return None
+
+
+def _payment_columns():
+    try:
+        columns_map = getattr(dbc, 'columns', {}) or {}
+        return set(columns_map.get('payments', []))
+    except Exception:
+        return set()
+
+
+def _create_or_get_pending_payment(user_id, payment_type, target_id, payment_data):
+    lock_name = f"payment:{payment_type}:{user_id}:{target_id}"
+    with dbc._lock:
+        cursor = dbc.conn.cursor()
+        try:
+            cursor.execute("SELECT pg_advisory_xact_lock(hashtext(%s)::bigint)", (lock_name,))
+            cursor.execute(
+                "SELECT id, ids FROM payments "
+                "WHERE user_id = %s AND payment_type = %s AND status = ANY(%s) "
+                "ORDER BY id DESC",
+                (user_id, payment_type, ['unpaid', 'pending']),
+            )
+            for row in cursor.fetchall():
+                existing_id = _parse_int(row[0])
+                existing_ids = row[1] or []
+                if not isinstance(existing_ids, (list, tuple)):
+                    continue
+                if str(target_id) in {str(item) for item in existing_ids}:
+                    dbc.conn.commit()
+                    return {'created': False, 'payment_id': existing_id}
+
+            insert_columns = [
+                'user_id',
+                'status',
+                'currency',
+                'payment_type',
+                'payment_date',
+                'amount',
+                'ids',
+                'proof',
+                'note',
+                'created_at',
+            ]
+            insert_values = [
+                payment_data.get('user_id'),
+                payment_data.get('status'),
+                payment_data.get('currency'),
+                payment_data.get('payment_type'),
+                payment_data.get('payment_date'),
+                payment_data.get('amount'),
+                payment_data.get('ids'),
+                payment_data.get('proof'),
+                payment_data.get('note'),
+                payment_data.get('created_at'),
+            ]
+
+            payment_columns = _payment_columns()
+            if 'snapshot_duration_days' in payment_columns:
+                insert_columns.append('snapshot_duration_days')
+                insert_values.append(_parse_int(payment_data.get('snapshot_duration_days')))
+
+            placeholders = ', '.join(['%s'] * len(insert_columns))
+            cursor.execute(
+                f"INSERT INTO payments ({', '.join(insert_columns)}) VALUES ({placeholders}) RETURNING id",
+                tuple(insert_values),
+            )
+            inserted_row = cursor.fetchone()
+            payment_id = _parse_int(inserted_row[0]) if inserted_row else None
+            dbc.conn.commit()
+            return {'created': True, 'payment_id': payment_id}
+        except Exception:
+            dbc.conn.rollback()
+            raise
+        finally:
+            cursor.close()
 
 
 def _normalize_notification_level(level):
@@ -662,26 +1518,69 @@ def _user_display_name(user_row):
     return full_name or _clean_text(user_row.get('name')) or _clean_text(user_row.get('email'))
 
 
+def _resolve_localized_text(value, user_row=None):
+    if isinstance(value, dict):
+        preferred = normalize_notification_language(
+            (user_row or {}).get('ui_language'),
+            default=current_notification_language()
+        )
+        fallback_order = [preferred, 'uz', 'ru', 'en']
+        for language in fallback_order:
+            text = _clean_text(value.get(language))
+            if text:
+                return text
+        for text in value.values():
+            resolved = _clean_text(text)
+            if resolved:
+                return resolved
+        return None
+    return _clean_text(value)
+
+
+def _normalize_localized_details(details, user_row=None):
+    normalized = []
+    for label, value in details or []:
+        label_text = _resolve_localized_text(label, user_row=user_row)
+        value_text = _resolve_localized_text(value, user_row=user_row)
+        if not label_text or not value_text:
+            continue
+        normalized.append((label_text, value_text))
+    return normalized
+
+
+def _normalize_localized_body_lines(body_lines, user_row=None):
+    normalized = []
+    for line in body_lines or []:
+        line_text = _resolve_localized_text(line, user_row=user_row)
+        if line_text:
+            normalized.append(line_text)
+    return normalized
+
+
 def _send_user_email(user_row, subject, intro, details=None, body_lines=None, cta_url=None, cta_label=None, reply_to=None):
     email = _clean_text((user_row or {}).get('email'))
     if not email or not user_allows_email_notifications(user_row):
         return False
+    preferred_language = normalize_notification_language(
+        (user_row or {}).get('ui_language'),
+        default=current_notification_language()
+    )
     subject_text, intro_text, _ = prepare_notification_content(
         title=subject,
         message=intro,
-        default_language=normalize_notification_language(
-            (user_row or {}).get('ui_language'),
-            default=current_notification_language()
-        )
+        default_language=preferred_language
     )
+    details_rows = _normalize_localized_details(details, user_row=user_row)
+    body_rows = _normalize_localized_body_lines(body_lines, user_row=user_row)
+    cta_label_text = _resolve_localized_text(cta_label, user_row=user_row) or 'Open'
     return send_notification_email(
         recipients=[email],
         subject=subject_text,
         intro=intro_text,
-        details=details,
-        body_lines=body_lines,
+        details=details_rows,
+        body_lines=body_rows,
         cta_url=cta_url,
-        cta_label=cta_label,
+        cta_label=cta_label_text,
         reply_to=reply_to,
         fail_silently=True,
     )
@@ -718,25 +1617,56 @@ def _send_payment_created_email(user_id, payment_id, payment_type, source_row, a
     if not user_row:
         return False
 
-    item_label = _payment_item_label(payment_type, source_row)
     if payment_type == 'subscription':
-        payment_type_label = 'Subscription'
+        subject = localized_texts(
+            "Obuna to'lovi uchun so'rov yaratildi",
+            'Создан запрос на оплату подписки',
+            'Subscription payment request created',
+        )
+        intro = localized_texts(
+            "Akkauntingiz uchun yangi obuna to'lovi so'rovi yaratildi.",
+            'Для вашего аккаунта создан новый запрос на оплату подписки.',
+            'A new subscription payment request has been created for your account.',
+        )
+        payment_type_label = localized_texts("Obuna", "Подписка", "Subscription")
     elif payment_type == 'article':
-        payment_type_label = 'Article purchase'
+        subject = localized_texts(
+            "Maqola xaridi uchun to'lov so'rovi yaratildi",
+            'Создан запрос на оплату покупки статьи',
+            'Article purchase payment request created',
+        )
+        intro = localized_texts(
+            "Akkauntingiz uchun yangi maqola xaridi to'lovi so'rovi yaratildi.",
+            'Для вашего аккаунта создан новый запрос на оплату покупки статьи.',
+            'A new article purchase payment request has been created for your account.',
+        )
+        payment_type_label = localized_texts("Maqola xaridi", "Покупка статьи", "Article purchase")
     else:
-        payment_type_label = 'Issue purchase'
+        subject = localized_texts(
+            "Son xaridi uchun to'lov so'rovi yaratildi",
+            'Создан запрос на оплату покупки выпуска',
+            'Issue purchase payment request created',
+        )
+        intro = localized_texts(
+            "Akkauntingiz uchun yangi son xaridi to'lovi so'rovi yaratildi.",
+            'Для вашего аккаунта создан новый запрос на оплату покупки выпуска.',
+            'A new issue purchase payment request has been created for your account.',
+        )
+        payment_type_label = localized_texts("Son xaridi", "Покупка выпуска", "Issue purchase")
     return _send_user_email(
         user_row,
-        subject=f'{payment_type_label} payment request created',
-        intro=f'A new {payment_type_label.lower()} request has been created for your account.',
-        details=[
-            ('Payment ID', payment_id),
-            ('Item', item_label),
-            ('Amount', f'{amount} {str(currency).upper()}'),
+        subject=subject,
+        intro=intro,
+        details=[],
+        body_lines=[
+            localized_texts(
+                "Davom ettirish uchun dashboarddagi to'lovlar bo'limiga o'ting.",
+                'Чтобы продолжить, откройте раздел оплат в личном кабинете.',
+                'To continue, open the payments page in your dashboard.',
+            ),
         ],
-        body_lines=['Please upload your payment proof from the dashboard after payment.'],
         cta_url=url_for('app__dashboard_payments'),
-        cta_label='Open payments',
+        cta_label=localized_texts("To'lovlarni ochish", 'Открыть оплаты', 'Open payments'),
     )
 
 
@@ -836,12 +1766,23 @@ def _notify_submission_submitted(submission, actor_user_id=None):
     if author_email:
         _send_user_email(
             author_row,
-            subject=f'Submission received: {title}',
-            intro=f'Your submission "{title}" was successfully sent to Philology Matters.',
-            details=[('Submission ID', submission_id)],
-            body_lines=['You can follow the review process from your dashboard.'],
+            subject=localized_texts(
+                'Maqolangiz yuborildi',
+                'Ваша статья отправлена',
+                'Your article was submitted',
+            ),
+            intro=localized_texts(
+                f'"{title}" nomli maqolangiz Philology Matters tizimiga muvaffaqiyatli yuborildi.',
+                f'Ваша статья "{title}" успешно отправлена в систему Philology Matters.',
+                f'Your submission "{title}" was successfully sent to Philology Matters.',
+            ),
+            body_lines=[localized_texts(
+                "Ko'rib chiqish jarayonini shaxsiy kabinetdagi dashboard orqali kuzatishingiz mumkin.",
+                'Вы можете отслеживать процесс рассмотрения в личном кабинете.',
+                'You can follow the review process from your dashboard.',
+            )],
             cta_url='/dashboard/articles',
-            cta_label='Open dashboard',
+            cta_label=localized_texts("Dashboardga o'tish", 'Перейти в кабинет', 'Go to dashboard'),
         )
 
     admin_targets = []
@@ -861,15 +1802,26 @@ def _notify_submission_submitted(submission, actor_user_id=None):
         seen_admin_emails.add(admin_email)
         _send_user_email(
             admin_user,
-            subject=f'New submission received: {title}',
-            intro='A new submission has entered the editorial workflow.',
+            subject=localized_texts(
+                f'Yangi maqola keldi: {title}',
+                f'Поступила новая заявка: {title}',
+                f'New submission received: {title}',
+            ),
+            intro=localized_texts(
+                "Tahririyat jarayoniga yangi maqola qo'shildi.",
+                'В редакционный процесс поступила новая заявка.',
+                'A new submission has entered the editorial workflow.',
+            ),
             details=[
-                ('Submission ID', submission_id),
-                ('Author', _user_display_name(author_row)),
+                (localized_texts('Muallif', 'Автор', 'Author'), _user_display_name(author_row)),
             ],
-            body_lines=['Open the admin panel to review the submission details.'],
+            body_lines=[localized_texts(
+                "Maqola tafsilotlarini ko'rish uchun admin panelni oching.",
+                'Откройте админ-панель, чтобы посмотреть детали заявки.',
+                'Open the admin panel to review the submission details.',
+            )],
             cta_url=action_url,
-            cta_label='Open submission',
+            cta_label=localized_texts("Maqolani ochish", 'Открыть заявку', 'Open submission'),
             reply_to=author_email or None,
         )
 
@@ -961,12 +1913,23 @@ def _notify_submission_antiplagiarism_uploaded(submission, actor_user_id=None):
     if author_row:
         _send_user_email(
             author_row,
-            subject=f'Anti-plagiarism file received: {title}',
-            intro=f'Your anti-plagiarism document for "{title}" has been received.',
-            details=[('Submission ID', submission_id)],
-            body_lines=['The editorial team can now continue the review workflow.'],
+            subject=localized_texts(
+                f'Antiplagiat hujjati qabul qilindi: {title}',
+                f'Антиплагиат-документ получен: {title}',
+                f'Anti-plagiarism file received: {title}',
+            ),
+            intro=localized_texts(
+                f'"{title}" uchun yuborgan antiplagiat hujjatingiz qabul qilindi.',
+                f'Ваш антиплагиат-документ для "{title}" успешно получен.',
+                f'Your anti-plagiarism document for "{title}" has been received.',
+            ),
+            body_lines=[localized_texts(
+                'Endi tahririyat jamoasi ko‘rib chiqish jarayonini davom ettirishi mumkin.',
+                'Теперь редакционная команда может продолжить процесс рассмотрения.',
+                'The editorial team can now continue the review workflow.',
+            )],
             cta_url='/dashboard/articles',
-            cta_label='Open dashboard',
+            cta_label=localized_texts("Dashboardga o'tish", 'Перейти в кабинет', 'Go to dashboard'),
         )
 
     reviewer_targets = []
@@ -987,12 +1950,23 @@ def _notify_submission_antiplagiarism_uploaded(submission, actor_user_id=None):
         seen_target_emails.add(reviewer_email)
         _send_user_email(
             reviewer_user,
-            subject=f'Anti-plagiarism file uploaded: {title}',
-            intro=f'The author uploaded an anti-plagiarism document for "{title}".',
-            details=[('Submission ID', submission_id)],
-            body_lines=['Open the admin panel to continue the review process.'],
+            subject=localized_texts(
+                f'Antiplagiat hujjati yuklandi: {title}',
+                f'Загружен антиплагиат-документ: {title}',
+                f'Anti-plagiarism file uploaded: {title}',
+            ),
+            intro=localized_texts(
+                f'Muallif "{title}" uchun antiplagiat hujjatini yukladi.',
+                f'Автор загрузил антиплагиат-документ для "{title}".',
+                f'The author uploaded an anti-plagiarism document for "{title}".',
+            ),
+            body_lines=[localized_texts(
+                "Ko'rib chiqishni davom ettirish uchun admin panelni oching.",
+                'Откройте админ-панель, чтобы продолжить рассмотрение.',
+                'Open the admin panel to continue the review process.',
+            )],
             cta_url=action_url,
-            cta_label='Open submission',
+            cta_label=localized_texts("Maqolani ochish", 'Открыть заявку', 'Open submission'),
             reply_to=author_email or None,
         )
 
@@ -1155,6 +2129,17 @@ def _validate_submission_for_submit(payload):
         elif word_count > word_count_limits[1]:
             errors.append('word_count_max')
 
+    main_author_id = _parse_int(payload.get('main_author_id'))
+    if main_author_id is None:
+        errors.append('author')
+    else:
+        try:
+            author_rows = dbc.author_profile.get(id=main_author_id).exec()
+        except Exception:
+            author_rows = []
+        if not author_rows:
+            errors.append('author')
+
     if len(_parse_text_list(payload.get('classifications'))) < 3:
         errors.append('classifications')
 
@@ -1235,6 +2220,9 @@ def _merge_submission_for_response(saved_submission, source_payload):
 _ensure_submission_columns()
 _ensure_user_columns()
 _ensure_role_notifications_table()
+_ensure_payment_columns()
+_ensure_tariff_entitlement_columns()
+_ensure_user_doc_upload_columns()
 
 
 def app__api_getauthor():
@@ -1260,24 +2248,10 @@ def app__api_getauthor():
     if not author_profile:
         return jsonify({'success': True, 'is_found': False, 'message': f'No author found for {search}'})
 
-    author_profile = author_profile[0]
     return jsonify({
         'success': True,
         'is_found': True,
-        'author': {
-            'id': author_profile['id'],
-            'name': author_profile['name'],
-            'organization': author_profile['organization'],
-            'department': author_profile['department'],
-            'position': author_profile['position'],
-            'email': author_profile['email'],
-            'phone': author_profile['phone'],
-            'orcid': author_profile['orcid'],
-            'address_street': author_profile['address_street'],
-            'address_city': author_profile['address_city'],
-            'address_country': author_profile['address_country'],
-            'address_zip': author_profile['address_zip']
-        }
+        'author': _serialize_author_profile(author_profile[0], include_private=False)
     })
 
 
@@ -1286,27 +2260,13 @@ def app__api_getcurrentauthor():
     if not user_id:
         return jsonify({'success': False, 'message': 'User not logged in'})
 
-    author_profile = dbc.author_profile.get(user_id=user_id).exec()
+    author_profile = _get_or_create_author_profile_for_user(user_id)
     if not author_profile:
         return jsonify({'success': False, 'message': 'No author profile found for current user'})
 
-    author_profile = author_profile[0]
     return jsonify({
         'success': True,
-        'author': {
-            'id': author_profile['id'],
-            'name': author_profile['name'],
-            'organization': author_profile['organization'],
-            'department': author_profile['department'],
-            'position': author_profile['position'],
-            'email': author_profile['email'],
-            'phone': author_profile['phone'],
-            'orcid': author_profile['orcid'],
-            'address_street': author_profile['address_street'],
-            'address_city': author_profile['address_city'],
-            'address_country': author_profile['address_country'],
-            'address_zip': author_profile['address_zip']
-        }
+        'author': _serialize_author_profile(author_profile, include_private=True)
     })
 
 
@@ -1370,8 +2330,9 @@ def app__api_article_save():
             **response_payload
         })
 
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Error saving draft: {str(e)}'})
+    except Exception:
+        logger.exception('Failed to save draft for user_id=%s', user_id)
+        return jsonify({'success': False, 'message': 'Unable to save draft right now. Please try again.'})
 
 
 def app__api_article_submit():
@@ -1444,8 +2405,9 @@ def app__api_article_submit():
             **response_payload
         })
 
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Error submitting article: {str(e)}'})
+    except Exception:
+        logger.exception('Failed to submit article for user_id=%s', user_id)
+        return jsonify({'success': False, 'message': 'Unable to submit article right now. Please try again.'})
 
 
 def app__api_article_upload():
@@ -1677,6 +2639,152 @@ def app__api_payment_delete(payment_id):
     return jsonify({'success': True, 'message': 'Payment deleted successfully'})
 
 
+def app__api_subscription_cancel():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'message': 'User not logged in'})
+
+    data = request.get_json() if request.is_json else request.form
+    target_payment_id = _parse_int((data or {}).get('payment_id'))
+    user_rows = dbc.users.get(id=user_id).exec()
+    if not user_rows:
+        return jsonify({'success': False, 'message': 'User not found'})
+
+    user_row = user_rows[0]
+    now_ts = int(time.time())
+    current_end = _parse_int(user_row.get('subscription_end_date'))
+    is_active = bool(current_end and current_end > now_ts)
+
+    if target_payment_id is not None:
+        payment_rows = dbc.payments.get(id=target_payment_id, user_id=user_id, payment_type='subscription', status='paid').exec()
+        if not payment_rows:
+            return jsonify({'success': False, 'message': 'Subscription payment not found'})
+        payment_row = payment_rows[0]
+        target_start = _parse_int(payment_row.get('snapshot_start_at'))
+        target_end = _parse_int(payment_row.get('snapshot_end_at'))
+        if target_end is not None and target_end <= now_ts:
+            return jsonify({'success': False, 'message': "Ushbu obuna allaqachon tugagan"})
+        if target_start is not None and target_start > now_ts:
+            return jsonify({'success': False, 'message': "Kelajakdagi obunani hozircha bekor qilib bo'lmaydi"})
+
+    dbc.users.get(id=user_id).update(
+        tariff_id=None,
+        subscription_end_date=now_ts
+    ).exec()
+
+    if is_active:
+        return jsonify({
+            'success': True,
+            'message': "Obuna bekor qilindi. Kirish huquqi darhol to'xtatildi."
+        })
+    return jsonify({
+        'success': True,
+        'message': "Faol obuna topilmadi."
+    })
+
+
+def app__api_subscription_upload_document():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'message': 'User not logged in'})
+
+    _ensure_user_doc_upload_columns()
+
+    tariff_id = _parse_int(request.form.get('tariff_id'))
+    if tariff_id is None:
+        return jsonify({'success': False, 'message': 'Tariff ID required'})
+
+    tariff_rows = dbc.tariffs.get(id=tariff_id).exec()
+    if not tariff_rows:
+        return jsonify({'success': False, 'message': 'Tariff not found'})
+    tariff = tariff_rows[0]
+    if _is_tariff_archived(tariff):
+        return jsonify({'success': False, 'message': 'Tariff is no longer available'})
+
+    required_document_types = _tariff_effective_required_document_types(tariff)
+    if not required_document_types:
+        return jsonify({'success': False, 'message': 'This tariff does not require an activation document'})
+
+    document_type = _normalize_document_type(request.form.get('document_type'))
+    if required_document_types and document_type not in required_document_types:
+        labels = [_document_type_label(item) for item in required_document_types if _document_type_label(item)]
+        if labels:
+            return jsonify({'success': False, 'message': 'Allowed document types: ' + ', '.join(labels)})
+        return jsonify({'success': False, 'message': 'Invalid document type for this tariff'})
+    if document_type is None:
+        return jsonify({'success': False, 'message': 'Document type is required'})
+
+    user_rows = dbc.users.get(id=user_id).exec()
+    user_row = user_rows[0] if user_rows else {}
+    document_holder_name = _clean_text(request.form.get('document_holder_name'))
+    if not document_holder_name:
+        return jsonify({'success': False, 'message': 'Document holder full name is required'})
+    expected_account_name = _account_full_name(user_row)
+    if _normalize_name_for_match(document_holder_name) != _normalize_name_for_match(expected_account_name):
+        return jsonify({'success': False, 'message': 'Document holder full name must match your account name'})
+
+    institution_name = _clean_text(request.form.get('institution_name'))
+    if not institution_name:
+        return jsonify({'success': False, 'message': 'University or institution name is required'})
+
+    file = request.files.get('academic_document')
+    if file is None or not _clean_text(file.filename):
+        return jsonify({'success': False, 'message': 'Document file is required'})
+    if not allowed_file(file.filename, {'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'}):
+        return jsonify({'success': False, 'message': 'Invalid file type. Allowed: PDF, DOC, DOCX, JPG, PNG'})
+
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    now_ts = int(time.time())
+    unique_suffix = secrets.token_hex(3)
+    filename = secure_filename(f"subscription_doc_{user_id}_{now_ts}_{unique_suffix}.{ext}")
+    documents_folder = os.path.join(settings.SAVE_PATH, 'private_uploads', 'documents')
+    os.makedirs(documents_folder, exist_ok=True)
+    file_abs_path = os.path.join(documents_folder, filename)
+    file.save(file_abs_path)
+    file_ref = build_private_upload_ref('documents', filename)
+
+    existing_rows = dbc.user_doc_uploads.get(user_id=user_id).exec()
+    existing_doc = existing_rows[0] if existing_rows else None
+    if existing_doc:
+        old_file_ref = _clean_text(existing_doc.get('file_path'))
+        old_abs_path = private_upload_abspath(old_file_ref)
+        update_payload = {
+            'file_path': file_ref,
+            'document_type': document_type,
+            'document_holder_name': document_holder_name,
+            'institution_name': institution_name,
+            'verification_status': 'pending',
+            'updated_at': now_ts,
+        }
+        dbc.user_doc_uploads.get(id=existing_doc.get('id')).update(**update_payload).exec()
+        if old_abs_path and old_abs_path != file_abs_path and os.path.exists(old_abs_path):
+            try:
+                os.remove(old_abs_path)
+            except OSError:
+                pass
+    else:
+        dbc.user_doc_uploads.add(
+            user_id=user_id,
+            work_title=None,
+            file_path=file_ref,
+            document_type=document_type,
+            document_holder_name=document_holder_name,
+            institution_name=institution_name,
+            verification_status='pending',
+            created_at=now_ts,
+            updated_at=now_ts
+        ).exec()
+
+    return jsonify({
+        'success': True,
+        'message': 'Activation document uploaded and sent for verification',
+        'file_ref': file_ref,
+        'download': upload_access_url(file_ref),
+        'verification_status': 'pending',
+        'requires_verified_document': bool(required_document_types and _tariff_requires_verified_document(tariff)),
+    })
+
+
 def app__api_payment_create_subscription():
     user_id = session.get('user_id')
     if not user_id:
@@ -1692,45 +2800,57 @@ def app__api_payment_create_subscription():
         return jsonify({'success': False, 'message': 'Tariff not found'})
 
     tariff = tariff[0]
-    if tariff.get('is_verified') and not _user_is_verified(user_id):
-        msg = t('verification_required_for_tariff')
-        if msg == 'verification_required_for_tariff':
-            msg = 'Verification required to access this tariff'
-        return jsonify({'success': False, 'message': msg})
-    existing_payment = _find_existing_payment(user_id, 'subscription', tariff_id)
-    if existing_payment:
-        return jsonify({
-            'success': True,
-            'message': 'Subscription payment already exists',
-            'payment_id': existing_payment['id']
-        })
+    if _is_tariff_archived(tariff):
+        return jsonify({'success': False, 'message': 'Tariff is no longer available'})
+    _ensure_user_doc_upload_columns()
+    eligibility_ok, eligibility_message = _validate_tariff_eligibility_for_user(tariff, user_id)
+    if not eligibility_ok:
+        return jsonify({'success': False, 'message': eligibility_message or 'You are not eligible for this tariff'})
 
-    currency = _normalize_currency(data.get('currency', 'usd'))
+    requested_currency = _normalize_currency(data.get('currency') or _default_currency_for_language())
+    base_amount, effective_currency = _resolve_tariff_price_and_currency(tariff, requested_currency)
+    if base_amount <= 0:
+        return jsonify({'success': False, 'message': 'Tariff price is not configured'})
+    amount, discount_context = _apply_subscription_discount_to_amount(base_amount, tariff)
+    if amount <= 0:
+        amount = 0.0
+
     payment_data = {
         'user_id': user_id,
         'status': 'unpaid',
-        'currency': currency,
+        'currency': effective_currency,
         'payment_type': 'subscription',
         'payment_date': None,
-        'amount': _resolve_tariff_price(tariff, currency),
+        'amount': amount,
         'ids': [tariff_id],
+        'snapshot_duration_days': _parse_int(tariff.get('duration_days') or tariff.get('user_limit')),
         'proof': None,
         'note': data.get('note'),
         'created_at': int(time.time())
     }
 
-    result = dbc.payments.add(**payment_data).exec()
-    payment_id = result[0]['id'] if result else None
-    if payment_id is not None:
+    payment_result = _create_or_get_pending_payment(user_id, 'subscription', tariff_id, payment_data)
+    payment_id = payment_result.get('payment_id')
+    if payment_result.get('created') and payment_id is not None:
         _send_payment_created_email(
             user_id=user_id,
             payment_id=payment_id,
             payment_type='subscription',
             source_row=tariff,
             amount=payment_data['amount'],
-            currency=currency,
+            currency=effective_currency,
         )
-    return jsonify({'success': True, 'message': 'Subscription payment created', 'payment_id': payment_id})
+    message = 'Subscription payment created' if payment_result.get('created') else 'Subscription payment already exists'
+    return jsonify({
+        'success': True,
+        'message': message,
+        'payment_id': payment_id,
+        'amount': amount,
+        'base_amount': base_amount,
+        'currency': effective_currency,
+        'subscription_discount_active': bool(discount_context.get('active')),
+        'subscription_discount_pct': discount_context.get('discount_percent') or 0.0,
+    })
 
 
 def app__api_issue_purchase():
@@ -1748,31 +2868,58 @@ def app__api_issue_purchase():
         return jsonify({'success': False, 'message': 'Issue not found'})
 
     issue = issue[0]
-    existing_payment = _find_existing_payment(user_id, 'issue', issue_id)
-    if existing_payment:
-        return jsonify({
-            'success': True,
-            'message': 'Issue payment already exists',
-            'payment_id': existing_payment['id']
-        })
+    if not issue.get('is_paid'):
+        if issue.get('subscription_enable'):
+            if _subscription_grants_issue_access(user_id, issue):
+                return jsonify({'success': True, 'message': 'Issue is already available with your subscription'})
+            return jsonify({'success': False, 'message': 'Issue is available only via subscription'})
+        return jsonify({'success': False, 'message': 'Issue is open access'})
 
-    currency = _normalize_currency(data.get('currency', 'usd'))
+    if _user_has_paid_access(user_id, 'issue', issue_id):
+        return jsonify({'success': True, 'message': 'Issue is already purchased'})
+
+    if _subscription_grants_issue_access(user_id, issue):
+        return jsonify({'success': True, 'message': 'Issue is already available with your subscription'})
+
+    currency = _normalize_currency(data.get('currency') or _default_currency_for_language())
+    active_tariff = _active_subscription_tariff_for_user(user_id)
+    issue_discount_pct = _effective_tariff_discount_percent(active_tariff, 'issue_discount_pct')
+    base_amount = _resolve_issue_price(issue)
+    discounted_amount = _apply_discount_percent(base_amount, issue_discount_pct)
+
+    if discounted_amount <= 0:
+        now_ts = int(time.time())
+        if not _user_has_paid_access(user_id, 'issue', issue_id):
+            dbc.payments.add(
+                user_id=user_id,
+                status='paid',
+                currency=currency,
+                payment_type='issue',
+                payment_date=now_ts,
+                amount=0,
+                ids=[issue_id],
+                proof=None,
+                note='auto-approved by discount',
+                created_at=now_ts
+            ).exec()
+        return jsonify({'success': True, 'message': 'Issue unlocked with subscription discount', 'payment_id': None})
+
     payment_data = {
         'user_id': user_id,
         'status': 'unpaid',
         'currency': currency,
         'payment_type': 'issue',
         'payment_date': None,
-        'amount': _resolve_issue_price(issue),
+        'amount': discounted_amount,
         'ids': [issue_id],
         'proof': None,
         'note': data.get('note'),
         'created_at': int(time.time())
     }
 
-    result = dbc.payments.add(**payment_data).exec()
-    payment_id = result[0]['id'] if result else None
-    if payment_id is not None:
+    payment_result = _create_or_get_pending_payment(user_id, 'issue', issue_id, payment_data)
+    payment_id = payment_result.get('payment_id')
+    if payment_result.get('created') and payment_id is not None:
         _send_payment_created_email(
             user_id=user_id,
             payment_id=payment_id,
@@ -1781,7 +2928,8 @@ def app__api_issue_purchase():
             amount=payment_data['amount'],
             currency=currency,
         )
-    return jsonify({'success': True, 'message': 'Issue payment created', 'payment_id': payment_id})
+    message = 'Issue payment created' if payment_result.get('created') else 'Issue payment already exists'
+    return jsonify({'success': True, 'message': message, 'payment_id': payment_id})
 
 
 def app__api_article_purchase():
@@ -1800,33 +2948,55 @@ def app__api_article_purchase():
 
     publication = publication[0]
     if not publication.get('is_paid'):
+        if publication.get('subscription_enable'):
+            return jsonify({'success': False, 'message': 'Article is available only via subscription'})
         return jsonify({'success': True, 'message': 'Article is open access'})
 
-    existing_payment = _find_existing_payment(user_id, 'article', article_id)
-    if existing_payment:
-        return jsonify({
-            'success': True,
-            'message': 'Article payment already exists',
-            'payment_id': existing_payment['id']
-        })
+    if _user_has_paid_access(user_id, 'article', article_id):
+        return jsonify({'success': True, 'message': 'Article is already purchased'})
 
-    currency = _normalize_currency(data.get('currency', 'usd'))
+    if _subscription_grants_article_access(user_id, publication):
+        return jsonify({'success': True, 'message': 'Article is already available with your subscription'})
+
+    currency = _normalize_currency(data.get('currency') or _default_currency_for_language())
+    active_tariff = _active_subscription_tariff_for_user(user_id)
+    article_discount_pct = _effective_tariff_discount_percent(active_tariff, 'article_discount_pct')
+    base_amount = _resolve_publication_price(publication, currency)
+    discounted_amount = _apply_discount_percent(base_amount, article_discount_pct)
+
+    if discounted_amount <= 0:
+        now_ts = int(time.time())
+        if not _user_has_paid_access(user_id, 'article', article_id):
+            dbc.payments.add(
+                user_id=user_id,
+                status='paid',
+                currency=currency,
+                payment_type='article',
+                payment_date=now_ts,
+                amount=0,
+                ids=[article_id],
+                proof=None,
+                note='auto-approved by discount',
+                created_at=now_ts
+            ).exec()
+        return jsonify({'success': True, 'message': 'Article unlocked with subscription discount', 'payment_id': None})
+
     payment_data = {
         'user_id': user_id,
         'status': 'unpaid',
         'currency': currency,
         'payment_type': 'article',
         'payment_date': None,
-        'amount': _resolve_publication_price(publication, currency),
+        'amount': discounted_amount,
         'ids': [article_id],
         'proof': None,
         'note': data.get('note'),
         'created_at': int(time.time())
     }
 
-    result = dbc.payments.add(**payment_data).exec()
-    payment_id = result[0]['id'] if result else None
-    if payment_id is not None:
+    payment_result = _create_or_get_pending_payment(user_id, 'article', article_id, payment_data)
+    payment_id = payment_result.get('payment_id')
+    if payment_result.get('created') and payment_id is not None:
         _send_payment_created_email(
             user_id=user_id,
             payment_id=payment_id,
@@ -1835,14 +3005,24 @@ def app__api_article_purchase():
             amount=payment_data['amount'],
             currency=currency,
         )
-    return jsonify({'success': True, 'message': 'Article payment created', 'payment_id': payment_id})
+    message = 'Article payment created' if payment_result.get('created') else 'Article payment already exists'
+    return jsonify({'success': True, 'message': message, 'payment_id': payment_id})
 
 
 def app__api_translations_clear_cache():
     provided_token = request.headers.get('X-Translation-Sync-Token', '').strip()
     expected_token = (settings.TRANSLATION_SYNC_TOKEN or '').strip()
-    is_authorized_by_token = bool(expected_token) and provided_token == expected_token
-    is_authorized_by_session = bool(session.get('user_id'))
+    is_authorized_by_token = bool(expected_token) and secrets.compare_digest(provided_token, expected_token)
+
+    is_authorized_by_session = False
+    session_user_id = session.get('user_id')
+    if session_user_id:
+        try:
+            user_rows = dbc.users.get(id=session_user_id).exec()
+        except Exception:
+            user_rows = []
+        if user_rows:
+            is_authorized_by_session = user_has_permission(hydrate_user_roles(user_rows[0]), 'fmadmin.access')
 
     if not is_authorized_by_token and not is_authorized_by_session:
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
@@ -1953,8 +3133,9 @@ def app__api_createauthor():
             })
         return jsonify({'success': False, 'message': 'Failed to create author: Database operation returned no results'})
 
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Database error occurred while creating author: {str(e)}'})
+    except Exception:
+        logger.exception('Failed to create author profile from API for user_id=%s', session.get('user_id'))
+        return jsonify({'success': False, 'message': 'Database error occurred while creating author'})
 
 
 def register(app):
@@ -1968,6 +3149,8 @@ def register(app):
     app.add_url_rule('/api/article/resubmit', view_func=author_login_required(app__api_article_resubmit), methods=['POST'])
     app.add_url_rule('/api/payment/submit_proof', view_func=login_required(app__api_payment_submit_proof), methods=['POST'])
     app.add_url_rule('/api/payment/delete/<int:payment_id>', view_func=login_required(app__api_payment_delete), methods=['POST'])
+    app.add_url_rule('/api/subscription/cancel', view_func=login_required(app__api_subscription_cancel), methods=['POST'])
+    app.add_url_rule('/api/subscription/upload_document', view_func=login_required(app__api_subscription_upload_document), methods=['POST'])
     app.add_url_rule('/api/payment/create_subscription', view_func=login_required(app__api_payment_create_subscription), methods=['POST'])
     app.add_url_rule('/api/issue/purchase', view_func=login_required(app__api_issue_purchase), methods=['POST'])
     app.add_url_rule('/api/article/purchase', view_func=login_required(app__api_article_purchase), methods=['POST'])

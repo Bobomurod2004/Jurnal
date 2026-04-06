@@ -15,10 +15,19 @@
             <div class="mb-4">
                 {{ t('my_payments_desc') }}
             </div>
+            <div class="mb-6 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                <div><span class="font-semibold">Akademik toifa:</span> {{ user_position_label or "Tanlanmagan" }}</div>
+                <div><span class="font-semibold">Hujjat holati:</span> {% if user_doc_verified %}Tasdiqlangan{% elif user_doc and user_doc.verification_status %}{{ user_doc.verification_status }}{% else %}Yuklanmagan yoki tekshirilmagan{% endif %}</div>
+            </div>
 
             {% if subscription_active %}
-            <div class="mb-8 text-lg font-medium text-gray-900">
-                {{ t('active_subscription') }} {{ subscription_end_date|timestamp_to_date }} ({{ days_left }} {{ t('days_left') }})
+            <div class="mb-8 rounded-lg border border-green-200 bg-green-50/50 px-4 py-4">
+                <div class="text-lg font-medium text-gray-900">
+                    {{ t('active_subscription') }} {{ subscription_end_date|timestamp_to_date }} ({{ days_left }} {{ t('days_left') }})
+                </div>
+                <div class="text-sm text-gray-600 mt-1">
+                    Muddat tugaganda obuna avtomatik o‘chadi. Bekor qilish yoki uzaytirishni pastdagi har bir obuna kartasida alohida boshqarishingiz mumkin.
+                </div>
             </div>
             {% else %}
             <div class="mb-8 border rounded-lg bg-blue-50/50 border-blue-200 px-4 py-8 sm:px-8">
@@ -37,8 +46,89 @@
                 </div>
             </div>
             {% endif %}
-            
+
+            {% set subscription_payments = payments|selectattr('payment_type', 'equalto', 'subscription')|selectattr('status', 'equalto', 'paid')|list %}
+            <div class="mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="text-lg font-semibold">Obunalarim</h4>
+                    <div class="text-xs text-gray-500">Har bir obuna alohida ko'rsatiladi</div>
+                </div>
+                <div class="flex flex-col gap-4">
+                    {% for payment in subscription_payments %}
+                    {% set payment_tariff_id = (payment.tariff.id if payment.tariff else (payment.ids[0] if payment.ids else None)) %}
+                    <div class="border border-green-200 bg-green-50/20 rounded-lg px-4 py-4">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <h4 class="text-xl font-semibold">
+                                    {{ payment.tariff.name if payment.tariff else (t('payment_subscription') if t('payment_subscription') != 'payment_subscription' else 'Obuna') }}
+                                </h4>
+                                <div class="text-gray-500">
+                                    {{ payment.tariff.description if payment.tariff and payment.tariff.description else "Obuna tarifi" }}
+                                </div>
+                                <div class="mt-3 text-sm text-gray-700">
+                                    <div>
+                                        Muddat:
+                                        {% if payment.subscription_start_at %}{{ payment.subscription_start_at|timestamp_to_date }}{% else %}-{% endif %}
+                                        {% if payment.subscription_end_at %} - {{ payment.subscription_end_at|timestamp_to_date }}{% endif %}
+                                    </div>
+                                    <div>
+                                        Holat:
+                                        {% if payment.subscription_active_item %}
+                                            Faol, {{ payment.subscription_days_left }} kun qoldi
+                                        {% elif payment.subscription_upcoming_item %}
+                                            Navbatdagi obuna, {{ payment.subscription_days_until_start }} kundan keyin boshlanadi
+                                        {% else %}
+                                            Tugagan
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="mt-4 flex flex-wrap gap-2">
+                                    {% if payment_tariff_id %}
+                                    <button
+                                        class="extend-subscription-btn text-nowrap inline-flex items-center justify-center gap-x-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 hover:cursor-pointer transition-colors"
+                                        data-tariff-id="{{ payment_tariff_id }}"
+                                    >
+                                        Uzaytirish
+                                    </button>
+                                    {% endif %}
+                                    {% if payment.subscription_active_item %}
+                                    <button
+                                        class="cancel-subscription-item-btn text-nowrap inline-flex items-center justify-center gap-x-1.5 rounded-md bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 hover:cursor-pointer transition-colors"
+                                        data-payment-id="{{ payment.id }}"
+                                    >
+                                        Bekor qilish
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="text-end flex flex-col">
+                                <div class="text-sm bg-green-100/75 text-green-900 w-fit ms-auto mb-2 py-1 px-3 rounded-md">
+                                    To'langan
+                                </div>
+                                <div class="text-nowrap text-gray-400 text-xs">{{ t('created') }}: {{ payment.created_at|timestamp_to_date }}</div>
+                                {% if payment.payment_date %}
+                                <div class="text-nowrap text-gray-400 text-xs">{{ t('payment_date') }}: {{ payment.payment_date|timestamp_to_date }}</div>
+                                {% endif %}
+                                <div class="mt-2 text-sm text-gray-600">
+                                    {{ t('payment_amount') }}: {{ payment.amount|format_currency(payment.currency or 'usd') }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-gray-500 text-center py-8 border border-gray-200 rounded-lg bg-gray-50/40">
+                        Obunalar topilmadi
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="mb-4">
+            <h4 class="text-md font-semibold mb-3">To'lovlar tarixi</h4>
+            {% set ns = namespace(has_other_payments=false) %}
             {% for payment in payments %}
+            {% if not (payment.payment_type == 'subscription' and payment.status == 'paid') %}
+            {% set ns.has_other_payments = true %}
             <div class="mb-4">
                 <div class="border px-4 py-4 border-{{ payment.status|status_color }}-400/25 bg-{{ payment.status|status_color }}-50/10 rounded-lg">
                     <div class="flex items-start justify-between">
@@ -57,6 +147,23 @@
                                 {{ t('article_access_info') }}
                                 {% endif %}
                             </div>
+                            {% if payment.payment_type == 'subscription' and payment.subscription_end_at %}
+                            <div class="mt-3 text-sm text-gray-700">
+                                <div>
+                                    Muddat:
+                                    {% if payment.subscription_start_at %}{{ payment.subscription_start_at|timestamp_to_date }}{% else %}-{% endif %}
+                                    - {{ payment.subscription_end_at|timestamp_to_date }}
+                                </div>
+                                <div>
+                                    Holat:
+                                    {% if payment.subscription_active_item %}
+                                        {{ payment.subscription_days_left }} kun qoldi
+                                    {% else %}
+                                        Tugagan
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
                         </div>
                         <div class="text-end flex flex-col">
                             <div class="text-sm bg-{{ payment.status|status_color }}-100/75 text-{{ payment.status|status_color }}-900 w-fit ms-auto mb-2 py-1 px-3 rounded-md">
@@ -85,8 +192,7 @@
 
                     <div class="flex items-end justify-between mt-4 gap-2">
                         <div class="flex gap-4 text-sm">
-                            {% set currency_label = (payment.currency or 'usd')|upper %}
-                            <div class="text-gray-500">{{ t('payment_amount') }}: {{ "%.2f"|format(payment.amount) }} {{ currency_label }}</div>
+                            <div class="text-gray-500">{{ t('payment_amount') }}: {{ payment.amount|format_currency(payment.currency or 'usd') }}</div>
                         </div>
                         <div class="flex gap-2">
                             {% if payment.status in ['unpaid', 'rejected'] %}
@@ -99,7 +205,14 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
             {% endfor %}
+            {% if not ns.has_other_payments %}
+            <div class="text-gray-500 text-center py-8 border border-gray-200 rounded-lg bg-gray-50/40">
+                Hozircha boshqa to'lovlar yo'q
+            </div>
+            {% endif %}
+            </div>
         </div>
 
 <!-- Payment Details Modal -->
@@ -147,7 +260,7 @@
     </div>
 </div>
 
-{{ subscription_modal(tariffs, currency, is_verified, t) }}
+{{ subscription_modal(tariffs, currency, is_verified, t, user_full_name, user_document_holder_name, user_document_institution_name) }}
 
 <!-- Delete Confirmation Modal -->
 <div class="relative z-60 hidden" id="delete_confirmation_modal" aria-labelledby="modal-title" role="dialog" aria-modal="true">
@@ -180,15 +293,58 @@
 
 {% block dashboard_scripts %}
 <script>
-    $(document).ready(function () {
-    });
-</script>
-
-<script>
     $(document).ready(function() {
+        const dashboardCurrency = {{ currency | tojson }};
         let currentPaymentId = null;
         let selectedSubscription = null;
         let paymentToDelete = null;
+
+        function resetSubscriptionSelection() {
+            selectedSubscription = null;
+            $('#subscription_activation_doc_box').addClass('hidden');
+            updateSubscriptionButton();
+            $('.subscription-option')
+                .removeClass('border-green-500 border-green-300 bg-green-50/50')
+                .addClass('border-gray-200');
+        }
+
+        function openSubscriptionModal(preselectedTariffId) {
+            $('#subscription_modal').removeClass('hidden');
+            resetSubscriptionSelection();
+            if (!preselectedTariffId) {
+                return;
+            }
+            const targetOption = $('.subscription-option[data-tariff-id="' + String(preselectedTariffId) + '"]').first();
+            if (targetOption.length) {
+                targetOption.trigger('click');
+            }
+        }
+
+        function cancelSubscriptionByPayment(paymentId) {
+            const payload = {
+                csrf_token: window.csrfToken || ''
+            };
+            if (paymentId) {
+                payload.payment_id = Number(paymentId);
+            }
+            $.ajax({
+                url: '/api/subscription/cancel',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(payload),
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message || "Obuna bekor qilindi");
+                        window.location.reload();
+                    } else {
+                        alert(response.message || "Obunani bekor qilishda xatolik");
+                    }
+                },
+                error: function() {
+                    alert("Obunani bekor qilishda xatolik");
+                }
+            });
+        }
         
         // Open modal when clicking "Send payment details"
         $('.send-payment-details').click(function() {
@@ -300,10 +456,14 @@
 
         // Open subscription modal
         $('#open_subscribe_modal').click(function() {
-            $('#subscription_modal').removeClass('hidden');
-            selectedSubscription = null;
-            updateSubscriptionButton();
-            $('.subscription-option').removeClass('border-green-500 bg-green-50/50').addClass('border-gray-200');
+            openSubscriptionModal(null);
+        });
+        $('#subscribe_now').click(function() {
+            openSubscriptionModal(null);
+        });
+        $('.extend-subscription-btn').click(function() {
+            const tariffId = $(this).data('tariff-id');
+            openSubscriptionModal(tariffId || null);
         });
 
         // Close subscription modal
@@ -320,31 +480,87 @@
             
             $('.subscription-option').removeClass('border-green-300 bg-green-50/50').addClass('border-gray-200');
             $(this).removeClass('border-gray-200').addClass('border-green-300 bg-green-50/50');
+
+            const requiredDocTypesRaw = String($(this).data('required-document-types') || '').trim();
+            const requiredDocTypes = requiredDocTypesRaw ? requiredDocTypesRaw.split(',').map(item => item.trim()).filter(Boolean) : [];
             selectedSubscription = {
                 tariff_id: $(this).data('tariff-id'),
-                amount: $(this).data('amount')
+                amount: $(this).data('amount'),
+                currency: ($(this).data('currency') || dashboardCurrency || 'usd'),
+                needs_document_upload: Number($(this).data('needs-document-upload') || 0) === 1,
+                needs_document_verification: Number($(this).data('needs-document-verification') || 0) === 1,
+                requires_verified_document: Number($(this).data('requires-verified-document') || 0) === 1,
+                required_document_types: requiredDocTypes
             };
+            syncSubscriptionDocumentBox();
             updateSubscriptionButton();
         });
 
+        function populateRequiredDocumentTypeOptions(requiredTypes) {
+            const select = $('#subscription_document_type');
+            const existingValue = String(select.val() || '');
+            const labels = {
+                student_id: 'Talabalik guvohnomasi',
+                enrollment_certificate: "O'qishdan ma'lumotnoma",
+                master_certificate: 'Magistratura hujjati',
+                phd_certificate: 'Doktorantura hujjati',
+                researcher_certificate: 'Tadqiqotchi hujjati',
+                employment_certificate: "Ish joyidan ma'lumotnoma",
+                other_academic: 'Boshqa akademik hujjat'
+            };
+            const allowedTypes = (requiredTypes && requiredTypes.length > 0)
+                ? requiredTypes
+                : Object.keys(labels);
+            select.empty();
+            select.append('<option value="">Tanlang</option>');
+            allowedTypes.forEach(function(typeKey) {
+                const label = labels[typeKey] || typeKey;
+                select.append($('<option></option>').attr('value', typeKey).text(label));
+            });
+            if (existingValue && allowedTypes.includes(existingValue)) {
+                select.val(existingValue);
+            } else if (allowedTypes.length === 1) {
+                select.val(allowedTypes[0]);
+            }
+        }
+
+        function syncSubscriptionDocumentBox() {
+            if (!selectedSubscription) {
+                $('#subscription_activation_doc_box').addClass('hidden');
+                return;
+            }
+            if (selectedSubscription.needs_document_upload) {
+                populateRequiredDocumentTypeOptions(selectedSubscription.required_document_types);
+                $('#subscription_activation_doc_box').removeClass('hidden');
+            } else {
+                $('#subscription_activation_doc_box').addClass('hidden');
+            }
+        }
+
         function updateSubscriptionButton() {
             const btn = $('#proceed_subscription');
-            if (selectedSubscription) {
+            if (selectedSubscription && !selectedSubscription.needs_document_verification) {
                 btn.prop('disabled', false);
             } else {
                 btn.prop('disabled', true);
             }
         }
 
-        // Handle subscription proceed button
-        $('#proceed_subscription').click(function() {
+        function createSubscriptionPayment() {
             if (!selectedSubscription) return;
+
+            const payload = {
+                tariff_id: selectedSubscription.tariff_id,
+                amount: selectedSubscription.amount,
+                currency: selectedSubscription.currency,
+                csrf_token: window.csrfToken || ''
+            };
 
             $.ajax({
                 url: '/api/payment/create_subscription',
                 type: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify(selectedSubscription),
+                data: JSON.stringify(payload),
                 success: function(response) {
                     if (response.success) {
                         window.location.reload();
@@ -356,14 +572,83 @@
                     alert('Failed to create subscription. Please try again.');
                 }
             });
+        }
+
+        function uploadActivationDocumentThenContinue() {
+            const documentType = String($('#subscription_document_type').val() || '').trim();
+            const documentHolderName = String($('#subscription_document_holder_name').val() || '').trim();
+            const institutionName = String($('#subscription_institution_name').val() || '').trim();
+            const fileInput = document.getElementById('subscription_document_file');
+            const selectedFile = fileInput && fileInput.files ? fileInput.files[0] : null;
+
+            if (!documentType) {
+                alert("Hujjat turini tanlang");
+                return;
+            }
+            if (!documentHolderName) {
+                alert("Hujjat egasi F.I.Sh ni kiriting");
+                return;
+            }
+            if (!institutionName) {
+                alert("Universitet yoki muassasa nomini kiriting");
+                return;
+            }
+            if (!selectedFile) {
+                alert("Hujjat faylini yuklang");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('csrf_token', window.csrfToken || '');
+            formData.append('tariff_id', selectedSubscription.tariff_id);
+            formData.append('document_type', documentType);
+            formData.append('document_holder_name', documentHolderName);
+            formData.append('institution_name', institutionName);
+            formData.append('academic_document', selectedFile);
+
+            $.ajax({
+                url: '/api/subscription/upload_document',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (!response.success) {
+                        alert(response.message || "Hujjat yuklashda xatolik");
+                        return;
+                    }
+                    if (selectedSubscription.requires_verified_document) {
+                        alert("Hujjat yuklandi. Endi admin tasdig'idan so'ng obuna faollashadi.");
+                        window.location.reload();
+                        return;
+                    }
+                    createSubscriptionPayment();
+                },
+                error: function() {
+                    alert("Hujjat yuklashda xatolik yuz berdi");
+                }
+            });
+        }
+
+        // Handle subscription proceed button
+        $('#proceed_subscription').click(function() {
+            if (!selectedSubscription) return;
+            if (selectedSubscription.needs_document_verification) {
+                alert("Hujjatingiz admin tasdig'ida. Tasdiqlangandan keyin obunani davom ettirasiz.");
+                return;
+            }
+            if (selectedSubscription.needs_document_upload) {
+                uploadActivationDocumentThenContinue();
+                return;
+            }
+            createSubscriptionPayment();
         });
 
-        // Handle subscribe now button click
-        $('#subscribe_now').click(function() {
-            $('#subscription_modal').removeClass('hidden');
-            selectedSubscription = null;
-            updateSubscriptionButton();
-            $('.subscription-option').removeClass('border-green-500 bg-green-50/50').addClass('border-gray-200');
+        $('.cancel-subscription-item-btn').click(function() {
+            const paymentId = $(this).data('payment-id');
+            const confirmed = confirm("Obunani bekor qilmoqchimisiz? Kirish huquqi darhol to'xtaydi.");
+            if (!confirmed) return;
+            cancelSubscriptionByPayment(paymentId);
         });
     });
 </script>

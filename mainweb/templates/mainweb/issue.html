@@ -181,7 +181,7 @@
         </div>
         <div>
             {% if articles %}
-                {% if has_access or not issue.is_paid %}
+                {% if has_access %}
                     {% for article in articles %}
                     <div class="mb-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm last:mb-0">
                         <div class="flex text-xs mb-1">
@@ -200,12 +200,12 @@
                             {% endif %}
                         </div>
                         <div class="">
-                            <a href="{{ url_for('app__article', article_id=article.id) }}" class="hover:underline text-xl font-medium underline-offset-4 decoration-green-600/0 hover:decoration-green-600 transition-all">
+                            <a href="{{ url_for('app__article', article_id=article.id) }}" class="hover:underline text-xl font-medium underline-offset-4 decoration-green-600/0 hover:decoration-green-600 transition-all break-words leading-relaxed">
                                 {{ article.title }}
                             </a>
                         </div>
                         <div class="mt-2">
-                            <div class="text-sm">{{ article.authors }}</div>
+                            <div class="text-sm break-words">{{ article.authors }}</div>
                             <div class="text-sm italic text-gray-600">{{ t('article') }} {{ article.id }}</div>
                         </div>
                         {% if has_access %}

@@ -6,6 +6,7 @@ import psycopg2
 import uuid
 import os
 import logging
+import threading
 from tabulate import tabulate
 
 logger = logging.getLogger(__name__)
@@ -54,26 +55,27 @@ class ConnectorQuery(object):
         raise psycopg2.OperationalError("Database connection precheck failed")
     
     def _sql(self, query, arguments, colnames = []):
-        self.precheck()
-        cursor = None
-        try:
-            cursor = self.connection.cursor()
-            cursor.execute(query, arguments)
-            self.connection.commit()
-            if self._action != "DELETE":
-                if colnames:
-                    result = self._get_all(cursor.fetchall(), colnames = colnames)
-                else:
-                    result = self._get_all(cursor.fetchall())
-                return result
-            return True
-        except Exception:
-            self.connection.rollback()
-            logger.exception("Database query failed (table=%s, action=%s)", self.tablename, self._action)
-            raise
-        finally:
-            if cursor is not None:
-                cursor.close()
+        with self.connector._lock:
+            self.precheck()
+            cursor = None
+            try:
+                cursor = self.connection.cursor()
+                cursor.execute(query, arguments)
+                self.connection.commit()
+                if self._action != "DELETE":
+                    if colnames:
+                        result = self._get_all(cursor.fetchall(), colnames = colnames)
+                    else:
+                        result = self._get_all(cursor.fetchall())
+                    return result
+                return True
+            except Exception:
+                self.connection.rollback()
+                logger.exception("Database query failed (table=%s, action=%s)", self.tablename, self._action)
+                raise
+            finally:
+                if cursor is not None:
+                    cursor.close()
 
     def exec(self):
         _filters = []
@@ -821,6 +823,7 @@ class PostgreSQLConnector(object):
         self.json_data = None
         self.conn = None
         self.languages = ['ru', 'en', 'cn']
+        self._lock = threading.RLock()
         self._skip_init = str(os.getenv('SKIP_DB_INIT', '')).strip().lower() in {'1', 'true', 'yes'}
 
         if self._skip_init:

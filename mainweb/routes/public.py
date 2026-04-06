@@ -114,6 +114,15 @@ PAGE_ALIAS_REDIRECTS = {
 }
 
 logger = logging.getLogger(__name__)
+TARIFF_ENTITLEMENT_SCOPES = {'all', 'archive'}
+DEFAULT_ARCHIVE_DAYS_THRESHOLD = 365
+ALLOWED_TARIFF_FEATURE_PERMISSIONS = {
+    'access_latest_content',
+    'access_archive_content',
+    'download_subscription_files',
+    'article_discount',
+    'issue_discount',
+}
 
 
 def _parse_int(value):
@@ -125,10 +134,40 @@ def _parse_int(value):
         return None
 
 
+def _parse_float(value, default=0.0):
+    if value in (None, ''):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _clean_text(value):
     if value is None:
         return ''
     return str(value).strip()
+
+
+def _safe_internal_redirect(target, fallback_endpoint):
+    fallback_url = url_for(fallback_endpoint)
+    target_text = _clean_text(target)
+    if not target_text:
+        return fallback_url
+
+    parsed = urlparse(target_text)
+    if parsed.scheme or parsed.netloc:
+        request_host = (request.host or '').split(':')[0]
+        parsed_host = (parsed.hostname or '').split(':')[0] if parsed.hostname else ''
+        if parsed_host != request_host:
+            return fallback_url
+        path = parsed.path or '/'
+        query = f"?{parsed.query}" if parsed.query else ''
+        return f"{path}{query}"
+
+    if not target_text.startswith('/') or target_text.startswith('//'):
+        return fallback_url
+    return target_text
 
 
 def _should_increment_article_view(article_id, ttl_seconds=6 * 60 * 60):
@@ -247,6 +286,8 @@ def _youtube_embed_url(raw_url):
     host = (parsed.netloc or '').lower()
     if host.startswith('www.'):
         host = host[4:]
+    if '.' not in host:
+        return ''
     path = (parsed.path or '').strip('/')
     video_id = ''
     is_youtube_host = ('youtube.com' in host) or (host == 'youtu.be') or ('youtube-nocookie.com' in host)
@@ -841,14 +882,14 @@ def app__contact():
             admin_title = (
                 f'Yangi murojaat: {admin_subject}'
                 if lang == 'uz'
-                else f'Novoe obrashchenie: {admin_subject}'
+                else f'Новое обращение: {admin_subject}'
                 if lang == 'ru'
                 else f'New contact request: {admin_subject}'
             )
             admin_intro = (
                 'Saytdagi contact form orqali yangi xabar yuborildi.'
                 if lang == 'uz'
-                else 'Cherez kontaktnuyu formu sayta bylo otpravleno novoe soobshchenie.'
+                else 'Через контактную форму сайта было отправлено новое сообщение.'
                 if lang == 'ru'
                 else 'A new message was sent through the website contact form.'
             )
@@ -874,21 +915,21 @@ def app__contact():
             user_subject = (
                 "Murojaatingiz qabul qilindi"
                 if lang == 'uz'
-                else 'Vashe soobshchenie polucheno'
+                else 'Ваше сообщение получено'
                 if lang == 'ru'
                 else 'We received your message'
             )
             user_intro = (
                 "Murojaatingiz Philology Matters jamoasiga yuborildi."
                 if lang == 'uz'
-                else 'Vashe soobshchenie bylo otpravleno komande Philology Matters.'
+                else 'Ваше сообщение было отправлено команде Philology Matters.'
                 if lang == 'ru'
                 else 'Your message has been delivered to the Philology Matters team.'
             )
             user_body = (
                 "Jamoamiz tez orada siz bilan bog'lanadi."
                 if lang == 'uz'
-                else 'Nasha komanda skoro svyazhetsya s vami.'
+                else 'Наша команда скоро свяжется с вами.'
                 if lang == 'ru'
                 else 'Our team will get back to you soon.'
             )
@@ -1175,8 +1216,8 @@ def app__change_language(lang):
     else:
         flash('invalid_language', 'error')
 
-    redirect_url = request.referrer
-    if not redirect_url or 'change_language' in redirect_url:
+    redirect_url = _safe_internal_redirect(request.form.get('redirect_url') or request.referrer, 'app__index')
+    if 'change_language' in redirect_url:
         redirect_url = url_for('app__index')
 
     return redirect(redirect_url)
@@ -1184,14 +1225,16 @@ def app__change_language(lang):
 
 def app__issues():
     current_lang = _current_lang_code()
-    year_filter = request.args.get('year')
+    year_filter_raw = _clean_text(request.args.get('year'))
+    parsed_year_filter = _parse_int(year_filter_raw)
+    year_filter = str(parsed_year_filter) if parsed_year_filter is not None else ''
     category_filter = request.args.get('category')
     access_filter = request.args.get('access')
 
     query = dbc.issues.get()
 
-    if year_filter:
-        query = query.equal(year=int(year_filter))
+    if parsed_year_filter is not None:
+        query = query.equal(year=parsed_year_filter)
 
     if category_filter:
         query = query.equal(category=category_filter)
@@ -1226,6 +1269,351 @@ def app__issues():
                          })
 
 
+def _user_subscription_is_active(user_row):
+    user = user_row or {}
+    end_ts = _parse_int(user.get('subscription_end_date'))
+    if end_ts is None:
+        return False
+    return end_ts > int(time.time())
+
+
+def _normalize_entitlement_scope(value):
+    normalized = _clean_text(value).lower()
+    if normalized in TARIFF_ENTITLEMENT_SCOPES:
+        return normalized
+    return 'all'
+
+
+def _normalize_feature_permission(value):
+    normalized = _clean_text(value).lower()
+    if normalized in ALLOWED_TARIFF_FEATURE_PERMISSIONS:
+        return normalized
+    return None
+
+
+def _parse_feature_permissions(value):
+    if isinstance(value, (list, tuple, set)):
+        raw_items = [str(item or '').strip() for item in value if str(item or '').strip()]
+    else:
+        text = _clean_text(value)
+        if text.startswith('{') and text.endswith('}'):
+            text = text[1:-1]
+        raw_items = [item.strip().strip('"').strip("'") for item in text.split(',') if item.strip()]
+
+    normalized_items = []
+    for item in raw_items:
+        normalized = _normalize_feature_permission(item)
+        if normalized and normalized not in normalized_items:
+            normalized_items.append(normalized)
+    return normalized_items
+
+
+def _tariff_feature_permissions(tariff):
+    return _parse_feature_permissions((tariff or {}).get('feature_permissions'))
+
+
+def _tariff_has_feature_permission(tariff, permission_key):
+    permission = _normalize_feature_permission(permission_key)
+    if not permission:
+        return False
+    permissions = _tariff_feature_permissions(tariff)
+    if permissions:
+        return permission in permissions
+
+    # Backward compatibility for old tariffs without explicit permissions matrix.
+    scope = _normalize_entitlement_scope((tariff or {}).get('entitlement_scope'))
+    if permission in {'access_latest_content', 'access_archive_content'}:
+        if scope == 'all':
+            return True
+        return permission == 'access_archive_content'
+    return True
+
+
+def _tariff_discount_percent(tariff, field_name):
+    tariff_row = tariff or {}
+    permission_map = {
+        'article_discount_pct': 'article_discount',
+        'issue_discount_pct': 'issue_discount',
+    }
+    required_permission = permission_map.get(field_name)
+    if required_permission and not _tariff_has_feature_permission(tariff_row, required_permission):
+        return 0.0
+
+    percent = _parse_float(tariff_row.get(field_name), 0.0)
+    if percent < 0:
+        return 0.0
+    if percent > 100:
+        return 100.0
+    return percent
+
+
+def _apply_discount_percent(amount, discount_percent):
+    base_amount = _parse_float(amount, 0.0)
+    percent = _parse_float(discount_percent, 0.0)
+    if percent <= 0:
+        return round(base_amount, 2)
+    if percent >= 100:
+        return 0.0
+    discounted = base_amount * ((100.0 - percent) / 100.0)
+    return round(max(discounted, 0.0), 2)
+
+
+def _extract_content_timestamp(record, fallback_year_key=None):
+    row = record or {}
+    for key in ('date_publish', 'published_at', 'created_at', 'created_date'):
+        timestamp = _parse_int(row.get(key))
+        if timestamp and timestamp > 0:
+            return timestamp
+
+    if fallback_year_key:
+        year = _parse_int(row.get(fallback_year_key))
+        if year and 1970 <= year <= 2100:
+            try:
+                return int(time.mktime(time.strptime(f'{year}-01-01', '%Y-%m-%d')))
+            except Exception:
+                return None
+    return None
+
+
+def _record_age_days(timestamp):
+    timestamp_int = _parse_int(timestamp)
+    if timestamp_int is None:
+        return None
+    seconds = int(time.time()) - timestamp_int
+    if seconds < 0:
+        return 0
+    return seconds // (24 * 60 * 60)
+
+
+def _tariff_allows_issue_access(tariff, issue):
+    tariff_row = tariff or {}
+    permissions = _tariff_feature_permissions(tariff_row)
+    threshold_days = _parse_int(tariff_row.get('archive_days_threshold'))
+    if threshold_days is None or threshold_days < 1:
+        threshold_days = DEFAULT_ARCHIVE_DAYS_THRESHOLD
+
+    if permissions:
+        issue_timestamp = _extract_content_timestamp(issue, fallback_year_key='year')
+        age_days = _record_age_days(issue_timestamp)
+        if age_days is None:
+            return False
+        if age_days >= threshold_days:
+            return 'access_archive_content' in permissions
+        return 'access_latest_content' in permissions
+
+    scope = _normalize_entitlement_scope(tariff_row.get('entitlement_scope'))
+    if scope == 'all':
+        return True
+
+    issue_timestamp = _extract_content_timestamp(issue, fallback_year_key='year')
+    age_days = _record_age_days(issue_timestamp)
+    if age_days is None:
+        return False
+    return age_days >= threshold_days
+
+
+def _tariff_allows_article_access(tariff, publication):
+    tariff_row = tariff or {}
+    permissions = _tariff_feature_permissions(tariff_row)
+    threshold_days = _parse_int(tariff_row.get('archive_days_threshold'))
+    if threshold_days is None or threshold_days < 1:
+        threshold_days = DEFAULT_ARCHIVE_DAYS_THRESHOLD
+
+    if permissions:
+        publication_timestamp = _extract_content_timestamp(publication)
+        if publication_timestamp is None:
+            issue_id = _parse_int((publication or {}).get('issue_id'))
+            if issue_id is not None:
+                issue_rows = dbc.issues.get(id=issue_id).exec()
+                if issue_rows:
+                    publication_timestamp = _extract_content_timestamp(issue_rows[0], fallback_year_key='year')
+
+        age_days = _record_age_days(publication_timestamp)
+        if age_days is None:
+            return False
+        if age_days >= threshold_days:
+            return 'access_archive_content' in permissions
+        return 'access_latest_content' in permissions
+
+    scope = _normalize_entitlement_scope(tariff_row.get('entitlement_scope'))
+    if scope == 'all':
+        return True
+
+    publication_timestamp = _extract_content_timestamp(publication)
+    if publication_timestamp is None:
+        issue_id = _parse_int((publication or {}).get('issue_id'))
+        if issue_id is not None:
+            issue_rows = dbc.issues.get(id=issue_id).exec()
+            if issue_rows:
+                publication_timestamp = _extract_content_timestamp(issue_rows[0], fallback_year_key='year')
+
+    age_days = _record_age_days(publication_timestamp)
+    if age_days is None:
+        return False
+    return age_days >= threshold_days
+
+
+def _load_user_row(user_id):
+    user_id_int = _parse_int(user_id)
+    if user_id_int is None:
+        return {}
+    user_rows = dbc.users.get(id=user_id_int).exec()
+    return user_rows[0] if user_rows else {}
+
+
+def _load_active_subscription_tariff(user_row):
+    user = user_row or {}
+    if not _user_subscription_is_active(user):
+        return None
+    tariff_id = _parse_int(user.get('tariff_id'))
+    if tariff_id is None:
+        return None
+    tariff_rows = dbc.tariffs.get(id=tariff_id).exec()
+    return tariff_rows[0] if tariff_rows else None
+
+
+def _subscription_grants_issue_access(user_row, issue, tariff_row=None):
+    user = user_row or {}
+    if not _user_subscription_is_active(user):
+        return False
+
+    tariff = tariff_row
+    if tariff is None:
+        tariff = _load_active_subscription_tariff(user)
+
+    if tariff is None:
+        # Legacy users can still have an active subscription_end_date without tariff_id.
+        return True
+
+    return _tariff_allows_issue_access(tariff, issue)
+
+
+def _subscription_grants_article_access(user_row, publication, tariff_row=None):
+    user = user_row or {}
+    if not _user_subscription_is_active(user):
+        return False
+
+    tariff = tariff_row
+    if tariff is None:
+        tariff = _load_active_subscription_tariff(user)
+
+    if tariff is None:
+        # Legacy users can still have an active subscription_end_date without tariff_id.
+        return True
+
+    return _tariff_allows_article_access(tariff, publication)
+
+
+def _user_has_paid_access(user_id, payment_type, target_id):
+    user_id_int = _parse_int(user_id)
+    if user_id_int is None or target_id is None:
+        return False
+
+    target_text = str(target_id)
+    payments = dbc.payments.get(user_id=user_id_int, status='paid').exec()
+    for payment in payments:
+        if _clean_text(payment.get('payment_type')).lower() != payment_type:
+            continue
+        payment_ids = payment.get('ids') or []
+        if not isinstance(payment_ids, (list, tuple)):
+            continue
+        if target_text in {str(item) for item in payment_ids}:
+            return True
+    return False
+
+
+def _resolve_issue_access_context(issue, user_id=None):
+    issue_row = issue or {}
+    requires_subscription = bool(issue_row.get('subscription_enable'))
+    requires_purchase = bool(issue_row.get('is_paid'))
+    requires_access = requires_subscription or requires_purchase
+    context = {
+        'has_access': False,
+        'requires_subscription': requires_subscription,
+        'requires_purchase': requires_purchase,
+        'access_via': None,
+        'user': {},
+        'tariff': None,
+    }
+    if not requires_access:
+        context['has_access'] = True
+        context['access_via'] = 'open'
+        return context
+
+    user_id_int = _parse_int(user_id)
+    if user_id_int is None:
+        return context
+
+    user = _load_user_row(user_id_int)
+    tariff = _load_active_subscription_tariff(user)
+    context['user'] = user
+    context['tariff'] = tariff
+
+    if requires_purchase and _user_has_paid_access(user_id_int, 'issue', issue_row.get('id')):
+        context['has_access'] = True
+        context['access_via'] = 'purchase'
+        return context
+
+    # Subscription should unlock any restricted issue (paid or subscription-only)
+    # when the active tariff grants access by entitlement rules.
+    if requires_access and _subscription_grants_issue_access(user, issue_row, tariff):
+        context['has_access'] = True
+        context['access_via'] = 'subscription'
+        return context
+
+    return context
+
+
+def _resolve_article_access_context(publication, user_id=None):
+    publication_row = publication or {}
+    requires_subscription = bool(publication_row.get('subscription_enable'))
+    requires_purchase = bool(publication_row.get('is_paid'))
+    requires_access = requires_subscription or requires_purchase
+    context = {
+        'has_access': False,
+        'requires_subscription': requires_subscription,
+        'requires_purchase': requires_purchase,
+        'access_via': None,
+        'user': {},
+        'tariff': None,
+    }
+    if not requires_access:
+        context['has_access'] = True
+        context['access_via'] = 'open'
+        return context
+
+    user_id_int = _parse_int(user_id)
+    if user_id_int is None:
+        return context
+
+    user = _load_user_row(user_id_int)
+    tariff = _load_active_subscription_tariff(user)
+    context['user'] = user
+    context['tariff'] = tariff
+
+    if requires_purchase and _user_has_paid_access(user_id_int, 'article', publication_row.get('id')):
+        context['has_access'] = True
+        context['access_via'] = 'purchase'
+        return context
+
+    # Subscription should unlock any restricted article (paid or subscription-only)
+    # when the active tariff grants access by entitlement rules.
+    if requires_access and _subscription_grants_article_access(user, publication_row, tariff):
+        context['has_access'] = True
+        context['access_via'] = 'subscription'
+        return context
+
+    return context
+
+
+def _resolve_issue_access(issue, user_id=None):
+    return bool(_resolve_issue_access_context(issue, user_id).get('has_access'))
+
+
+def _resolve_article_access(publication, user_id=None):
+    return bool(_resolve_article_access_context(publication, user_id).get('has_access'))
+
+
 def app__issue(issue_id):
     current_lang = _current_lang_code()
     issue = dbc.issues.get(id=issue_id).exec()
@@ -1249,17 +1637,7 @@ def app__issue(issue_id):
     prev_issue = all_issues[current_index - 1] if current_index > 0 else None
     next_issue = all_issues[current_index + 1] if current_index < len(all_issues) - 1 else None
 
-    has_access = False
-    if 'user_id' in session:
-        user = dbc.users.get(id=session['user_id']).exec()[0]
-        if user.get('subscription_end_date') and user['subscription_end_date'] > int(time.time()):
-            has_access = True
-        else:
-            payments = dbc.payments.get(user_id=session['user_id'], status='paid').exec()
-            for payment in payments:
-                if payment['payment_type'] == 'issue' and payment['ids'] and issue_id in payment['ids']:
-                    has_access = True
-                    break
+    has_access = _resolve_issue_access(issue, session.get('user_id'))
 
     publications = dbc.publications.get(issue_id=issue_id).exec()
     articles = []
@@ -1321,6 +1699,15 @@ def _normalize_currency(currency):
     return 'usd'
 
 
+def _default_currency_for_language():
+    lang = _current_lang_code()
+    if lang == 'uz':
+        return 'uzs'
+    if lang == 'ru':
+        return 'rub'
+    return 'usd'
+
+
 def _resolve_publication_price_local(publication, currency='usd'):
     if not publication:
         return 0.0
@@ -1350,29 +1737,23 @@ def app__purchase_article(article_id):
     if not publication.get('is_paid'):
         return redirect(url_for('app__article', article_id=article_id))
 
-    has_access = False
-    user_rows = dbc.users.get(id=user_id).exec()
-    user = user_rows[0] if user_rows else {}
-    if user.get('subscription_end_date') and user['subscription_end_date'] > int(time.time()):
-        has_access = True
-    else:
-        payments = dbc.payments.get(user_id=user_id, status='paid').exec()
-        for payment in payments:
-            if payment.get('payment_type') == 'article' and payment.get('ids') and article_id in payment['ids']:
-                has_access = True
-                break
-
-    if has_access:
+    access_context = _resolve_article_access_context(publication, user_id)
+    if access_context.get('has_access'):
         return redirect(url_for('app__article', article_id=article_id))
 
-    currency = _normalize_currency(request.args.get('currency', 'usd'))
-    amount = _resolve_publication_price_local(publication, currency)
+    currency = _normalize_currency(request.args.get('currency') or _default_currency_for_language())
+    original_amount = _resolve_publication_price_local(publication, currency)
+    active_tariff = access_context.get('tariff')
+    discount_percent = _tariff_discount_percent(active_tariff, 'article_discount_pct') if active_tariff else 0.0
+    amount = _apply_discount_percent(original_amount, discount_percent)
     guide_html = _get_payment_guide_html(current_lang)
 
     return render_template(
         'mainweb/purchase_article.html',
         publication=publication,
         amount=amount,
+        original_amount=original_amount,
+        discount_percent=discount_percent,
         currency=currency,
         guide_html=guide_html
     )
@@ -1398,21 +1779,12 @@ def app__article(article_id):
             publication['stat_views'] = new_views
         except Exception:
             current_app.logger.exception('Failed to update view count for article %s', article_id)
-    has_access = True
-    if publication.get('is_paid'):
-        has_access = False
-        user_id = session.get('user_id')
-        if user_id:
-            user_rows = dbc.users.get(id=user_id).exec()
-            user = user_rows[0] if user_rows else {}
-            if user.get('subscription_end_date') and user['subscription_end_date'] > int(time.time()):
-                has_access = True
-            else:
-                payments = dbc.payments.get(user_id=user_id, status='paid').exec()
-                for payment in payments:
-                    if payment.get('payment_type') == 'article' and payment.get('ids') and article_id in payment['ids']:
-                        has_access = True
-                        break
+    access_context = _resolve_article_access_context(publication, session.get('user_id'))
+    has_access = bool(access_context.get('has_access'))
+    purchase_currency = _default_currency_for_language()
+    purchase_base_amount = _resolve_publication_price_local(publication, purchase_currency)
+    purchase_discount_percent = _tariff_discount_percent(access_context.get('tariff'), 'article_discount_pct')
+    purchase_amount = _apply_discount_percent(purchase_base_amount, purchase_discount_percent)
 
     main_author = None
     if publication['main_author_id']:
@@ -1438,7 +1810,7 @@ def app__article(article_id):
     figures = []
     references = []
     citations = []
-    if not publication.get('is_paid') or has_access:
+    if has_access:
         parts = dbc.publication_parts.get(publication_id=article_id).order_by('order_id').exec()
         figures = dbc.publication_figures.get(publication_id=article_id).order_by('order_id').exec()
         references = dbc.publication_refs.get(publication_id=article_id).exec()
@@ -1468,6 +1840,10 @@ def app__article(article_id):
     return render_template('mainweb/article.html',
                          publication=publication,
                          has_access=has_access,
+                         purchase_currency=purchase_currency,
+                         purchase_amount=purchase_amount,
+                         purchase_base_amount=purchase_base_amount,
+                         purchase_discount_percent=purchase_discount_percent,
                          main_author=main_author,
                          co_authors=co_authors,
                          issue=issue,
@@ -1475,6 +1851,108 @@ def app__article(article_id):
                          publication_figures=figures,
                          publication_refs=references,
                          publication_citations=citations)
+
+
+def _ensure_subscription_download_usage_table():
+    cursor = None
+    try:
+        cursor = dbc.conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS subscription_download_usage (
+                user_id INTEGER NOT NULL,
+                period_key TEXT NOT NULL,
+                downloads_count INTEGER NOT NULL DEFAULT 0,
+                created_at BIGINT NOT NULL,
+                updated_at BIGINT NOT NULL,
+                PRIMARY KEY (user_id, period_key)
+            );
+            """
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_subscription_download_usage_period "
+            "ON subscription_download_usage(period_key);"
+        )
+        dbc.conn.commit()
+        return True
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+        logger.exception("Failed to ensure subscription_download_usage table")
+        return False
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+
+def _subscription_usage_period_key(now_ts=None):
+    timestamp = _parse_int(now_ts)
+    if timestamp is None:
+        timestamp = int(time.time())
+    local_ts = timestamp + (5 * 60 * 60)
+    return time.strftime('%Y-%m', time.gmtime(local_ts))
+
+
+def _consume_subscription_download_slot(user_id, monthly_limit):
+    user_id_int = _parse_int(user_id)
+    limit = _parse_int(monthly_limit) or 0
+    if user_id_int is None:
+        return {'allowed': False, 'used': 0, 'limit': limit}
+    if limit <= 0:
+        return {'allowed': True, 'used': 0, 'limit': 0}
+    if not _ensure_subscription_download_usage_table():
+        # Fail open: do not block legitimate downloads when usage tracking is temporarily unavailable.
+        return {'allowed': True, 'used': 0, 'limit': limit}
+
+    period_key = _subscription_usage_period_key()
+    lock_name = f"sub-download:{user_id_int}:{period_key}"
+    cursor = None
+    try:
+        cursor = dbc.conn.cursor()
+        cursor.execute("SELECT pg_advisory_xact_lock(hashtext(%s)::bigint)", (lock_name,))
+        cursor.execute(
+            "SELECT downloads_count FROM subscription_download_usage "
+            "WHERE user_id = %s AND period_key = %s FOR UPDATE",
+            (user_id_int, period_key)
+        )
+        row = cursor.fetchone()
+        current_count = int(row[0] or 0) if row else 0
+        if current_count >= limit:
+            dbc.conn.commit()
+            return {'allowed': False, 'used': current_count, 'limit': limit}
+
+        now_ts = int(time.time())
+        if row:
+            cursor.execute(
+                "UPDATE subscription_download_usage "
+                "SET downloads_count = downloads_count + 1, updated_at = %s "
+                "WHERE user_id = %s AND period_key = %s "
+                "RETURNING downloads_count",
+                (now_ts, user_id_int, period_key)
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO subscription_download_usage "
+                "(user_id, period_key, downloads_count, created_at, updated_at) "
+                "VALUES (%s, %s, %s, %s, %s) RETURNING downloads_count",
+                (user_id_int, period_key, 1, now_ts, now_ts)
+            )
+        used_row = cursor.fetchone()
+        used_count = int(used_row[0] or 0) if used_row else (current_count + 1)
+        dbc.conn.commit()
+        return {'allowed': True, 'used': used_count, 'limit': limit}
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+        logger.exception("Failed to consume download slot for user_id=%s", user_id_int)
+        return {'allowed': True, 'used': 0, 'limit': limit}
+    finally:
+        if cursor is not None:
+            cursor.close()
 
 
 def app__download_article(article_id):
@@ -1485,22 +1963,17 @@ def app__download_article(article_id):
 
     publication = publication[0]
 
-    if publication['is_paid']:
-        if 'user_id' not in session:
+    requires_access = bool(publication.get('is_paid') or publication.get('subscription_enable'))
+    access_context = {'has_access': True, 'access_via': 'open', 'tariff': None}
+    user_id = None
+    if requires_access:
+        user_id = session.get('user_id')
+        if not user_id:
             flash('Please log in to download this article', 'error')
             return redirect(url_for('app__login'))
 
-        user = dbc.users.get(id=session['user_id']).exec()[0]
-        has_access = False
-        if user.get('subscription_end_date') and user['subscription_end_date'] > int(time.time()):
-            has_access = True
-        else:
-            payments = dbc.payments.get(user_id=session['user_id'], status='paid').exec()
-            for payment in payments:
-                if payment['payment_type'] == 'article' and payment['ids'] and article_id in payment['ids']:
-                    has_access = True
-                    break
-
+        access_context = _resolve_article_access_context(publication, user_id)
+        has_access = bool(access_context.get('has_access'))
         if not has_access:
             flash('Access denied. Please purchase or subscribe.', 'error')
             return redirect(url_for('app__article', article_id=article_id))
@@ -1536,6 +2009,17 @@ def app__download_article(article_id):
         flash('Article file not found', 'error')
         return redirect(url_for('app__article', article_id=article_id))
 
+    if access_context.get('access_via') == 'subscription':
+        tariff = access_context.get('tariff') or {}
+        if not _tariff_has_feature_permission(tariff, 'download_subscription_files'):
+            flash('Your current subscription does not include file downloads.', 'error')
+            return redirect(url_for('app__article', article_id=article_id))
+        monthly_limit = _parse_int(tariff.get('monthly_download_limit')) or 0
+        limit_result = _consume_subscription_download_slot(user_id, monthly_limit)
+        if not limit_result.get('allowed'):
+            flash(f"Monthly download limit reached ({limit_result.get('limit')} downloads).", 'error')
+            return redirect(url_for('app__article', article_id=article_id))
+
     try:
         new_downloads = (publication.get('stat_alt') or 0) + 1
         dbc.publications.get(id=article_id).update(stat_alt=new_downloads).exec()
@@ -1563,7 +2047,7 @@ def register(app):
     app.add_url_rule('/articles', view_func=app__articles)
     app.add_url_rule('/news', view_func=app__news)
     app.add_url_rule('/news/<int:news_id>', view_func=app__news_detail)
-    app.add_url_rule('/change_language/<string:lang>', view_func=app__change_language)
+    app.add_url_rule('/change_language/<string:lang>', view_func=app__change_language, methods=['POST'])
     app.add_url_rule('/issues', view_func=app__issues)
     app.add_url_rule('/issue/<int:issue_id>', view_func=app__issue)
     app.add_url_rule('/issue/purchase/<int:issue_id>', view_func=login_required(app__purchase_issue))

@@ -49,6 +49,7 @@ def timestamp_to_date(timestamp):
 def status_color(status):
     colors = {
         'declined': 'red',
+        'rejected': 'red',
         'unpaid': 'blue',
         'paid': 'green',
         'pending': 'blue'
@@ -59,6 +60,7 @@ def status_color(status):
 def status_text(status):
     texts = {
         'declined': 'Declined',
+        'rejected': 'Declined',
         'unpaid': 'Waiting payment',
         'paid': 'Activated',
         'pending': 'Under review'

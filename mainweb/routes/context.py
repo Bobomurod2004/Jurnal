@@ -7,6 +7,12 @@ import settings
 
 
 def register_context_processors(app):
+    def _safe_int(value):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
     def _current_lang_code():
         lang = str(session.get('language') or 'en').strip().lower()
         return lang if lang in {'uz', 'ru', 'en'} else 'en'
@@ -99,11 +105,19 @@ def register_context_processors(app):
 
     @app.context_processor
     def inject_latest_issue():
-        latest_issue = dbc.issues.get().order_by('year').order_by('issue_no').per_page(1).page(1).exec()
-        if not latest_issue:
+        issues = dbc.issues.get().exec()
+        if not issues:
             return {'latest_issue': None}
 
-        latest_issue_item = dict(latest_issue[0])
+        latest_issue_item = max(
+            issues,
+            key=lambda item: (
+                _safe_int(item.get('year')),
+                _safe_int(item.get('issue_no')),
+                _safe_int(item.get('id')),
+            ),
+        )
+        latest_issue_item = dict(latest_issue_item)
         latest_issue_item['title'] = _localized_field(latest_issue_item, 'title')
         latest_issue_item['shortinfo'] = _localized_field(latest_issue_item, 'shortinfo')
         latest_issue_item['price'] = _localized_field(latest_issue_item, 'price')

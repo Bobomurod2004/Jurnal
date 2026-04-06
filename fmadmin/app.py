@@ -56,7 +56,7 @@ def create_app():
     app.config['SESSION_COOKIE_NAME'] = 'fmadmin_session'
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV') == 'production'
+    app.config['SESSION_COOKIE_SECURE'] = bool(settings.IS_PRODUCTION)
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
     app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
 

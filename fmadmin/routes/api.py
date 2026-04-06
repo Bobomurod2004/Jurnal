@@ -12,6 +12,63 @@ from utils.auth import api_admin_required, api_superadmin_required
 import settings
 
 logger = logging.getLogger(__name__)
+TARIFF_ENTITLEMENT_SCOPES = {'all', 'archive'}
+DEFAULT_ARCHIVE_DAYS_THRESHOLD = 365
+ALLOWED_TARIFF_FEATURE_PERMISSIONS = {
+    'access_latest_content',
+    'access_archive_content',
+    'download_subscription_files',
+    'article_discount',
+    'issue_discount',
+}
+ACADEMIC_POSITION_ALIASES = {
+    'teacher': 'teacher',
+    'student': 'student',
+    'master': 'master',
+    'masters': 'master',
+    'magister': 'master',
+    'magistr': 'master',
+    'doctoral': 'doctoral',
+    'doctor': 'doctor',
+    'doctorant': 'doctoral',
+    'doktorant': 'doctoral',
+    'postgraduate': 'postgraduate',
+    'researcher': 'researcher',
+    'university_researcher': 'university_researcher',
+    'independent_researcher': 'independent_researcher',
+}
+ALLOWED_ACADEMIC_POSITIONS = {
+    'teacher',
+    'student',
+    'master',
+    'doctoral',
+    'postgraduate',
+    'doctor',
+    'researcher',
+    'university_researcher',
+    'independent_researcher',
+}
+DOCUMENT_TYPE_ALIASES = {
+    'student_id': 'student_id',
+    'student_card': 'student_id',
+    'enrollment_certificate': 'enrollment_certificate',
+    'master_certificate': 'master_certificate',
+    'masters_certificate': 'master_certificate',
+    'phd_certificate': 'phd_certificate',
+    'doctoral_certificate': 'phd_certificate',
+    'researcher_certificate': 'researcher_certificate',
+    'employment_certificate': 'employment_certificate',
+    'other_academic': 'other_academic',
+}
+ALLOWED_DOCUMENT_TYPES = {
+    'student_id',
+    'enrollment_certificate',
+    'master_certificate',
+    'phd_certificate',
+    'researcher_certificate',
+    'employment_certificate',
+    'other_academic',
+}
 
 
 def _json_payload():
@@ -40,6 +97,123 @@ def _parse_int(value):
         return int(text)
     except (TypeError, ValueError):
         return None
+
+
+def _parse_bool(value, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+    return bool(value)
+
+
+def _parse_float(value, default=0.0):
+    if value in (None, ''):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_discount_percent(value):
+    numeric = _parse_float(value, 0.0)
+    if numeric < 0:
+        return 0.0
+    if numeric > 100:
+        return 100.0
+    return numeric
+
+
+def _normalize_entitlement_scope(value):
+    normalized = str(value or 'all').strip().lower()
+    return normalized if normalized in TARIFF_ENTITLEMENT_SCOPES else 'all'
+
+
+def _normalize_academic_position(value):
+    normalized = str(value or '').strip().lower()
+    normalized = normalized.replace('’', "'")
+    normalized = ACADEMIC_POSITION_ALIASES.get(normalized, normalized)
+    return normalized if normalized in ALLOWED_ACADEMIC_POSITIONS else None
+
+
+def _parse_required_positions(value):
+    raw_items = []
+    if isinstance(value, (list, tuple, set)):
+        raw_items = list(value)
+    else:
+        text = str(value or '').strip()
+        if text.startswith('{') and text.endswith('}'):
+            text = text[1:-1]
+        raw_items = [item.strip().strip('"').strip("'") for item in text.split(',') if item.strip()]
+
+    normalized_items = []
+    for item in raw_items:
+        normalized = _normalize_academic_position(item)
+        if normalized and normalized not in normalized_items:
+            normalized_items.append(normalized)
+    return normalized_items
+
+
+def _parse_text_array(value):
+    if isinstance(value, (list, tuple, set)):
+        return [str(item or '').strip() for item in value if str(item or '').strip()]
+    text = str(value or '').strip()
+    if text.startswith('{') and text.endswith('}'):
+        text = text[1:-1]
+    return [item.strip().strip('"').strip("'") for item in text.split(',') if item.strip()]
+
+
+def _normalize_feature_permission(value):
+    normalized = str(value or '').strip().lower()
+    return normalized if normalized in ALLOWED_TARIFF_FEATURE_PERMISSIONS else None
+
+
+def _parse_feature_permissions(value):
+    normalized_items = []
+    for item in _parse_text_array(value):
+        normalized = _normalize_feature_permission(item)
+        if normalized and normalized not in normalized_items:
+            normalized_items.append(normalized)
+    return normalized_items
+
+
+def _default_feature_permissions(entitlement_scope):
+    scope = _normalize_entitlement_scope(entitlement_scope)
+    if scope == 'archive':
+        return [
+            'access_archive_content',
+            'download_subscription_files',
+            'article_discount',
+            'issue_discount',
+        ]
+    return [
+        'access_latest_content',
+        'access_archive_content',
+        'download_subscription_files',
+        'article_discount',
+        'issue_discount',
+    ]
+
+
+def _normalize_document_type(value):
+    normalized = str(value or '').strip().lower()
+    normalized = normalized.replace('’', "'")
+    normalized = DOCUMENT_TYPE_ALIASES.get(normalized, normalized)
+    return normalized if normalized in ALLOWED_DOCUMENT_TYPES else None
+
+
+def _parse_required_document_types(value):
+    normalized_items = []
+    for item in _parse_text_array(value):
+        normalized = _normalize_document_type(item)
+        if normalized and normalized not in normalized_items:
+            normalized_items.append(normalized)
+    return normalized_items
 
 
 def _table_columns(table_name):
@@ -83,6 +257,145 @@ def _ensure_tariff_duration_column(default_days=30):
         except Exception:
             pass
         logger.exception("Failed to ensure duration_days column for tariffs")
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+
+def _ensure_tariff_archive_column():
+    columns = _table_columns('tariffs')
+    if not columns or 'is_archived' in columns:
+        return
+    cursor = None
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute("ALTER TABLE tariffs ADD COLUMN IF NOT EXISTS is_archived boolean DEFAULT false;")
+        cursor.execute("UPDATE tariffs SET is_archived = false WHERE is_archived IS NULL;")
+        db.conn.commit()
+        db._init_tables()
+        db._init_columns()
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        logger.exception("Failed to ensure is_archived column for tariffs")
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+
+def _ensure_tariff_entitlement_columns():
+    columns = _table_columns('tariffs')
+    if not columns:
+        return
+
+    missing_columns = {}
+    if 'entitlement_scope' not in columns:
+        missing_columns['entitlement_scope'] = "text DEFAULT 'all'"
+    if 'archive_days_threshold' not in columns:
+        missing_columns['archive_days_threshold'] = f"integer DEFAULT {int(DEFAULT_ARCHIVE_DAYS_THRESHOLD)}"
+    if 'article_discount_pct' not in columns:
+        missing_columns['article_discount_pct'] = "double precision DEFAULT 0"
+    if 'issue_discount_pct' not in columns:
+        missing_columns['issue_discount_pct'] = "double precision DEFAULT 0"
+    if 'subscription_discount_pct' not in columns:
+        missing_columns['subscription_discount_pct'] = "double precision DEFAULT 0"
+    if 'subscription_discount_start_at' not in columns:
+        missing_columns['subscription_discount_start_at'] = "bigint"
+    if 'subscription_discount_end_at' not in columns:
+        missing_columns['subscription_discount_end_at'] = "bigint"
+    if 'monthly_download_limit' not in columns:
+        missing_columns['monthly_download_limit'] = "integer DEFAULT 0"
+    if 'required_academic_positions' not in columns:
+        missing_columns['required_academic_positions'] = "text[] DEFAULT '{}'::text[]"
+    if 'requires_verified_document' not in columns:
+        missing_columns['requires_verified_document'] = "boolean DEFAULT false"
+    if 'eligibility_note' not in columns:
+        missing_columns['eligibility_note'] = "text"
+    if 'feature_permissions' not in columns:
+        missing_columns['feature_permissions'] = "text[] DEFAULT '{}'::text[]"
+    if 'required_document_types' not in columns:
+        missing_columns['required_document_types'] = "text[] DEFAULT '{}'::text[]"
+
+    cursor = None
+    try:
+        cursor = db.conn.cursor()
+        for column_name, column_type in missing_columns.items():
+            cursor.execute(f"ALTER TABLE tariffs ADD COLUMN IF NOT EXISTS {column_name} {column_type};")
+
+        cursor.execute(
+            "UPDATE tariffs SET entitlement_scope = COALESCE(NULLIF(TRIM(entitlement_scope), ''), 'all') "
+            "WHERE entitlement_scope IS NULL OR NULLIF(TRIM(entitlement_scope), '') IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET archive_days_threshold = COALESCE(archive_days_threshold, %s) "
+            "WHERE archive_days_threshold IS NULL;",
+            (int(DEFAULT_ARCHIVE_DAYS_THRESHOLD),)
+        )
+        cursor.execute(
+            "UPDATE tariffs SET article_discount_pct = COALESCE(article_discount_pct, 0) "
+            "WHERE article_discount_pct IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET issue_discount_pct = COALESCE(issue_discount_pct, 0) "
+            "WHERE issue_discount_pct IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET subscription_discount_pct = COALESCE(subscription_discount_pct, 0) "
+            "WHERE subscription_discount_pct IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET monthly_download_limit = COALESCE(monthly_download_limit, 0) "
+            "WHERE monthly_download_limit IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET required_academic_positions = COALESCE(required_academic_positions, ARRAY[]::text[]) "
+            "WHERE required_academic_positions IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET requires_verified_document = COALESCE(requires_verified_document, false) "
+            "WHERE requires_verified_document IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET feature_permissions = COALESCE(feature_permissions, ARRAY[]::text[]) "
+            "WHERE feature_permissions IS NULL;"
+        )
+        cursor.execute(
+            "UPDATE tariffs SET required_document_types = COALESCE(required_document_types, ARRAY[]::text[]) "
+            "WHERE required_document_types IS NULL;"
+        )
+        db.conn.commit()
+        db._init_tables()
+        db._init_columns()
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        logger.exception("Failed to ensure entitlement columns for tariffs")
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+
+def _count_subscription_payments_for_tariff(tariff_id):
+    cursor = None
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) FROM payments WHERE payment_type = 'subscription' AND %s = ANY(ids)",
+            (int(tariff_id),)
+        )
+        row = cursor.fetchone()
+        return int(row[0] or 0) if row else 0
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        logger.exception("Failed to count subscription payments for tariff_id=%s", tariff_id)
+        return 0
     finally:
         if cursor is not None:
             cursor.close()
@@ -258,6 +571,8 @@ def sync_translations():
 @api_admin_required
 def create_tariff():
     _ensure_tariff_duration_column()
+    _ensure_tariff_archive_column()
+    _ensure_tariff_entitlement_columns()
     data = _json_payload()
     if not data.get('name'):
         return jsonify({'success': False, 'message': 'name is required'}), 400
@@ -266,6 +581,27 @@ def create_tariff():
         duration_days = _parse_int(data.get('user_limit'))
     if duration_days is None:
         duration_days = 30
+    entitlement_scope = _normalize_entitlement_scope(data.get('entitlement_scope'))
+    archive_days_threshold = _parse_int(data.get('archive_days_threshold'))
+    if archive_days_threshold is None or archive_days_threshold < 1:
+        archive_days_threshold = DEFAULT_ARCHIVE_DAYS_THRESHOLD
+    article_discount_pct = _normalize_discount_percent(data.get('article_discount_pct'))
+    issue_discount_pct = _normalize_discount_percent(data.get('issue_discount_pct'))
+    subscription_discount_pct = _normalize_discount_percent(data.get('subscription_discount_pct'))
+    subscription_discount_start_at = _parse_int(data.get('subscription_discount_start_at'))
+    subscription_discount_end_at = _parse_int(data.get('subscription_discount_end_at'))
+    monthly_download_limit = _parse_int(data.get('monthly_download_limit'))
+    if monthly_download_limit is None or monthly_download_limit < 0:
+        monthly_download_limit = 0
+    required_academic_positions = _parse_required_positions(data.get('required_academic_positions'))
+    requires_verified_document = _parse_bool(data.get('requires_verified_document'))
+    eligibility_note = data.get('eligibility_note')
+    raw_feature_permissions = data.get('feature_permissions')
+    if raw_feature_permissions is None:
+        feature_permissions = _default_feature_permissions(entitlement_scope)
+    else:
+        feature_permissions = _parse_feature_permissions(raw_feature_permissions)
+    required_document_types = _parse_required_document_types(data.get('required_document_types'))
 
     db.tariffs.add(
         name=data.get('name'),
@@ -281,6 +617,20 @@ def create_tariff():
         duration_days=duration_days,
         is_default=data.get('is_default', False),
         is_verified=data.get('is_verified', False),
+        is_archived=False,
+        entitlement_scope=entitlement_scope,
+        archive_days_threshold=archive_days_threshold,
+        article_discount_pct=article_discount_pct,
+        issue_discount_pct=issue_discount_pct,
+        subscription_discount_pct=subscription_discount_pct,
+        subscription_discount_start_at=subscription_discount_start_at,
+        subscription_discount_end_at=subscription_discount_end_at,
+        monthly_download_limit=monthly_download_limit,
+        required_academic_positions=required_academic_positions,
+        requires_verified_document=requires_verified_document,
+        eligibility_note=eligibility_note,
+        feature_permissions=feature_permissions,
+        required_document_types=required_document_types,
         created_at=data.get('created_at') or int(time.time()),
         updated_at=data.get('updated_at') or int(time.time())
     ).exec()
@@ -291,12 +641,36 @@ def create_tariff():
 @api_admin_required
 def update_tariff(tariff_id):
     _ensure_tariff_duration_column()
+    _ensure_tariff_archive_column()
+    _ensure_tariff_entitlement_columns()
     data = _json_payload()
     duration_days = _parse_int(data.get('duration_days'))
     if duration_days is None:
         duration_days = _parse_int(data.get('user_limit'))
     if duration_days is None:
         duration_days = 30
+    entitlement_scope = _normalize_entitlement_scope(data.get('entitlement_scope'))
+    archive_days_threshold = _parse_int(data.get('archive_days_threshold'))
+    if archive_days_threshold is None or archive_days_threshold < 1:
+        archive_days_threshold = DEFAULT_ARCHIVE_DAYS_THRESHOLD
+    article_discount_pct = _normalize_discount_percent(data.get('article_discount_pct'))
+    issue_discount_pct = _normalize_discount_percent(data.get('issue_discount_pct'))
+    subscription_discount_pct = _normalize_discount_percent(data.get('subscription_discount_pct'))
+    subscription_discount_start_at = _parse_int(data.get('subscription_discount_start_at'))
+    subscription_discount_end_at = _parse_int(data.get('subscription_discount_end_at'))
+    monthly_download_limit = _parse_int(data.get('monthly_download_limit'))
+    if monthly_download_limit is None or monthly_download_limit < 0:
+        monthly_download_limit = 0
+    required_academic_positions = _parse_required_positions(data.get('required_academic_positions'))
+    requires_verified_document = _parse_bool(data.get('requires_verified_document'))
+    eligibility_note = data.get('eligibility_note')
+    raw_feature_permissions = data.get('feature_permissions')
+    if raw_feature_permissions is None:
+        feature_permissions = _default_feature_permissions(entitlement_scope)
+    else:
+        feature_permissions = _parse_feature_permissions(raw_feature_permissions)
+    required_document_types = _parse_required_document_types(data.get('required_document_types'))
+
     db.tariffs.get(id=tariff_id).update(
         name=data.get('name'),
         name_uz=data.get('name_uz'),
@@ -311,6 +685,19 @@ def update_tariff(tariff_id):
         duration_days=duration_days,
         is_default=data.get('is_default', False),
         is_verified=data.get('is_verified', False),
+        entitlement_scope=entitlement_scope,
+        archive_days_threshold=archive_days_threshold,
+        article_discount_pct=article_discount_pct,
+        issue_discount_pct=issue_discount_pct,
+        subscription_discount_pct=subscription_discount_pct,
+        subscription_discount_start_at=subscription_discount_start_at,
+        subscription_discount_end_at=subscription_discount_end_at,
+        monthly_download_limit=monthly_download_limit,
+        required_academic_positions=required_academic_positions,
+        requires_verified_document=requires_verified_document,
+        eligibility_note=eligibility_note,
+        feature_permissions=feature_permissions,
+        required_document_types=required_document_types,
         updated_at=data.get('updated_at') or int(time.time())
     ).exec()
     return jsonify({'success': True})
@@ -319,6 +706,7 @@ def update_tariff(tariff_id):
 @api_admin_required
 def delete_tariff(tariff_id):
     try:
+        _ensure_tariff_archive_column()
         tariff = db.tariffs.get(id=tariff_id).exec()
         if not tariff:
             return jsonify({'success': False, 'error': 'Тариф не найден'}), 404
@@ -328,19 +716,22 @@ def delete_tariff(tariff_id):
             return jsonify({'success': False, 'error': 'Нельзя удалить тариф по умолчанию'}), 400
 
         users_with_tariff = db.users.get(tariff_id=tariff_id).exec()
-        if users_with_tariff:
-            db.users.get(tariff_id=tariff_id).update(
-                tariff_id=None,
-                subscription_end_date=None
-            ).exec()
-
-        db.tariffs.get(id=tariff_id).delete().exec()
+        payments_count = _count_subscription_payments_for_tariff(tariff_id)
+        db.tariffs.get(id=tariff_id).update(
+            is_archived=True,
+            is_default=False,
+            updated_at=int(time.time())
+        ).exec()
         return jsonify({
             'success': True,
-            'message': f'Тариф удален. {len(users_with_tariff)} пользователей переведены на обычный режим.'
+            'message': (
+                f'Тариф архивирован. Пользователи на тарифе: {len(users_with_tariff)}. '
+                f'Связанных подписочных платежей: {payments_count}.'
+            )
         })
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+    except Exception:
+        logger.exception('Failed to delete tariff_id=%s', tariff_id)
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 
 @api_admin_required

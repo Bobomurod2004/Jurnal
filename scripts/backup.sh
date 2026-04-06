@@ -5,7 +5,7 @@
 set -e
 
 # Configuration
-BACKUP_DIR="/home/Jurnal/backups"
+BACKUP_DIR="/home/user/scripts/backups"
 CONTAINER_NAME="journal_db"
 DB_NAME="journal2"
 DB_USER="postgres"

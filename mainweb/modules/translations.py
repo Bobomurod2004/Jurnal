@@ -64,7 +64,7 @@ UZ = {
     'workflow_stage_waiting': 'Kutilmoqda',
     'workflow_stage_anti_plagiarism': 'Antiplagiatga tekshirish',
     'workflow_stage_technical_check': 'Texnik talablarga mos',
-    'workflow_stage_in_review': 'Tahrizda',
+    'workflow_stage_in_review': 'Taqrizda',
     'workflow_stage_payment': "To'lov",
     'workflow_stage_recommended': 'Nashrga tavsiya etildi',
     'workflow_stage_published': 'Nashr qilindi',

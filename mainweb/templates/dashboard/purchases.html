@@ -13,8 +13,13 @@
             </div>
 
             {% if subscription_active %}
-            <div class="mb-8 text-lg font-medium text-gray-900">
-                {{ t('active_subscription') }} {{ subscription_end_date|timestamp_to_date }} ({{ days_left }} {{ t('days_left') }})
+            <div class="mb-8 rounded-lg border border-green-200 bg-green-50/50 px-4 py-4">
+                <div class="text-lg font-medium text-gray-900">
+                    {{ t('active_subscription') }} {{ subscription_end_date|timestamp_to_date }} ({{ days_left }} {{ t('days_left') }})
+                </div>
+                <div class="text-sm text-gray-600 mt-1">
+                    Muddat tugaganda obuna avtomatik o‘chadi. Bekor qilish yoki uzaytirishni pastdagi har bir obuna kartasida alohida boshqarishingiz mumkin.
+                </div>
             </div>
             {% else %}
             <div class="mb-8 border rounded-lg bg-blue-50/50 border-blue-200 px-4 py-8 sm:px-8">
@@ -33,6 +38,67 @@
                 </div>
             </div>
             {% endif %}
+
+            <div class="mb-8">
+                <h4 class="text-md font-semibold mb-4">Obunalarim</h4>
+                {% set subscription_payments = payments|selectattr('payment_type', 'equalto', 'subscription')|selectattr('status', 'equalto', 'paid')|list %}
+                <div class="flex flex-col gap-4">
+                    {% for payment in subscription_payments %}
+                    {% set payment_tariff_id = (payment.tariff.id if payment.tariff else (payment.ids[0] if payment.ids else None)) %}
+                    <div class="border border-green-200 rounded-lg p-4 bg-green-50/20">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <div class="text-lg font-medium text-gray-900">
+                                    {{ payment.tariff.name if payment.tariff else (t('payment_subscription') if t('payment_subscription') != 'payment_subscription' else 'Obuna') }}
+                                </div>
+                                {% if payment.subscription_end_at %}
+                                <div class="text-sm text-gray-600 mt-1">
+                                    Muddat:
+                                    {% if payment.subscription_start_at %}{{ payment.subscription_start_at|timestamp_to_date }}{% else %}-{% endif %}
+                                    - {{ payment.subscription_end_at|timestamp_to_date }}
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    {% if payment.subscription_active_item %}
+                                        Faol, {{ payment.subscription_days_left }} kun qoldi
+                                    {% elif payment.subscription_upcoming_item %}
+                                        Navbatdagi obuna, {{ payment.subscription_days_until_start }} kundan keyin boshlanadi
+                                    {% else %}
+                                        Tugagan
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <div class="text-sm text-gray-500 mt-1">Muddat ma'lumoti yo‘q</div>
+                                {% endif %}
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    {% if payment_tariff_id %}
+                                    <button
+                                        class="extend-subscription-btn text-nowrap inline-flex items-center justify-center gap-x-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 hover:cursor-pointer transition-colors"
+                                        data-tariff-id="{{ payment_tariff_id }}"
+                                    >
+                                        Uzaytirish
+                                    </button>
+                                    {% endif %}
+                                    {% if payment.subscription_active_item %}
+                                    <button
+                                        class="cancel-subscription-item-btn text-nowrap inline-flex items-center justify-center gap-x-1.5 rounded-md bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 hover:cursor-pointer transition-colors"
+                                        data-payment-id="{{ payment.id }}"
+                                    >
+                                        Bekor qilish
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-500 text-end">{{ payment.created_at|timestamp_to_date }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% if not subscription_payments %}
+                    <div class="text-gray-500 text-center py-8">
+                        Faol yoki tarixiy obuna topilmadi
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
 
             <div class="mb-8">
                 <h4 class="text-md font-semibold mb-4">{{ t('articles_section') }}</h4>
@@ -114,21 +180,70 @@
             </div>
         </div>
 
-{{ subscription_modal(tariffs, currency, is_verified, t) }}
+{{ subscription_modal(tariffs, currency, is_verified, t, user_full_name, user_document_holder_name, user_document_institution_name) }}
 
 {% endblock %}
 
 {% block dashboard_scripts %}
 <script>
     $(document).ready(function() {
+        const dashboardCurrency = {{ currency | tojson }};
         let selectedSubscription = null;
+
+        function resetSubscriptionSelection() {
+            selectedSubscription = null;
+            $('#subscription_activation_doc_box').addClass('hidden');
+            updateSubscriptionButton();
+            $('.subscription-option')
+                .removeClass('border-green-500 border-green-300 bg-green-50/50')
+                .addClass('border-gray-200');
+        }
+
+        function openSubscriptionModal(preselectedTariffId) {
+            $('#subscription_modal').removeClass('hidden');
+            resetSubscriptionSelection();
+            if (!preselectedTariffId) {
+                return;
+            }
+            const targetOption = $('.subscription-option[data-tariff-id="' + String(preselectedTariffId) + '"]').first();
+            if (targetOption.length) {
+                targetOption.trigger('click');
+            }
+        }
+
+        function cancelSubscriptionByPayment(paymentId) {
+            const payload = {
+                csrf_token: window.csrfToken || ''
+            };
+            if (paymentId) {
+                payload.payment_id = Number(paymentId);
+            }
+            $.ajax({
+                url: '/api/subscription/cancel',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(payload),
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message || "Obuna bekor qilindi");
+                        window.location.reload();
+                    } else {
+                        alert(response.message || "Obunani bekor qilishda xatolik");
+                    }
+                },
+                error: function() {
+                    alert("Obunani bekor qilishda xatolik");
+                }
+            });
+        }
 
         // Open subscription modal
         $('#subscribe_now').click(function() {
-            $('#subscription_modal').removeClass('hidden');
-            selectedSubscription = null;
-            updateSubscriptionButton();
-            $('.subscription-option').removeClass('border-green-500 bg-green-50/50').addClass('border-gray-200');
+            openSubscriptionModal(null);
+        });
+        $('.extend-subscription-btn').click(function() {
+            const tariffId = $(this).data('tariff-id');
+            openSubscriptionModal(tariffId || null);
         });
 
         // Close subscription modal
@@ -145,31 +260,86 @@
             
             $('.subscription-option').removeClass('border-green-300 bg-green-50/50').addClass('border-gray-200');
             $(this).removeClass('border-gray-200').addClass('border-green-300 bg-green-50/50');
+            const requiredDocTypesRaw = String($(this).data('required-document-types') || '').trim();
+            const requiredDocTypes = requiredDocTypesRaw ? requiredDocTypesRaw.split(',').map(item => item.trim()).filter(Boolean) : [];
             selectedSubscription = {
                 tariff_id: $(this).data('tariff-id'),
-                amount: $(this).data('amount')
+                amount: $(this).data('amount'),
+                currency: ($(this).data('currency') || dashboardCurrency || 'usd'),
+                needs_document_upload: Number($(this).data('needs-document-upload') || 0) === 1,
+                needs_document_verification: Number($(this).data('needs-document-verification') || 0) === 1,
+                requires_verified_document: Number($(this).data('requires-verified-document') || 0) === 1,
+                required_document_types: requiredDocTypes
             };
+            syncSubscriptionDocumentBox();
             updateSubscriptionButton();
         });
 
+        function populateRequiredDocumentTypeOptions(requiredTypes) {
+            const select = $('#subscription_document_type');
+            const existingValue = String(select.val() || '');
+            const labels = {
+                student_id: 'Talabalik guvohnomasi',
+                enrollment_certificate: "O'qishdan ma'lumotnoma",
+                master_certificate: 'Magistratura hujjati',
+                phd_certificate: 'Doktorantura hujjati',
+                researcher_certificate: 'Tadqiqotchi hujjati',
+                employment_certificate: "Ish joyidan ma'lumotnoma",
+                other_academic: 'Boshqa akademik hujjat'
+            };
+            const allowedTypes = (requiredTypes && requiredTypes.length > 0)
+                ? requiredTypes
+                : Object.keys(labels);
+            select.empty();
+            select.append('<option value="">Tanlang</option>');
+            allowedTypes.forEach(function(typeKey) {
+                const label = labels[typeKey] || typeKey;
+                select.append($('<option></option>').attr('value', typeKey).text(label));
+            });
+            if (existingValue && allowedTypes.includes(existingValue)) {
+                select.val(existingValue);
+            } else if (allowedTypes.length === 1) {
+                select.val(allowedTypes[0]);
+            }
+        }
+
+        function syncSubscriptionDocumentBox() {
+            if (!selectedSubscription) {
+                $('#subscription_activation_doc_box').addClass('hidden');
+                return;
+            }
+            if (selectedSubscription.needs_document_upload) {
+                populateRequiredDocumentTypeOptions(selectedSubscription.required_document_types);
+                $('#subscription_activation_doc_box').removeClass('hidden');
+            } else {
+                $('#subscription_activation_doc_box').addClass('hidden');
+            }
+        }
+
         function updateSubscriptionButton() {
             const btn = $('#proceed_subscription');
-            if (selectedSubscription) {
+            if (selectedSubscription && !selectedSubscription.needs_document_verification) {
                 btn.prop('disabled', false);
             } else {
                 btn.prop('disabled', true);
             }
         }
 
-        // Handle subscription proceed button
-        $('#proceed_subscription').click(function() {
+        function createSubscriptionPayment() {
             if (!selectedSubscription) return;
+
+            const payload = {
+                tariff_id: selectedSubscription.tariff_id,
+                amount: selectedSubscription.amount,
+                currency: selectedSubscription.currency,
+                csrf_token: window.csrfToken || ''
+            };
 
             $.ajax({
                 url: '/api/payment/create_subscription',
                 type: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify(selectedSubscription),
+                data: JSON.stringify(payload),
                 success: function(response) {
                     if (response.success) {
                         window.location.reload();
@@ -181,6 +351,83 @@
                     alert('Failed to create subscription. Please try again.');
                 }
             });
+        }
+
+        function uploadActivationDocumentThenContinue() {
+            const documentType = String($('#subscription_document_type').val() || '').trim();
+            const documentHolderName = String($('#subscription_document_holder_name').val() || '').trim();
+            const institutionName = String($('#subscription_institution_name').val() || '').trim();
+            const fileInput = document.getElementById('subscription_document_file');
+            const selectedFile = fileInput && fileInput.files ? fileInput.files[0] : null;
+
+            if (!documentType) {
+                alert("Hujjat turini tanlang");
+                return;
+            }
+            if (!documentHolderName) {
+                alert("Hujjat egasi F.I.Sh ni kiriting");
+                return;
+            }
+            if (!institutionName) {
+                alert("Universitet yoki muassasa nomini kiriting");
+                return;
+            }
+            if (!selectedFile) {
+                alert("Hujjat faylini yuklang");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('csrf_token', window.csrfToken || '');
+            formData.append('tariff_id', selectedSubscription.tariff_id);
+            formData.append('document_type', documentType);
+            formData.append('document_holder_name', documentHolderName);
+            formData.append('institution_name', institutionName);
+            formData.append('academic_document', selectedFile);
+
+            $.ajax({
+                url: '/api/subscription/upload_document',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (!response.success) {
+                        alert(response.message || "Hujjat yuklashda xatolik");
+                        return;
+                    }
+                    if (selectedSubscription.requires_verified_document) {
+                        alert("Hujjat yuklandi. Endi admin tasdig'idan so'ng obuna faollashadi.");
+                        window.location.reload();
+                        return;
+                    }
+                    createSubscriptionPayment();
+                },
+                error: function() {
+                    alert("Hujjat yuklashda xatolik yuz berdi");
+                }
+            });
+        }
+
+        // Handle subscription proceed button
+        $('#proceed_subscription').click(function() {
+            if (!selectedSubscription) return;
+            if (selectedSubscription.needs_document_verification) {
+                alert("Hujjatingiz admin tasdig'ida. Tasdiqlangandan keyin obunani davom ettirasiz.");
+                return;
+            }
+            if (selectedSubscription.needs_document_upload) {
+                uploadActivationDocumentThenContinue();
+                return;
+            }
+            createSubscriptionPayment();
+        });
+
+        $('.cancel-subscription-item-btn').click(function() {
+            const paymentId = $(this).data('payment-id');
+            const confirmed = confirm("Obunani bekor qilmoqchimisiz? Kirish huquqi darhol to'xtaydi.");
+            if (!confirmed) return;
+            cancelSubscriptionByPayment(paymentId);
         });
     });
 </script>

@@ -54,6 +54,9 @@
           <th>ID</th>
           <th>{{ t("admin_submissions_col_user") }}</th>
           <th>{{ t("admin_label_work_title") }}</th>
+          <th>Hujjat turi</th>
+          <th>Hujjat egasi F.I.Sh</th>
+          <th>Muassasa</th>
           <th>{{ t("admin_label_verification_status") }}</th>
           <th>{{ t("admin_col_file") }}</th>
           <th>{{ t("admin_submissions_col_date") }}</th>
@@ -72,6 +75,19 @@
             {% endif %}
           </td>
           <td class="align-middle">{{ doc.work_title or t("admin_label_no_title") }}</td>
+          <td class="align-middle">
+            {% if doc.document_type == 'student_id' %}Talabalik guvohnomasi
+            {% elif doc.document_type == 'enrollment_certificate' %}O'qishdan ma'lumotnoma
+            {% elif doc.document_type == 'master_certificate' %}Magistratura hujjati
+            {% elif doc.document_type == 'phd_certificate' %}Doktorantura hujjati
+            {% elif doc.document_type == 'researcher_certificate' %}Tadqiqotchi hujjati
+            {% elif doc.document_type == 'employment_certificate' %}Ish joyidan ma'lumotnoma
+            {% elif doc.document_type == 'other_academic' %}Boshqa akademik hujjat
+            {% else %}<span class="text-muted">Ko'rsatilmagan</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">{{ doc.document_holder_name or '-' }}</td>
+          <td class="align-middle">{{ doc.institution_name or '-' }}</td>
           <td class="align-middle">
             {% if doc.verification_status == 'pending' %}
             <span class="badge bg-warning-lt">{{ t("admin_verification_pending") }}</span>

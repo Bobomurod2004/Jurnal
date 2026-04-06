@@ -9,6 +9,7 @@
     </div>
     <div class="col-auto ms-auto d-print-none">
       <form method="POST" action="{{ url_for('role_notification_read_all') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
         <button type="submit" class="btn btn-primary">
           <i class="ti ti-checks me-1"></i>
@@ -62,10 +63,15 @@
           <td>
             <div class="d-flex gap-2">
               {% if item.action_url %}
-              <a href="{{ url_for('role_notification_open', notification_id=item.id) }}" class="btn btn-sm btn-outline-primary">Ochish</a>
+              <form method="POST" action="{{ url_for('role_notification_open', notification_id=item.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
+                <button type="submit" class="btn btn-sm btn-outline-primary">Ochish</button>
+              </form>
               {% endif %}
               {% if not item.is_read %}
               <form method="POST" action="{{ url_for('role_notification_read', notification_id=item.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
                 <button type="submit" class="btn btn-sm btn-outline-secondary">O'qildi</button>
               </form>
