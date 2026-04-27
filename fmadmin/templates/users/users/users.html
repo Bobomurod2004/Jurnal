@@ -64,12 +64,12 @@
 {% if is_superadmin %}
 <div class="card mb-3">
   <div class="card-body d-flex flex-wrap gap-2 align-items-center">
-    <button type="button" class="btn btn-outline-warning btn-sm" onclick="submitBulkAction('block_selected')">Tanlanganlarni bloklash</button>
-    <button type="button" class="btn btn-outline-success btn-sm" onclick="submitBulkAction('unblock_selected')">Tanlanganlarni ochish</button>
-    <button type="button" class="btn btn-outline-danger btn-sm" onclick="submitBulkAction('hide_selected')">Tanlanganlarni yashirish</button>
-    <button type="button" class="btn btn-outline-primary btn-sm" onclick="submitBulkAction('restore_selected')">Tanlanganlarni tiklash</button>
-    <button type="button" class="btn btn-danger btn-sm" onclick="submitBulkAction('hide_others')">Tanlanganlardan boshqasini yashirish</button>
-    <span class="text-secondary small">Kerakli 2 ta userni belgilang, keyin "Tanlanganlardan boshqasini yashirish" ni bosing.</span>
+    <button type="button" class="btn btn-outline-warning btn-sm" data-bulk-action="block_selected">Tanlanganlarni bloklash</button>
+    <button type="button" class="btn btn-outline-success btn-sm" data-bulk-action="unblock_selected">Tanlanganlarni ochish</button>
+    <button type="button" class="btn btn-outline-danger btn-sm" data-bulk-action="hide_selected">Tanlanganlarni yashirish</button>
+    <button type="button" class="btn btn-outline-primary btn-sm" data-bulk-action="restore_selected">Tanlanganlarni tiklash</button>
+    <button type="button" class="btn btn-danger btn-sm" data-bulk-action="hide_others">Tanlanganlardan boshqasini yashirish</button>
+    <span class="text-secondary small" id="selected-users-count">Tanlangan: 0</span>
   </div>
 </div>
 {% endif %}
@@ -232,32 +232,159 @@
 {% if is_superadmin %}
 <form id="bulk-action-form" method="post" action="{{ url_for('users_bulk_action') }}" class="d-none">
   <input type="hidden" name="action" id="bulk-action-input">
+  <input type="hidden" name="confirm_phrase" id="bulk-confirm-input">
 </form>
+<div class="modal modal-blur fade" id="bulk-action-confirm-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="bulk-action-title">Amalni tasdiqlang</h3>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-2" id="bulk-action-message"></p>
+        <div id="bulk-confirm-phrase-wrap" class="d-none">
+          <label class="form-label" for="bulk-confirm-phrase">Tasdiqlash matni</label>
+          <input type="text" class="form-control" id="bulk-confirm-phrase" autocomplete="off">
+          <div class="form-hint">Davom etish uchun <strong>HIDE_OTHERS</strong> deb yozing.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+        <button type="button" class="btn btn-primary" id="bulk-action-confirm-button">Tasdiqlash</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
-  const selectAll = document.getElementById('select-all-users');
-  if (selectAll) {
-    selectAll.addEventListener('change', function () {
-      document.querySelectorAll('.user-select').forEach(cb => cb.checked = selectAll.checked);
-    });
-  }
+  document.addEventListener('DOMContentLoaded', function () {
+    const bulkActions = {
+      block_selected: {
+        title: 'Tanlanganlarni bloklash',
+        message: 'Tanlangan foydalanuvchilar tizimga kira olmaydi.',
+        buttonText: 'Bloklash',
+        buttonClass: 'btn-warning'
+      },
+      unblock_selected: {
+        title: 'Tanlanganlarni ochish',
+        message: 'Tanlangan foydalanuvchilar blokdan chiqariladi.',
+        buttonText: 'Ochish',
+        buttonClass: 'btn-success'
+      },
+      hide_selected: {
+        title: 'Tanlanganlarni yashirish',
+        message: 'Tanlangan foydalanuvchilar yashiriladi va bloklanadi.',
+        buttonText: 'Yashirish',
+        buttonClass: 'btn-danger'
+      },
+      restore_selected: {
+        title: 'Tanlanganlarni tiklash',
+        message: "Tanlangan foydalanuvchilar qayta faol holatga o'tadi.",
+        buttonText: 'Tiklash',
+        buttonClass: 'btn-primary'
+      },
+      hide_others: {
+        title: 'Tanlanganlardan boshqasini yashirish',
+        message: "Tanlanmagan barcha foydalanuvchilar yashiriladi va bloklanadi. Bu keng ta'sirli amal.",
+        buttonText: 'Yashirish',
+        buttonClass: 'btn-danger',
+        confirmPhrase: 'HIDE_OTHERS'
+      }
+    };
+    const selectAll = document.getElementById('select-all-users');
+    const selectedCount = document.getElementById('selected-users-count');
+    const modalElement = document.getElementById('bulk-action-confirm-modal');
+    const modal = modalElement ? new bootstrap.Modal(modalElement) : null;
+    const titleEl = document.getElementById('bulk-action-title');
+    const messageEl = document.getElementById('bulk-action-message');
+    const phraseWrap = document.getElementById('bulk-confirm-phrase-wrap');
+    const phraseInput = document.getElementById('bulk-confirm-phrase');
+    const confirmInput = document.getElementById('bulk-confirm-input');
+    const confirmButton = document.getElementById('bulk-action-confirm-button');
+    let pendingAction = null;
 
-  function submitBulkAction(action) {
-    const selected = Array.from(document.querySelectorAll('.user-select:checked')).map(cb => cb.value);
-    if (action === 'hide_others' && !confirm('Tanlanganlardan tashqari barcha userlar yashiriladi. Davom etilsinmi?')) {
-      return;
+    function selectedUserIds() {
+      return Array.from(document.querySelectorAll('.user-select:checked')).map(cb => cb.value);
     }
-    const form = document.getElementById('bulk-action-form');
-    form.querySelectorAll('input[name="selected_user_ids"]').forEach(node => node.remove());
-    document.getElementById('bulk-action-input').value = action;
-    selected.forEach(id => {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'selected_user_ids';
-      input.value = id;
-      form.appendChild(input);
+
+    function updateSelectedCount() {
+      if (selectedCount) {
+        selectedCount.textContent = 'Tanlangan: ' + selectedUserIds().length;
+      }
+    }
+
+    function prepareSubmit(action) {
+      const selected = selectedUserIds();
+      const form = document.getElementById('bulk-action-form');
+      form.querySelectorAll('input[name="selected_user_ids"]').forEach(node => node.remove());
+      document.getElementById('bulk-action-input').value = action;
+      confirmInput.value = phraseInput && !phraseWrap.classList.contains('d-none') ? phraseInput.value.trim() : '';
+      selected.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'selected_user_ids';
+        input.value = id;
+        form.appendChild(input);
+      });
+      form.submit();
+    }
+
+    if (selectAll) {
+      selectAll.addEventListener('change', function () {
+        document.querySelectorAll('.user-select').forEach(cb => cb.checked = selectAll.checked);
+        updateSelectedCount();
+      });
+    }
+
+    document.querySelectorAll('.user-select').forEach(cb => {
+      cb.addEventListener('change', function () {
+        if (selectAll && !cb.checked) {
+          selectAll.checked = false;
+        }
+        updateSelectedCount();
+      });
     });
-    form.submit();
-  }
+
+    document.querySelectorAll('[data-bulk-action]').forEach(button => {
+      button.addEventListener('click', function () {
+        const action = button.dataset.bulkAction;
+        const config = bulkActions[action];
+        if (!config) {
+          return;
+        }
+        if (selectedUserIds().length === 0) {
+          alert('Kamida bitta foydalanuvchi tanlang.');
+          return;
+        }
+        pendingAction = action;
+        titleEl.textContent = config.title;
+        messageEl.textContent = config.message;
+        confirmButton.textContent = config.buttonText;
+        confirmButton.className = 'btn ' + config.buttonClass;
+        if (config.confirmPhrase) {
+          phraseWrap.classList.remove('d-none');
+          phraseInput.value = '';
+        } else {
+          phraseWrap.classList.add('d-none');
+        }
+        modal.show();
+      });
+    });
+
+    confirmButton.addEventListener('click', function () {
+      const config = bulkActions[pendingAction];
+      if (!config) {
+        return;
+      }
+      if (config.confirmPhrase && phraseInput.value.trim() !== config.confirmPhrase) {
+        phraseInput.focus();
+        return;
+      }
+      prepareSubmit(pendingAction);
+    });
+
+    updateSelectedCount();
+  });
 </script>
 {% endif %}
 

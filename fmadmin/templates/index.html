@@ -114,6 +114,15 @@
       </div>
       <div class="col-auto ms-auto d-print-none dashboard-toolbar">
         <div class="btn-list">
+          {% if can_run_assignment_automation %}
+          <form action="{{ url_for('run_editor_assignment_automation_now') }}" method="POST" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn btn-outline-warning">
+              <i class="ti ti-bell-ringing me-1"></i>
+              Run reminders
+            </button>
+          </form>
+          {% endif %}
           <a href="{{ url_for('submissions') }}" class="btn btn-outline-primary">
             <i class="ti ti-file-text me-1"></i>
             Arizalar

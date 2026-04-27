@@ -80,23 +80,23 @@
                                 </div>
 
                                 <div class="col-span-6" id="document_upload_section" style="display: none;">
-                                    <label class="block mb-2 text-sm font-medium text-gray-900">{{ t('supporting_document') if t('supporting_document') != 'supporting_document' else "Tasdiqlovchi hujjat (ixtiyoriy)" }}</label>
+                                    <label class="block mb-2 text-sm font-medium text-gray-900">{{ document_ui_labels.supporting_document }}</label>
                                     <div class="mb-4">
                                         <div class="mb-3">
-                                            <label for="document_type" class="block mb-2 text-sm font-medium text-gray-900">{{ t('document_type') if t('document_type') != 'document_type' else "Hujjat turi" }}</label>
+                                            <label for="document_type" class="block mb-2 text-sm font-medium text-gray-900">{{ document_ui_labels.document_type }}</label>
                                             <select id="document_type" name="document_type" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
-                                                <option value="">{{ t('not_specified') if t('not_specified') != 'not_specified' else "Tanlanmagan" }}</option>
+                                                <option value="">{{ document_ui_labels.not_specified }}</option>
                                                 {% for doc_value, doc_label in document_type_choices %}
                                                     <option value="{{ doc_value }}" {% if user_doc_upload and user_doc_upload.document_type == doc_value %}selected{% endif %}>{{ doc_label }}</option>
                                                 {% endfor %}
                                             </select>
                                         </div>
                                         <div class="mb-3">
-                                            <label for="document_holder_name" class="block mb-2 text-sm font-medium text-gray-900">{{ t('document_holder_name') if t('document_holder_name') != 'document_holder_name' else "Hujjat egasi F.I.Sh" }}</label>
+                                            <label for="document_holder_name" class="block mb-2 text-sm font-medium text-gray-900">{{ document_ui_labels.document_holder_name }}</label>
                                             <input type="text" id="document_holder_name" name="document_holder_name" value="{{ user_doc_upload.document_holder_name if user_doc_upload else ((user.name or '') ~ ' ' ~ (user.second_name or ''))|trim }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
                                         </div>
                                         <div class="mb-3">
-                                            <label for="institution_name" class="block mb-2 text-sm font-medium text-gray-900">{{ t('institution_name') if t('institution_name') != 'institution_name' else "Universitet / muassasa nomi" }}</label>
+                                            <label for="institution_name" class="block mb-2 text-sm font-medium text-gray-900">{{ document_ui_labels.institution_name }}</label>
                                             <input type="text" id="institution_name" name="institution_name" value="{{ user_doc_upload.institution_name if user_doc_upload else '' }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
                                         </div>
                                         {% if user_doc_upload and user_doc_upload.file_path %}

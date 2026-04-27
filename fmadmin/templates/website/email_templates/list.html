@@ -1,0 +1,81 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+<div class="page-header d-print-none mb-4">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">Email shablonlar</h2>
+      <div class="text-secondary">Xat matnlarini kodga kirmasdan boshqarish.</div>
+    </div>
+    <div class="col-auto ms-auto">
+      <a href="{{ url_for('email_template_create') }}" class="btn btn-primary">
+        <i class="ti ti-plus"></i>
+        Shablon qo'shish
+      </a>
+    </div>
+  </div>
+</div>
+
+<form method="get" action="{{ url_for('email_templates') }}" class="mb-3">
+  <div class="input-group">
+    <input type="text" class="form-control" name="search" placeholder="Alias yoki nom bo'yicha qidiruv" value="{{ search or '' }}">
+    <button class="btn btn-primary" type="submit"><i class="ti ti-search"></i> Qidirish</button>
+  </div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table card-table table-hover">
+      <thead>
+        <tr>
+          <th>Alias</th>
+          <th>Nomi</th>
+          <th>Variables</th>
+          <th>Status</th>
+          <th>Yangilangan</th>
+          <th class="w-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in templates %}
+        <tr>
+          <td class="align-middle"><code>{{ item.alias }}</code></td>
+          <td class="align-middle">
+            <div class="fw-semibold">{{ item.name }}</div>
+            <div class="text-secondary small">{{ item.description or '-' }}</div>
+          </td>
+          <td class="align-middle">
+            {% if item.variables %}
+              {% for var_name in item.variables %}
+                <span class="badge bg-azure-lt text-azure me-1">{{ '{{' }}{{ var_name }}{{ '}}' }}</span>
+              {% endfor %}
+            {% else %}
+              <span class="text-secondary">-</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            {% if item.is_active %}
+            <span class="badge bg-success-lt text-success">Active</span>
+            {% else %}
+            <span class="badge bg-secondary-lt text-secondary">Inactive</span>
+            {% endif %}
+          </td>
+          <td class="align-middle">{{ item.updated_at | timestamp_to_date if item.updated_at else '-' }}</td>
+          <td class="align-middle text-nowrap">
+            <a href="{{ url_for('email_template_edit', template_id=item.id) }}" class="btn btn-sm btn-outline-primary">Tahrirlash</a>
+            <form method="post" action="{{ url_for('email_template_delete', template_id=item.id) }}" class="d-inline" onsubmit="return confirm('Shablonni o\'chirishni tasdiqlaysizmi?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger">O'chirish</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-center text-secondary py-4">Shablonlar topilmadi</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

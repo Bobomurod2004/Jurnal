@@ -61,6 +61,7 @@ APP_BASE_URL = _get_env(
 
 APP_VERSION = _get_env('APP_VERSION', '0.0.0')
 LOG_LEVEL = _get_env('LOG_LEVEL', 'INFO')
+RUNTIME_SCHEMA_SYNC_ENABLED = _get_env_bool('RUNTIME_SCHEMA_SYNC_ENABLED', not IS_PRODUCTION)
 
 
 def _ensure_production_secret(name, value, disallowed):

@@ -2,6 +2,7 @@ import os
 import logging
 from datetime import timedelta
 from flask import Flask, jsonify
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash
 import settings
 from extensions import db
@@ -52,6 +53,7 @@ def _migrate_legacy_password_hashes():
 def create_app():
     app = Flask(__name__, static_folder='./dist/', static_url_path='/dist')
     _configure_logging(app)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
     app.secret_key = settings.SECRET_KEY
     app.config['SESSION_COOKIE_NAME'] = 'fmadmin_session'
     app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -68,6 +70,7 @@ def create_app():
     init_translations(db)
     register_hooks(app)
     register_filters(app)
+    web.run_runtime_schema_syncs()
     _migrate_legacy_password_hashes()
 
     web.register(app)

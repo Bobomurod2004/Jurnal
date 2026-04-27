@@ -1,0 +1,161 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+<div class="page-header d-print-none mb-4">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">{% if is_new %}Email shablon yaratish{% else %}Email shablon tahrirlash{% endif %}</h2>
+      <a href="{{ url_for('email_templates') }}"><i class="ti ti-arrow-left"></i> Orqaga</a>
+    </div>
+  </div>
+</div>
+
+<form method="post" class="card mb-4">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">Alias</label>
+        <input type="text" class="form-control" name="alias" value="{{ template_row.alias or '' }}" required>
+        <div class="form-hint">Masalan: assignment_deadline_editor</div>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Nomi</label>
+        <input type="text" class="form-control" name="name" value="{{ template_row.name or '' }}" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Status</label>
+        <div class="form-check mt-2">
+          <input class="form-check-input" type="checkbox" id="is_active" name="is_active" {% if template_row.is_active %}checked{% endif %}>
+          <label class="form-check-label" for="is_active">Active</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-3">
+      <label class="form-label">Izoh</label>
+      <textarea class="form-control" name="description" rows="2">{{ template_row.description or '' }}</textarea>
+    </div>
+
+    <div class="mt-3">
+      <label class="form-label">Variables (vergul bilan)</label>
+      <input type="text" class="form-control" name="variables_csv" value="{{ (template_row.variables or []) | join(', ') }}">
+      <div class="form-hint">Masalan: name, title, time_left</div>
+    </div>
+
+    <hr>
+    <h3 class="card-title mb-3">UZ</h3>
+    <div class="row g-3">
+      <div class="col-12">
+        <label class="form-label">Subject (UZ)</label>
+        <input type="text" class="form-control" name="subject_uz" value="{{ template_row.subject_uz or '' }}">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Intro (UZ)</label>
+        <textarea class="form-control" name="intro_uz" rows="2">{{ template_row.intro_uz or '' }}</textarea>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Body (UZ)</label>
+        <textarea class="form-control" name="body_uz" rows="4">{{ template_row.body_uz or '' }}</textarea>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">CTA label (UZ)</label>
+        <input type="text" class="form-control" name="cta_label_uz" value="{{ template_row.cta_label_uz or '' }}">
+      </div>
+    </div>
+
+    <hr>
+    <h3 class="card-title mb-3">RU</h3>
+    <div class="row g-3">
+      <div class="col-12">
+        <label class="form-label">Subject (RU)</label>
+        <input type="text" class="form-control" name="subject_ru" value="{{ template_row.subject_ru or '' }}">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Intro (RU)</label>
+        <textarea class="form-control" name="intro_ru" rows="2">{{ template_row.intro_ru or '' }}</textarea>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Body (RU)</label>
+        <textarea class="form-control" name="body_ru" rows="4">{{ template_row.body_ru or '' }}</textarea>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">CTA label (RU)</label>
+        <input type="text" class="form-control" name="cta_label_ru" value="{{ template_row.cta_label_ru or '' }}">
+      </div>
+    </div>
+
+    <hr>
+    <h3 class="card-title mb-3">EN</h3>
+    <div class="row g-3">
+      <div class="col-12">
+        <label class="form-label">Subject (EN)</label>
+        <input type="text" class="form-control" name="subject_en" value="{{ template_row.subject_en or '' }}">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Intro (EN)</label>
+        <textarea class="form-control" name="intro_en" rows="2">{{ template_row.intro_en or '' }}</textarea>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Body (EN)</label>
+        <textarea class="form-control" name="body_en" rows="4">{{ template_row.body_en or '' }}</textarea>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">CTA label (EN)</label>
+        <input type="text" class="form-control" name="cta_label_en" value="{{ template_row.cta_label_en or '' }}">
+      </div>
+    </div>
+  </div>
+
+  <div class="card-footer text-end">
+    <button type="submit" class="btn btn-primary">Saqlash</button>
+  </div>
+</form>
+
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Variables preview</h3>
+  </div>
+  <div class="card-body">
+    <div class="mb-3">
+      {% if preview.variables %}
+        {% for var_name in preview.variables %}
+          <span class="badge bg-blue-lt text-blue me-1">{{ '{{' }}{{ var_name }}{{ '}}' }}</span>
+        {% endfor %}
+      {% else %}
+        <span class="text-secondary">Hozircha variable aniqlanmadi</span>
+      {% endif %}
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="border rounded p-3 h-100">
+          <div class="text-secondary small mb-2">UZ</div>
+          <div><strong>Subject:</strong> {{ preview.rendered.subject_uz or '-' }}</div>
+          <div class="mt-2"><strong>Intro:</strong> {{ preview.rendered.intro_uz or '-' }}</div>
+          <div class="mt-2"><strong>Body:</strong><br>{{ preview.rendered.body_uz or '-' }}</div>
+          <div class="mt-2"><strong>CTA:</strong> {{ preview.rendered.cta_label_uz or '-' }}</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="border rounded p-3 h-100">
+          <div class="text-secondary small mb-2">RU</div>
+          <div><strong>Subject:</strong> {{ preview.rendered.subject_ru or '-' }}</div>
+          <div class="mt-2"><strong>Intro:</strong> {{ preview.rendered.intro_ru or '-' }}</div>
+          <div class="mt-2"><strong>Body:</strong><br>{{ preview.rendered.body_ru or '-' }}</div>
+          <div class="mt-2"><strong>CTA:</strong> {{ preview.rendered.cta_label_ru or '-' }}</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="border rounded p-3 h-100">
+          <div class="text-secondary small mb-2">EN</div>
+          <div><strong>Subject:</strong> {{ preview.rendered.subject_en or '-' }}</div>
+          <div class="mt-2"><strong>Intro:</strong> {{ preview.rendered.intro_en or '-' }}</div>
+          <div class="mt-2"><strong>Body:</strong><br>{{ preview.rendered.body_en or '-' }}</div>
+          <div class="mt-2"><strong>CTA:</strong> {{ preview.rendered.cta_label_en or '-' }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

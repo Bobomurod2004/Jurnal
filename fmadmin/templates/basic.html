@@ -25,6 +25,37 @@
     .ck-editor__editable_inline {
       min-height: 400px;
     }
+
+    .global-search-kbd {
+      border: 1px solid var(--tblr-border-color);
+      border-bottom-width: 2px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      line-height: 1;
+      padding: 0.18rem 0.38rem;
+      color: var(--tblr-secondary);
+      background: var(--tblr-bg-surface-secondary);
+    }
+
+    .global-search-result-link {
+      text-decoration: none;
+      color: inherit;
+      display: block;
+      border: 1px solid var(--tblr-border-color-translucent);
+      border-radius: var(--tblr-border-radius);
+      padding: 0.6rem 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .global-search-result-link:hover {
+      background: var(--tblr-bg-surface-secondary);
+      border-color: var(--tblr-border-color);
+    }
+
+    .global-search-subtitle {
+      color: var(--tblr-secondary);
+      font-size: 0.82rem;
+    }
   </style>
 
 </head>
@@ -32,6 +63,17 @@
 <body>
   {% set fmadmin_user = session.fmadmin_user if session.fmadmin_user else none %}
   {% set user_caps = fmadmin_user.capabilities if fmadmin_user and fmadmin_user.capabilities else {} %}
+  {% macro sidebar_link(endpoint, icon, label, active_endpoints=None) -%}
+  {% set active_list = active_endpoints if active_endpoints is not none else [endpoint] %}
+  {% set is_active = (request.endpoint or '') in active_list %}
+  <li class="nav-item">
+    <a class="nav-link d-flex justify-content-start align-items-center {% if is_active %}active{% endif %}"
+      href="{{ url_for(endpoint) }}" {% if is_active %}aria-current="page"{% endif %}>
+      <i class="ti {{ icon }} fs-2 pe-2"></i>
+      <span class="nav-link-title">{{ label }}</span>
+    </a>
+  </li>
+  {%- endmacro %}
   <div class="page">
     <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
       <div class="container-fluid">
@@ -48,13 +90,8 @@
         <div class="collapse navbar-collapse" id="sidebar-menu">
           <!-- BEGIN NAVBAR MENU -->
           <ul class="navbar-nav pt-lg-3">
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center"
-                href="{% if fmadmin_user and fmadmin_user.rolename == 'editor' %}{{ url_for('editor_dashboard') }}{% else %}{{ url_for('index') }}{% endif %}">
-                <i class="ti ti-home fs-2 pe-2"></i>
-                <span class="nav-link-title">{{ t('admin_home') }}</span>
-              </a>
-            </li>
+            {% set home_endpoint = 'editor_dashboard' if fmadmin_user and fmadmin_user.rolename == 'editor' else 'index' %}
+            {{ sidebar_link(home_endpoint, 'ti-home', t('admin_home'), ['index', 'editor_dashboard']) }}
 
             <!-- Раздел "Пользователи" только для супер-админа -->
             {% if user_caps.can_manage_users %}
@@ -62,42 +99,13 @@
               <h4 class="m-0">{{ t('admin_users') }}</h4>
             </li>
 
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('users') }}">
-                <i class="ti ti-home fs-2 pe-2"></i>
-                <span class="nav-link-title">{{ t('admin_users') }}</span>
-              </a>
-            </li>
+            {{ sidebar_link('users', 'ti-users', t('admin_users'), ['users', 'user_edit']) }}
+            {{ sidebar_link('authors', 'ti-id-badge-2', t('admin_authors'), ['authors', 'author_edit']) }}
+            {{ sidebar_link('editors', 'ti-user-check', t('admin_editors'), ['editors', 'editor_edit']) }}
 
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('authors') }}">
-                <i class="ti ti-home fs-2 pe-2"></i>
-                <span class="nav-link-title">{{ t('admin_authors') }}</span>
-              </a>
-            </li>
-
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('editors') }}">
-                <i class="ti ti-user-check fs-2 pe-2"></i>
-                <span class="nav-link-title">{{ t('admin_editors') }}</span>
-              </a>
-            </li>
-
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('editorial_members') }}">
-                <i class="ti ti-users-group fs-2 pe-2"></i>
-                {% set _lang = (session.get('language') or 'uz') %}
-                <span class="nav-link-title">
-                  {% if _lang == 'ru' %}
-                  Редакционная коллегия
-                  {% elif _lang == 'en' %}
-                  Editorial Board
-                  {% else %}
-                  Tahrir hay'ati
-                  {% endif %}
-                </span>
-              </a>
-            </li>
+            {% set _lang = (session.get('language') or 'uz') %}
+            {% set editorial_label = 'Редакционная коллегия' if _lang == 'ru' else ('Editorial Board' if _lang == 'en' else "Tahrir hay'ati") %}
+            {{ sidebar_link('editorial_members', 'ti-users-group', editorial_label, ['editorial_members', 'editorial_member_edit']) }}
             {% endif %}
 
             <!-- Раздел "Подачи" только для администраторов -->
@@ -106,20 +114,8 @@
               <h4 class="m-0">{{ t('admin_submissions_section') }}</h4>
             </li>
 
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center"
-                href="{{ url_for('submission_documents') }}">
-                <i class="ti ti-file-text fs-2 pe-2"></i>
-                <span class="nav-link-title">{{ t('admin_documents') }}</span>
-              </a>
-            </li>
-
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('submissions') }}">
-                <i class="ti ti-file-text fs-2 pe-2"></i>
-                <span class="nav-link-title">{{ t('admin_submission_articles') }}</span>
-              </a>
-            </li>
+            {{ sidebar_link('submission_documents', 'ti-files', t('admin_documents'), ['submission_documents', 'serve_private_file']) }}
+            {{ sidebar_link('submissions', 'ti-inbox', t('admin_submission_articles'), ['submissions', 'submission_detail', 'assign_editors', 'admin_decision']) }}
             {% endif %}
 
             <!-- Назначения для редакторов и администраторов -->
@@ -134,22 +130,12 @@
               </h4>
             </li>
 
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center"
-                href="{{ url_for('editor_assignments') }}">
-                <i class="ti ti-clipboard-check fs-2 pe-2"></i>
-                <span class="nav-link-title">
-                  {% if fmadmin_user and fmadmin_user.rolename == 'editor' %}
-                  {{ t('admin_my_assignments') }}
-                  {% else %}
-                  {{ t('admin_assignments') }}
-                  {% endif %}
-                </span>
-              </a>
-            </li>
+            {% set assignments_label = t('admin_my_assignments') if fmadmin_user and fmadmin_user.rolename == 'editor' else t('admin_assignments') %}
+            {{ sidebar_link('editor_assignments', 'ti-clipboard-check', assignments_label, ['editor_assignments', 'review_assignment']) }}
 
             <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('role_notifications') }}">
+              <a class="nav-link d-flex justify-content-start align-items-center {% if request.endpoint in ['role_notifications', 'role_notification_open', 'role_notification_read_all'] %}active{% endif %}"
+                href="{{ url_for('role_notifications') }}" {% if request.endpoint in ['role_notifications', 'role_notification_open', 'role_notification_read_all'] %}aria-current="page"{% endif %}>
                 <i class="ti ti-bell fs-2 pe-2"></i>
                 <span class="nav-link-title">Bildirishnomalar</span>
                 {% if role_notifications_unread_count %}
@@ -165,72 +151,21 @@
               <h4 class="m-0">{{ t('admin_content') }}</h4>
             </li>
 
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('issues') }}">
-                <i class="ti ti-home fs-2 pe-2"></i>
-                <span class="nav-link-title">{{ t('admin_issues') }}</span>
-              </a>
-            </li>
-
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('articles') }}">
-                <i class="ti ti-home fs-2 pe-2"></i>
-                <span class="nav-link-title">{{ t('admin_articles') }}</span>
-              </a>
-            </li>
-
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('news') }}">
-                <i class="ti ti-home fs-2 pe-2"></i>
-                <span class="nav-link-title">{{ t('admin_news') }}</span>
-              </a>
-            </li>
-
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('announcements') }}">
-                <i class="ti ti-home fs-2 pe-2"></i>
-                <span class="nav-link-title">{{ t('admin_announcements') }}</span>
-              </a>
-            </li>
-
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('tariffs') }}">
-                <i class="ti ti-home fs-2 pe-2"></i>
-                <span class="nav-link-title">{{ t('admin_tariffs') }}</span>
-              </a>
-            </li>
-
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('translations') }}">
-                <i class="ti ti-home fs-2 pe-2"></i>
-                <span class="nav-link-title">{{ t('admin_translations') }}</span>
-              </a>
-            </li>
-
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('home_videos') }}">
-                <i class="ti ti-video fs-2 pe-2"></i>
-                <span class="nav-link-title">Bosh sahifa videolari</span>
-              </a>
-            </li>
-
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('payment_guide_settings') }}">
-                <i class="ti ti-receipt fs-2 pe-2"></i>
-                <span class="nav-link-title">To'lov yo'riqnomasi</span>
-              </a>
-            </li>
+            {{ sidebar_link('issues', 'ti-book-2', t('admin_issues'), ['issues', 'issue_edit']) }}
+            {{ sidebar_link('articles', 'ti-article', t('admin_articles'), ['articles', 'article_edit', 'article_content']) }}
+            {{ sidebar_link('news', 'ti-news', t('admin_news'), ['news', 'news_edit']) }}
+            {{ sidebar_link('announcements', 'ti-speakerphone', t('admin_announcements'), ['announcements', 'announcement_edit']) }}
+            {{ sidebar_link('tariffs', 'ti-tags', t('admin_tariffs'), ['tariffs']) }}
+            {{ sidebar_link('translations', 'ti-language', t('admin_translations'), ['translations']) }}
+            {{ sidebar_link('email_templates', 'ti-mail', 'Email shablonlar', ['email_templates', 'email_template_create', 'email_template_edit']) }}
+            {{ sidebar_link('home_videos', 'ti-video', 'Bosh sahifa videolari', ['home_videos']) }}
+            {{ sidebar_link('payment_guide_settings', 'ti-receipt', "To'lov yo'riqnomasi", ['payment_guide_settings']) }}
 
             <li class="px-3 pt-4 pb-2 text-muted">
               <h4 class="m-0">{{ t('admin_finance') }}</h4>
             </li>
 
-            <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center" href="{{ url_for('payments') }}">
-                <i class="ti ti-credit-card fs-2 pe-2"></i>
-                <span class="nav-link-title">{{ t('admin_payments') }}</span>
-              </a>
-            </li>
+            {{ sidebar_link('payments', 'ti-credit-card', t('admin_payments'), ['payments', 'payment_edit']) }}
             {% endif %}
 
           </ul>
@@ -249,6 +184,14 @@
         </button>
         <!-- END NAVBAR TOGGLER -->
         <div class="navbar-nav flex-row order-md-last">
+          <div class="nav-item me-2">
+            <a href="#" class="nav-link px-2 d-flex align-items-center gap-2" id="global-search-trigger" aria-label="Search">
+              <i class="ti ti-search fs-3"></i>
+              <span class="d-none d-xl-inline">Qidiruv</span>
+              <span class="global-search-kbd d-none d-xl-inline">Ctrl+K</span>
+            </a>
+          </div>
+
           <div class="nav-item dropdown me-2">
             <a href="#" class="nav-link px-2" data-bs-toggle="dropdown" aria-label="Notifications">
               <i class="ti ti-bell fs-3"></i>
@@ -334,19 +277,26 @@
             </a>
             <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
               {% if fmadmin_user %}
-              <a href="#" class="dropdown-item">
+              {% if user_caps.can_manage_users %}
+              <a href="{{ url_for('user_edit', user_id=fmadmin_user.id) }}" class="dropdown-item">
                 <i class="ti ti-user me-2"></i>
                 {{ t('admin_profile') }}
               </a>
-              <a href="#" class="dropdown-item">
+              {% endif %}
+              {% if user_caps.can_manage_content %}
+              <a href="{{ url_for('translations') }}" class="dropdown-item">
                 <i class="ti ti-settings me-2"></i>
                 {{ t('admin_settings') }}
               </a>
+              {% endif %}
               <div class="dropdown-divider"></div>
-              <a href="{{ url_for('logout') }}" class="dropdown-item">
-                <i class="ti ti-logout me-2"></i>
-                {{ t('admin_logout') }}
-              </a>
+              <form action="{{ url_for('logout') }}" method="post" class="m-0">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="dropdown-item w-100 border-0 bg-transparent text-start">
+                  <i class="ti ti-logout me-2"></i>
+                  {{ t('admin_logout') }}
+                </button>
+              </form>
               {% else %}
               <a href="{{ url_for('login') }}" class="dropdown-item">
                 <i class="ti ti-login me-2"></i>
@@ -454,6 +404,44 @@
 
   <script src="/dist/js/tom-select/dist/js/tom-select.base.min.js"></script>
 
+  <div class="modal modal-blur fade" id="globalSearchModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Tezkor qidiruv</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="input-icon mb-3">
+            <span class="input-icon-addon">
+              <i class="ti ti-search"></i>
+            </span>
+            <input
+              type="text"
+              id="global-search-input"
+              class="form-control"
+              placeholder="ID, sarlavha, ism, email, ORCID bo'yicha qidiring..."
+              autocomplete="off"
+            >
+          </div>
+
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="text-secondary small">Tur:</span>
+            <select id="global-search-type" class="form-select form-select-sm" style="max-width: 180px;">
+              <option value="all">Barchasi</option>
+              <option value="submissions">Maqolalar</option>
+              <option value="users">Foydalanuvchilar</option>
+              <option value="authors">Mualliflar</option>
+            </select>
+            <span class="text-secondary small ms-auto" id="global-search-meta"></span>
+          </div>
+
+          <div id="global-search-results" class="pt-1"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast уведомления -->
   <script>
     function showToast(message, type = 'info') {
@@ -518,6 +506,151 @@
         toastElement.remove();
       });
     }
+
+    (function () {
+      const modalElement = document.getElementById('globalSearchModal');
+      const trigger = document.getElementById('global-search-trigger');
+      const searchInput = document.getElementById('global-search-input');
+      const searchType = document.getElementById('global-search-type');
+      const resultsBox = document.getElementById('global-search-results');
+      const metaBox = document.getElementById('global-search-meta');
+      if (!modalElement || !trigger || !searchInput || !searchType || !resultsBox || !metaBox || !window.bootstrap) {
+        return;
+      }
+
+      const modal = new bootstrap.Modal(modalElement);
+      let timer = null;
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function openSearchModal() {
+        modal.show();
+        window.setTimeout(function () {
+          searchInput.focus();
+          searchInput.select();
+        }, 120);
+      }
+
+      trigger.addEventListener('click', function (event) {
+        event.preventDefault();
+        openSearchModal();
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if ((event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === 'k') {
+          event.preventDefault();
+          openSearchModal();
+          return;
+        }
+
+        if ((event.ctrlKey || event.metaKey) && event.shiftKey && String(event.key).toLowerCase() === 's') {
+          event.preventDefault();
+          window.location.href = '/fmadmin/submissions';
+          return;
+        }
+
+        if ((event.ctrlKey || event.metaKey) && event.shiftKey && String(event.key).toLowerCase() === 'u') {
+          event.preventDefault();
+          window.location.href = '/fmadmin/users/users';
+        }
+      });
+
+      function renderItems(items, title, subtitleFactory) {
+        if (!Array.isArray(items) || !items.length) {
+          return '';
+        }
+        let html = '<div class="mb-3">';
+        html += '<div class="text-secondary small text-uppercase mb-2">' + title + '</div>';
+        items.forEach(function (item) {
+          const subtitle = subtitleFactory(item || {});
+          html += '<a href="' + escapeHtml(item.url || '#') + '" class="global-search-result-link">';
+          html += '<div class="fw-semibold">' + escapeHtml(item.title || item.name || ('ID: ' + (item.id || ''))) + '</div>';
+          if (subtitle) {
+            html += '<div class="global-search-subtitle">' + escapeHtml(subtitle) + '</div>';
+          }
+          html += '</a>';
+        });
+        html += '</div>';
+        return html;
+      }
+
+      function renderResults(data) {
+        const payload = data && data.results ? data.results : {};
+        const submissions = payload.submissions || [];
+        const users = payload.users || [];
+        const authors = payload.authors || [];
+
+        const html = [
+          renderItems(submissions, 'Maqolalar', function (x) {
+            return 'ID: ' + (x.id || '-') + ' | Muallif: ' + (x.author_name || '-') + ' | Holat: ' + (x.status || '-');
+          }),
+          renderItems(users, 'Foydalanuvchilar', function (x) {
+            return (x.email || '-') + ' | Rol: ' + (x.rolename || '-');
+          }),
+          renderItems(authors, 'Mualliflar', function (x) {
+            return (x.organization || '-') + ' | ORCID: ' + (x.orcid || '-');
+          })
+        ].join('');
+
+        if (!html) {
+          resultsBox.innerHTML = '<div class="text-secondary">Natija topilmadi.</div>';
+          return;
+        }
+        resultsBox.innerHTML = html;
+      }
+
+      async function fetchResults() {
+        const q = searchInput.value.trim();
+        const type = searchType.value;
+        if (q.length < 2) {
+          resultsBox.innerHTML = '<div class="text-secondary">Kamida 2 ta belgi kiriting.</div>';
+          metaBox.textContent = '';
+          return;
+        }
+
+        resultsBox.innerHTML = '<div class="text-secondary">Qidirilmoqda...</div>';
+        try {
+          const response = await fetch('/fmadmin/api/search?q=' + encodeURIComponent(q) + '&type=' + encodeURIComponent(type) + '&limit=8');
+          const data = await response.json();
+          if (!response.ok || !data.success) {
+            throw new Error((data && data.message) || 'Qidiruv bajarilmadi');
+          }
+          metaBox.textContent = 'Jami: ' + (data.total || 0);
+          renderResults(data);
+        } catch (error) {
+          metaBox.textContent = '';
+          resultsBox.innerHTML = '<div class="text-danger">Qidiruvda xatolik yuz berdi.</div>';
+        }
+      }
+
+      function debounceFetch() {
+        if (timer) {
+          clearTimeout(timer);
+        }
+        timer = setTimeout(fetchResults, 250);
+      }
+
+      searchInput.addEventListener('input', debounceFetch);
+      searchType.addEventListener('change', debounceFetch);
+
+      modalElement.addEventListener('shown.bs.modal', function () {
+        searchInput.focus();
+        searchInput.select();
+      });
+
+      modalElement.addEventListener('hidden.bs.modal', function () {
+        searchInput.value = '';
+        resultsBox.innerHTML = '';
+        metaBox.textContent = '';
+      });
+    })();
   </script>
 
   {% block scripts %}

@@ -145,15 +145,67 @@ DOCUMENT_TYPE_LABELS = {
     'employment_certificate': "Ish joyidan ma'lumotnoma",
     'other_academic': 'Boshqa akademik hujjat',
 }
-DOCUMENT_TYPE_CHOICES = [
-    ('student_id', 'Talabalik guvohnomasi'),
-    ('enrollment_certificate', "Ta'lim muassasasi ma'lumotnomasi"),
-    ('master_certificate', 'Magistratura tasdiq hujjati'),
-    ('phd_certificate', 'Doktorantura tasdiq hujjati'),
-    ('researcher_certificate', 'Tadqiqotchi status hujjati'),
-    ('employment_certificate', "Ish joyidan ma'lumotnoma"),
-    ('other_academic', 'Boshqa akademik hujjat'),
+DOCUMENT_TYPE_ORDER = [
+    'student_id',
+    'enrollment_certificate',
+    'master_certificate',
+    'phd_certificate',
+    'researcher_certificate',
+    'employment_certificate',
+    'other_academic',
 ]
+DOCUMENT_TYPE_LOCALIZED_LABELS = {
+    'uz': {
+        'student_id': 'Talabalik guvohnomasi',
+        'enrollment_certificate': "Ta'lim muassasasi ma'lumotnomasi",
+        'master_certificate': 'Magistratura tasdiq hujjati',
+        'phd_certificate': 'Doktorantura tasdiq hujjati',
+        'researcher_certificate': 'Tadqiqotchi status hujjati',
+        'employment_certificate': "Ish joyidan ma'lumotnoma",
+        'other_academic': 'Boshqa akademik hujjat',
+    },
+    'ru': {
+        'student_id': 'Студенческий билет',
+        'enrollment_certificate': 'Справка из образовательного учреждения',
+        'master_certificate': 'Подтверждающий документ магистратуры',
+        'phd_certificate': 'Подтверждающий документ докторантуры',
+        'researcher_certificate': 'Документ, подтверждающий статус исследователя',
+        'employment_certificate': 'Справка с места работы',
+        'other_academic': 'Другой академический документ',
+    },
+    'en': {
+        'student_id': 'Student ID',
+        'enrollment_certificate': 'Enrollment Certificate',
+        'master_certificate': "Master's Confirmation Document",
+        'phd_certificate': 'Doctoral Confirmation Document',
+        'researcher_certificate': 'Researcher Status Document',
+        'employment_certificate': 'Employment Certificate',
+        'other_academic': 'Other Academic Document',
+    },
+}
+PROFILE_DOCUMENT_UI_LABELS = {
+    'uz': {
+        'supporting_document': "Qo'shimcha hujjat",
+        'document_type': 'Hujjat turi',
+        'document_holder_name': 'Hujjat egasi F.I.Sh',
+        'institution_name': 'Universitet / muassasa nomi',
+        'not_specified': 'Tanlanmagan',
+    },
+    'ru': {
+        'supporting_document': 'Сопроводительный документ',
+        'document_type': 'Тип документа',
+        'document_holder_name': 'Ф.И.О. владельца документа',
+        'institution_name': 'Название университета / учреждения',
+        'not_specified': 'Не указано',
+    },
+    'en': {
+        'supporting_document': 'Supporting document',
+        'document_type': 'Document Type',
+        'document_holder_name': 'Document Holder Name',
+        'institution_name': 'Institution Name',
+        'not_specified': 'Not specified',
+    },
+}
 ORCID_REGEX = re.compile(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9Xx]$')
 
 
@@ -300,11 +352,25 @@ def _normalize_document_type(value):
     return normalized if normalized in ALLOWED_DOCUMENT_TYPES else None
 
 
+def _current_interface_language():
+    language = (session.get('language') or 'en').strip().lower()
+    return language if language in DOCUMENT_TYPE_LOCALIZED_LABELS else 'en'
+
+
+def _profile_document_ui_labels():
+    return PROFILE_DOCUMENT_UI_LABELS.get(_current_interface_language(), PROFILE_DOCUMENT_UI_LABELS['en'])
+
+
 def _document_type_label(value):
     normalized = _normalize_document_type(value)
     if not normalized:
         return ''
-    return DOCUMENT_TYPE_LABELS.get(normalized, normalized.replace('_', ' ').title())
+    localized_labels = DOCUMENT_TYPE_LOCALIZED_LABELS.get(_current_interface_language(), DOCUMENT_TYPE_LOCALIZED_LABELS['en'])
+    return localized_labels.get(normalized, DOCUMENT_TYPE_LABELS.get(normalized, normalized.replace('_', ' ').title()))
+
+
+def _document_type_choices():
+    return [(value, _document_type_label(value)) for value in DOCUMENT_TYPE_ORDER]
 
 
 def _parse_required_document_types(value):
@@ -362,6 +428,8 @@ def _account_full_name(user_row):
 
 
 def _ensure_user_doc_upload_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         existing_columns = set(dbc.columns.get('user_doc_uploads', []))
         if not existing_columns:
@@ -1553,7 +1621,8 @@ def app__dashboard_profile():
                          user=user,
                          author_profile=author_profile_row,
                          user_doc_upload=user_doc_upload[0] if user_doc_upload else None,
-                         document_type_choices=DOCUMENT_TYPE_CHOICES,
+                         document_type_choices=_document_type_choices(),
+                         document_ui_labels=_profile_document_ui_labels(),
                          fix_country=fix_country,
                          profile_completion=profile_completion)
 

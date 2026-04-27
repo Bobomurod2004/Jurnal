@@ -96,6 +96,18 @@ def register(app):
         ]
         return any(request.path.startswith(route) for route in public_routes)
 
+    def _should_run_assignment_automation():
+        if request.method != 'GET':
+            return False
+        ignored_prefixes = (
+            '/fmadmin/api/',
+            '/fmadmin/files/',
+            '/fmadmin/healthz',
+        )
+        return request.path.startswith('/fmadmin/') and not any(
+            request.path.startswith(prefix) for prefix in ignored_prefixes
+        )
+
     def _ensure_csrf_token():
         token = session.get('csrf_token')
         if not token:
@@ -170,11 +182,12 @@ def register(app):
 
             session['fmadmin_user'] = session_user
 
-            try:
-                from routes.web import run_editor_assignment_automation
-                run_editor_assignment_automation(actor_user_id=_parse_int(user_id))
-            except Exception:
-                pass
+            if _should_run_assignment_automation():
+                try:
+                    from routes.web import run_editor_assignment_automation
+                    run_editor_assignment_automation(actor_user_id=_parse_int(user_id))
+                except Exception:
+                    pass
 
         return None
 
@@ -217,7 +230,7 @@ def register(app):
             'path': request.path,
             'status': response.status_code,
             'duration_ms': duration_ms,
-            'remote_addr': request.headers.get('X-Forwarded-For', request.remote_addr),
+            'remote_addr': request.remote_addr or '',
             'user_agent': request.headers.get('User-Agent', ''),
             'user_id': session_user.get('id'),
             'role': session_user.get('rolename'),

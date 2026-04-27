@@ -208,6 +208,13 @@
                 <h3 class="card-title">Tahriz topshiriqlari</h3>
                 <div class="card-actions">
                     {% if submission.file_anonymized and submission.anti_plagiarism_file and submission.status in ['submitted', 'in_process'] %}
+                    <form method="post" action="{{ url_for('auto_assign_editor', submission_id=submission.id) }}" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary me-2">
+                            <i class="ti ti-wand"></i>
+                            Auto assign
+                        </button>
+                    </form>
                     <a href="{{ url_for('assign_editors', submission_id=submission.id) }}" class="btn btn-sm btn-primary">
                         <i class="ti ti-user-check"></i>
                         Tahrirchi biriktirish

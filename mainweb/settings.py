@@ -75,6 +75,28 @@ GOOGLE_REDIRECT_URI = _get_first_env(
     ''
 ).strip()
 GOOGLE_REQUEST_TIMEOUT = int(_get_env('GOOGLE_REQUEST_TIMEOUT', '10'))
+
+# ORCID OAuth
+ORCID_AUTH_ENABLED = _get_first_env(
+    ('ORCID_AUTH_ENABLED', 'ORCID_OAUTH_ENABLED', 'ENABLE_ORCID_AUTH'),
+    ''
+).strip()
+ORCID_CLIENT_ID = _get_first_env(
+    ('ORCID_CLIENT_ID', 'ORCID_OAUTH_CLIENT_ID'),
+    ''
+).strip()
+ORCID_CLIENT_SECRET = _get_first_env(
+    ('ORCID_CLIENT_SECRET', 'ORCID_OAUTH_CLIENT_SECRET'),
+    ''
+).strip()
+ORCID_REDIRECT_URI = _get_first_env(
+    ('ORCID_REDIRECT_URI', 'ORCID_OAUTH_REDIRECT_URI'),
+    ''
+).strip()
+ORCID_BASE_URL = _get_env('ORCID_BASE_URL', 'https://orcid.org').strip().rstrip('/')
+ORCID_SCOPE = _get_env('ORCID_SCOPE', '/authenticate').strip() or '/authenticate'
+ORCID_REQUEST_TIMEOUT = int(_get_env('ORCID_REQUEST_TIMEOUT', '10'))
+
 _sync_default = 'local-translation-sync-token' if not IS_PRODUCTION else SECRET_KEY
 TRANSLATION_SYNC_TOKEN = _get_env('TRANSLATION_SYNC_TOKEN', _sync_default)
 
@@ -85,6 +107,7 @@ APP_BASE_URL = _get_env(
 
 APP_VERSION = _get_env('APP_VERSION', '0.0.0')
 LOG_LEVEL = _get_env('LOG_LEVEL', 'INFO')
+RUNTIME_SCHEMA_SYNC_ENABLED = _get_env_bool('RUNTIME_SCHEMA_SYNC_ENABLED', not IS_PRODUCTION)
 
 
 def _ensure_production_secret(name, value, disallowed):

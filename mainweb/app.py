@@ -119,6 +119,8 @@ def create_app():
     register_filters(app)
     hooks.register(app)
     context.register_context_processors(app)
+    auth.run_runtime_schema_syncs()
+    api.run_runtime_schema_syncs()
     _migrate_legacy_password_hashes()
 
     auth.register(app)

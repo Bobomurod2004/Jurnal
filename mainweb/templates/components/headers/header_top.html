@@ -1,6 +1,6 @@
 <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
     <a href="/" class="flex items-center gap-3 min-w-0">
-        <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ t('website_title') }}" height="{{ logo_height|default(40) }}" class="h-9 w-auto shrink-0 object-contain md:h-10">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ t('website_title') }}" height="{{ logo_height|default(40) }}" style="height: {{ logo_height|default(40) }}px;" class="w-auto shrink-0 object-contain">
         {% if show_title|default(true) %}
         <div class="min-w-0">
             <div class="truncate text-lg md:text-xl font-semibold font-serif text-gray-900">{{ t('website_title') }}</div>
@@ -51,10 +51,13 @@
             <iconify-icon icon="solar:user-bold-duotone" class="text-base"></iconify-icon>
             {{ t('my_account') }}
         </a>
-        <a href="{{ url_for('app__logout') }}" class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 font-medium text-gray-700 hover:border-red-300 hover:text-red-600 transition-colors">
-            <iconify-icon icon="solar:logout-3-bold-duotone" class="text-base"></iconify-icon>
-            {{ t('logout') }}
-        </a>
+        <form action="{{ url_for('app__logout') }}" method="post" class="inline-flex">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 font-medium text-gray-700 hover:border-red-300 hover:text-red-600 transition-colors">
+                <iconify-icon icon="solar:logout-3-bold-duotone" class="text-base"></iconify-icon>
+                {{ t('logout') }}
+            </button>
+        </form>
         {% else %}
         <a href="{{ url_for('app__login', next=request.full_path) }}" class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 font-medium text-gray-700 hover:border-fmmain/40 hover:text-gray-900 transition-colors">
             <iconify-icon icon="solar:login-3-bold-duotone" class="text-base"></iconify-icon>

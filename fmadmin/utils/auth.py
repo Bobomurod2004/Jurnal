@@ -65,6 +65,22 @@ def api_admin_required(f):
     return decorated_function
 
 
+def api_permission_required(permission_name, message='Permission required'):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            user = session.get('fmadmin_user')
+            if not user:
+                return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+            if not user_has_permission(user, permission_name):
+                return jsonify({'success': False, 'message': message}), 403
+
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
 def api_superadmin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):

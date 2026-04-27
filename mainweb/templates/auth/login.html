@@ -99,11 +99,18 @@
                 </div>
                 {% endif %}
 
-                <a href="javascript:;"
-                    class="w-full flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200">
-                    <img src="static/orcid.svg" class="h-4" alt="ORCID">
-                    {{ t('login_with_orcid') }}
+                {% if orcid_auth_enabled %}
+                <a href="{{ url_for('app__orcid_auth_start', intent='login', next=next_url) }}"
+                    class="w-full flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
+                    aria-label="{{ t('login_with_orcid') if t('login_with_orcid') != 'login_with_orcid' else 'ORCID orqali kirish' }}">
+                    <img src="{{ url_for('static', filename='orcid.svg') }}" class="h-4" alt="ORCID">
+                    {{ t('login_with_orcid') if t('login_with_orcid') != 'login_with_orcid' else 'ORCID orqali kirish' }}
                 </a>
+                {% else %}
+                <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600">
+                    ORCID login hozircha sozlanmagan.
+                </div>
+                {% endif %}
 
                 <div class="mt-6 text-center">
                     <span class="text-sm text-gray-500">{{ t('register') }}?</span>

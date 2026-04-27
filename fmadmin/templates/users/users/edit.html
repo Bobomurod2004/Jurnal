@@ -3,6 +3,44 @@
 
 {% block content %}
 {% set is_superadmin = current_user and current_user.rolename == 'superadmin' %}
+<style>
+    .user-360-card .metric-label {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--tblr-secondary);
+        font-weight: 700;
+    }
+
+    .user-360-card .metric-value {
+        font-size: 1.35rem;
+        font-weight: 700;
+        line-height: 1.1;
+    }
+
+    .user-360-list-item {
+        border-bottom: 1px solid var(--tblr-border-color-translucent);
+        padding: 0.7rem 0;
+    }
+
+    .user-360-list-item:first-child {
+        padding-top: 0;
+    }
+
+    .user-360-list-item:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .user-360-timeline-item {
+        border-bottom: 1px solid var(--tblr-border-color-translucent);
+        padding: 0.85rem 1.25rem;
+    }
+
+    .user-360-timeline-item:last-child {
+        border-bottom: 0;
+    }
+</style>
 
 <div class="page-header d-print-none mb-4">
     <div class="row align-items-center">
@@ -203,6 +241,173 @@
                     </div>
                 </div>
             </div>
+
+            {% if user.id != 0 and user_360 %}
+            <div class="card mt-3 user-360-card">
+                <div class="card-header">
+                    <h3 class="card-title">360 Profile</h3>
+                    <div class="card-actions text-secondary small">
+                        {% if user_360.profile.last_activity_at %}
+                        Oxirgi faoliyat: {{ user_360.profile.last_activity_at | timestamp_to_datetime }}
+                        {% else %}
+                        Faoliyat topilmadi
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded p-2 h-100">
+                                <div class="metric-label">Submissions</div>
+                                <div class="metric-value mt-1">{{ user_360.submission_stats.total }}</div>
+                                <div class="text-secondary small mt-1">Published: {{ user_360.submission_stats.published }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded p-2 h-100">
+                                <div class="metric-label">Payments</div>
+                                <div class="metric-value mt-1">{{ user_360.payment_stats.total }}</div>
+                                <div class="text-secondary small mt-1">
+                                    Paid summa: {{ user_360.payment_stats.paid_amount | round(2) }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded p-2 h-100">
+                                <div class="metric-label">Notifications</div>
+                                <div class="metric-value mt-1">{{ user_360.profile.notifications_incoming }}</div>
+                                <div class="text-secondary small mt-1">
+                                    Unread: {{ user_360.profile.notifications_unread }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded p-2 h-100">
+                                <div class="metric-label">Documents</div>
+                                <div class="metric-value mt-1">{{ user_360.profile.documents_total }}</div>
+                                <div class="text-secondary small mt-1">
+                                    Verified: {{ user_360.profile.documents_verified }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-lg-6">
+                            <h4 class="mb-2">Submissions statistikasi</h4>
+                            <div class="d-flex flex-wrap gap-1 mb-2">
+                                {% for item in user_360.submission_stats.status_breakdown %}
+                                <span class="badge bg-{{ item.tone }}-lt">{{ item.label }}: {{ item.count }}</span>
+                                {% endfor %}
+                            </div>
+                            <div class="d-flex flex-wrap gap-1 mb-3">
+                                {% for item in user_360.submission_stats.review_breakdown %}
+                                <span class="badge bg-{{ item.tone }}-lt">{{ item.label }}: {{ item.count }}</span>
+                                {% endfor %}
+                            </div>
+                            {% if user_360.submission_stats.recent %}
+                            {% for item in user_360.submission_stats.recent %}
+                            <div class="user-360-list-item">
+                                <div class="d-flex justify-content-between gap-2">
+                                    <a href="{{ url_for('submission_detail', submission_id=item.id) }}" class="fw-semibold text-decoration-none">
+                                        {{ item.title[:88] }}{% if item.title|length > 88 %}...{% endif %}
+                                    </a>
+                                    <span class="badge bg-{{ item.status_tone }}-lt">{{ item.status_label }}</span>
+                                </div>
+                                <div class="text-secondary small mt-1">
+                                    {% if item.review_label %}
+                                    {{ item.review_label }}
+                                    {% endif %}
+                                    {% if item.workflow_stage_label %}
+                                    • {{ item.workflow_stage_label }}
+                                    {% endif %}
+                                    {% if item.activity_at %}
+                                    • {{ item.activity_at | timestamp_to_datetime }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <div class="text-secondary small">Submissionlar topilmadi.</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-lg-6">
+                            <h4 class="mb-2">Payments statistikasi</h4>
+                            <div class="d-flex flex-wrap gap-1 mb-2">
+                                {% for item in user_360.payment_stats.status_breakdown %}
+                                <span class="badge bg-{{ item.tone }}-lt">
+                                    {{ item.label }}: {{ item.count }} ({{ item.amount | round(2) }})
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% if user_360.payment_stats.recent %}
+                            {% for item in user_360.payment_stats.recent %}
+                            <div class="user-360-list-item">
+                                <div class="d-flex justify-content-between gap-2">
+                                    <a href="{{ url_for('payments', status=item.status) }}" class="fw-semibold text-decoration-none">
+                                        {{ item.payment_type_label }}
+                                    </a>
+                                    <span class="badge bg-{{ item.status_tone }}-lt">{{ item.status_label }}</span>
+                                </div>
+                                <div class="text-secondary small mt-1">
+                                    {{ item.amount_text }}
+                                    {% if item.activity_at %}
+                                    • {{ item.activity_at | timestamp_to_datetime }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <div class="text-secondary small">Paymentlar topilmadi.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-3 user-360-card">
+                <div class="card-header">
+                    <h3 class="card-title">Activity timeline</h3>
+                    <div class="card-actions text-secondary small">
+                        Oxirgi eventlar: {{ user_360.timeline | length }}
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if user_360.timeline %}
+                    {% for event in user_360.timeline %}
+                    <div class="user-360-timeline-item">
+                        <div class="d-flex align-items-start gap-3">
+                            <span class="avatar avatar-sm bg-{{ event.tone }}-lt text-{{ event.tone }}">
+                                <i class="ti {{ event.icon }}"></i>
+                            </span>
+                            <div class="flex-fill min-w-0">
+                                {% if event.url %}
+                                <a href="{{ event.url }}" class="fw-semibold text-decoration-none d-block">
+                                    {{ event.title }}
+                                </a>
+                                {% else %}
+                                <div class="fw-semibold">{{ event.title }}</div>
+                                {% endif %}
+                                {% if event.subtitle %}
+                                <div class="text-secondary small mt-1">{{ event.subtitle }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="text-secondary small text-nowrap">
+                                {{ event.timestamp | timestamp_to_datetime if event.timestamp else '-' }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% if user_360.timeline_has_more %}
+                    <div class="p-3 text-secondary small">Yana ko'proq eventlar mavjud.</div>
+                    {% endif %}
+                    {% else %}
+                    <div class="p-3 text-secondary small">Faoliyat yozuvlari topilmadi.</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </form>

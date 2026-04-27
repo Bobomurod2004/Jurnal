@@ -141,6 +141,46 @@ EDITORIAL_MEMBER_TYPE_LABELS = {
 }
 EDITORIAL_MEMBER_TYPE_KEYS = set(EDITORIAL_MEMBER_TYPE_ORDER)
 
+EMAIL_TEMPLATE_VAR_PATTERN = re.compile(r'{{\s*([a-zA-Z0-9_]+)\s*}}')
+EMAIL_TEMPLATE_DEFAULTS = [
+    {
+        'alias': 'assignment_deadline_editor',
+        'name': 'Editor deadline reminder',
+        'description': 'Editor uchun deadline eslatmasi',
+        'variables': ['name', 'title', 'time_left', 'deadline_type'],
+        'subject_uz': 'Topshiriq muddati yaqin',
+        'subject_ru': 'Срок задания приближается',
+        'subject_en': 'Assignment deadline is near',
+        'intro_uz': '{{name}}, "{{title}}" bo\'yicha {{deadline_type}} muddatiga {{time_left}} qoldi.',
+        'intro_ru': '{{name}}, по "{{title}}" до срока {{deadline_type}} осталось {{time_left}}.',
+        'intro_en': '{{name}}, {{time_left}} left before {{deadline_type}} deadline for "{{title}}".',
+        'body_uz': 'Iltimos, topshiriqni vaqtida yakunlang.',
+        'body_ru': 'Пожалуйста, завершите задачу вовремя.',
+        'body_en': 'Please complete the assignment on time.',
+        'cta_label_uz': 'Topshiriqni ochish',
+        'cta_label_ru': 'Открыть назначение',
+        'cta_label_en': 'Open assignment',
+    },
+    {
+        'alias': 'assignment_deadline_admin',
+        'name': 'Admin deadline reminder',
+        'description': 'Admin uchun editor deadline eslatmasi',
+        'variables': ['editor_name', 'title', 'time_left', 'deadline_type'],
+        'subject_uz': 'Editor muddati yaqin',
+        'subject_ru': 'Срок редактора приближается',
+        'subject_en': 'Editor deadline is near',
+        'intro_uz': '{{editor_name}} uchun "{{title}}" bo\'yicha {{deadline_type}} muddatiga {{time_left}} qoldi.',
+        'intro_ru': 'Для {{editor_name}} по "{{title}}" до срока {{deadline_type}} осталось {{time_left}}.',
+        'intro_en': '{{time_left}} left before {{editor_name}} reaches {{deadline_type}} deadline for "{{title}}".',
+        'body_uz': 'Kerak bo\'lsa, admin panel orqali qo\'lda boshqaruvni amalga oshiring.',
+        'body_ru': 'При необходимости выполните ручное управление через админ-панель.',
+        'body_en': 'If needed, use manual controls in admin panel.',
+        'cta_label_uz': 'Batafsil ko\'rish',
+        'cta_label_ru': 'Открыть детали',
+        'cta_label_en': 'Open details',
+    },
+]
+
 ADMIN_TRACK_CHOICES = [
     ('masters', 'Magistratura'),
     ('phd', 'Doktorantura'),
@@ -336,6 +376,50 @@ def _clean_text(value):
     if value is None:
         return ''
     return str(value).strip()
+
+
+def _normalize_email_template_alias(value):
+    normalized = _clean_text(value).lower()
+    normalized = re.sub(r'[^a-z0-9_]+', '_', normalized)
+    return re.sub(r'_+', '_', normalized).strip('_')
+
+
+def _parse_template_variables_csv(value):
+    if value is None:
+        return []
+    seen = set()
+    result = []
+    raw_items = re.split(r'[\s,]+', str(value))
+    for item in raw_items:
+        normalized = _normalize_email_template_alias(item)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+    return result
+
+
+def _collect_template_variables(*texts):
+    found = set()
+    for text in texts:
+        for match in EMAIL_TEMPLATE_VAR_PATTERN.findall(str(text or '')):
+            normalized = _normalize_email_template_alias(match)
+            if normalized:
+                found.add(normalized)
+    return sorted(found)
+
+
+def _render_template_preview_text(text_value, sample_values=None):
+    text = str(text_value or '')
+    values = sample_values or {}
+
+    def _replace(match):
+        key = _normalize_email_template_alias(match.group(1))
+        if key in values:
+            return str(values[key])
+        return match.group(0)
+
+    return EMAIL_TEMPLATE_VAR_PATTERN.sub(_replace, text)
 
 
 ARTICLE_HTML_ALLOWED_TAGS = {
@@ -556,9 +640,12 @@ def _safe_internal_redirect(target, fallback_endpoint):
 
 
 def _login_rate_limit_key(email):
-    forwarded_for = request.headers.get('X-Forwarded-For', '').strip()
-    ip_address = forwarded_for.split(',')[0].strip() if forwarded_for else (request.remote_addr or '').strip()
+    ip_address = _get_request_ip()
     return f"{ip_address or 'unknown'}::{(email or '').strip().lower()}"
+
+
+def _get_request_ip():
+    return (request.remote_addr or '').strip()
 
 
 def _ensure_login_rate_limit_storage():
@@ -684,6 +771,10 @@ def _delete_login_rate_limit_state(key):
             db.conn.rollback()
         except Exception:
             pass
+
+
+def _clear_admin_session():
+    session.pop('fmadmin_user', None)
 
 
 def _prune_login_rate_limits(now_ts):
@@ -819,6 +910,8 @@ def _parse_amount(value):
 
 
 def _ensure_tariff_duration_column(default_days=30):
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         existing_columns = set(db.columns.get('tariffs', []))
         if 'duration_days' in existing_columns:
@@ -843,6 +936,8 @@ def _ensure_tariff_duration_column(default_days=30):
 
 
 def _ensure_tariff_archive_column():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         existing_columns = set(db.columns.get('tariffs', []))
         if 'is_archived' in existing_columns:
@@ -862,6 +957,8 @@ def _ensure_tariff_archive_column():
 
 
 def _ensure_tariff_entitlement_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         existing_columns = set(db.columns.get('tariffs', []))
         if not existing_columns:
@@ -952,6 +1049,8 @@ def _ensure_tariff_entitlement_columns():
 
 
 def _ensure_payment_snapshot_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         existing_columns = set(db.columns.get('payments', []))
         missing_columns = []
@@ -978,6 +1077,8 @@ def _ensure_payment_snapshot_columns():
 
 
 def _ensure_user_doc_upload_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         existing_columns = set(db.columns.get('user_doc_uploads', []))
         if not existing_columns:
@@ -1586,6 +1687,10 @@ def _notify_assignment_deadline_reminder(
         )
         event_type = 'editor_assignment_acceptance_deadline_reminder'
 
+    if not isinstance(editor_user, dict):
+        editor_rows = db.users.all().equal(id=editor_id).exec()
+        editor_user = editor_rows[0] if editor_rows else None
+
     sent_count = 0
     if _create_role_notification(
         target_user_id=editor_id,
@@ -1602,9 +1707,12 @@ def _notify_assignment_deadline_reminder(
         sent_count += 1
 
     admin_user_id = _parse_int((submission or {}).get('assigned_admin_id'))
+    admin_user = None
     if admin_user_id is None:
         admin_user_id = _parse_int((assignment or {}).get('assigned_by'))
     if admin_user_id is not None and admin_user_id != editor_id:
+        admin_rows = db.users.all().equal(id=admin_user_id).exec()
+        admin_user = admin_rows[0] if admin_rows else None
         if _create_role_notification(
             target_user_id=admin_user_id,
             target_role='admin',
@@ -1618,6 +1726,74 @@ def _notify_assignment_deadline_reminder(
             actor_user_id=actor_user_id
         ):
             sent_count += 1
+
+    deadline_kind = localized_texts(
+        "qabul qilish",
+        "принятия задания",
+        "assignment acceptance"
+    )
+    if reminder_type == 'completion':
+        deadline_kind = localized_texts(
+            "tahriz topshirish",
+            "отправки рецензии",
+            "review submission"
+        )
+
+    deadline_label = _format_duration_text(remaining_seconds, 'uz')
+    email_subject = editor_title
+    email_intro_editor = localized_texts(
+        f'"{submission_title}" bo\'yicha {deadline_kind} muddati yaqin: {deadline_label} qoldi.',
+        f'По "{submission_title}" приближается срок {deadline_kind}: осталось {left_ru}.',
+        f'The {deadline_kind} deadline for "{submission_title}" is near: {left_en} left.'
+    )
+    email_intro_admin = localized_texts(
+        f'{editor_name} uchun "{submission_title}" bo\'yicha {deadline_kind} muddatiga {deadline_label} qoldi.',
+        f'Для {editor_name} по "{submission_title}" приближается срок {deadline_kind}: осталось {left_ru}.',
+        f'{left_en} left before {editor_name} reaches the {deadline_kind} deadline for "{submission_title}".'
+    )
+    email_details = [
+        (
+            localized_texts('Maqola', 'Материал', 'Submission'),
+            submission_title,
+        ),
+        (
+            localized_texts('Qolgan vaqt', 'Оставшееся время', 'Time left'),
+            localized_texts(left_uz, left_ru, left_en),
+        ),
+    ]
+
+    _send_user_email(
+        editor_user,
+        subject=email_subject,
+        intro=email_intro_editor,
+        details=email_details,
+        cta_url=review_url,
+        cta_label=localized_texts('Topshiriqni ochish', 'Открыть назначение', 'Open assignment'),
+        template_alias='assignment_deadline_editor',
+        template_vars={
+            'name': editor_name,
+            'title': submission_title,
+            'time_left': localized_texts(left_uz, left_ru, left_en),
+            'deadline_type': deadline_kind,
+            'editor_name': editor_name,
+        },
+    )
+    _send_user_email(
+        admin_user,
+        subject=email_subject,
+        intro=email_intro_admin,
+        details=email_details,
+        cta_url=review_url,
+        cta_label=localized_texts('Batafsil ko\'rish', 'Открыть детали', 'Open details'),
+        template_alias='assignment_deadline_admin',
+        template_vars={
+            'editor_name': editor_name,
+            'title': submission_title,
+            'time_left': localized_texts(left_uz, left_ru, left_en),
+            'deadline_type': deadline_kind,
+            'name': editor_name,
+        },
+    )
 
     return sent_count
 
@@ -2243,6 +2419,8 @@ def _infer_workflow_stage(submission):
 
 
 def _ensure_submission_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         existing_columns = set(db.columns.get('submissions', []))
         if not existing_columns:
@@ -2267,11 +2445,9 @@ def _ensure_submission_columns():
         except Exception:
             pass
 
-
-_ensure_submission_columns()
-
-
 def _ensure_user_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         existing_columns = set(db.columns.get('users', []))
         if not existing_columns:
@@ -2301,11 +2477,9 @@ def _ensure_user_columns():
         except Exception:
             pass
 
-
-_ensure_user_columns()
-
-
 def _ensure_editor_assignment_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         existing_columns = set(db.columns.get('editor_assignments', []))
         if not existing_columns:
@@ -2343,11 +2517,9 @@ def _ensure_editor_assignment_columns():
         except Exception:
             pass
 
-
-_ensure_editor_assignment_columns()
-
-
 def _ensure_role_notifications_table():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         cursor = db.conn.cursor()
         cursor.execute(
@@ -2385,11 +2557,9 @@ def _ensure_role_notifications_table():
         except Exception:
             pass
 
-
-_ensure_role_notifications_table()
-
-
 def _ensure_editorial_members_table():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         cursor = db.conn.cursor()
         cursor.execute(
@@ -2441,7 +2611,112 @@ def _ensure_editorial_members_table():
             pass
 
 
-_ensure_editorial_members_table()
+def _ensure_email_templates_table():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS email_templates (
+                id SERIAL PRIMARY KEY,
+                alias TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                description TEXT,
+                variables TEXT[] DEFAULT '{}'::text[],
+                subject_uz TEXT,
+                subject_ru TEXT,
+                subject_en TEXT,
+                intro_uz TEXT,
+                intro_ru TEXT,
+                intro_en TEXT,
+                body_uz TEXT,
+                body_ru TEXT,
+                body_en TEXT,
+                cta_label_uz TEXT,
+                cta_label_ru TEXT,
+                cta_label_en TEXT,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at BIGINT DEFAULT EXTRACT(epoch FROM now()),
+                updated_at BIGINT,
+                created_by INTEGER,
+                updated_by INTEGER
+            );
+            """
+        )
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_email_templates_alias ON email_templates(alias);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_email_templates_active ON email_templates(is_active);")
+
+        now_ts = int(time.time())
+        for item in EMAIL_TEMPLATE_DEFAULTS:
+            cursor.execute(
+                """
+                INSERT INTO email_templates (
+                    alias, name, description, variables,
+                    subject_uz, subject_ru, subject_en,
+                    intro_uz, intro_ru, intro_en,
+                    body_uz, body_ru, body_en,
+                    cta_label_uz, cta_label_ru, cta_label_en,
+                    is_active, created_at, updated_at
+                ) VALUES (
+                    %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s
+                )
+                ON CONFLICT (alias) DO NOTHING
+                """,
+                (
+                    item['alias'],
+                    item['name'],
+                    item['description'],
+                    item['variables'],
+                    item['subject_uz'],
+                    item['subject_ru'],
+                    item['subject_en'],
+                    item['intro_uz'],
+                    item['intro_ru'],
+                    item['intro_en'],
+                    item['body_uz'],
+                    item['body_ru'],
+                    item['body_en'],
+                    item['cta_label_uz'],
+                    item['cta_label_ru'],
+                    item['cta_label_en'],
+                    True,
+                    now_ts,
+                    now_ts,
+                ),
+            )
+
+        db.conn.commit()
+        cursor.close()
+        db._init_tables()
+        db._init_columns()
+    except Exception as e:
+        logger.warning("Email templates table sync warning: %s", e)
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+
+
+def run_runtime_schema_syncs():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
+    _ensure_tariff_duration_column()
+    _ensure_tariff_archive_column()
+    _ensure_tariff_entitlement_columns()
+    _ensure_payment_snapshot_columns()
+    _ensure_user_doc_upload_columns()
+    _ensure_submission_columns()
+    _ensure_user_columns()
+    _ensure_editor_assignment_columns()
+    _ensure_role_notifications_table()
+    _ensure_editorial_members_table()
+    _ensure_email_templates_table()
 
 
 def _normalize_notification_level(level):
@@ -2800,7 +3075,18 @@ def _normalize_localized_body_lines(body_lines, user_row=None):
     return normalized
 
 
-def _send_user_email(user_row, subject, intro, details=None, body_lines=None, cta_url=None, cta_label=None, reply_to=None):
+def _send_user_email(
+    user_row,
+    subject,
+    intro,
+    details=None,
+    body_lines=None,
+    cta_url=None,
+    cta_label=None,
+    reply_to=None,
+    template_alias=None,
+    template_vars=None,
+):
     email = _clean_text((user_row or {}).get('email'))
     if not email or not user_allows_email_notifications(user_row):
         return False
@@ -2826,6 +3112,9 @@ def _send_user_email(user_row, subject, intro, details=None, body_lines=None, ct
         cta_label=cta_label_text,
         reply_to=reply_to,
         fail_silently=True,
+        template_alias=template_alias,
+        template_vars=template_vars,
+        preferred_language=preferred_language,
     )
 
 
@@ -3014,7 +3303,29 @@ def index():
         attention_submissions=dashboard_snapshot.get('attention_submissions', []),
         recent_submissions=dashboard_snapshot.get('recent_submissions', []),
         top_articles=dashboard_snapshot.get('top_articles', []),
+        can_run_assignment_automation=user_has_permission(current_user, 'fmadmin.submissions.manage'),
     )
+
+
+@bp.route('/fmadmin/automation/editor-assignments/run', methods=['POST'])
+@is_allowed
+def run_editor_assignment_automation_now():
+    actor_user_id = _parse_int((session.get('fmadmin_user') or {}).get('id'))
+    result = run_editor_assignment_automation(actor_user_id=actor_user_id, force=True)
+
+    if result.get('skipped'):
+        flash('Automation skip qilindi (interval chegarasi).', 'warning')
+    else:
+        flash(
+            (
+                'Automation bajarildi: '
+                f"processed={result.get('processed', 0)}, "
+                f"expired={result.get('expired', 0)}, "
+                f"reminders={result.get('reminders', 0)}"
+            ),
+            'success'
+        )
+    return redirect(_safe_internal_redirect(request.referrer, 'index'))
 
 
 @bp.route('/fmadmin/editor/dashboard')
@@ -3027,7 +3338,8 @@ def editor_dashboard():
     editor_id = current_user.get('id')
     if not editor_id:
         flash(t('admin_error_no_access'), 'danger')
-        return redirect(url_for('logout'))
+        _clear_admin_session()
+        return redirect(url_for('login'))
 
     try:
         assignments = db.editor_assignments.all().equal(editor_id=editor_id).order_by('assigned_at').exec()
@@ -3145,9 +3457,9 @@ def login():
 
     return render_template('auth/login.html')
 
-@bp.route('/fmadmin/logout')
+@bp.route('/fmadmin/logout', methods=['POST'])
 def logout():
-    session.pop('fmadmin_user', None)
+    _clear_admin_session()
     flash(t('admin_success_logout'), 'info')
     return redirect(url_for('login'))
 
@@ -3218,6 +3530,555 @@ def _allowed_roles_for_actor(actor_role):
     if actor_role == 'superadmin':
         roles.append('superadmin')
     return roles
+
+
+def _query_rows_dicts(query, args=()):
+    cursor = None
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute(query, args)
+        columns = [desc[0] for desc in (cursor.description or [])]
+        rows = cursor.fetchall() if columns else []
+        return [dict(zip(columns, row)) for row in rows]
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        return []
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+
+def _editor_review_status_label_text(status, lang='uz'):
+    labels = {
+        'not_assigned': {'uz': "Biriktirilmagan", 'ru': "Не назначено", 'en': "Not assigned"},
+        'assigned': {'uz': "Biriktirilgan", 'ru': "Назначено", 'en': "Assigned"},
+        'in_review': {'uz': "Ko'rib chiqilmoqda", 'ru': "На проверке", 'en': "In review"},
+        'reviewed': {'uz': "Ko'rib chiqildi", 'ru': "Проверено", 'en': "Reviewed"},
+        'approved': {'uz': "Tasdiqlangan", 'ru': "Одобрено", 'en': "Approved"},
+        'rejected': {'uz': "Rad etilgan", 'ru': "Отклонено", 'en': "Rejected"},
+    }
+    key = _clean_text(status).lower()
+    if not key:
+        return '-'
+    return labels.get(key, {}).get(lang, key)
+
+
+def _status_badge_tone(status, scope='submission'):
+    normalized = _clean_text(status).lower()
+    mappings = {
+        'submission': {
+            'published': 'green',
+            'submitted': 'blue',
+            'in_process': 'orange',
+            'rejected': 'red',
+            'draft': 'secondary',
+            'under_review': 'yellow',
+            'accepted': 'green',
+        },
+        'editor_review': {
+            'approved': 'green',
+            'reviewed': 'blue',
+            'in_review': 'orange',
+            'assigned': 'yellow',
+            'not_assigned': 'secondary',
+            'rejected': 'red',
+        },
+        'payment': {
+            'paid': 'green',
+            'pending': 'yellow',
+            'rejected': 'red',
+            'unpaid': 'secondary',
+        },
+        'notification': {
+            'success': 'green',
+            'warning': 'yellow',
+            'danger': 'red',
+            'info': 'blue',
+        },
+    }
+    return mappings.get(scope, {}).get(normalized, 'secondary')
+
+
+def _payment_type_label_text(payment_type):
+    normalized = _clean_text(payment_type).lower()
+    if normalized == 'subscription':
+        return _msg_text("Obuna", "Подписка", "Subscription")
+    if normalized == 'article':
+        return _msg_text("Maqola", "Статья", "Article")
+    if normalized == 'issue':
+        return _msg_text("Son", "Выпуск", "Issue")
+    return _msg_text("To'lov", "Платеж", "Payment")
+
+
+def _format_money_short(amount, currency='UZS'):
+    amount_value = _parse_amount(amount)
+    if amount_value is None:
+        return '-'
+    currency_code = _clean_text(currency).upper() or 'UZS'
+    if float(amount_value).is_integer():
+        amount_text = f"{int(amount_value):,}".replace(',', ' ')
+    else:
+        amount_text = f"{amount_value:,.2f}".replace(',', ' ')
+    return f"{amount_text} {currency_code}"
+
+
+def _build_user_360_snapshot(user_row, timeline_limit=24):
+    user_id = _parse_int((user_row or {}).get('id'))
+    if not user_id:
+        return None
+
+    language = _ui_language()
+    safe_timeline_limit = max(8, min(_parse_int(timeline_limit) or 24, 64))
+    submissions_columns = set(db.columns.get('submissions', []) or [])
+    has_submission_workflow_stage = 'workflow_stage' in submissions_columns
+
+    snapshot = {
+        'profile': {
+            'author_profile': None,
+            'documents_total': 0,
+            'documents_verified': 0,
+            'documents_pending': 0,
+            'notifications_incoming': 0,
+            'notifications_unread': 0,
+            'notifications_outgoing': 0,
+            'last_activity_at': None,
+        },
+        'submission_stats': {
+            'total': 0,
+            'published': 0,
+            'active': 0,
+            'rejected': 0,
+            'status_breakdown': [],
+            'review_breakdown': [],
+            'recent': [],
+            'first_created_at': None,
+            'last_activity_at': None,
+        },
+        'payment_stats': {
+            'total': 0,
+            'paid': 0,
+            'pending': 0,
+            'rejected': 0,
+            'unpaid': 0,
+            'paid_amount': 0.0,
+            'pending_amount': 0.0,
+            'status_breakdown': [],
+            'recent': [],
+            'last_activity_at': None,
+        },
+        'timeline': [],
+        'timeline_has_more': False,
+    }
+
+    author_profile_rows = _query_rows_dicts(
+        "SELECT id, name, email, orcid, organization, position "
+        "FROM author_profile WHERE user_id = %s ORDER BY id DESC LIMIT 1",
+        (user_id,),
+    )
+    if author_profile_rows:
+        snapshot['profile']['author_profile'] = author_profile_rows[0]
+
+    doc_rows = _query_rows_dicts(
+        "SELECT COUNT(*)::int AS total, "
+        "SUM(CASE WHEN LOWER(COALESCE(verification_status, '')) IN ('verified', 'approved') THEN 1 ELSE 0 END)::int AS verified, "
+        "SUM(CASE WHEN LOWER(COALESCE(verification_status, '')) = 'pending' THEN 1 ELSE 0 END)::int AS pending "
+        "FROM user_doc_uploads WHERE user_id = %s",
+        (user_id,),
+    )
+    if doc_rows:
+        docs = doc_rows[0]
+        snapshot['profile']['documents_total'] = _parse_int(docs.get('total')) or 0
+        snapshot['profile']['documents_verified'] = _parse_int(docs.get('verified')) or 0
+        snapshot['profile']['documents_pending'] = _parse_int(docs.get('pending')) or 0
+
+    notifications_rows = _query_rows_dicts(
+        "SELECT "
+        "SUM(CASE WHEN target_user_id = %s THEN 1 ELSE 0 END)::int AS incoming_count, "
+        "SUM(CASE WHEN target_user_id = %s AND is_read = FALSE THEN 1 ELSE 0 END)::int AS unread_incoming_count, "
+        "SUM(CASE WHEN actor_user_id = %s THEN 1 ELSE 0 END)::int AS outgoing_count "
+        "FROM role_notifications "
+        "WHERE target_user_id = %s OR actor_user_id = %s",
+        (user_id, user_id, user_id, user_id, user_id),
+    )
+    if notifications_rows:
+        notifications = notifications_rows[0]
+        snapshot['profile']['notifications_incoming'] = _parse_int(notifications.get('incoming_count')) or 0
+        snapshot['profile']['notifications_unread'] = _parse_int(notifications.get('unread_incoming_count')) or 0
+        snapshot['profile']['notifications_outgoing'] = _parse_int(notifications.get('outgoing_count')) or 0
+
+    submission_status_rows = _query_rows_dicts(
+        "SELECT COALESCE(status, '') AS status, COUNT(*)::int AS count "
+        "FROM submissions WHERE user_id = %s "
+        "GROUP BY COALESCE(status, '')",
+        (user_id,),
+    )
+    submission_status_map = {}
+    for row in submission_status_rows:
+        key = _clean_text(row.get('status')).lower()
+        submission_status_map[key] = _parse_int(row.get('count')) or 0
+
+    submission_summary_rows = _query_rows_dicts(
+        "SELECT MIN(created_date) AS first_created_at, MAX(COALESCE(updated_at, created_date)) AS last_activity_at "
+        "FROM submissions WHERE user_id = %s",
+        (user_id,),
+    )
+    if submission_summary_rows:
+        summary = submission_summary_rows[0]
+        snapshot['submission_stats']['first_created_at'] = _parse_int(summary.get('first_created_at'))
+        snapshot['submission_stats']['last_activity_at'] = _parse_int(summary.get('last_activity_at'))
+
+    submission_review_rows = _query_rows_dicts(
+        "SELECT COALESCE(editor_review_status, '') AS review_status, COUNT(*)::int AS count "
+        "FROM submissions WHERE user_id = %s "
+        "GROUP BY COALESCE(editor_review_status, '')",
+        (user_id,),
+    )
+    submission_review_map = {}
+    for row in submission_review_rows:
+        key = _clean_text(row.get('review_status')).lower()
+        submission_review_map[key] = _parse_int(row.get('count')) or 0
+
+    ordered_submission_statuses = ['submitted', 'in_process', 'published', 'rejected', 'draft']
+    extra_submission_statuses = sorted(
+        [key for key in submission_status_map.keys() if key and key not in ordered_submission_statuses]
+    )
+    for status_key in ordered_submission_statuses + extra_submission_statuses:
+        count = submission_status_map.get(status_key, 0)
+        if count <= 0:
+            continue
+        snapshot['submission_stats']['status_breakdown'].append({
+            'key': status_key,
+            'label': _status_label_text(status_key, language),
+            'count': count,
+            'tone': _status_badge_tone(status_key, 'submission'),
+        })
+
+    ordered_review_statuses = ['not_assigned', 'assigned', 'in_review', 'reviewed', 'approved', 'rejected']
+    extra_review_statuses = sorted(
+        [key for key in submission_review_map.keys() if key and key not in ordered_review_statuses]
+    )
+    for status_key in ordered_review_statuses + extra_review_statuses:
+        count = submission_review_map.get(status_key, 0)
+        if count <= 0:
+            continue
+        snapshot['submission_stats']['review_breakdown'].append({
+            'key': status_key,
+            'label': _editor_review_status_label_text(status_key, language),
+            'count': count,
+            'tone': _status_badge_tone(status_key, 'editor_review'),
+        })
+
+    submission_recent_columns = [
+        'id',
+        'title',
+        'status',
+        'editor_review_status',
+        'created_date',
+        'updated_at',
+    ]
+    if has_submission_workflow_stage:
+        submission_recent_columns.append('workflow_stage')
+    submission_recent_query = (
+        f"SELECT {', '.join(submission_recent_columns)} "
+        "FROM submissions WHERE user_id = %s "
+        "ORDER BY COALESCE(updated_at, created_date) DESC NULLS LAST, id DESC "
+        "LIMIT 6"
+    )
+    submission_recent_rows = _query_rows_dicts(submission_recent_query, (user_id,))
+    for row in submission_recent_rows:
+        submission_id = _parse_int(row.get('id'))
+        created_at = _parse_int(row.get('created_date'))
+        updated_at = _parse_int(row.get('updated_at'))
+        activity_at = max(value for value in [updated_at, created_at] if value is not None) if (updated_at or created_at) else None
+        status_key = _clean_text(row.get('status')).lower()
+        review_key = _clean_text(row.get('editor_review_status')).lower()
+        workflow_stage = _clean_text(row.get('workflow_stage')) if has_submission_workflow_stage else ''
+        snapshot['submission_stats']['recent'].append({
+            'id': submission_id,
+            'title': _clean_text(row.get('title')) or f"ID: {submission_id or '-'}",
+            'status': status_key,
+            'status_label': _status_label_text(status_key, language),
+            'status_tone': _status_badge_tone(status_key, 'submission'),
+            'review_status': review_key,
+            'review_label': _editor_review_status_label_text(review_key, language) if review_key else '',
+            'review_tone': _status_badge_tone(review_key, 'editor_review'),
+            'workflow_stage': workflow_stage,
+            'workflow_stage_label': _workflow_stage_label_text(workflow_stage, language) if workflow_stage else '',
+            'created_at': created_at,
+            'updated_at': updated_at,
+            'activity_at': activity_at,
+        })
+
+    snapshot['submission_stats']['total'] = sum(submission_status_map.values())
+    snapshot['submission_stats']['published'] = submission_status_map.get('published', 0)
+    snapshot['submission_stats']['active'] = (
+        submission_status_map.get('submitted', 0)
+        + submission_status_map.get('in_process', 0)
+        + submission_status_map.get('under_review', 0)
+    )
+    snapshot['submission_stats']['rejected'] = submission_status_map.get('rejected', 0)
+
+    payment_status_rows = _query_rows_dicts(
+        "SELECT COALESCE(status, '') AS status, COUNT(*)::int AS count, "
+        "COALESCE(SUM(COALESCE(amount, 0)), 0)::double precision AS amount_total "
+        "FROM payments WHERE user_id = %s "
+        "GROUP BY COALESCE(status, '')",
+        (user_id,),
+    )
+    payment_status_map = {}
+    payment_amount_map = {}
+    for row in payment_status_rows:
+        key = _clean_text(row.get('status')).lower()
+        payment_status_map[key] = _parse_int(row.get('count')) or 0
+        payment_amount_map[key] = float(row.get('amount_total') or 0)
+
+    ordered_payment_statuses = ['paid', 'pending', 'rejected', 'unpaid']
+    extra_payment_statuses = sorted(
+        [key for key in payment_status_map.keys() if key and key not in ordered_payment_statuses]
+    )
+    for status_key in ordered_payment_statuses + extra_payment_statuses:
+        count = payment_status_map.get(status_key, 0)
+        if count <= 0:
+            continue
+        snapshot['payment_stats']['status_breakdown'].append({
+            'key': status_key,
+            'label': _status_label_text(status_key, language),
+            'count': count,
+            'amount': payment_amount_map.get(status_key, 0.0),
+            'tone': _status_badge_tone(status_key, 'payment'),
+        })
+
+    payment_recent_rows = _query_rows_dicts(
+        "SELECT id, status, payment_type, currency, amount, payment_date, created_at "
+        "FROM payments WHERE user_id = %s "
+        "ORDER BY COALESCE(payment_date, created_at) DESC NULLS LAST, id DESC "
+        "LIMIT 6",
+        (user_id,),
+    )
+    for row in payment_recent_rows:
+        payment_id = _parse_int(row.get('id'))
+        payment_date = _parse_int(row.get('payment_date'))
+        created_at = _parse_int(row.get('created_at'))
+        activity_at = max(value for value in [payment_date, created_at] if value is not None) if (payment_date or created_at) else None
+        status_key = _clean_text(row.get('status')).lower()
+        payment_type = _clean_text(row.get('payment_type')).lower()
+        amount = _parse_amount(row.get('amount')) or 0
+        currency = _clean_text(row.get('currency')).upper() or 'UZS'
+        snapshot['payment_stats']['recent'].append({
+            'id': payment_id,
+            'status': status_key,
+            'status_label': _status_label_text(status_key, language),
+            'status_tone': _status_badge_tone(status_key, 'payment'),
+            'payment_type': payment_type,
+            'payment_type_label': _payment_type_label_text(payment_type),
+            'amount': amount,
+            'amount_text': _format_money_short(amount, currency),
+            'currency': currency,
+            'payment_date': payment_date,
+            'created_at': created_at,
+            'activity_at': activity_at,
+        })
+
+    payment_activity_rows = _query_rows_dicts(
+        "SELECT MAX(COALESCE(payment_date, created_at)) AS last_activity_at "
+        "FROM payments WHERE user_id = %s",
+        (user_id,),
+    )
+    if payment_activity_rows:
+        snapshot['payment_stats']['last_activity_at'] = _parse_int(payment_activity_rows[0].get('last_activity_at'))
+
+    snapshot['payment_stats']['total'] = sum(payment_status_map.values())
+    snapshot['payment_stats']['paid'] = payment_status_map.get('paid', 0)
+    snapshot['payment_stats']['pending'] = payment_status_map.get('pending', 0)
+    snapshot['payment_stats']['rejected'] = payment_status_map.get('rejected', 0)
+    snapshot['payment_stats']['unpaid'] = payment_status_map.get('unpaid', 0)
+    snapshot['payment_stats']['paid_amount'] = payment_amount_map.get('paid', 0.0)
+    snapshot['payment_stats']['pending_amount'] = payment_amount_map.get('pending', 0.0)
+
+    timeline_events = []
+    register_time = _parse_int((user_row or {}).get('register_time'))
+    accept_rules_time = _parse_int((user_row or {}).get('accept_rules_time'))
+    last_online = _parse_int((user_row or {}).get('last_online'))
+    if register_time:
+        timeline_events.append({
+            'timestamp': register_time,
+            'icon': 'ti-user-plus',
+            'title': _msg_text("Foydalanuvchi ro'yxatdan o'tdi", "Пользователь зарегистрирован", "User registered"),
+            'subtitle': _clean_text((user_row or {}).get('email')),
+            'tone': 'blue',
+            'url': None,
+        })
+    if accept_rules_time:
+        timeline_events.append({
+            'timestamp': accept_rules_time,
+            'icon': 'ti-shield-check',
+            'title': _msg_text("Qoidalar qabul qilingan", "Правила приняты", "Rules accepted"),
+            'subtitle': _msg_text("Platforma shartlari tasdiqlangan", "Подтверждены условия платформы", "Platform terms confirmed"),
+            'tone': 'green',
+            'url': None,
+        })
+    if last_online:
+        timeline_events.append({
+            'timestamp': last_online,
+            'icon': 'ti-clock',
+            'title': _msg_text("Oxirgi online", "Последний онлайн", "Last seen online"),
+            'subtitle': _msg_text("Sessiya faolligi qayd etilgan", "Зафиксирована активность сессии", "Session activity detected"),
+            'tone': 'secondary',
+            'url': None,
+        })
+
+    timeline_submissions_rows = _query_rows_dicts(
+        f"SELECT id, title, status, editor_review_status, created_date, updated_at{', workflow_stage' if has_submission_workflow_stage else ''} "
+        "FROM submissions WHERE user_id = %s "
+        "ORDER BY COALESCE(updated_at, created_date) DESC NULLS LAST, id DESC "
+        "LIMIT %s",
+        (user_id, safe_timeline_limit),
+    )
+    for row in timeline_submissions_rows:
+        submission_id = _parse_int(row.get('id'))
+        created_at = _parse_int(row.get('created_date'))
+        updated_at = _parse_int(row.get('updated_at'))
+        event_ts = max(value for value in [updated_at, created_at] if value is not None) if (updated_at or created_at) else None
+        if not event_ts:
+            continue
+        status_key = _clean_text(row.get('status')).lower()
+        review_key = _clean_text(row.get('editor_review_status')).lower()
+        stage_key = _clean_text(row.get('workflow_stage')) if has_submission_workflow_stage else ''
+        is_updated = bool(updated_at and created_at and updated_at > created_at)
+        title = (
+            _msg_text("Maqola yangilandi", "Статья обновлена", "Submission updated")
+            if is_updated
+            else _msg_text("Maqola yuborildi", "Статья отправлена", "Submission created")
+        )
+        subtitle_parts = [_clean_text(row.get('title')) or f"ID: {submission_id or '-'}"]
+        if status_key:
+            subtitle_parts.append(_status_label_text(status_key, language))
+        if review_key:
+            subtitle_parts.append(_editor_review_status_label_text(review_key, language))
+        if stage_key:
+            subtitle_parts.append(_workflow_stage_label_text(stage_key, language))
+        timeline_events.append({
+            'timestamp': event_ts,
+            'icon': 'ti-file-text',
+            'title': title,
+            'subtitle': ' • '.join(part for part in subtitle_parts if part),
+            'tone': _status_badge_tone(status_key, 'submission'),
+            'url': url_for('submission_detail', submission_id=submission_id) if submission_id else None,
+        })
+
+    timeline_payments_rows = _query_rows_dicts(
+        "SELECT id, status, payment_type, amount, currency, payment_date, created_at "
+        "FROM payments WHERE user_id = %s "
+        "ORDER BY COALESCE(payment_date, created_at) DESC NULLS LAST, id DESC "
+        "LIMIT %s",
+        (user_id, safe_timeline_limit),
+    )
+    for row in timeline_payments_rows:
+        payment_date = _parse_int(row.get('payment_date'))
+        created_at = _parse_int(row.get('created_at'))
+        event_ts = max(value for value in [payment_date, created_at] if value is not None) if (payment_date or created_at) else None
+        if not event_ts:
+            continue
+        status_key = _clean_text(row.get('status')).lower()
+        type_key = _clean_text(row.get('payment_type')).lower()
+        amount = _parse_amount(row.get('amount')) or 0
+        currency = _clean_text(row.get('currency')).upper() or 'UZS'
+        timeline_events.append({
+            'timestamp': event_ts,
+            'icon': 'ti-credit-card',
+            'title': _msg_text("To'lov harakati", "Платежная активность", "Payment activity"),
+            'subtitle': (
+                f"{_payment_type_label_text(type_key)} • "
+                f"{_status_label_text(status_key, language)} • "
+                f"{_format_money_short(amount, currency)}"
+            ),
+            'tone': _status_badge_tone(status_key, 'payment'),
+            'url': url_for('payments', status=status_key) if status_key else url_for('payments'),
+        })
+
+    assignment_rows = _query_rows_dicts(
+        "SELECT id, submission_id, editor_id, assigned_by, status, assigned_at, reviewed_at "
+        "FROM editor_assignments "
+        "WHERE editor_id = %s OR assigned_by = %s "
+        "ORDER BY COALESCE(reviewed_at, assigned_at) DESC NULLS LAST, id DESC "
+        "LIMIT %s",
+        (user_id, user_id, safe_timeline_limit),
+    )
+    for row in assignment_rows:
+        assignment_id = _parse_int(row.get('id'))
+        submission_id = _parse_int(row.get('submission_id'))
+        reviewed_at = _parse_int(row.get('reviewed_at'))
+        assigned_at = _parse_int(row.get('assigned_at'))
+        event_ts = max(value for value in [reviewed_at, assigned_at] if value is not None) if (reviewed_at or assigned_at) else None
+        if not event_ts:
+            continue
+        status_key = _clean_text(row.get('status')).lower()
+        is_editor = _parse_int(row.get('editor_id')) == user_id
+        is_assigner = _parse_int(row.get('assigned_by')) == user_id
+        if reviewed_at and status_key in {'reviewed', 'rejected'}:
+            title = _msg_text("Review yakunlandi", "Рецензирование завершено", "Review completed")
+        elif is_editor and not is_assigner:
+            title = _msg_text("Tahrirchi sifatida biriktirildi", "Назначено как редактору", "Assigned as editor")
+        elif is_assigner and not is_editor:
+            title = _msg_text("Admin biriktiruvi bajarildi", "Выполнено назначение админом", "Assignment made by admin")
+        else:
+            title = _msg_text("Editor assignment harakati", "Активность назначения редактора", "Editor assignment activity")
+        timeline_events.append({
+            'timestamp': event_ts,
+            'icon': 'ti-user-check',
+            'title': title,
+            'subtitle': f"Assignment #{assignment_id or '-'} • Submission #{submission_id or '-'} • {_status_label_text(status_key, language)}",
+            'tone': _status_badge_tone(status_key, 'editor_review'),
+            'url': url_for('review_assignment', assignment_id=assignment_id) if assignment_id else None,
+        })
+
+    notification_rows = _query_rows_dicts(
+        "SELECT id, title, message, level, action_url, is_read, created_at, target_user_id, actor_user_id, metadata_text "
+        "FROM role_notifications "
+        "WHERE target_user_id = %s OR actor_user_id = %s "
+        "ORDER BY created_at DESC, id DESC LIMIT %s",
+        (user_id, user_id, safe_timeline_limit),
+    )
+    for row in notification_rows:
+        event_ts = _parse_int(row.get('created_at'))
+        if not event_ts:
+            continue
+        localized = apply_localized_notification_content(row)
+        is_target = _parse_int(row.get('target_user_id')) == user_id
+        is_actor = _parse_int(row.get('actor_user_id')) == user_id
+        scope_label = _msg_text("Qabul qiluvchi", "Получатель", "Recipient") if is_target and not is_actor else (
+            _msg_text("Yuboruvchi", "Отправитель", "Actor") if is_actor and not is_target else _msg_text("Ikki tomonlama", "Обе роли", "Both roles")
+        )
+        read_label = _msg_text("o'qilmagan", "непрочитано", "unread") if is_target and not row.get('is_read') else _msg_text("o'qilgan", "прочитано", "read")
+        timeline_events.append({
+            'timestamp': event_ts,
+            'icon': 'ti-bell',
+            'title': _clean_text(localized.get('title')) or _msg_text("Rol xabari", "Ролевое уведомление", "Role notification"),
+            'subtitle': f"{scope_label} • {read_label}",
+            'tone': _status_badge_tone(localized.get('level'), 'notification'),
+            'url': _clean_text(localized.get('action_url')) or url_for('role_notifications'),
+        })
+
+    timeline_events.sort(key=lambda item: (_parse_int(item.get('timestamp')) or 0), reverse=True)
+    snapshot['timeline_has_more'] = len(timeline_events) > safe_timeline_limit
+    snapshot['timeline'] = timeline_events[:safe_timeline_limit]
+
+    all_activity_timestamps = [
+        _parse_int(snapshot['submission_stats']['last_activity_at']),
+        _parse_int(snapshot['payment_stats']['last_activity_at']),
+        register_time,
+        accept_rules_time,
+        last_online,
+    ]
+    if snapshot['timeline']:
+        all_activity_timestamps.append(_parse_int(snapshot['timeline'][0].get('timestamp')))
+    all_activity_timestamps = [value for value in all_activity_timestamps if value is not None]
+    snapshot['profile']['last_activity_at'] = max(all_activity_timestamps) if all_activity_timestamps else None
+
+    return snapshot
 
 @bp.route('/fmadmin/users/users/<int:user_id>', methods=['GET', 'POST'])
 @is_superadmin_required
@@ -3522,6 +4383,8 @@ def user_edit(user_id):
         if tariff.get('is_verified', False) and not user_has_verified_documents:
             continue  # Пропускаем тарифы для верифицированных, если у пользователя нет документов
         filtered_tariffs.append(tariff)
+
+    user_360 = _build_user_360_snapshot(user) if user_id > 0 else None
     
     return render_template(
         'users/users/edit.html',
@@ -3531,7 +4394,8 @@ def user_edit(user_id):
         current_user=current_user,
         active_admins=active_admins,
         admin_track_choices=ADMIN_TRACK_CHOICES,
-        role_choices=role_choices
+        role_choices=role_choices,
+        user_360=user_360
     )
 
 
@@ -3539,7 +4403,7 @@ def user_edit(user_id):
 @is_superadmin_required
 def user_state_change(user_id):
     current_user = session.get('fmadmin_user') or {}
-    current_user_id = current_user.get('id')
+    current_user_id = _parse_int(current_user.get('id'))
     action = (request.form.get('action') or '').strip().lower()
 
     user_rows = db.users.all().equal(id=user_id).exec()
@@ -3571,37 +4435,65 @@ def user_state_change(user_id):
     return redirect(url_for('users', include_hidden=1))
 
 
+def _hide_users_except(keep_ids, now_ts):
+    cursor = None
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute(
+            """
+            UPDATE users
+            SET is_hidden = TRUE, is_blocked = TRUE, deleted_at = %s
+            WHERE NOT (id = ANY(%s::int[]))
+            RETURNING id
+            """,
+            (now_ts, list(keep_ids)),
+        )
+        updated_rows = cursor.fetchall()
+        db.conn.commit()
+        return len(updated_rows)
+    except Exception:
+        db.conn.rollback()
+        raise
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+
 @bp.route('/fmadmin/users/users/bulk', methods=['POST'])
 @is_superadmin_required
 def users_bulk_action():
     action = (request.form.get('action') or '').strip().lower()
     current_user = session.get('fmadmin_user') or {}
-    current_user_id = current_user.get('id')
+    current_user_id = _parse_int(current_user.get('id'))
     selected_ids = []
     for value in request.form.getlist('selected_user_ids'):
         try:
             selected_ids.append(int(value))
         except (TypeError, ValueError):
             continue
-    selected_ids = list(set(selected_ids))
+    selected_ids = list(dict.fromkeys(selected_ids))
 
     if not action:
         new_alert(_msg_text("Amal tanlanmagan", 'Действие не выбрано', 'Action is not selected'), 'danger')
         return redirect(url_for('users', include_hidden=1))
 
+    allowed_actions = {'hide_others', 'hide_selected', 'restore_selected', 'block_selected', 'unblock_selected'}
+    if action not in allowed_actions:
+        new_alert(_msg_text("Noma'lum amal", 'Неизвестное действие', 'Unknown action'), 'danger')
+        return redirect(url_for('users', include_hidden=1))
+
     if action == 'hide_others':
+        if not selected_ids:
+            new_alert(_msg_text("Kamida bitta foydalanuvchi tanlang", 'Выберите хотя бы одного пользователя', 'Select at least one user'), 'danger')
+            return redirect(url_for('users', include_hidden=1))
+        if (request.form.get('confirm_phrase') or '').strip() != 'HIDE_OTHERS':
+            new_alert(_msg_text("Keng ta'sirli amal tasdiqlanmadi", 'Массовое действие не подтверждено', 'Bulk action was not confirmed'), 'danger')
+            return redirect(url_for('users', include_hidden=1))
         keep_ids = set(selected_ids)
-        if current_user_id:
-            keep_ids.add(int(current_user_id))
-        all_users = db.users.all().exec()
-        changed = 0
+        if current_user_id is not None:
+            keep_ids.add(current_user_id)
         now_ts = int(datetime.datetime.now().timestamp())
-        for user in all_users:
-            uid = user.get('id')
-            if not uid or uid in keep_ids:
-                continue
-            db.users.all().equal(id=uid).update(is_hidden=True, is_blocked=True, deleted_at=now_ts).exec()
-            changed += 1
+        changed = _hide_users_except(keep_ids, now_ts)
         new_alert(_msg_text(f"Yashirilgan foydalanuvchilar soni: {changed}", f'Скрыто пользователей: {changed}', f'Users hidden: {changed}'), 'success')
         return redirect(url_for('users', include_hidden=1))
 
@@ -3610,22 +4502,20 @@ def users_bulk_action():
         return redirect(url_for('users', include_hidden=1))
 
     now_ts = int(datetime.datetime.now().timestamp())
-    changed = 0
-    for uid in selected_ids:
-        if current_user_id and uid == int(current_user_id) and action in {'hide_selected', 'block_selected'}:
-            continue
-        if action == 'hide_selected':
-            update_data = {'is_hidden': True, 'is_blocked': True, 'deleted_at': now_ts}
-        elif action == 'restore_selected':
-            update_data = {'is_hidden': False, 'is_blocked': False, 'deleted_at': None}
-        elif action == 'block_selected':
-            update_data = {'is_blocked': True}
-        elif action == 'unblock_selected':
-            update_data = {'is_blocked': False}
-        else:
-            continue
-        db.users.all().equal(id=uid).update(**update_data).exec()
-        changed += 1
+    selected_update_map = {
+        'hide_selected': {'is_hidden': True, 'is_blocked': True, 'deleted_at': now_ts},
+        'restore_selected': {'is_hidden': False, 'is_blocked': False, 'deleted_at': None},
+        'block_selected': {'is_blocked': True},
+        'unblock_selected': {'is_blocked': False},
+    }
+    target_ids = selected_ids
+    if current_user_id is not None and action in {'hide_selected', 'block_selected'}:
+        target_ids = [uid for uid in selected_ids if uid != current_user_id]
+    updated_users = (
+        db.users.all().any(id=target_ids).update(**selected_update_map[action]).exec()
+        if target_ids else []
+    )
+    changed = len(updated_users)
 
     new_alert(_msg_text(f"Yangilangan foydalanuvchilar soni: {changed}", f'Обновлено пользователей: {changed}', f'Users updated: {changed}'), 'success')
     return redirect(url_for('users', include_hidden=1))
@@ -3708,7 +4598,7 @@ def author_edit(author_id):
             department = request.form.get('department')
             created_at = parse_date(request.form.get('created_at'), with_time=True)
             updated_at = parse_date(request.form.get('updated_at'), with_time=True)
-            author_id_new = db.author_profile.add(
+            created_authors = db.author_profile.add(
                 user_id=user_id,
                 name=name,
                 organization=organization,
@@ -3724,8 +4614,12 @@ def author_edit(author_id):
                 created_at=created_at or int(datetime.datetime.now().timestamp()),
                 updated_at=updated_at or int(datetime.datetime.now().timestamp())
             ).exec()
+            created_author = created_authors[0] if created_authors else None
+            if not created_author or not created_author.get('id'):
+                new_alert(_msg_text('Muallif yaratilmadi', 'Автор не создан', 'Author was not created'), 'danger')
+                return redirect(url_for('author_edit', author_id=0))
             new_alert(_msg_text('Muallif muvaffaqiyatli yaratildi', 'Автор успешно создан', 'Author created successfully'), 'success')
-            return redirect(url_for('author_edit', author_id=author_id_new))
+            return redirect(url_for('author_edit', author_id=created_author['id']))
         else:
             data = request.json if request.is_json else request.form
             created_at = parse_date(data.get('created_at'), with_time=True)
@@ -3910,6 +4804,65 @@ def get_editors(admin_id=None):
         admin_id = _parse_int(admin_id)
         editors = [editor for editor in editors if _parse_int(editor.get('editor_admin_id')) == admin_id]
     return editors
+
+
+def _select_best_editor_for_submission(submission, candidate_editors):
+    if not candidate_editors:
+        return None
+
+    submission_id = _parse_int((submission or {}).get('id'))
+    track_key = _normalize_admin_track((submission or {}).get('submission_track'))
+    track_text = _clean_text(track_key).lower()
+
+    existing_assignments = []
+    if submission_id is not None:
+        try:
+            existing_assignments = db.editor_assignments.all().equal(submission_id=submission_id).exec()
+        except Exception:
+            existing_assignments = []
+
+    assigned_editor_ids = {
+        _parse_int(item.get('editor_id'))
+        for item in existing_assignments
+        if _parse_int(item.get('editor_id')) is not None
+    }
+
+    available_editors = [
+        editor for editor in candidate_editors
+        if _parse_int(editor.get('id')) not in assigned_editor_ids
+    ]
+    if not available_editors:
+        return None
+
+    matching_editors = []
+    if track_text:
+        for editor in available_editors:
+            specialization_text = _clean_text(editor.get('editor_specialization')).lower()
+            if track_text in specialization_text:
+                matching_editors.append(editor)
+    pool = matching_editors or available_editors
+
+    try:
+        all_assignments = db.editor_assignments.all().exec()
+    except Exception:
+        all_assignments = []
+
+    load_map = {}
+    for assignment in all_assignments:
+        editor_id = _parse_int(assignment.get('editor_id'))
+        status = _clean_text(assignment.get('status')).lower()
+        if editor_id is None or status not in EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES:
+            continue
+        load_map[editor_id] = load_map.get(editor_id, 0) + 1
+
+    ranked = sorted(
+        pool,
+        key=lambda editor: (
+            load_map.get(_parse_int(editor.get('id')), 0),
+            _parse_int(editor.get('id')) or 10**9,
+        )
+    )
+    return ranked[0] if ranked else None
 
 def parse_date(date_str, with_time=False):
     """Парсинг даты из строки"""
@@ -4457,6 +5410,257 @@ def translations():
         translations = [t for t in translations if search_lower in (t.get('alias') or '').lower() or search_lower in (t.get('content') or '').lower() or search_lower in (t.get('content_uz') or '').lower() or search_lower in (t.get('content_ru') or '').lower()]
     translations = sorted(translations, key=lambda item: (item.get('alias') or '').lower())
     return render_template('website/translations.html', translations=translations, search=search)
+
+
+def _email_template_form_payload(form_data):
+    alias = _normalize_email_template_alias(form_data.get('alias'))
+    name = _clean_text(form_data.get('name'))
+    description = _clean_text(form_data.get('description'))
+
+    subject_uz = _clean_text(form_data.get('subject_uz'))
+    subject_ru = _clean_text(form_data.get('subject_ru'))
+    subject_en = _clean_text(form_data.get('subject_en'))
+
+    intro_uz = _clean_text(form_data.get('intro_uz'))
+    intro_ru = _clean_text(form_data.get('intro_ru'))
+    intro_en = _clean_text(form_data.get('intro_en'))
+
+    body_uz = _clean_text(form_data.get('body_uz'))
+    body_ru = _clean_text(form_data.get('body_ru'))
+    body_en = _clean_text(form_data.get('body_en'))
+
+    cta_label_uz = _clean_text(form_data.get('cta_label_uz'))
+    cta_label_ru = _clean_text(form_data.get('cta_label_ru'))
+    cta_label_en = _clean_text(form_data.get('cta_label_en'))
+
+    variables_csv = form_data.get('variables_csv')
+    explicit_variables = _parse_template_variables_csv(variables_csv)
+    inferred_variables = _collect_template_variables(
+        subject_uz, subject_ru, subject_en,
+        intro_uz, intro_ru, intro_en,
+        body_uz, body_ru, body_en,
+        cta_label_uz, cta_label_ru, cta_label_en,
+    )
+    variables = sorted(set(explicit_variables) | set(inferred_variables))
+
+    is_active = bool(form_data.get('is_active'))
+    now_ts = int(time.time())
+
+    return {
+        'alias': alias,
+        'name': name or alias,
+        'description': description,
+        'variables': variables,
+        'subject_uz': subject_uz,
+        'subject_ru': subject_ru,
+        'subject_en': subject_en,
+        'intro_uz': intro_uz,
+        'intro_ru': intro_ru,
+        'intro_en': intro_en,
+        'body_uz': body_uz,
+        'body_ru': body_ru,
+        'body_en': body_en,
+        'cta_label_uz': cta_label_uz,
+        'cta_label_ru': cta_label_ru,
+        'cta_label_en': cta_label_en,
+        'is_active': is_active,
+        'updated_at': now_ts,
+    }
+
+
+def _email_template_preview_payload(template_row):
+    sample_values = {
+        'name': 'Ali Valiyev',
+        'editor_name': 'Dilnoza Rahimova',
+        'title': 'Tilshunoslikda yangi yondashuvlar',
+        'time_left': '6 soat',
+        'deadline_type': 'tahriz topshirish',
+        'link': settings.APP_BASE_URL or 'https://example.com',
+    }
+
+    return {
+        'sample_values': sample_values,
+        'variables': _collect_template_variables(
+            template_row.get('subject_uz'),
+            template_row.get('subject_ru'),
+            template_row.get('subject_en'),
+            template_row.get('intro_uz'),
+            template_row.get('intro_ru'),
+            template_row.get('intro_en'),
+            template_row.get('body_uz'),
+            template_row.get('body_ru'),
+            template_row.get('body_en'),
+            template_row.get('cta_label_uz'),
+            template_row.get('cta_label_ru'),
+            template_row.get('cta_label_en'),
+        ),
+        'rendered': {
+            'subject_uz': _render_template_preview_text(template_row.get('subject_uz'), sample_values),
+            'subject_ru': _render_template_preview_text(template_row.get('subject_ru'), sample_values),
+            'subject_en': _render_template_preview_text(template_row.get('subject_en'), sample_values),
+            'intro_uz': _render_template_preview_text(template_row.get('intro_uz'), sample_values),
+            'intro_ru': _render_template_preview_text(template_row.get('intro_ru'), sample_values),
+            'intro_en': _render_template_preview_text(template_row.get('intro_en'), sample_values),
+            'body_uz': _render_template_preview_text(template_row.get('body_uz'), sample_values),
+            'body_ru': _render_template_preview_text(template_row.get('body_ru'), sample_values),
+            'body_en': _render_template_preview_text(template_row.get('body_en'), sample_values),
+            'cta_label_uz': _render_template_preview_text(template_row.get('cta_label_uz'), sample_values),
+            'cta_label_ru': _render_template_preview_text(template_row.get('cta_label_ru'), sample_values),
+            'cta_label_en': _render_template_preview_text(template_row.get('cta_label_en'), sample_values),
+        }
+    }
+
+
+@bp.route('/fmadmin/website/email-templates')
+@is_superadmin_required
+def email_templates():
+    _ensure_email_templates_table()
+    search = _clean_text(request.args.get('search')).lower()
+    templates = db.email_templates.all().exec()
+    if search:
+        templates = [
+            item for item in templates
+            if search in _clean_text(item.get('alias')).lower()
+            or search in _clean_text(item.get('name')).lower()
+            or search in _clean_text(item.get('description')).lower()
+        ]
+
+    for item in templates:
+        item['variables'] = item.get('variables') or []
+    templates = sorted(templates, key=lambda item: _clean_text(item.get('alias')).lower())
+    return render_template('website/email_templates/list.html', templates=templates, search=search)
+
+
+@bp.route('/fmadmin/website/email-templates/new', methods=['GET', 'POST'])
+@is_superadmin_required
+def email_template_create():
+    _ensure_email_templates_table()
+    current_user_id = _parse_int((session.get('fmadmin_user') or {}).get('id'))
+
+    if request.method == 'POST':
+        payload = _email_template_form_payload(request.form)
+        if not payload['alias']:
+            flash('Alias noto\'g\'ri. Faqat a-z, 0-9 va _ ishlatiladi.', 'danger')
+            return render_template(
+                'website/email_templates/edit.html',
+                template_row=payload,
+                is_new=True,
+                preview=_email_template_preview_payload(payload),
+            )
+
+        exists = db.email_templates.all().equal(alias=payload['alias']).exec()
+        if exists:
+            flash('Bunday alias allaqachon mavjud.', 'danger')
+            return render_template(
+                'website/email_templates/edit.html',
+                template_row=payload,
+                is_new=True,
+                preview=_email_template_preview_payload(payload),
+            )
+
+        payload['created_at'] = payload['updated_at']
+        payload['created_by'] = current_user_id
+        payload['updated_by'] = current_user_id
+        created = db.email_templates.add(**payload).exec()
+        template_id = _extract_inserted_id(created)
+
+        flash('Email shabloni yaratildi.', 'success')
+        if template_id is not None:
+            return redirect(url_for('email_template_edit', template_id=template_id))
+        return redirect(url_for('email_templates'))
+
+    initial_row = {
+        'alias': '',
+        'name': '',
+        'description': '',
+        'variables': [],
+        'subject_uz': '',
+        'subject_ru': '',
+        'subject_en': '',
+        'intro_uz': '',
+        'intro_ru': '',
+        'intro_en': '',
+        'body_uz': '',
+        'body_ru': '',
+        'body_en': '',
+        'cta_label_uz': '',
+        'cta_label_ru': '',
+        'cta_label_en': '',
+        'is_active': True,
+    }
+    return render_template(
+        'website/email_templates/edit.html',
+        template_row=initial_row,
+        is_new=True,
+        preview=_email_template_preview_payload(initial_row),
+    )
+
+
+@bp.route('/fmadmin/website/email-templates/<int:template_id>', methods=['GET', 'POST'])
+@is_superadmin_required
+def email_template_edit(template_id):
+    _ensure_email_templates_table()
+    current_user_id = _parse_int((session.get('fmadmin_user') or {}).get('id'))
+
+    rows = db.email_templates.all().equal(id=template_id).exec()
+    if not rows:
+        flash('Email shabloni topilmadi.', 'danger')
+        return redirect(url_for('email_templates'))
+
+    template_row = rows[0]
+
+    if request.method == 'POST':
+        payload = _email_template_form_payload(request.form)
+        if not payload['alias']:
+            flash('Alias noto\'g\'ri. Faqat a-z, 0-9 va _ ishlatiladi.', 'danger')
+            merged = dict(template_row)
+            merged.update(payload)
+            return render_template(
+                'website/email_templates/edit.html',
+                template_row=merged,
+                is_new=False,
+                preview=_email_template_preview_payload(merged),
+            )
+
+        exists = db.email_templates.all().equal(alias=payload['alias']).exec()
+        for row in exists:
+            if _parse_int(row.get('id')) != template_id:
+                flash('Bunday alias allaqachon mavjud.', 'danger')
+                merged = dict(template_row)
+                merged.update(payload)
+                return render_template(
+                    'website/email_templates/edit.html',
+                    template_row=merged,
+                    is_new=False,
+                    preview=_email_template_preview_payload(merged),
+                )
+
+        payload['updated_by'] = current_user_id
+        db.email_templates.all().equal(id=template_id).update(**payload).exec()
+        flash('Email shabloni saqlandi.', 'success')
+        return redirect(url_for('email_template_edit', template_id=template_id))
+
+    template_row['variables'] = template_row.get('variables') or []
+    return render_template(
+        'website/email_templates/edit.html',
+        template_row=template_row,
+        is_new=False,
+        preview=_email_template_preview_payload(template_row),
+    )
+
+
+@bp.route('/fmadmin/website/email-templates/<int:template_id>/delete', methods=['POST'])
+@is_superadmin_required
+def email_template_delete(template_id):
+    _ensure_email_templates_table()
+    rows = db.email_templates.all().equal(id=template_id).exec()
+    if not rows:
+        flash('Email shabloni topilmadi.', 'danger')
+        return redirect(url_for('email_templates'))
+
+    db.email_templates.all().equal(id=template_id).delete().exec()
+    flash('Email shabloni o\'chirildi.', 'success')
+    return redirect(url_for('email_templates'))
 
 
 @bp.route('/fmadmin/website/home-videos', methods=['GET', 'POST'])
@@ -5609,6 +6813,73 @@ def submission_edit():
         logger.exception('Submission edit failed in submission_edit')
         return jsonify({'success': False, 'error': 'Internal server error'})
 
+
+@bp.route('/fmadmin/submissions/bulk', methods=['POST'])
+@is_allowed
+def submissions_bulk_action():
+    action = _clean_text(request.form.get('action')).lower()
+    current_user = get_current_user() or {}
+
+    allowed_actions = {
+        'set_submitted': {'status': 'submitted', 'workflow_stage': 'waiting'},
+        'set_in_process': {'status': 'in_process', 'workflow_stage': 'technical_check'},
+        'set_published': {'status': 'published', 'workflow_stage': 'published'},
+        'set_rejected': {'status': 'rejected', 'workflow_stage': 'rejected'},
+    }
+    if action not in allowed_actions:
+        new_alert(_msg_text("Noma'lum amal", 'Неизвестное действие', 'Unknown action'), 'danger')
+        return redirect(url_for('submissions'))
+
+    selected_ids = []
+    for raw_id in request.form.getlist('selected_submission_ids'):
+        parsed_id = _parse_int(raw_id)
+        if parsed_id is not None:
+            selected_ids.append(parsed_id)
+    selected_ids = list(dict.fromkeys(selected_ids))
+
+    if not selected_ids:
+        new_alert(_msg_text("Kamida bitta maqola tanlang", 'Выберите хотя бы одну статью', 'Select at least one submission'), 'danger')
+        return redirect(url_for('submissions'))
+
+    submissions_map = {}
+    try:
+        submission_rows = db.submissions.all().any(id=selected_ids).exec()
+    except Exception:
+        submission_rows = []
+    for item in submission_rows:
+        item_id = _parse_int(item.get('id'))
+        if item_id is not None:
+            submissions_map[item_id] = item
+
+    changed = 0
+    update_payload = dict(allowed_actions[action])
+    for submission_id in selected_ids:
+        submission = submissions_map.get(submission_id)
+        if not submission:
+            continue
+        if not _can_access_submission(current_user, submission):
+            continue
+        try:
+            db.submissions.all().equal(id=submission_id).update(**update_payload).exec()
+            changed += 1
+        except Exception:
+            logger.exception('Bulk submission update failed for submission_id=%s', submission_id)
+
+    if changed:
+        new_alert(_msg_text(
+            f"Yangilangan maqolalar soni: {changed}",
+            f"Обновлено статей: {changed}",
+            f"Updated submissions: {changed}"
+        ), 'success')
+    else:
+        new_alert(_msg_text(
+            "Tanlangan maqolalar yangilanmadi",
+            'Выбранные статьи не были обновлены',
+            'Selected submissions were not updated'
+        ), 'warning')
+
+    return redirect(url_for('submissions'))
+
 @bp.route('/fmadmin/submissions/documents/edit', methods=['POST'])
 @is_allowed
 def document_edit():
@@ -6300,6 +7571,107 @@ def role_notification_read_all():
         'role_notifications',
     )
     return redirect(redirect_url)
+
+
+@bp.route('/fmadmin/submissions/<int:submission_id>/auto-assign', methods=['POST'])
+@is_allowed
+def auto_assign_editor(submission_id):
+    current_user = get_current_user() or {}
+    current_role = _role_of(current_user)
+    current_user_id = _parse_int(current_user.get('id'))
+
+    submission_rows = db.submissions.all().equal(id=submission_id).exec()
+    if not submission_rows:
+        new_alert(_msg_text('Maqola topilmadi', 'Статья не найдена', 'Submission not found'), 'danger')
+        return redirect(url_for('submissions'))
+    submission = submission_rows[0]
+
+    if not _can_access_submission(current_user, submission):
+        new_alert(t('admin_error_no_access'), 'danger')
+        return redirect(url_for('submissions'))
+
+    if not _clean_text(submission.get('anti_plagiarism_file')):
+        new_alert(
+            _msg_text(
+                "Avto-biriktirishdan oldin antiplagiat tekshiruv faylini yuklang",
+                "Перед автоназначением загрузите файл антиплагиат-проверки",
+                "Upload anti-plagiarism checked file before auto assignment"
+            ),
+            'danger'
+        )
+        return redirect(url_for('submission_detail', submission_id=submission_id))
+
+    if current_role == 'admin' and current_user_id is not None:
+        candidate_editors = get_editors(admin_id=current_user_id)
+    else:
+        candidate_editors = get_editors()
+
+    selected_editor = _select_best_editor_for_submission(submission, candidate_editors)
+    if not selected_editor:
+        new_alert(
+            _msg_text(
+                "Mos bo'sh tahrirchi topilmadi",
+                'Подходящий свободный редактор не найден',
+                'No suitable available editor found'
+            ),
+            'warning'
+        )
+        return redirect(url_for('submission_detail', submission_id=submission_id))
+
+    editor_id = _parse_int(selected_editor.get('id'))
+    now_ts = int(datetime.datetime.now().timestamp())
+    acceptance_deadline_at = now_ts + 24 * 60 * 60
+    completion_deadline_at = now_ts + 5 * 24 * 60 * 60
+
+    assignment_row = db.editor_assignments.add(
+        submission_id=submission_id,
+        editor_id=editor_id,
+        assigned_by=current_user_id or current_user.get('id'),
+        assigned_at=now_ts,
+        status='pending',
+        assignment_note='Auto assignment',
+        deadline_at=completion_deadline_at,
+        acceptance_deadline_at=acceptance_deadline_at,
+        completion_deadline_at=completion_deadline_at,
+        accepted_at=None,
+        acceptance_reminder_level='',
+        completion_reminder_level='',
+        admin_decision='pending',
+        created_at=now_ts,
+        updated_at=now_ts
+    ).exec()
+    assignment_id = _extract_inserted_id(assignment_row)
+
+    _refresh_submission_editor_review_status(submission_id)
+
+    title_text = submission.get('title') or submission_id
+    message = localized_texts(
+        f'Sizga "{title_text}" maqolasi avtomatik biriktirildi',
+        f'Вам автоматически назначена статья "{title_text}"',
+        f'You were auto-assigned submission "{title_text}"'
+    )
+    _create_role_notification(
+        target_user_id=editor_id,
+        target_role='editor',
+        title=localized_texts("Yangi tahriz topshirig'i", "Новое задание на рецензию", "New review assignment"),
+        message=message,
+        action_url=url_for('review_assignment', assignment_id=assignment_id) if assignment_id else url_for('editor_assignments'),
+        level='info',
+        event_type='editor_assignment_created',
+        related_submission_id=submission_id,
+        related_assignment_id=assignment_id,
+        actor_user_id=current_user_id
+    )
+
+    new_alert(
+        _msg_text(
+            f"Tahrirchi avtomatik biriktirildi: {selected_editor.get('name') or selected_editor.get('email')}",
+            f"Редактор назначен автоматически: {selected_editor.get('name') or selected_editor.get('email')}",
+            f"Editor auto-assigned: {selected_editor.get('name') or selected_editor.get('email')}"
+        ),
+        'success'
+    )
+    return redirect(url_for('submission_detail', submission_id=submission_id))
 
 
 @bp.route('/fmadmin/submissions/<int:submission_id>/assign-editors', methods=['GET', 'POST'])

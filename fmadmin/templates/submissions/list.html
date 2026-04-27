@@ -25,25 +25,60 @@
 </div>
 
 <div class="card mt-4">
+  <div class="card-header">
+    <form method="post" action="{{ url_for('submissions_bulk_action') }}" id="submissions-bulk-form" class="w-100">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Ustunlar
+          </button>
+          <div class="dropdown-menu p-3" style="min-width: 260px;">
+            <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="editor" checked> <span class="form-check-label">Muharrir</span></label>
+            <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="track" checked> <span class="form-check-label">Yo'nalish</span></label>
+            <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="assigned-admin" checked> <span class="form-check-label">Biriktirilgan admin</span></label>
+            <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="classification" checked> <span class="form-check-label">Tasniflar</span></label>
+            <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="author" checked> <span class="form-check-label">Muallif</span></label>
+            <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="created-date" checked> <span class="form-check-label">Sana</span></label>
+            <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="workflow" checked> <span class="form-check-label">Jarayon</span></label>
+            <label class="form-check"><input class="form-check-input column-toggle" type="checkbox" data-col="review" checked> <span class="form-check-label">Review holati</span></label>
+          </div>
+        </div>
+        <select class="form-select form-select-sm" name="action" style="max-width: 280px;" required>
+          <option value="">Tanlanganlar bilan amal...</option>
+          <option value="set_submitted">Holat: Yuborilgan</option>
+          <option value="set_in_process">Holat: Jarayonda</option>
+          <option value="set_published">Holat: Nashr qilingan</option>
+          <option value="set_rejected">Holat: Rad etilgan</option>
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">Qo'llash</button>
+        <span class="text-secondary small" id="bulk-selected-count">0 ta tanlandi</span>
+      </div>
+    </form>
+  </div>
   <div class="table-responsive">
     <table class="table card-table table-hover">
       <thead>
         <tr>
+          <th class="w-1">
+            <input class="form-check-input" type="checkbox" id="select-all-submissions">
+          </th>
           <th>ID</th>
           <th>{{ t("admin_submissions_col_user") }}</th>
-          <th>Muharrir</th>
+          <th class="col-editor">Muharrir</th>
           <th>{{ t("admin_submissions_col_title") }}</th>
-          <th>Yo'nalish</th>
-          <th>Biriktirilgan admin</th>
-          <th>Tasniflar</th>
+          <th class="col-track">Yo'nalish</th>
+          <th class="col-assigned-admin">Biriktirilgan admin</th>
+          <th class="col-classification">Tasniflar</th>
           <th>{{ t("admin_label_status") }}</th>
-          <th>{{ t("admin_submissions_col_author") }}</th>
-          <th>{{ t("admin_submissions_col_date") }}</th>
-          <th>Jarayon</th>
-          <th>{{ t("admin_submissions_col_review_status") }}</th>
+          <th class="col-author">{{ t("admin_submissions_col_author") }}</th>
+          <th class="col-created-date">{{ t("admin_submissions_col_date") }}</th>
+          <th class="col-workflow">Jarayon</th>
+          <th class="col-review">{{ t("admin_submissions_col_review_status") }}</th>
           <th>{{ t("admin_col_actions") }}</th>
         </tr>
         <tr class="bg-light">
+          <th></th>
           <th>
             <input type="number" class="form-control form-control-sm" name="submission_id"
               value="{{ submission_id_filter or '' }}" placeholder="ID" form="submission-filters">
@@ -52,7 +87,7 @@
             <input type="number" class="form-control form-control-sm" name="user_id"
               value="{{ user_id_filter or '' }}" placeholder="ID" form="submission-filters">
           </th>
-          <th>
+          <th class="col-editor">
             <select class="form-select form-select-sm" name="editor_id" form="submission-filters">
               <option value="">{{ t("admin_label_all") }}</option>
               {% for editor_user in editor_options %}
@@ -66,7 +101,7 @@
             <input type="text" class="form-control form-control-sm" name="title"
               value="{{ title_filter }}" placeholder="Sarlavha" form="submission-filters">
           </th>
-          <th>
+          <th class="col-track">
             <select class="form-select form-select-sm" name="track" form="submission-filters">
               <option value="">{{ t("admin_label_all") }}</option>
               {% for track_key, track_label in admin_track_choices %}
@@ -74,7 +109,7 @@
               {% endfor %}
             </select>
           </th>
-          <th>
+          <th class="col-assigned-admin">
             <select class="form-select form-select-sm" name="assigned_admin" form="submission-filters">
               <option value="">{{ t("admin_label_all") }}</option>
               {% for admin_user in admin_options %}
@@ -84,7 +119,7 @@
               {% endfor %}
             </select>
           </th>
-          <th></th>
+          <th class="col-classification"></th>
           <th>
             <select class="form-select form-select-sm" name="status" form="submission-filters">
               <option value="">{{ t("admin_option_all_statuses") }}</option>
@@ -94,11 +129,11 @@
               <option value="rejected" {% if status_filter=='rejected' %}selected{% endif %}>{{ t("admin_status_rejected") }}</option>
             </select>
           </th>
-          <th>
+          <th class="col-author">
             <input type="text" class="form-control form-control-sm" name="author"
               value="{{ author_filter }}" placeholder="Muallif" form="submission-filters">
           </th>
-          <th>
+          <th class="col-created-date">
             <div class="d-flex gap-1">
               <input type="date" class="form-control form-control-sm" name="created_from"
                 value="{{ created_from }}" form="submission-filters">
@@ -106,7 +141,7 @@
                 value="{{ created_to }}" form="submission-filters">
             </div>
           </th>
-          <th>
+          <th class="col-workflow">
             <select class="form-select form-select-sm" name="workflow_stage" form="submission-filters">
               <option value="">{{ t("admin_label_all") }}</option>
               {% for stage_key, stage_label in workflow_stage_choices %}
@@ -115,7 +150,7 @@
               <option value="rejected" {% if workflow_filter=='rejected' %}selected{% endif %}>Rad etilgan</option>
             </select>
           </th>
-          <th>
+          <th class="col-review">
             <select class="form-select form-select-sm" name="review_status" form="submission-filters">
               <option value="">{{ t("admin_label_all") }}</option>
               <option value="not_assigned" {% if review_filter=='not_assigned' %}selected{% endif %}>{{ t("admin_review_status_not_assigned") }}</option>
@@ -132,6 +167,15 @@
       <tbody>
         {% for submission in submissions_list %}
         <tr>
+          <td class="align-middle">
+            <input
+              class="form-check-input submission-checkbox"
+              type="checkbox"
+              name="selected_submission_ids"
+              value="{{ submission.id }}"
+              form="submissions-bulk-form"
+            >
+          </td>
           <td class="align-middle">{{ submission.id }}</td>
           <td class="align-middle">
             {% if users_map.get(submission.user_id) %}
@@ -140,13 +184,13 @@
             ID: {{ submission.user_id or t("admin_label_not_specified") }}
             {% endif %}
           </td>
-          <td class="align-middle">{{ submission.assigned_editors_label }}</td>
+          <td class="align-middle col-editor">{{ submission.assigned_editors_label }}</td>
           <td class="align-middle">{{ submission.title or t("admin_label_no_title") }}</td>
-          <td class="align-middle">
+          <td class="align-middle col-track">
             <span class="badge bg-blue-lt">{{ submission.submission_track_label }}</span>
           </td>
-          <td class="align-middle">{{ submission.assigned_admin_name }}</td>
-          <td class="align-middle">
+          <td class="align-middle col-assigned-admin">{{ submission.assigned_admin_name }}</td>
+          <td class="align-middle col-classification">
             {% if submission.classification_items %}
             {% for classification in submission.classification_items[:2] %}
             <span class="badge bg-light text-dark me-1 mb-1">{{ classification.label }}</span>
@@ -173,21 +217,21 @@
             <span class="badge bg-light">{{ submission.status or t("admin_label_not_specified") }}</span>
             {% endif %}
           </td>
-          <td class="align-middle">
+          <td class="align-middle col-author">
             {% if authors_map.get(submission.main_author_id) %}
             {{ authors_map[submission.main_author_id].name }}
             {% else %}
             ID: {{ submission.main_author_id or t("admin_label_not_specified") }}
             {% endif %}
           </td>
-          <td class="align-middle">
+          <td class="align-middle col-created-date">
             {% if submission.created_date %}
             {{ submission.created_date | timestamp_to_date }}
             {% else %}
             {{ t("admin_label_not_specified") }}
             {% endif %}
           </td>
-          <td class="align-middle">
+          <td class="align-middle col-workflow">
             {% if submission.workflow_stage == 'published' %}
             <span class="badge bg-success-lt">{{ submission.workflow_stage_label }}</span>
             {% elif submission.workflow_stage == 'rejected' %}
@@ -200,7 +244,7 @@
             <span class="badge bg-blue-lt">{{ submission.workflow_stage_label }}</span>
             {% endif %}
           </td>
-          <td class="align-middle">
+          <td class="align-middle col-review">
             {% if submission.editor_review_status == 'not_assigned' %}
             <span class="badge bg-secondary-lt">{{ t("admin_review_status_not_assigned") }}</span>
             {% elif submission.editor_review_status == 'assigned' %}
@@ -328,6 +372,89 @@
 {% block scripts %}
 <script>
   document.addEventListener('DOMContentLoaded', function () {
+    const selectAll = document.getElementById('select-all-submissions');
+    const checkboxes = Array.from(document.querySelectorAll('.submission-checkbox'));
+    const selectedCount = document.getElementById('bulk-selected-count');
+    const bulkForm = document.getElementById('submissions-bulk-form');
+    const columnToggles = Array.from(document.querySelectorAll('.column-toggle'));
+
+    function applyColumnVisibility(colKey, visible) {
+      document.querySelectorAll('.col-' + colKey).forEach(function (cell) {
+        cell.style.display = visible ? '' : 'none';
+      });
+    }
+
+    function loadColumnPrefs() {
+      let stored = {};
+      try {
+        stored = JSON.parse(localStorage.getItem('fmadmin_submission_columns') || '{}');
+      } catch (error) {
+        stored = {};
+      }
+      columnToggles.forEach(function (toggle) {
+        const key = toggle.getAttribute('data-col');
+        const visible = stored[key] !== false;
+        toggle.checked = visible;
+        applyColumnVisibility(key, visible);
+      });
+    }
+
+    function saveColumnPrefs() {
+      const payload = {};
+      columnToggles.forEach(function (toggle) {
+        payload[toggle.getAttribute('data-col')] = !!toggle.checked;
+      });
+      localStorage.setItem('fmadmin_submission_columns', JSON.stringify(payload));
+    }
+
+    columnToggles.forEach(function (toggle) {
+      toggle.addEventListener('change', function () {
+        applyColumnVisibility(toggle.getAttribute('data-col'), !!toggle.checked);
+        saveColumnPrefs();
+      });
+    });
+
+    function updateSelectedCount() {
+      if (!selectedCount) {
+        return;
+      }
+      const count = checkboxes.filter(function (item) { return item.checked; }).length;
+      selectedCount.textContent = count + ' ta tanlandi';
+    }
+
+    if (selectAll) {
+      selectAll.addEventListener('change', function () {
+        checkboxes.forEach(function (item) {
+          item.checked = !!selectAll.checked;
+        });
+        updateSelectedCount();
+      });
+    }
+
+    checkboxes.forEach(function (item) {
+      item.addEventListener('change', function () {
+        const checkedCount = checkboxes.filter(function (x) { return x.checked; }).length;
+        if (selectAll) {
+          selectAll.checked = checkedCount > 0 && checkedCount === checkboxes.length;
+          selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+        }
+        updateSelectedCount();
+      });
+    });
+
+    if (bulkForm) {
+      bulkForm.addEventListener('submit', function (event) {
+        const checkedCount = checkboxes.filter(function (item) { return item.checked; }).length;
+        if (checkedCount === 0) {
+          event.preventDefault();
+          alert('Kamida bitta maqola tanlang');
+        }
+      });
+    }
+
+    updateSelectedCount();
+    loadColumnPrefs();
+
     // Обработка показа модального окна
     const modal = document.getElementById('editSubmissionModal');
     if (modal) {

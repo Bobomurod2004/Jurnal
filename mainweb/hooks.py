@@ -106,7 +106,7 @@ def register(app):
             'path': request.path,
             'status': response.status_code,
             'duration_ms': duration_ms,
-            'remote_addr': request.headers.get('X-Forwarded-For', request.remote_addr),
+            'remote_addr': request.remote_addr or '',
             'user_agent': request.headers.get('User-Agent', ''),
             'user_id': session.get('user_id'),
         }

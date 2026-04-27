@@ -4,6 +4,7 @@ from flask import Flask, session
 
 from mainweb.routes import api as api_routes
 from mainweb.routes import context as context_routes
+from mainweb.routes import dashboard as dashboard_routes
 from mainweb.routes import public as public_routes
 
 
@@ -33,6 +34,45 @@ class _FakeTable:
         if kwargs:
             return query.equal(**kwargs)
         return query
+
+
+class _FakeMutableQuery:
+    def __init__(self, rows, filters):
+        self._rows = rows
+        self._filters = filters
+        self._update_payload = None
+
+    def update(self, **kwargs):
+        self._update_payload = dict(kwargs)
+        return self
+
+    def exec(self):
+        matched_rows = [
+            row for row in self._rows
+            if all(row.get(key) == value for key, value in self._filters.items())
+        ]
+        if self._update_payload is not None:
+            for row in matched_rows:
+                row.update(self._update_payload)
+        return [dict(row) for row in matched_rows]
+
+
+class _FakeMutableTable:
+    def __init__(self, rows):
+        self._rows = [dict(row) for row in rows]
+
+    def get(self, **kwargs):
+        return _FakeMutableQuery(self._rows, kwargs)
+
+    def add(self, **kwargs):
+        row = dict(kwargs)
+        self._rows.append(row)
+
+        class _AddResult:
+            def exec(self_inner):
+                return [dict(row)]
+
+        return _AddResult()
 
 
 class _DummyCursor:
@@ -279,3 +319,171 @@ def test_article_html_sanitizer_formats_plain_text_as_paragraphs():
     cleaned = fm_web._sanitize_article_block_html(raw)
 
     assert cleaned == '<p>Birinchi satr<br>Ikkinchi satr</p><p>Uchinchi satr</p>'
+
+
+def test_ensure_seed_page_backfills_localized_fields_from_seed(monkeypatch):
+    alias = 'submission_guidelines'
+    seed_payload = public_routes._seed_page_payload(alias)
+    existing_row = {
+        'alias': alias,
+        'title': seed_payload['title'],
+        'content': seed_payload['content'],
+        'title_uz': seed_payload['title'],
+        'title_ru': '',
+        'content_uz': seed_payload['content'],
+        'content_ru': '',
+        'last_update': 1,
+    }
+    fake_dbc = type('FakeDBC', (), {
+        'pages': _FakeMutableTable([existing_row]),
+        'columns': {'pages': set(existing_row.keys())},
+        'conn': _DummyConn(),
+    })()
+    monkeypatch.setattr(public_routes, 'dbc', fake_dbc)
+
+    page = public_routes._ensure_seed_page(alias)
+
+    assert page['title_uz'] == seed_payload['title_uz']
+    assert page['title_ru'] == seed_payload['title_ru']
+    assert page['content_uz'] == seed_payload['content_uz']
+    assert page['content_ru'] == seed_payload['content_ru']
+
+
+def test_ensure_seed_page_backfills_ru_when_old_ru_matches_uz_seed(monkeypatch):
+    alias = 'submission_guidelines'
+    seed_payload = public_routes._seed_page_payload(alias)
+    existing_row = {
+        'alias': alias,
+        'title': seed_payload['title'],
+        'content': seed_payload['content'],
+        'title_uz': seed_payload['title_uz'],
+        'title_ru': seed_payload['title_uz'],
+        'content_uz': seed_payload['content_uz'],
+        'content_ru': seed_payload['content_uz'],
+        'last_update': 1,
+    }
+    fake_dbc = type('FakeDBC', (), {
+        'pages': _FakeMutableTable([existing_row]),
+        'columns': {'pages': set(existing_row.keys())},
+        'conn': _DummyConn(),
+    })()
+    monkeypatch.setattr(public_routes, 'dbc', fake_dbc)
+
+    page = public_routes._ensure_seed_page(alias)
+
+    assert page['title_ru'] == seed_payload['title_ru']
+    assert page['content_ru'] == seed_payload['content_ru']
+
+
+def test_ensure_seed_page_backfills_base_content_when_old_base_matches_localized_seed(monkeypatch):
+    alias = 'editorial_policy'
+    seed_payload = public_routes._seed_page_payload(alias)
+    existing_row = {
+        'alias': alias,
+        'title': seed_payload['title_uz'],
+        'content': seed_payload['content_uz'],
+        'title_uz': seed_payload['title_uz'],
+        'title_ru': seed_payload['title_ru'],
+        'content_uz': seed_payload['content_uz'],
+        'content_ru': seed_payload['content_ru'],
+        'last_update': 1,
+    }
+    fake_dbc = type('FakeDBC', (), {
+        'pages': _FakeMutableTable([existing_row]),
+        'columns': {'pages': set(existing_row.keys())},
+        'conn': _DummyConn(),
+    })()
+    monkeypatch.setattr(public_routes, 'dbc', fake_dbc)
+
+    page = public_routes._ensure_seed_page(alias)
+
+    assert page['title'] == seed_payload['title']
+    assert page['content'] == seed_payload['content']
+
+
+def test_ensure_seed_page_keeps_custom_localized_fields(monkeypatch):
+    alias = 'submission_guidelines'
+    seed_payload = public_routes._seed_page_payload(alias)
+    existing_row = {
+        'alias': alias,
+        'title': seed_payload['title'],
+        'content': seed_payload['content'],
+        'title_uz': 'Maxsus mahalliy sarlavha',
+        'title_ru': 'Пользовательский заголовок',
+        'content_uz': '<section><h4>Maxsus</h4><p>Admin tahriri</p></section>',
+        'content_ru': '<section><h4>Пользовательский</h4><p>Редакторский текст</p></section>',
+        'last_update': 1,
+    }
+    fake_dbc = type('FakeDBC', (), {
+        'pages': _FakeMutableTable([existing_row]),
+        'columns': {'pages': set(existing_row.keys())},
+        'conn': _DummyConn(),
+    })()
+    monkeypatch.setattr(public_routes, 'dbc', fake_dbc)
+
+    page = public_routes._ensure_seed_page(alias)
+
+    assert page['title_uz'] == existing_row['title_uz']
+    assert page['title_ru'] == existing_row['title_ru']
+    assert page['content_uz'] == existing_row['content_uz']
+    assert page['content_ru'] == existing_row['content_ru']
+
+
+def test_editorial_policy_seed_content_is_english():
+    seed_payload = public_routes._seed_page_payload('editorial_policy')
+
+    assert 'Editorial Independence' in seed_payload['content']
+    assert 'Peer Review' in seed_payload['content']
+    assert 'Редакционная независимость' in seed_payload['content_ru']
+
+
+def test_dashboard_profile_document_labels_follow_selected_language(monkeypatch):
+    fake_dbc = type('FakeDBC', (), {
+        'users': _FakeTable([{
+            'id': 1,
+            'name': 'Ali',
+            'second_name': 'Valiyev',
+            'father_name': 'Vali o\'g\'li',
+            'email': 'ali@example.com',
+            'avatar': None,
+            'country_id': None,
+        }]),
+        'author_profile': _FakeTable([]),
+        'user_doc_uploads': _FakeTable([]),
+        'fix_country': _FakeTable([]),
+    })()
+    monkeypatch.setattr(dashboard_routes, 'dbc', fake_dbc)
+    monkeypatch.setattr(dashboard_routes, 'render_template', lambda _template, **context: context)
+    monkeypatch.setattr(
+        dashboard_routes,
+        'get_user_profile_completion',
+        lambda **_kwargs: type('ProfileCompletion', (), {'is_complete': True})(),
+    )
+
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    with app.test_request_context('/dashboard/profile'):
+        session['user_id'] = 1
+        session['user'] = {}
+        session['language'] = 'ru'
+
+        response_context = dashboard_routes.app__dashboard_profile()
+
+    assert response_context['document_ui_labels']['document_type'] == 'Тип документа'
+    assert response_context['document_ui_labels']['document_holder_name'] == 'Ф.И.О. владельца документа'
+    assert response_context['document_ui_labels']['institution_name'] == 'Название университета / учреждения'
+    assert response_context['document_type_choices'][0] == ('student_id', 'Студенческий билет')
+    assert response_context['document_type_choices'][-1] == ('other_academic', 'Другой академический документ')
+
+
+def test_api_document_type_label_follows_selected_language():
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    with app.test_request_context('/api/user-doc-upload'):
+        session['language'] = 'en'
+        assert api_routes._document_type_label('student_id') == 'Student ID'
+
+        session['language'] = 'ru'
+        assert api_routes._document_type_label('employment_certificate') == 'Справка с места работы'

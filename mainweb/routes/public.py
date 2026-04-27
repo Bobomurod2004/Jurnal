@@ -354,6 +354,116 @@ def _seed_page_payload(alias):
     }
 
 
+def _pages_table_columns():
+    columns = getattr(dbc, 'columns', None)
+    if isinstance(columns, dict):
+        page_columns = set(columns.get('pages', []))
+        if page_columns:
+            return page_columns
+    return set()
+
+
+def _is_blank_text(value):
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def _seed_page_backfill_payload(existing_page, seed_payload):
+    if not existing_page or not seed_payload:
+        return {}
+
+    base_field_candidates = {
+        'title': ('title_uz', 'title_ru'),
+        'content': ('content_uz', 'content_ru'),
+    }
+    localized_field_map = {
+        'title_uz': 'title',
+        'title_ru': 'title',
+        'content_uz': 'content',
+        'content_ru': 'content',
+    }
+    update_payload = {}
+
+    for base_field, localized_fields in base_field_candidates.items():
+        seed_base_value = seed_payload.get(base_field)
+        if _is_blank_text(seed_base_value):
+            continue
+
+        current_base_value = existing_page.get(base_field)
+        if _is_blank_text(current_base_value):
+            update_payload[base_field] = seed_base_value
+            continue
+
+        if current_base_value == seed_base_value:
+            continue
+
+        for localized_field in localized_fields:
+            localized_seed_value = seed_payload.get(localized_field)
+            if localized_seed_value and current_base_value == localized_seed_value:
+                update_payload[base_field] = seed_base_value
+                break
+
+    for localized_field, base_field in localized_field_map.items():
+        seed_localized_value = seed_payload.get(localized_field)
+        if _is_blank_text(seed_localized_value):
+            continue
+
+        current_localized_value = existing_page.get(localized_field)
+        if _is_blank_text(current_localized_value):
+            update_payload[localized_field] = seed_localized_value
+            continue
+
+        current_base_value = existing_page.get(base_field)
+        seed_base_value = seed_payload.get(base_field)
+        if (
+            current_localized_value == current_base_value
+            and current_base_value == seed_base_value
+            and current_localized_value != seed_localized_value
+        ):
+            update_payload[localized_field] = seed_localized_value
+            continue
+
+        sibling_seed_values = {
+            seed_base_value,
+            seed_payload.get(f'{base_field}_uz'),
+            seed_payload.get(f'{base_field}_ru'),
+        }
+        sibling_seed_values.discard(None)
+        sibling_seed_values.discard(seed_localized_value)
+        if current_localized_value in sibling_seed_values:
+            update_payload[localized_field] = seed_localized_value
+
+    if update_payload:
+        update_payload['last_update'] = seed_payload.get('last_update', int(time.time()))
+    return update_payload
+
+
+def _backfill_seed_page_localizations(page_alias, existing_page):
+    seed_payload = _seed_page_payload(page_alias)
+    update_payload = _seed_page_backfill_payload(existing_page, seed_payload)
+    if not update_payload:
+        return existing_page
+
+    page_columns = _pages_table_columns()
+    if page_columns:
+        update_payload = {k: v for k, v in update_payload.items() if k in page_columns}
+    if not update_payload:
+        return existing_page
+
+    try:
+        dbc.pages.get(alias=page_alias).update(**update_payload).exec()
+        refetched = dbc.pages.get(alias=page_alias).exec()
+        if refetched:
+            return refetched[0]
+    except Exception as exc:
+        logger.warning("Unable to backfill page alias '%s' localizations: %s", page_alias, exc)
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+
+    return existing_page
+
+
 def _ensure_seed_page(alias):
     page_alias = _clean_text(alias).lower()
     if not page_alias:
@@ -362,7 +472,7 @@ def _ensure_seed_page(alias):
     try:
         existing = dbc.pages.get(alias=page_alias).exec()
         if existing:
-            return existing[0]
+            return _backfill_seed_page_localizations(page_alias, existing[0])
     except Exception:
         try:
             dbc.conn.rollback()
@@ -374,8 +484,8 @@ def _ensure_seed_page(alias):
         return None
 
     try:
-        page_columns = set(dbc.columns.get('pages', []))
-        insert_payload = {k: v for k, v in payload.items() if k in page_columns}
+        page_columns = _pages_table_columns()
+        insert_payload = {k: v for k, v in payload.items() if k in page_columns} if page_columns else dict(payload)
         created_rows = dbc.pages.add(**insert_payload).exec()
         if created_rows:
             return created_rows[0]
@@ -1955,6 +2065,30 @@ def _consume_subscription_download_slot(user_id, monthly_limit):
             cursor.close()
 
 
+def _resolve_public_upload_abspath(stored_filepath):
+    normalized_path = str(stored_filepath or '').strip().replace('\\', '/')
+    if not normalized_path or normalized_path.startswith('private://'):
+        return None
+
+    relative_path = None
+    for prefix in ('/static/uploads/', 'static/uploads/'):
+        if normalized_path.startswith(prefix):
+            relative_path = normalized_path[len(prefix):].lstrip('/')
+            break
+
+    if relative_path is None:
+        return None
+
+    base_dir = os.path.abspath(os.path.join(settings.SAVE_PATH, 'static', 'uploads'))
+    candidate_path = os.path.abspath(os.path.join(base_dir, relative_path))
+    try:
+        if os.path.commonpath([candidate_path, base_dir]) != base_dir:
+            return None
+    except ValueError:
+        return None
+    return candidate_path
+
+
 def app__download_article(article_id):
     publication = dbc.publications.get(id=article_id).exec()
     if not publication:
@@ -1997,7 +2131,14 @@ def app__download_article(article_id):
         if not stored_filepath:
             continue
 
-        file_path = os.path.join(settings.SAVE_PATH, stored_filepath.lstrip('/'))
+        file_path = _resolve_public_upload_abspath(stored_filepath)
+        if not file_path:
+            current_app.logger.warning(
+                'Blocked article download for publication=%s due to invalid filepath=%r',
+                article_id,
+                stored_filepath,
+            )
+            continue
         if not os.path.exists(file_path):
             continue
 

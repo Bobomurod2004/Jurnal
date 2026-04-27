@@ -48,6 +48,7 @@ GOOGLE_OAUTH_AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 GOOGLE_OAUTH_USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo'
 GOOGLE_OAUTH_STATE_TTL = 600
+ORCID_OAUTH_STATE_TTL = 600
 USER_OAUTH_EXTRA_COLUMN_TYPES = {
     'oauth_provider': 'text',
     'oauth_sub': 'text',
@@ -71,6 +72,20 @@ LOGIN_RATE_LIMIT_STATE = {}
 LOGIN_RATE_LIMIT_SCOPE = 'mainweb'
 LOGIN_RATE_LIMIT_TABLE = 'auth_login_rate_limits'
 LOGIN_RATE_LIMIT_STORAGE_READY = False
+
+ORCID_ID_PATTERN = re.compile(r'(\d{4}-\d{4}-\d{4}-[\dX]{4})', re.IGNORECASE)
+OAUTH_PLACEHOLDER_MARKERS = (
+    'rotate_in_google_console_and_update',
+    'rotate_in_orcid_console_and_update',
+    'change-this',
+    'your-google-client',
+    'your-orcid-client',
+    'your-client-id',
+    'your-client-secret',
+    'replace-me',
+    'replace_with',
+    'example-client',
+)
 
 
 def _normalize_country_name(name):
@@ -100,7 +115,25 @@ def _load_iso_country_name_map():
     return country_map
 
 
+def _load_iso_country_code_map():
+    country_map = {}
+    try:
+        with open(ISO3166_TAB_PATH, encoding='utf-8') as iso_file:
+            for line in iso_file:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                code, country_name = line.split('\t', 1)
+                normalized_code = (code or '').strip().upper()
+                if normalized_code and normalized_code not in country_map:
+                    country_map[normalized_code] = country_name.strip()
+    except OSError:
+        return {}
+    return country_map
+
+
 ISO_COUNTRY_NAME_MAP = _load_iso_country_name_map()
+ISO_COUNTRY_CODE_MAP = _load_iso_country_code_map()
 
 
 def _country_name_to_code(country_name):
@@ -272,9 +305,6 @@ def _mask_email(value):
 
 
 def _get_request_ip():
-    forwarded_for = request.headers.get('X-Forwarded-For', '').strip()
-    if forwarded_for:
-        return forwarded_for.split(',')[0].strip()
     return (request.remote_addr or '').strip()
 
 
@@ -1388,8 +1418,79 @@ def _as_optional_bool(value):
     return text in {'1', 'true', 'yes', 'on'}
 
 
+def _looks_like_oauth_placeholder(value):
+    normalized = str(value or '').strip().lower()
+    if not normalized:
+        return True
+    return any(marker in normalized for marker in OAUTH_PLACEHOLDER_MARKERS)
+
+
+def _normalized_social_email(value):
+    email = str(value or '').strip().lower()
+    if not email:
+        return ''
+    if email.endswith('@orcid.local'):
+        return ''
+    if not is_valid_email(email):
+        return ''
+    return email
+
+
+def _normalize_iso_country_code(value):
+    text = str(value or '').strip().upper()
+    if len(text) == 2 and text.isalpha():
+        return text
+    return ''
+
+
+def _iso_country_name_from_code(country_code):
+    normalized_code = _normalize_iso_country_code(country_code)
+    if not normalized_code:
+        return ''
+    return ISO_COUNTRY_CODE_MAP.get(normalized_code, '')
+
+
+def _resolve_country_id_from_iso_country(country_code='', country_name=''):
+    code = _normalize_iso_country_code(country_code)
+    name = str(country_name or '').strip()
+    if not code and name:
+        code = _country_name_to_code(name)
+    if not code and not name:
+        return None
+
+    normalized_name = _normalize_country_name(name)
+    try:
+        countries = dbc.fix_country.all().exec() or []
+    except Exception:
+        return None
+
+    for country in countries:
+        country_id = country.get('id')
+        if country_id in (None, ''):
+            continue
+        variants = [
+            country.get('name'),
+            country.get('name_uz'),
+            country.get('name_ru'),
+        ]
+        for variant in variants:
+            variant_text = str(variant or '').strip()
+            if not variant_text:
+                continue
+            if code and _country_name_to_code(variant_text) == code:
+                return country_id
+            if normalized_name and _normalize_country_name(variant_text) == normalized_name:
+                return country_id
+    return None
+
+
 def _is_google_auth_available():
     has_credentials = bool(settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET)
+    if has_credentials:
+        has_credentials = not (
+            _looks_like_oauth_placeholder(settings.GOOGLE_CLIENT_ID)
+            or _looks_like_oauth_placeholder(settings.GOOGLE_CLIENT_SECRET)
+        )
     explicit_enabled = _as_optional_bool(settings.GOOGLE_AUTH_ENABLED)
     if explicit_enabled is None:
         return has_credentials
@@ -1400,8 +1501,12 @@ def _google_auth_config_issues():
     issues = []
     if not settings.GOOGLE_CLIENT_ID:
         issues.append('GOOGLE_CLIENT_ID')
+    elif _looks_like_oauth_placeholder(settings.GOOGLE_CLIENT_ID):
+        issues.append('GOOGLE_CLIENT_ID placeholder')
     if not settings.GOOGLE_CLIENT_SECRET:
         issues.append('GOOGLE_CLIENT_SECRET')
+    elif _looks_like_oauth_placeholder(settings.GOOGLE_CLIENT_SECRET):
+        issues.append('GOOGLE_CLIENT_SECRET placeholder')
     explicit_enabled = _as_optional_bool(settings.GOOGLE_AUTH_ENABLED)
     if explicit_enabled is False:
         issues.append('GOOGLE_AUTH_ENABLED=false')
@@ -1457,6 +1562,8 @@ def _oauth_fallback_endpoint(intent):
 
 
 def _ensure_user_oauth_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     cursor = None
     try:
         existing_columns = set(dbc.columns.get('users', []))
@@ -1491,7 +1598,10 @@ def _ensure_user_oauth_columns():
             cursor.close()
 
 
-_ensure_user_oauth_columns()
+def run_runtime_schema_syncs():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
+    _ensure_user_oauth_columns()
 
 
 def _build_google_auth_url(intent):
@@ -1585,12 +1695,17 @@ def _create_or_update_google_user(profile, intent):
     first_name = sanitize_input(profile.get('given_name', ''))
     last_name = sanitize_input(profile.get('family_name', ''))
     avatar_url = (profile.get('picture') or '').strip() or None
+    created_new_user = False
 
     if user:
         existing_provider = (user.get('oauth_provider') or '').strip().lower()
         existing_sub = str(user.get('oauth_sub') or '').strip()
-        if existing_provider == 'google' and existing_sub and existing_sub != google_sub:
-            flash('This email is already linked to another Google account.', 'error')
+        if existing_provider == 'google':
+            if existing_sub and existing_sub != google_sub:
+                flash('This email is already linked to another Google account.', 'error')
+                return None
+        elif existing_provider and existing_sub:
+            flash('This account is already linked to a different sign-in provider.', 'error')
             return None
 
     if user and (user.get('is_blocked') or user.get('is_hidden')):
@@ -1633,6 +1748,7 @@ def _create_or_update_google_user(profile, intent):
             created_rows = dbc.users.add(**create_data).exec()
             if created_rows:
                 user = created_rows[0]
+                created_new_user = True
             else:
                 created_lookup = dbc.users.get(email=email).exec()
                 user = created_lookup[0] if created_lookup else None
@@ -1643,6 +1759,16 @@ def _create_or_update_google_user(profile, intent):
 
     if not user:
         flash('Unable to authorize with Google right now.', 'error')
+        return None
+
+    existing_provider = (user.get('oauth_provider') or '').strip().lower()
+    existing_sub = str(user.get('oauth_sub') or '').strip()
+    if existing_provider == 'google':
+        if existing_sub and existing_sub != google_sub:
+            flash('This email is already linked to another Google account.', 'error')
+            return None
+    elif existing_provider and existing_sub:
+        flash('This account is already linked to a different sign-in provider.', 'error')
         return None
 
     update_data = {'last_online': now_ts}
@@ -1657,6 +1783,10 @@ def _create_or_update_google_user(profile, intent):
         update_data['oauth_last_login_at'] = now_ts
     if 'avatar' in user_columns and avatar_url and not user.get('avatar'):
         update_data['avatar'] = avatar_url
+    if 'email' in user_columns and email:
+        existing_email = (user.get('email') or '').strip().lower()
+        if not existing_email or existing_email.endswith('@orcid.local'):
+            update_data['email'] = email
     if 'name' in user_columns and first_name and not user.get('name'):
         update_data['name'] = first_name
     if 'second_name' in user_columns and last_name and not user.get('second_name'):
@@ -1668,13 +1798,14 @@ def _create_or_update_google_user(profile, intent):
         flash('Unable to authorize with Google right now.', 'error')
         return None
 
-    if intent == 'register' and not user.get('register_time'):
+    if intent == 'register' and created_new_user:
         _send_registration_welcome_email(reloaded[0], is_google=True)
         flash('Registration successful. You are now signed in with Google.', 'success')
     return reloaded[0]
 
 
 def app__google_auth_start():
+    _clear_google_oauth_session()
     if not _is_google_auth_available():
         issues = ', '.join(_google_auth_config_issues()) or 'unknown'
         current_app.logger.warning("Google auth unavailable: %s", issues)
@@ -1744,6 +1875,728 @@ def app__google_callback():
         return redirect(url_for(fallback))
     except Exception:
         current_app.logger.error("Google OAuth callback error: %s", traceback.format_exc())
+        flash('System error. Please try again later.', 'error')
+        return redirect(url_for(fallback))
+
+
+def _is_orcid_auth_available():
+    has_credentials = bool(settings.ORCID_CLIENT_ID and settings.ORCID_CLIENT_SECRET)
+    if has_credentials:
+        has_credentials = not (
+            _looks_like_oauth_placeholder(settings.ORCID_CLIENT_ID)
+            or _looks_like_oauth_placeholder(settings.ORCID_CLIENT_SECRET)
+        )
+    explicit_enabled = _as_optional_bool(settings.ORCID_AUTH_ENABLED)
+    if explicit_enabled is None:
+        return has_credentials
+    return explicit_enabled and has_credentials
+
+
+def _orcid_auth_config_issues():
+    issues = []
+    if not settings.ORCID_CLIENT_ID:
+        issues.append('ORCID_CLIENT_ID')
+    elif _looks_like_oauth_placeholder(settings.ORCID_CLIENT_ID):
+        issues.append('ORCID_CLIENT_ID placeholder')
+    if not settings.ORCID_CLIENT_SECRET:
+        issues.append('ORCID_CLIENT_SECRET')
+    elif _looks_like_oauth_placeholder(settings.ORCID_CLIENT_SECRET):
+        issues.append('ORCID_CLIENT_SECRET placeholder')
+    explicit_enabled = _as_optional_bool(settings.ORCID_AUTH_ENABLED)
+    if explicit_enabled is False:
+        issues.append('ORCID_AUTH_ENABLED=false')
+    return issues
+
+
+def _orcid_base_url():
+    configured = (settings.ORCID_BASE_URL or '').strip().rstrip('/')
+    if configured and _is_absolute_http_url(configured):
+        return configured
+    if configured:
+        logger.warning("Ignoring ORCID_BASE_URL because it is not an absolute http(s) URL")
+    return 'https://orcid.org'
+
+
+def _orcid_public_api_base_url():
+    base_url = _orcid_base_url()
+    parsed = urlparse(base_url)
+    scheme = parsed.scheme or 'https'
+    host = (parsed.netloc or '').lower()
+    if not host:
+        return 'https://pub.orcid.org'
+    if host.startswith('pub.'):
+        return f'{scheme}://{host}'
+    if host.endswith('sandbox.orcid.org'):
+        return f'{scheme}://pub.sandbox.orcid.org'
+    if host.endswith('orcid.org'):
+        return f'{scheme}://pub.orcid.org'
+    return f'{scheme}://{host}'
+
+
+def _orcid_redirect_uri():
+    configured = (settings.ORCID_REDIRECT_URI or '').strip()
+    if configured and _is_absolute_http_url(configured):
+        return configured
+    if configured:
+        logger.warning("Ignoring ORCID_REDIRECT_URI because it is not an absolute http(s) URL")
+
+    app_base_url = (settings.APP_BASE_URL or '').strip().rstrip('/')
+    if _is_absolute_http_url(app_base_url):
+        return f"{app_base_url}/auth/orcid/callback"
+
+    try:
+        return url_for('app__orcid_callback', _external=True)
+    except Exception:
+        return url_for('app__orcid_callback', _external=True)
+
+
+def _orcid_intent(raw_intent):
+    return _google_intent(raw_intent)
+
+
+def _clear_orcid_oauth_session():
+    session.pop('orcid_oauth_state', None)
+    session.pop('orcid_oauth_state_ts', None)
+    session.pop('orcid_oauth_intent', None)
+    session.pop('orcid_oauth_next_url', None)
+
+
+def _normalize_orcid_identifier(value):
+    if not value:
+        return ''
+    text = str(value).strip()
+    if not text:
+        return ''
+
+    pattern_match = ORCID_ID_PATTERN.search(text)
+    if pattern_match:
+        return pattern_match.group(1).upper()
+
+    compact = re.sub(r'[^0-9Xx]', '', text)
+    if len(compact) == 16 and re.match(r'^\d{15}[\dXx]$', compact):
+        compact = compact.upper()
+        return f'{compact[0:4]}-{compact[4:8]}-{compact[8:12]}-{compact[12:16]}'
+    return ''
+
+
+def _orcid_placeholder_email(orcid_id):
+    normalized = re.sub(r'[^0-9x]', '', str(orcid_id).lower())
+    if not normalized:
+        normalized = secrets.token_hex(8)
+    return f'orcid-{normalized}@orcid.local'
+
+
+def _build_orcid_auth_url(intent):
+    state = secrets.token_urlsafe(32)
+    session['orcid_oauth_state'] = state
+    session['orcid_oauth_state_ts'] = int(time.time())
+    session['orcid_oauth_intent'] = intent
+
+    params = {
+        'client_id': settings.ORCID_CLIENT_ID,
+        'redirect_uri': _orcid_redirect_uri(),
+        'response_type': 'code',
+        'scope': settings.ORCID_SCOPE or '/authenticate',
+        'state': state,
+    }
+    return f"{_orcid_base_url()}/oauth/authorize?{urlencode(params)}"
+
+
+def _read_orcid_profile(code):
+    timeout = max(settings.ORCID_REQUEST_TIMEOUT, 1)
+    token_payload = {
+        'code': code,
+        'client_id': settings.ORCID_CLIENT_ID,
+        'client_secret': settings.ORCID_CLIENT_SECRET,
+        'redirect_uri': _orcid_redirect_uri(),
+        'grant_type': 'authorization_code',
+    }
+    token_response = requests.post(
+        f"{_orcid_base_url()}/oauth/token",
+        data=token_payload,
+        headers={'Accept': 'application/json'},
+        timeout=timeout,
+    )
+    if token_response.status_code != 200:
+        logger.warning("ORCID token exchange failed with status=%s", token_response.status_code)
+        return None
+
+    try:
+        token_data = token_response.json()
+    except ValueError:
+        logger.warning("ORCID token response is not valid JSON")
+        return None
+
+    orcid_id = _normalize_orcid_identifier(
+        token_data.get('orcid')
+        or token_data.get('sub')
+        or token_data.get('orcid_id')
+    )
+    if not orcid_id:
+        logger.warning("ORCID token response did not include a valid ORCID iD")
+        return None
+
+    access_token = str(token_data.get('access_token') or '').strip()
+    profile = {
+        'orcid': orcid_id,
+        'name': sanitize_input(token_data.get('name', '')),
+        'given_name': '',
+        'family_name': '',
+        'email': '',
+        'country_code': '',
+        'country_name': '',
+        'organization': '',
+        'department': '',
+        'position': '',
+        'employment_country_code': '',
+        'employment_country_name': '',
+        'employment_city': '',
+    }
+
+    person_payload = _fetch_orcid_json_with_public_fallback(
+        f'/v3.0/{orcid_id}/person',
+        timeout=timeout,
+        access_token=access_token,
+    )
+    if person_payload:
+        for key, value in _extract_orcid_person_profile(person_payload).items():
+            if value and not profile.get(key):
+                profile[key] = value
+
+    employment_payload = _fetch_orcid_json_with_public_fallback(
+        f'/v3.0/{orcid_id}/employments',
+        timeout=timeout,
+        access_token=access_token,
+    )
+    if employment_payload:
+        for key, value in _extract_orcid_employment_profile(employment_payload).items():
+            if value and not profile.get(key):
+                profile[key] = value
+
+    if not profile.get('country_name'):
+        profile['country_name'] = _iso_country_name_from_code(profile.get('country_code'))
+    if not profile.get('employment_country_name'):
+        profile['employment_country_name'] = _iso_country_name_from_code(profile.get('employment_country_code'))
+
+    if not profile.get('name'):
+        fallback_name = ' '.join(
+            part for part in [
+                profile.get('given_name'),
+                profile.get('family_name'),
+            ] if part
+        ).strip()
+        if fallback_name:
+            profile['name'] = fallback_name
+
+    return {
+        **profile,
+    }
+
+
+def _fetch_orcid_json(url, timeout, access_token=None):
+    headers = {'Accept': 'application/json'}
+    if access_token:
+        headers['Authorization'] = f'Bearer {access_token}'
+    response = requests.get(url, headers=headers, timeout=timeout)
+    if response.status_code != 200:
+        logger.info('ORCID data request failed url=%s status=%s', url, response.status_code)
+        return None
+    try:
+        return response.json()
+    except ValueError:
+        logger.warning('ORCID data response is not valid JSON for url=%s', url)
+        return None
+
+
+def _fetch_orcid_json_with_public_fallback(path, timeout, access_token=None):
+    base_url = _orcid_base_url().rstrip('/')
+    public_url = _orcid_public_api_base_url().rstrip('/')
+    path_part = str(path or '').strip()
+    if not path_part.startswith('/'):
+        path_part = f'/{path_part}'
+
+    candidates = []
+    if base_url:
+        candidates.append((f'{base_url}{path_part}', access_token))
+    if public_url:
+        candidates.append((f'{public_url}{path_part}', access_token))
+        candidates.append((f'{public_url}{path_part}', None))
+
+    seen = set()
+    for candidate_url, candidate_token in candidates:
+        key = (candidate_url, bool(candidate_token))
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            payload = _fetch_orcid_json(candidate_url, timeout=timeout, access_token=candidate_token)
+        except requests.RequestException:
+            logger.info('ORCID data request failed for url=%s', candidate_url)
+            continue
+        if payload:
+            return payload
+    return None
+
+
+def _extract_orcid_person_profile(person_payload):
+    payload = person_payload if isinstance(person_payload, dict) else {}
+    profile = {
+        'name': '',
+        'given_name': '',
+        'family_name': '',
+        'email': '',
+        'country_code': '',
+        'country_name': '',
+    }
+
+    name_data = payload.get('name') if isinstance(payload.get('name'), dict) else {}
+    given_name = sanitize_input(((name_data.get('given-names') or {}).get('value')) if isinstance(name_data.get('given-names'), dict) else '')
+    family_name = sanitize_input(((name_data.get('family-name') or {}).get('value')) if isinstance(name_data.get('family-name'), dict) else '')
+    full_name = sanitize_input(' '.join(part for part in [given_name, family_name] if part).strip())
+    if full_name:
+        profile['name'] = full_name
+    profile['given_name'] = given_name
+    profile['family_name'] = family_name
+
+    emails_data = payload.get('emails') if isinstance(payload.get('emails'), dict) else {}
+    email_entries = emails_data.get('email') if isinstance(emails_data.get('email'), list) else []
+    email_candidates = []
+    for item in email_entries:
+        if not isinstance(item, dict):
+            continue
+        value = str(item.get('email') or '').strip().lower()
+        if not value:
+            continue
+        score = (
+            1 if item.get('verified') else 0,
+            1 if item.get('primary') else 0,
+        )
+        email_candidates.append((score, value))
+    if email_candidates:
+        email_candidates.sort(key=lambda pair: pair[0], reverse=True)
+        profile['email'] = email_candidates[0][1]
+
+    addresses_data = payload.get('addresses') if isinstance(payload.get('addresses'), dict) else {}
+    address_entries = addresses_data.get('address') if isinstance(addresses_data.get('address'), list) else []
+    for item in address_entries:
+        if not isinstance(item, dict):
+            continue
+        country_block = item.get('country')
+        country_value = ''
+        if isinstance(country_block, dict):
+            country_value = country_block.get('value') or ''
+        else:
+            country_value = country_block or ''
+        country_code = _normalize_iso_country_code(country_value)
+        if country_code:
+            profile['country_code'] = country_code
+            profile['country_name'] = _iso_country_name_from_code(country_code)
+            break
+
+    return profile
+
+
+def _extract_orcid_employment_profile(employment_payload):
+    payload = employment_payload if isinstance(employment_payload, dict) else {}
+    result = {
+        'organization': '',
+        'department': '',
+        'position': '',
+        'employment_country_code': '',
+        'employment_country_name': '',
+        'employment_city': '',
+    }
+
+    summaries = []
+    top_level = payload.get('employment-summary')
+    if isinstance(top_level, list):
+        summaries.extend(item for item in top_level if isinstance(item, dict))
+
+    if not summaries:
+        affiliation_groups = payload.get('affiliation-group')
+        if isinstance(affiliation_groups, list):
+            for group in affiliation_groups:
+                if not isinstance(group, dict):
+                    continue
+                group_summaries = group.get('summaries') if isinstance(group.get('summaries'), list) else []
+                for item in group_summaries:
+                    if not isinstance(item, dict):
+                        continue
+                    summary = item.get('employment-summary')
+                    if isinstance(summary, dict):
+                        summaries.append(summary)
+
+    if not summaries:
+        return result
+
+    first_summary = summaries[0]
+    result['department'] = sanitize_input(first_summary.get('department-name', ''))
+    result['position'] = sanitize_input(first_summary.get('role-title', ''))
+
+    organization_data = first_summary.get('organization') if isinstance(first_summary.get('organization'), dict) else {}
+    result['organization'] = sanitize_input(organization_data.get('name', ''))
+
+    address_data = organization_data.get('address') if isinstance(organization_data.get('address'), dict) else {}
+    result['employment_city'] = sanitize_input(address_data.get('city', ''))
+    country_code = _normalize_iso_country_code(address_data.get('country'))
+    if country_code:
+        result['employment_country_code'] = country_code
+        result['employment_country_name'] = _iso_country_name_from_code(country_code)
+
+    return result
+
+
+def _resolve_orcid_user(profile):
+    orcid_id = _normalize_orcid_identifier(profile.get('orcid'))
+    if not orcid_id:
+        return None, None, None, None, ''
+
+    user_columns = set(dbc.columns.get('users', []))
+    has_oauth_identity_cols = {'oauth_provider', 'oauth_sub'}.issubset(user_columns)
+    profile_email = _normalized_social_email(profile.get('email'))
+
+    user = None
+    author_profile = None
+
+    if has_oauth_identity_cols:
+        by_sub = dbc.users.get(oauth_provider='orcid', oauth_sub=orcid_id).exec()
+        if by_sub:
+            user = by_sub[0]
+
+    if not user:
+        author_matches = dbc.author_profile.get(orcid=orcid_id).exec()
+        if author_matches:
+            author_profile = next((row for row in author_matches if row.get('user_id')), None) or author_matches[0]
+            linked_user_id = author_profile.get('user_id')
+            if linked_user_id:
+                linked_user = dbc.users.get(id=linked_user_id).exec()
+                if linked_user:
+                    user = linked_user[0]
+
+    if not user and profile_email:
+        by_email = dbc.users.get(email=profile_email).exec()
+        if by_email:
+            user = by_email[0]
+
+    fallback_email = profile_email or _orcid_placeholder_email(orcid_id)
+    return user, orcid_id, author_profile, fallback_email, profile_email
+
+
+def _sync_orcid_author_profile(user_row, orcid_id, display_name='', profile=None):
+    if not user_row or not orcid_id:
+        return True
+
+    user_id = user_row.get('id')
+    if not user_id:
+        return True
+
+    now_ts = int(time.time())
+    author_columns = set(dbc.columns.get('author_profile', []))
+    profile_data = profile if isinstance(profile, dict) else {}
+    user_email = _normalized_social_email(user_row.get('email'))
+    profile_email = _normalized_social_email(profile_data.get('email'))
+    preferred_email = profile_email or user_email
+
+    given_name = sanitize_input(profile_data.get('given_name', ''))
+    family_name = sanitize_input(profile_data.get('family_name', ''))
+    resolved_display_name = sanitize_input(display_name or profile_data.get('name', ''))
+    if not resolved_display_name:
+        resolved_display_name = sanitize_input(' '.join(part for part in [given_name, family_name] if part).strip())
+    if not resolved_display_name:
+        resolved_display_name = sanitize_input(user_row.get('name') or '')
+
+    organization = sanitize_input(profile_data.get('organization', ''))
+    department = sanitize_input(profile_data.get('department', ''))
+    position = sanitize_input(profile_data.get('position', ''))
+    employment_city = sanitize_input(profile_data.get('employment_city', ''))
+    employment_country = sanitize_input(
+        profile_data.get('employment_country_name')
+        or _iso_country_name_from_code(profile_data.get('employment_country_code'))
+        or profile_data.get('country_name')
+        or _iso_country_name_from_code(profile_data.get('country_code'))
+    )
+
+    def _profile_update_payload(existing_row, include_user_id=False):
+        payload = {}
+        existing_orcid = _normalize_orcid_identifier(existing_row.get('orcid'))
+        if existing_orcid and existing_orcid != orcid_id:
+            return None
+        if not existing_orcid:
+            payload['orcid'] = orcid_id
+        if include_user_id and not existing_row.get('user_id'):
+            payload['user_id'] = user_id
+        if resolved_display_name and not existing_row.get('name'):
+            payload['name'] = resolved_display_name
+        if preferred_email and not existing_row.get('email'):
+            payload['email'] = preferred_email
+        enrichment_fields = {
+            'organization': organization,
+            'department': department,
+            'position': position,
+            'address_city': employment_city,
+            'address_country': employment_country,
+        }
+        for field_name, field_value in enrichment_fields.items():
+            if field_name not in author_columns:
+                continue
+            if field_value and not existing_row.get(field_name):
+                payload[field_name] = field_value
+        if 'updated_at' in author_columns:
+            payload['updated_at'] = now_ts
+        return payload
+
+    by_user = dbc.author_profile.get(user_id=user_id).exec()
+    if by_user:
+        payload = _profile_update_payload(by_user[0], include_user_id=False)
+        if payload is None:
+            flash('Your profile is linked to a different ORCID iD. Please contact support.', 'error')
+            return False
+        if payload:
+            dbc.author_profile.get(id=by_user[0]['id']).update(**payload).exec()
+        return True
+
+    by_orcid = dbc.author_profile.get(orcid=orcid_id).exec()
+    if by_orcid:
+        candidate = next((row for row in by_orcid if not row.get('user_id') or row.get('user_id') == user_id), by_orcid[0])
+        candidate_user_id = candidate.get('user_id')
+        if candidate_user_id and candidate_user_id != user_id:
+            flash('This ORCID iD is already linked to another account.', 'error')
+            return False
+
+        payload = _profile_update_payload(candidate, include_user_id=True)
+        if payload is None:
+            flash('This ORCID iD is already linked to another account.', 'error')
+            return False
+        if payload:
+            dbc.author_profile.get(id=candidate['id']).update(**payload).exec()
+        return True
+
+    create_data = {
+        'user_id': user_id,
+        'orcid': orcid_id,
+        'name': resolved_display_name or f'ORCID {orcid_id}',
+        'email': preferred_email or None,
+    }
+    if 'organization' in author_columns and organization:
+        create_data['organization'] = organization
+    if 'department' in author_columns and department:
+        create_data['department'] = department
+    if 'position' in author_columns and position:
+        create_data['position'] = position
+    if 'address_city' in author_columns and employment_city:
+        create_data['address_city'] = employment_city
+    if 'address_country' in author_columns and employment_country:
+        create_data['address_country'] = employment_country
+    if 'created_at' in author_columns:
+        create_data['created_at'] = now_ts
+    if 'updated_at' in author_columns:
+        create_data['updated_at'] = now_ts
+    dbc.author_profile.add(**create_data).exec()
+    return True
+
+
+def _create_or_update_orcid_user(profile, intent):
+    user, orcid_id, author_profile, fallback_email, profile_email = _resolve_orcid_user(profile)
+    if not orcid_id:
+        flash('ORCID did not return a valid ORCID iD.', 'error')
+        return None
+
+    now_ts = int(time.time())
+    user_columns = set(dbc.columns.get('users', []))
+    display_name = sanitize_input(profile.get('name', ''))
+    given_name = sanitize_input(profile.get('given_name', ''))
+    family_name = sanitize_input(profile.get('family_name', ''))
+    if not display_name:
+        display_name = sanitize_input(' '.join(part for part in [given_name, family_name] if part).strip())
+    if not display_name and author_profile:
+        display_name = sanitize_input(author_profile.get('name', ''))
+    email_verified = bool(profile_email)
+    resolved_country_id = _resolve_country_id_from_iso_country(
+        country_code=profile.get('employment_country_code') or profile.get('country_code'),
+        country_name=profile.get('employment_country_name') or profile.get('country_name'),
+    )
+    created_new_user = False
+
+    if user:
+        existing_provider = (user.get('oauth_provider') or '').strip().lower()
+        existing_sub = _normalize_orcid_identifier(user.get('oauth_sub'))
+        if existing_provider == 'orcid':
+            if existing_sub and existing_sub != orcid_id:
+                flash('This account is already linked to another ORCID iD.', 'error')
+                return None
+        elif existing_provider and existing_sub:
+            flash('This account is already linked to a different sign-in provider.', 'error')
+            return None
+
+    if user and (user.get('is_blocked') or user.get('is_hidden')):
+        flash('Your account is blocked. Please contact support.', 'error')
+        return None
+
+    if not user:
+        display_tail = orcid_id[-4:] if len(orcid_id) >= 4 else orcid_id
+        create_data = {
+            'name': given_name or display_name or f'ORCID {display_tail}',
+            'second_name': family_name or None,
+            'father_name': None,
+            'email': fallback_email,
+            'password': None,
+            'country_id': resolved_country_id,
+            'rolename': 'user',
+            'is_blocked': False,
+            'is_notify': False,
+            'ui_language': normalize_notification_language(session.get('language') or 'en', default='en'),
+            'accept_rules_time': now_ts,
+            'register_time': now_ts,
+            'created_at': now_ts,
+            'last_online': now_ts,
+        }
+        if 'is_hidden' in user_columns:
+            create_data['is_hidden'] = False
+        if 'roles' in user_columns:
+            create_data['roles'] = build_user_roles(AUTHOR_ROLE, include_author_role=True)
+        if {'oauth_provider', 'oauth_sub'}.issubset(user_columns):
+            create_data['oauth_provider'] = 'orcid'
+            create_data['oauth_sub'] = orcid_id
+        if 'oauth_email_verified' in user_columns:
+            create_data['oauth_email_verified'] = email_verified or None
+        if 'oauth_last_login_at' in user_columns:
+            create_data['oauth_last_login_at'] = now_ts
+
+        try:
+            created_rows = dbc.users.add(**create_data).exec()
+            if created_rows:
+                user = created_rows[0]
+                created_new_user = True
+            else:
+                created_lookup = dbc.users.get(email=fallback_email).exec()
+                user = created_lookup[0] if created_lookup else None
+        except Exception:
+            # Race-safe fallback for duplicated synthetic-email creation attempts.
+            created_lookup = dbc.users.get(email=fallback_email).exec()
+            user = created_lookup[0] if created_lookup else None
+
+    if not user:
+        flash('Unable to authorize with ORCID right now.', 'error')
+        return None
+
+    existing_provider = (user.get('oauth_provider') or '').strip().lower()
+    existing_sub = _normalize_orcid_identifier(user.get('oauth_sub'))
+    if existing_provider == 'orcid':
+        if existing_sub and existing_sub != orcid_id:
+            flash('This account is already linked to another ORCID iD.', 'error')
+            return None
+    elif existing_provider and existing_sub:
+        flash('This account is already linked to a different sign-in provider.', 'error')
+        return None
+
+    update_data = {'last_online': now_ts}
+    if 'roles' in user_columns:
+        update_data['roles'] = hydrate_user_roles(user).get('roles')
+    if {'oauth_provider', 'oauth_sub'}.issubset(user_columns):
+        update_data['oauth_provider'] = 'orcid'
+        update_data['oauth_sub'] = orcid_id
+    if 'oauth_email_verified' in user_columns:
+        update_data['oauth_email_verified'] = email_verified or None
+    if 'oauth_last_login_at' in user_columns:
+        update_data['oauth_last_login_at'] = now_ts
+    if 'name' in user_columns and (given_name or display_name) and not user.get('name'):
+        update_data['name'] = given_name or display_name
+    if 'second_name' in user_columns and family_name and not user.get('second_name'):
+        update_data['second_name'] = family_name
+    if 'email' in user_columns and profile_email:
+        existing_email = (user.get('email') or '').strip().lower()
+        if not existing_email or existing_email.endswith('@orcid.local'):
+            update_data['email'] = profile_email
+    if 'country_id' in user_columns and resolved_country_id and not user.get('country_id'):
+        update_data['country_id'] = resolved_country_id
+
+    dbc.users.get(id=user['id']).update(**update_data).exec()
+    reloaded = dbc.users.get(id=user['id']).exec()
+    if not reloaded:
+        flash('Unable to authorize with ORCID right now.', 'error')
+        return None
+
+    if not _sync_orcid_author_profile(reloaded[0], orcid_id, display_name=display_name, profile=profile):
+        return None
+
+    if intent == 'register' and created_new_user:
+        _send_registration_welcome_email(reloaded[0], is_google=False)
+        flash('Registration successful. You are now signed in with ORCID.', 'success')
+    return reloaded[0]
+
+
+def app__orcid_auth_start():
+    _clear_orcid_oauth_session()
+    intent = _orcid_intent(request.args.get('intent'))
+    fallback = _oauth_fallback_endpoint(intent)
+    if not _is_orcid_auth_available():
+        issues = ', '.join(_orcid_auth_config_issues()) or 'unknown'
+        current_app.logger.warning("ORCID auth unavailable: %s", issues)
+        flash('ORCID authentication is not configured yet.', 'error')
+        return redirect(url_for(fallback))
+
+    next_url = _sanitize_next_url(request.args.get('next'))
+    if next_url:
+        session['orcid_oauth_next_url'] = next_url
+    auth_url = _build_orcid_auth_url(intent)
+    return redirect(auth_url)
+
+
+def app__orcid_callback():
+    intent = _orcid_intent(session.get('orcid_oauth_intent'))
+    fallback = _oauth_fallback_endpoint(intent)
+
+    expected_state = session.get('orcid_oauth_state')
+    state_ts = int(session.get('orcid_oauth_state_ts') or 0)
+    next_url = _sanitize_next_url(session.get('orcid_oauth_next_url'))
+    _clear_orcid_oauth_session()
+
+    if not _is_orcid_auth_available():
+        issues = ', '.join(_orcid_auth_config_issues()) or 'unknown'
+        current_app.logger.warning("ORCID auth callback blocked: %s", issues)
+        flash('ORCID authentication is not configured yet.', 'error')
+        return redirect(url_for(fallback))
+
+    oauth_error = request.args.get('error')
+    if oauth_error:
+        oauth_error_description = (request.args.get('error_description') or '').strip()
+        if oauth_error_description:
+            flash(f'ORCID authorization failed: {oauth_error} ({oauth_error_description})', 'error')
+        else:
+            flash(f'ORCID authorization failed: {oauth_error}', 'error')
+        return redirect(url_for(fallback))
+
+    state = request.args.get('state', '')
+    if not expected_state or state != expected_state:
+        flash('Invalid ORCID authorization state. Please try again.', 'error')
+        return redirect(url_for(fallback))
+
+    if state_ts and (int(time.time()) - state_ts > ORCID_OAUTH_STATE_TTL):
+        flash('ORCID authorization timed out. Please try again.', 'error')
+        return redirect(url_for(fallback))
+
+    code = request.args.get('code', '')
+    if not code:
+        flash('ORCID authorization code was not received.', 'error')
+        return redirect(url_for(fallback))
+
+    try:
+        profile = _read_orcid_profile(code)
+        if not profile:
+            flash('ORCID sign-in failed. Please try again.', 'error')
+            return redirect(url_for(fallback))
+
+        user = _create_or_update_orcid_user(profile, intent)
+        if not user:
+            return redirect(url_for(fallback))
+
+        _set_user_session(user)
+        return _post_auth_redirect(user, next_url=next_url)
+    except requests.RequestException:
+        flash('ORCID service is temporarily unavailable. Please try again.', 'error')
+        return redirect(url_for(fallback))
+    except Exception:
+        current_app.logger.error("ORCID OAuth callback error: %s", traceback.format_exc())
         flash('System error. Please try again later.', 'error')
         return redirect(url_for(fallback))
 
@@ -1820,7 +2673,12 @@ def app__login():
             return redirect(login_redirect)
 
     next_url = _sanitize_next_url(request.args.get('next'))
-    return render_template('auth/login.html', google_auth_enabled=_is_google_auth_available(), next_url=next_url)
+    return render_template(
+        'auth/login.html',
+        google_auth_enabled=_is_google_auth_available(),
+        orcid_auth_enabled=_is_orcid_auth_available(),
+        next_url=next_url,
+    )
 
 
 def app__register():
@@ -1916,7 +2774,12 @@ def app__register():
         country_data['country_code'] = country_code
         country_data['country_flag'] = _country_code_to_flag(country_code)
         countries.append(translate(country_data))
-    return render_template('auth/register.html', fix_country=countries, google_auth_enabled=_is_google_auth_available())
+    return render_template(
+        'auth/register.html',
+        fix_country=countries,
+        google_auth_enabled=_is_google_auth_available(),
+        orcid_auth_enabled=_is_orcid_auth_available(),
+    )
 
 
 def app__register_verify():
@@ -2186,6 +3049,7 @@ def app__forgot_password_verify():
 
 def app__logout():
     _clear_google_oauth_session()
+    _clear_orcid_oauth_session()
     session.pop(PENDING_REGISTRATION_SESSION_KEY, None)
     session.pop(PENDING_PASSWORD_RESET_SESSION_KEY, None)
     session.pop('user', None)
@@ -2206,4 +3070,10 @@ def register(app):
     app.add_url_rule('/auth/google/callback/', endpoint='app__google_callback_slash', view_func=not_auth_only(app__google_callback), methods=['GET'])
     app.add_url_rule('/api/auth/google/callback', endpoint='app__google_callback_api', view_func=not_auth_only(app__google_callback), methods=['GET'])
     app.add_url_rule('/api/auth/google/callback/', endpoint='app__google_callback_api_slash', view_func=not_auth_only(app__google_callback), methods=['GET'])
-    app.add_url_rule('/logout', view_func=app__logout)
+    app.add_url_rule('/auth/orcid', view_func=not_auth_only(app__orcid_auth_start), methods=['GET'])
+    app.add_url_rule('/api/auth/orcid', endpoint='app__orcid_auth_start_api', view_func=not_auth_only(app__orcid_auth_start), methods=['GET'])
+    app.add_url_rule('/auth/orcid/callback', view_func=not_auth_only(app__orcid_callback), methods=['GET'])
+    app.add_url_rule('/auth/orcid/callback/', endpoint='app__orcid_callback_slash', view_func=not_auth_only(app__orcid_callback), methods=['GET'])
+    app.add_url_rule('/api/auth/orcid/callback', endpoint='app__orcid_callback_api', view_func=not_auth_only(app__orcid_callback), methods=['GET'])
+    app.add_url_rule('/api/auth/orcid/callback/', endpoint='app__orcid_callback_api_slash', view_func=not_auth_only(app__orcid_callback), methods=['GET'])
+    app.add_url_rule('/logout', view_func=app__logout, methods=['POST'])

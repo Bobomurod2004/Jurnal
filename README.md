@@ -123,6 +123,13 @@ TRANSLATION_SYNC_TOKEN=change-this-sync-token
 # GOOGLE_CLIENT_ID=your-google-client-id
 # GOOGLE_CLIENT_SECRET=your-google-client-secret
 # GOOGLE_REDIRECT_URI=https://your-domain/auth/google/callback
+# Optional ORCID OAuth
+# ORCID_AUTH_ENABLED=1
+# ORCID_CLIENT_ID=your-orcid-client-id
+# ORCID_CLIENT_SECRET=your-orcid-client-secret
+# ORCID_REDIRECT_URI=https://your-domain/auth/orcid/callback
+# ORCID_BASE_URL=https://orcid.org
+# ORCID_SCOPE=/authenticate
 MAIL_ENABLED=1
 MAIL_HOST=smtp.your-provider.tld
 MAIL_PORT=587
@@ -144,6 +151,11 @@ Google OAuth checklist:
 - In Google Cloud Console, add `https://your-domain/auth/google/callback` to **Authorized redirect URIs**.
 - Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_AUTH_ENABLED=1` in `.env`.
 - Keep server/proxy on HTTPS in production.
+
+ORCID OAuth checklist:
+- In ORCID Developer Tools, add `https://your-domain/auth/orcid/callback` to redirect URIs.
+- Set `ORCID_CLIENT_ID`, `ORCID_CLIENT_SECRET`, `ORCID_AUTH_ENABLED=1` in `.env`.
+- Use `ORCID_BASE_URL=https://sandbox.orcid.org` for sandbox testing, then switch to `https://orcid.org` for production.
 
 ### Email note
 

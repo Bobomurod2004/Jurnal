@@ -210,6 +210,35 @@ DOCUMENT_TYPE_LABELS = {
     'employment_certificate': "Ish joyidan ma'lumotnoma",
     'other_academic': 'Boshqa akademik hujjat',
 }
+DOCUMENT_TYPE_LOCALIZED_LABELS = {
+    'uz': {
+        'student_id': 'Talabalik guvohnomasi',
+        'enrollment_certificate': "Ta'lim muassasasi ma'lumotnomasi",
+        'master_certificate': 'Magistratura tasdiq hujjati',
+        'phd_certificate': 'Doktorantura tasdiq hujjati',
+        'researcher_certificate': 'Tadqiqotchi status hujjati',
+        'employment_certificate': "Ish joyidan ma'lumotnoma",
+        'other_academic': 'Boshqa akademik hujjat',
+    },
+    'ru': {
+        'student_id': 'Студенческий билет',
+        'enrollment_certificate': 'Справка из образовательного учреждения',
+        'master_certificate': 'Подтверждающий документ магистратуры',
+        'phd_certificate': 'Подтверждающий документ докторантуры',
+        'researcher_certificate': 'Документ, подтверждающий статус исследователя',
+        'employment_certificate': 'Справка с места работы',
+        'other_academic': 'Другой академический документ',
+    },
+    'en': {
+        'student_id': 'Student ID',
+        'enrollment_certificate': 'Enrollment Certificate',
+        'master_certificate': "Master's Confirmation Document",
+        'phd_certificate': 'Doctoral Confirmation Document',
+        'researcher_certificate': 'Researcher Status Document',
+        'employment_certificate': 'Employment Certificate',
+        'other_academic': 'Other Academic Document',
+    },
+}
 
 
 def _refresh_submission_columns():
@@ -218,6 +247,9 @@ def _refresh_submission_columns():
 
 
 def _ensure_submission_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        _refresh_submission_columns()
+        return
     try:
         existing_columns = set(dbc.columns.get('submissions', []))
         if not existing_columns:
@@ -247,6 +279,8 @@ def _ensure_submission_columns():
 
 
 def _ensure_user_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         existing_columns = set(dbc.columns.get('users', []))
         if not existing_columns:
@@ -277,6 +311,8 @@ def _ensure_user_columns():
 
 
 def _ensure_role_notifications_table():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         cursor = dbc.conn.cursor()
         cursor.execute(
@@ -316,6 +352,8 @@ def _ensure_role_notifications_table():
 
 
 def _ensure_payment_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         existing_columns = set(dbc.columns.get('payments', []))
         if not existing_columns:
@@ -343,6 +381,8 @@ def _ensure_payment_columns():
 
 
 def _ensure_tariff_entitlement_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         existing_columns = set(dbc.columns.get('tariffs', []))
         if not existing_columns:
@@ -418,6 +458,8 @@ def _ensure_tariff_entitlement_columns():
 
 
 def _ensure_user_doc_upload_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
     try:
         existing_columns = set(dbc.columns.get('user_doc_uploads', []))
         if not existing_columns:
@@ -450,6 +492,21 @@ def _ensure_user_doc_upload_columns():
             dbc.conn.rollback()
         except Exception:
             pass
+
+
+_refresh_submission_columns()
+
+
+def run_runtime_schema_syncs():
+    _refresh_submission_columns()
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
+    _ensure_submission_columns()
+    _ensure_user_columns()
+    _ensure_role_notifications_table()
+    _ensure_payment_columns()
+    _ensure_tariff_entitlement_columns()
+    _ensure_user_doc_upload_columns()
 
 
 def _clean_text(value):
@@ -735,11 +792,17 @@ def _normalize_document_type(value):
     return normalized if normalized in ALLOWED_DOCUMENT_TYPES else None
 
 
+def _current_interface_language():
+    language = (_clean_text(session.get('language')) or 'en').lower()
+    return language if language in DOCUMENT_TYPE_LOCALIZED_LABELS else 'en'
+
+
 def _document_type_label(value):
     normalized = _normalize_document_type(value)
     if not normalized:
         return ''
-    return DOCUMENT_TYPE_LABELS.get(normalized, normalized.replace('_', ' ').title())
+    localized_labels = DOCUMENT_TYPE_LOCALIZED_LABELS.get(_current_interface_language(), DOCUMENT_TYPE_LOCALIZED_LABELS['en'])
+    return localized_labels.get(normalized, DOCUMENT_TYPE_LABELS.get(normalized, normalized.replace('_', ' ').title()))
 
 
 def _parse_required_document_types(value):
@@ -2215,14 +2278,6 @@ def _merge_submission_for_response(saved_submission, source_payload):
         if merged.get(key) is None and source_payload.get(key) is not None:
             merged[key] = source_payload.get(key)
     return merged
-
-
-_ensure_submission_columns()
-_ensure_user_columns()
-_ensure_role_notifications_table()
-_ensure_payment_columns()
-_ensure_tariff_entitlement_columns()
-_ensure_user_doc_upload_columns()
 
 
 def app__api_getauthor():

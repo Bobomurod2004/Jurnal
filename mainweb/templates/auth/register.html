@@ -221,6 +221,18 @@
                                 Google ro'yxatdan o'tish hozircha sozlanmagan.
                             </div>
                             {% endif %}
+                            {% if orcid_auth_enabled %}
+                            <a href="{{ url_for('app__orcid_auth_start', intent='register') }}"
+                                class="mt-3 w-full flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
+                                aria-label='{{ t("register_with_orcid") if t("register_with_orcid") != "register_with_orcid" else "ORCID orqali ro'yxatdan o'tish" }}'>
+                                <span class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">iD</span>
+                                {{ t('register_with_orcid') if t('register_with_orcid') != 'register_with_orcid' else "ORCID orqali ro'yxatdan o'tish" }}
+                            </a>
+                            {% else %}
+                            <div class="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600">
+                                ORCID ro'yxatdan o'tish hozircha sozlanmagan.
+                            </div>
+                            {% endif %}
                             
                             <div class="mt-4 text-center">
                                 <span class="text-sm text-gray-500">{{ t('login_to_account') }}?</span>

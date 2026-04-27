@@ -8,10 +8,13 @@ from flask import request, jsonify
 from werkzeug.utils import secure_filename
 from extensions import db
 from modules.translate import t, translate, clear_translations_cache
-from utils.auth import api_admin_required, api_superadmin_required
+from utils.auth import api_permission_required, api_superadmin_required
 import settings
 
 logger = logging.getLogger(__name__)
+api_content_required = api_permission_required('fmadmin.content.manage', 'Content management access required')
+api_finance_required = api_permission_required('fmadmin.finance.manage', 'Finance management access required')
+api_users_required = api_permission_required('fmadmin.users.manage', 'User management access required')
 TARIFF_ENTITLEMENT_SCOPES = {'all', 'archive'}
 DEFAULT_ARCHIVE_DAYS_THRESHOLD = 365
 ALLOWED_TARIFF_FEATURE_PERMISSIONS = {
@@ -568,7 +571,7 @@ def sync_translations():
     })
 
 
-@api_admin_required
+@api_finance_required
 def create_tariff():
     _ensure_tariff_duration_column()
     _ensure_tariff_archive_column()
@@ -638,7 +641,7 @@ def create_tariff():
     return jsonify({'success': True})
 
 
-@api_admin_required
+@api_finance_required
 def update_tariff(tariff_id):
     _ensure_tariff_duration_column()
     _ensure_tariff_archive_column()
@@ -703,7 +706,7 @@ def update_tariff(tariff_id):
     return jsonify({'success': True})
 
 
-@api_admin_required
+@api_finance_required
 def delete_tariff(tariff_id):
     try:
         _ensure_tariff_archive_column()
@@ -734,7 +737,7 @@ def delete_tariff(tariff_id):
         return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 
-@api_admin_required
+@api_content_required
 def upload_image():
     file = None
     if 'upload' in request.files:
@@ -764,39 +767,39 @@ def upload_image():
     return jsonify({'success': True, 'url': f"/static/uploads/images/{new_filename}"})
 
 
-@api_admin_required
+@api_content_required
 def get_publication_refs():
     refs = db.publication_refs.get().exec()
     return jsonify({'success': True, 'refs': refs})
 
 
-@api_admin_required
+@api_content_required
 def create_publication_ref():
     data = _json_payload()
     result = db.publication_refs.add(**data).exec()
     return jsonify({'success': True, 'ref': result[0] if result else None})
 
 
-@api_admin_required
+@api_content_required
 def get_article_references(article_id):
     refs = db.publication_refs.get(publication_id=article_id).exec()
     return jsonify({'success': True, 'refs': refs})
 
 
-@api_admin_required
+@api_content_required
 def get_article_citations(article_id):
     citations = db.publication_citations.get(publication_id=article_id).exec()
     return jsonify({'success': True, 'citations': citations})
 
 
-@api_admin_required
+@api_content_required
 def create_reference():
     data = _normalize_reference_payload(_json_payload())
     result = db.publication_refs.add(**data).exec()
     return jsonify({'success': True, 'reference': result[0] if result else None})
 
 
-@api_admin_required
+@api_content_required
 def get_reference(reference_id):
     ref = db.publication_refs.get(id=reference_id).exec()
     if not ref:
@@ -804,7 +807,7 @@ def get_reference(reference_id):
     return jsonify({'success': True, 'reference': ref[0]})
 
 
-@api_admin_required
+@api_content_required
 def update_reference(reference_id):
     data = _normalize_reference_payload(_json_payload())
     if data:
@@ -813,13 +816,13 @@ def update_reference(reference_id):
     return jsonify({'success': True, 'reference': ref[0] if ref else None})
 
 
-@api_admin_required
+@api_content_required
 def delete_reference(reference_id):
     db.publication_refs.get(id=reference_id).delete().exec()
     return jsonify({'success': True})
 
 
-@api_admin_required
+@api_content_required
 def search_references():
     search = request.args.get('search', '').strip() or request.args.get('q', '').strip()
     if not search:
@@ -832,14 +835,14 @@ def search_references():
     return jsonify({'success': True, 'references': refs})
 
 
-@api_admin_required
+@api_content_required
 def create_citation():
     data = _normalize_citation_payload(_json_payload())
     result = db.publication_citations.add(**data).exec()
     return jsonify({'success': True, 'citation': result[0] if result else None})
 
 
-@api_admin_required
+@api_content_required
 def get_citation(citation_id):
     citation = db.publication_citations.get(id=citation_id).exec()
     if not citation:
@@ -847,7 +850,7 @@ def get_citation(citation_id):
     return jsonify({'success': True, 'citation': citation[0]})
 
 
-@api_admin_required
+@api_content_required
 def update_citation(citation_id):
     data = _normalize_citation_payload(_json_payload())
     if data:
@@ -856,13 +859,13 @@ def update_citation(citation_id):
     return jsonify({'success': True, 'citation': citation[0] if citation else None})
 
 
-@api_admin_required
+@api_content_required
 def delete_citation(citation_id):
     db.publication_citations.get(id=citation_id).delete().exec()
     return jsonify({'success': True})
 
 
-@api_admin_required
+@api_users_required
 def api_getauthor():
     data = _json_payload()
     author_id = data.get('author_id')
@@ -888,7 +891,7 @@ def api_getauthor():
     return jsonify({'success': True, 'is_found': True, 'author': author_profile})
 
 
-@api_admin_required
+@api_users_required
 def api_createauthor():
     data = _json_payload()
     if not data.get('name'):
@@ -909,6 +912,136 @@ def api_createauthor():
     ).exec()
 
     return jsonify({'success': True, 'author': result[0] if result else None})
+
+
+# ============================================================
+# GLOBAL SEARCH API - Tezkor qidiruv funksiyasi
+# ============================================================
+
+@api_users_required
+def global_search():
+    """
+    Global search - maqola, foydalanuvchi, muallif bo'yicha qidiruv
+    Query parametrlar:
+    - q: qidiruv so'zi (majburiy)
+    - type: search turi (submissions, users, authors, all)
+    - limit: natijalar soni (default: 10)
+    """
+    query = request.args.get('q', '').strip()
+    search_type = request.args.get('type', 'all').strip().lower()
+    limit = min(_parse_int(request.args.get('limit')) or 10, 50)
+    
+    if not query:
+        return jsonify({'success': False, 'message': 'Qidiruv so\'zi kerak'}), 400
+    
+    results = {
+        'submissions': [],
+        'users': [],
+        'authors': []
+    }
+    
+    try:
+        # 1. Maqolalar bo'yicha qidiruv
+        if search_type in ['all', 'submissions']:
+            submissions_query = db.submissions.all().unequal(status='draft')
+            
+            # ID bo'yicha qidiruv (agar raqam bo'lsa)
+            if query.isdigit():
+                submissions_query = submissions_query.equal(id=int(query))
+            else:
+                # Sarlavha bo'yicha qidiruv
+                submissions_query = submissions_query.like(title=query)
+            
+            submissions = submissions_query.order_by('id').exec()[:limit]
+            
+            # Mualliflar ma'lumotlarini qo'shish
+            author_ids = {s.get('main_author_id') for s in submissions if s.get('main_author_id')}
+            authors_map = {}
+            if author_ids:
+                authors = db.author_profile.all().any(id=list(author_ids)).exec()
+                authors_map = {a['id']: a for a in authors if a.get('id')}
+            
+            for sub in submissions:
+                author = authors_map.get(sub.get('main_author_id'), {})
+                results['submissions'].append({
+                    'id': sub.get('id'),
+                    'title': sub.get('title') or 'Sarlavhasiz',
+                    'status': sub.get('status'),
+                    'workflow_stage': sub.get('workflow_stage'),
+                    'author_name': author.get('name', 'Noma\'lum'),
+                    'author_orcid': author.get('orcid', ''),
+                    'created_date': sub.get('created_date'),
+                    'type': 'submission',
+                    'url': f'/fmadmin/submissions/{sub.get("id")}'
+                })
+        
+        # 2. Foydalanuvchilar bo'yicha qidiruv
+        if search_type in ['all', 'users']:
+            users_query = db.users.all()
+            
+            # Email yoki ID bo'yicha aniq qidiruv
+            if '@' in query:
+                users_query = users_query.like(email=query)
+            elif query.isdigit():
+                users_query = users_query.equal(id=int(query))
+            else:
+                # Ism bo'yicha qidiruv
+                users_query = users_query.like(name=query)
+            
+            users = users_query.order_by('id').exec()[:limit]
+            
+            for user in users:
+                results['users'].append({
+                    'id': user.get('id'),
+                    'name': user.get('name', ''),
+                    'email': user.get('email', ''),
+                    'rolename': user.get('rolename', 'user'),
+                    'orcid': user.get('orcid', ''),
+                    'is_blocked': user.get('is_blocked', False),
+                    'type': 'user',
+                    'url': f'/fmadmin/users/users/{user.get("id")}'
+                })
+        
+        # 3. Mualliflar bo'yicha qidiruv
+        if search_type in ['all', 'authors']:
+            authors_query = db.author_profile.all()
+            
+            # ORCID yoki ID bo'yicha aniq qidiruv
+            if '-' in query and len(query) == 19:  # ORCID formati: 0000-0000-0000-0000
+                authors_query = authors_query.equal(orcid=query)
+            elif query.isdigit():
+                authors_query = authors_query.equal(id=int(query))
+            else:
+                # Ism bo'yicha qidiruv
+                authors_query = authors_query.like(name=query)
+            
+            authors = authors_query.order_by('id').exec()[:limit]
+            
+            for author in authors:
+                results['authors'].append({
+                    'id': author.get('id'),
+                    'name': author.get('name', ''),
+                    'organization': author.get('organization', ''),
+                    'email': author.get('email', ''),
+                    'orcid': author.get('orcid', ''),
+                    'type': 'author',
+                    'url': f'/fmadmin/users/users?orcid={author.get("orcid", "")}'
+                })
+        
+        # Natijalarni sanash
+        total_results = sum(len(results[key]) for key in results)
+        
+        return jsonify({
+            'success': True,
+            'query': query,
+            'type': search_type,
+            'total': total_results,
+            'results': results
+        })
+        
+    except Exception as e:
+        logger.exception("Global search failed")
+        return jsonify({'success': False, 'message': f'Qidiruv xatosi: {str(e)}'}), 500
 
 
 def register(app):
@@ -934,3 +1067,4 @@ def register(app):
     app.add_url_rule('/fmadmin/api/citations/<int:citation_id>', view_func=delete_citation, methods=['DELETE'])
     app.add_url_rule('/fmadmin/api/getauthor', view_func=api_getauthor, methods=['POST'])
     app.add_url_rule('/fmadmin/api/createauthor', view_func=api_createauthor, methods=['POST'])
+    app.add_url_rule('/fmadmin/api/search', view_func=global_search, methods=['GET'])
