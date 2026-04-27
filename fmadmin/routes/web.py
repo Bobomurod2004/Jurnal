@@ -2611,9 +2611,10 @@ def _ensure_editorial_members_table():
             pass
 
 
-def _ensure_email_templates_table():
-    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
-        return
+def _ensure_email_templates_table(force=False):
+    if not force and not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        existing_tables = set(getattr(db, 'tables', []) or [])
+        return 'email_templates' in existing_tables
     try:
         cursor = db.conn.cursor()
         cursor.execute(
@@ -2695,12 +2696,20 @@ def _ensure_email_templates_table():
         cursor.close()
         db._init_tables()
         db._init_columns()
+        existing_tables = set(getattr(db, 'tables', []) or [])
+        return 'email_templates' in existing_tables
     except Exception as e:
         logger.warning("Email templates table sync warning: %s", e)
         try:
             db.conn.rollback()
         except Exception:
             pass
+        existing_tables = set(getattr(db, 'tables', []) or [])
+        return 'email_templates' in existing_tables
+
+
+def _ensure_email_templates_ready(force_schema_sync=False):
+    return bool(_ensure_email_templates_table(force=force_schema_sync))
 
 
 def run_runtime_schema_syncs():
@@ -5514,7 +5523,9 @@ def _email_template_preview_payload(template_row):
 @bp.route('/fmadmin/website/email-templates')
 @is_superadmin_required
 def email_templates():
-    _ensure_email_templates_table()
+    if not _ensure_email_templates_ready(force_schema_sync=True):
+        flash('Email templates jadvali tayyor emas. Iltimos, administratorga murojaat qiling.', 'danger')
+        return redirect(url_for('index'))
     search = _clean_text(request.args.get('search')).lower()
     templates = db.email_templates.all().exec()
     if search:
@@ -5534,7 +5545,9 @@ def email_templates():
 @bp.route('/fmadmin/website/email-templates/new', methods=['GET', 'POST'])
 @is_superadmin_required
 def email_template_create():
-    _ensure_email_templates_table()
+    if not _ensure_email_templates_ready(force_schema_sync=True):
+        flash('Email templates jadvali tayyor emas. Iltimos, administratorga murojaat qiling.', 'danger')
+        return redirect(url_for('index'))
     current_user_id = _parse_int((session.get('fmadmin_user') or {}).get('id'))
 
     if request.method == 'POST':
@@ -5599,7 +5612,9 @@ def email_template_create():
 @bp.route('/fmadmin/website/email-templates/<int:template_id>', methods=['GET', 'POST'])
 @is_superadmin_required
 def email_template_edit(template_id):
-    _ensure_email_templates_table()
+    if not _ensure_email_templates_ready(force_schema_sync=True):
+        flash('Email templates jadvali tayyor emas. Iltimos, administratorga murojaat qiling.', 'danger')
+        return redirect(url_for('index'))
     current_user_id = _parse_int((session.get('fmadmin_user') or {}).get('id'))
 
     rows = db.email_templates.all().equal(id=template_id).exec()
@@ -5652,7 +5667,9 @@ def email_template_edit(template_id):
 @bp.route('/fmadmin/website/email-templates/<int:template_id>/delete', methods=['POST'])
 @is_superadmin_required
 def email_template_delete(template_id):
-    _ensure_email_templates_table()
+    if not _ensure_email_templates_ready(force_schema_sync=True):
+        flash('Email templates jadvali tayyor emas. Iltimos, administratorga murojaat qiling.', 'danger')
+        return redirect(url_for('index'))
     rows = db.email_templates.all().equal(id=template_id).exec()
     if not rows:
         flash('Email shabloni topilmadi.', 'danger')

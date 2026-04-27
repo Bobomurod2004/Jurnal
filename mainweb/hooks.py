@@ -1,4 +1,5 @@
 import json
+import os
 import secrets
 import time
 import uuid
@@ -9,6 +10,30 @@ from utils.private_uploads import upload_access_url
 
 
 def register(app):
+    def _static_asset_version(filename):
+        normalized = str(filename or '').lstrip('/')
+        static_root = app.static_folder or ''
+        if not normalized or not static_root:
+            return settings.APP_VERSION
+        candidate_path = os.path.abspath(os.path.join(static_root, normalized))
+        try:
+            static_root_abs = os.path.abspath(static_root)
+        except Exception:
+            static_root_abs = static_root
+        if not candidate_path.startswith(static_root_abs):
+            return settings.APP_VERSION
+        try:
+            return int(os.path.getmtime(candidate_path))
+        except OSError:
+            return settings.APP_VERSION
+
+    def _asset_url(filename):
+        return url_for(
+            'static',
+            filename=str(filename or '').lstrip('/'),
+            v=_static_asset_version(filename),
+        )
+
     def _expects_json():
         accept = request.headers.get('Accept', '')
         requested_with = request.headers.get('X-Requested-With', '')
@@ -79,6 +104,8 @@ def register(app):
         return {
             'csrf_token': session.get('csrf_token', ''),
             'upload_access_url': upload_access_url,
+            'asset_url': _asset_url,
+            'asset_version': _static_asset_version,
         }
 
     @app.after_request
