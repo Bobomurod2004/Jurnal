@@ -2287,7 +2287,7 @@ def _resolve_orcid_user(profile):
         if by_email:
             user = by_email[0]
 
-    fallback_email = profile_email
+    fallback_email = profile_email or _orcid_placeholder_email(orcid_id)
     return user, orcid_id, author_profile, fallback_email, profile_email
 
 
@@ -2447,7 +2447,7 @@ def _create_or_update_orcid_user(profile, intent):
             'name': given_name or display_name or f'ORCID {display_tail}',
             'second_name': family_name or None,
             'father_name': None,
-            'email': fallback_email or None,
+            'email': fallback_email,
             'password': None,
             'country_id': resolved_country_id,
             'rolename': 'user',
@@ -2522,14 +2522,21 @@ def _create_or_update_orcid_user(profile, intent):
         update_data['second_name'] = family_name
     if 'email' in user_columns:
         existing_email = (user.get('email') or '').strip().lower()
-        if existing_email.endswith('@orcid.local'):
-            update_data['email'] = profile_email or None
-        elif profile_email and not existing_email:
+        if profile_email and (not existing_email or existing_email.endswith('@orcid.local')):
             update_data['email'] = profile_email
     if 'country_id' in user_columns and resolved_country_id and not user.get('country_id'):
         update_data['country_id'] = resolved_country_id
 
-    dbc.users.get(id=user['id']).update(**update_data).exec()
+    try:
+        dbc.users.get(id=user['id']).update(**update_data).exec()
+    except Exception:
+        # Some production schemas may enforce stricter email constraints.
+        # Retry without email update so ORCID login itself does not fail.
+        if 'email' in update_data:
+            update_data.pop('email', None)
+            dbc.users.get(id=user['id']).update(**update_data).exec()
+        else:
+            raise
     reloaded = dbc.users.get(id=user['id']).exec()
     if not reloaded:
         flash('Unable to authorize with ORCID right now.', 'error')
