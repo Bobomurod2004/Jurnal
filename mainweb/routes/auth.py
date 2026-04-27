@@ -49,6 +49,9 @@ GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 GOOGLE_OAUTH_USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo'
 GOOGLE_OAUTH_STATE_TTL = 600
 ORCID_OAUTH_STATE_TTL = 600
+ORCID_PENDING_PROFILE_SESSION_KEY = 'orcid_pending_profile'
+ORCID_PENDING_INTENT_SESSION_KEY = 'orcid_pending_intent'
+ORCID_PENDING_NEXT_URL_SESSION_KEY = 'orcid_pending_next_url'
 USER_OAUTH_EXTRA_COLUMN_TYPES = {
     'oauth_provider': 'text',
     'oauth_sub': 'text',
@@ -1436,6 +1439,44 @@ def _normalized_social_email(value):
     return email
 
 
+def _has_same_social_email_identity(user_row, candidate_email):
+    existing_email = _normalized_social_email((user_row or {}).get('email'))
+    social_email = _normalized_social_email(candidate_email)
+    return bool(existing_email and social_email and existing_email == social_email)
+
+
+def _has_linked_orcid_identity(user_row, author_profile_row, orcid_id):
+    normalized_orcid = _normalize_orcid_identifier(orcid_id)
+    if not normalized_orcid:
+        return False
+
+    provider = str((user_row or {}).get('oauth_provider') or '').strip().lower()
+    oauth_sub = _normalize_orcid_identifier((user_row or {}).get('oauth_sub'))
+    if provider == 'orcid' and oauth_sub == normalized_orcid:
+        return True
+
+    profile_orcid = _normalize_orcid_identifier((author_profile_row or {}).get('orcid'))
+    return bool(profile_orcid and profile_orcid == normalized_orcid)
+
+
+def _normalize_roles_list(value):
+    if isinstance(value, (list, tuple)):
+        source = [str(item).strip().lower() for item in value]
+    else:
+        raw = str(value or '').strip()
+        if not raw:
+            return []
+        if raw.startswith('{') and raw.endswith('}'):
+            raw = raw[1:-1]
+        source = [item.strip().strip('"').lower() for item in raw.split(',')]
+    result = []
+    for item in source:
+        if not item or item in result:
+            continue
+        result.append(item)
+    return result
+
+
 def _normalize_iso_country_code(value):
     text = str(value or '').strip().upper()
     if len(text) == 2 and text.isalpha():
@@ -1613,6 +1654,319 @@ def run_runtime_schema_syncs():
     _ensure_user_oauth_columns()
 
 
+def _table_column_exists(cursor, cache, table_name, column_name):
+    key = (table_name, column_name)
+    if key in cache:
+        return cache[key]
+    cursor.execute(
+        """
+        SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = %s
+              AND column_name = %s
+        );
+        """,
+        (table_name, column_name),
+    )
+    exists = bool(cursor.fetchone()[0])
+    cache[key] = exists
+    return exists
+
+
+def _merge_author_profile_references(cursor, column_cache, source_author_id, target_author_id):
+    if not source_author_id or not target_author_id or source_author_id == target_author_id:
+        return
+
+    for table_name in ('submissions', 'publications'):
+        if _table_column_exists(cursor, column_cache, table_name, 'main_author_id'):
+            cursor.execute(
+                f"UPDATE {table_name} SET main_author_id = %s WHERE main_author_id = %s",
+                (target_author_id, source_author_id),
+            )
+
+    array_columns = (
+        ('submissions', 'sub_author_ids'),
+        ('publications', 'subauthor_ids'),
+        ('publications', 'sub_author_ids'),
+    )
+    for table_name, column_name in array_columns:
+        if not _table_column_exists(cursor, column_cache, table_name, column_name):
+            continue
+        cursor.execute(
+            f"""
+            UPDATE {table_name}
+               SET {column_name} = array_replace({column_name}, %s, %s)
+             WHERE {column_name} IS NOT NULL
+               AND %s = ANY({column_name})
+            """,
+            (source_author_id, target_author_id, source_author_id),
+        )
+
+
+def _merge_author_profiles_for_users(cursor, column_cache, primary_user_id, secondary_user_id, now_ts):
+    if not _table_column_exists(cursor, column_cache, 'author_profile', 'user_id'):
+        return
+
+    cursor.execute("SELECT * FROM author_profile WHERE user_id = %s ORDER BY id ASC", (primary_user_id,))
+    primary_cols = [desc[0] for desc in cursor.description]
+    primary_rows = [dict(zip(primary_cols, row)) for row in cursor.fetchall()]
+
+    cursor.execute("SELECT * FROM author_profile WHERE user_id = %s ORDER BY id ASC", (secondary_user_id,))
+    secondary_cols = [desc[0] for desc in cursor.description]
+    secondary_rows = [dict(zip(secondary_cols, row)) for row in cursor.fetchall()]
+    if not secondary_rows:
+        return
+
+    canonical = primary_rows[0] if primary_rows else secondary_rows.pop(0)
+    canonical_id = int(canonical.get('id') or 0)
+    if not canonical_id:
+        return
+
+    if int(canonical.get('user_id') or 0) != int(primary_user_id):
+        if _table_column_exists(cursor, column_cache, 'author_profile', 'updated_at'):
+            cursor.execute(
+                "UPDATE author_profile SET user_id = %s, updated_at = %s WHERE id = %s",
+                (primary_user_id, now_ts, canonical_id),
+            )
+        else:
+            cursor.execute(
+                "UPDATE author_profile SET user_id = %s WHERE id = %s",
+                (primary_user_id, canonical_id),
+            )
+        canonical['user_id'] = primary_user_id
+
+    merge_fields = (
+        'name',
+        'organization',
+        'email',
+        'position',
+        'address_street',
+        'address_country',
+        'address_city',
+        'address_zip',
+        'phone',
+        'orcid',
+        'department',
+    )
+
+    for row in secondary_rows:
+        source_id = int(row.get('id') or 0)
+        if not source_id:
+            continue
+
+        patch = {}
+        for field_name in merge_fields:
+            source_value = row.get(field_name)
+            source_text = str(source_value or '').strip()
+            if not source_text:
+                continue
+
+            current_text = str(canonical.get(field_name) or '').strip()
+            if field_name == 'email':
+                source_email = _normalized_social_email(source_text)
+                current_email = _normalized_social_email(current_text)
+                if source_email and not current_email:
+                    patch[field_name] = source_email
+                continue
+
+            if field_name == 'orcid':
+                source_orcid = _normalize_orcid_identifier(source_text)
+                current_orcid = _normalize_orcid_identifier(current_text)
+                if source_orcid and not current_orcid:
+                    patch[field_name] = source_orcid
+                continue
+
+            if not current_text:
+                patch[field_name] = source_value
+
+        if patch:
+            if _table_column_exists(cursor, column_cache, 'author_profile', 'updated_at'):
+                patch['updated_at'] = now_ts
+            set_clause = ', '.join(f"{key} = %s" for key in patch)
+            args = list(patch.values()) + [canonical_id]
+            cursor.execute(f"UPDATE author_profile SET {set_clause} WHERE id = %s", args)
+            canonical.update(patch)
+
+        _merge_author_profile_references(cursor, column_cache, source_id, canonical_id)
+        cursor.execute("DELETE FROM author_profile WHERE id = %s", (source_id,))
+
+
+def _merge_user_accounts(primary_user, secondary_user, reason='account-link'):
+    primary_id = int((primary_user or {}).get('id') or 0)
+    secondary_id = int((secondary_user or {}).get('id') or 0)
+    if not primary_id or not secondary_id or primary_id == secondary_id:
+        return primary_user
+
+    def _to_row(cursor, user_id):
+        cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+        fetched = cursor.fetchone()
+        if not fetched:
+            return None
+        cols = [desc[0] for desc in cursor.description]
+        return dict(zip(cols, fetched))
+
+    column_cache = {}
+    now_ts = int(time.time())
+    try:
+        with dbc._lock:
+            cursor = dbc.conn.cursor()
+            try:
+                lock_first, lock_second = sorted([primary_id, secondary_id])
+                cursor.execute(
+                    "SELECT id FROM users WHERE id IN (%s, %s) ORDER BY id FOR UPDATE",
+                    (lock_first, lock_second),
+                )
+
+                primary_row = _to_row(cursor, primary_id)
+                secondary_row = _to_row(cursor, secondary_id)
+                if not primary_row:
+                    dbc.conn.rollback()
+                    return secondary_user
+                if not secondary_row:
+                    dbc.conn.rollback()
+                    return primary_row
+
+                _merge_author_profiles_for_users(
+                    cursor,
+                    column_cache,
+                    primary_user_id=primary_id,
+                    secondary_user_id=secondary_id,
+                    now_ts=now_ts,
+                )
+
+                user_ref_columns = (
+                    ('author_profile', 'user_id'),
+                    ('submissions', 'user_id'),
+                    ('payments', 'user_id'),
+                    ('user_doc_uploads', 'user_id'),
+                    ('files', 'user_id'),
+                    ('news', 'author_id'),
+                    ('editor_assignments', 'editor_id'),
+                    ('editor_assignments', 'assigned_by'),
+                    ('editor_notifications', 'editor_id'),
+                    ('role_notifications', 'target_user_id'),
+                    ('role_notifications', 'actor_user_id'),
+                    ('editorial_members', 'created_by'),
+                    ('editorial_members', 'updated_by'),
+                    ('email_templates', 'created_by'),
+                    ('email_templates', 'updated_by'),
+                )
+                for table_name, column_name in user_ref_columns:
+                    if not _table_column_exists(cursor, column_cache, table_name, column_name):
+                        continue
+                    cursor.execute(
+                        f"UPDATE {table_name} SET {column_name} = %s WHERE {column_name} = %s",
+                        (primary_id, secondary_id),
+                    )
+
+                users_columns = set(primary_row.keys()) | set(secondary_row.keys())
+                patch = {}
+
+                if 'email' in users_columns:
+                    primary_email_raw = str(primary_row.get('email') or '').strip().lower()
+                    secondary_email_raw = str(secondary_row.get('email') or '').strip().lower()
+                    primary_email = _normalized_social_email(primary_email_raw)
+                    secondary_email = _normalized_social_email(secondary_email_raw)
+                    if secondary_email and not primary_email:
+                        patch['email'] = secondary_email
+                    elif not primary_email_raw and secondary_email_raw:
+                        patch['email'] = secondary_email_raw
+
+                for field_name in ('name', 'second_name', 'father_name', 'password', 'country_id', 'region', 'avatar', 'tariff_id', 'editor_specialization', 'ui_language', 'token', 'rolename'):
+                    if field_name not in users_columns:
+                        continue
+                    primary_value = primary_row.get(field_name)
+                    secondary_value = secondary_row.get(field_name)
+                    if primary_value in (None, '', []) and secondary_value not in (None, '', []):
+                        patch[field_name] = secondary_value
+
+                for field_name in ('accept_rules_time', 'register_time', 'created_at'):
+                    if field_name not in users_columns:
+                        continue
+                    primary_value = primary_row.get(field_name)
+                    secondary_value = secondary_row.get(field_name)
+                    if primary_value in (None, '', 0) and secondary_value not in (None, '', 0):
+                        patch[field_name] = secondary_value
+                    elif secondary_value not in (None, '', 0) and primary_value not in (None, '', 0):
+                        if int(secondary_value) < int(primary_value):
+                            patch[field_name] = secondary_value
+
+                for field_name in ('last_online', 'oauth_last_login_at', 'subscription_end_date'):
+                    if field_name not in users_columns:
+                        continue
+                    primary_value = primary_row.get(field_name)
+                    secondary_value = secondary_row.get(field_name)
+                    if primary_value in (None, '', 0) and secondary_value not in (None, '', 0):
+                        patch[field_name] = secondary_value
+                    elif secondary_value not in (None, '', 0) and primary_value not in (None, '', 0):
+                        if int(secondary_value) > int(primary_value):
+                            patch[field_name] = secondary_value
+
+                if 'is_notify' in users_columns and bool(secondary_row.get('is_notify')) and not bool(primary_row.get('is_notify')):
+                    patch['is_notify'] = True
+
+                if 'roles' in users_columns:
+                    merged_roles = []
+                    for role_name in _normalize_roles_list(primary_row.get('roles')) + _normalize_roles_list(secondary_row.get('roles')):
+                        if role_name not in merged_roles:
+                            merged_roles.append(role_name)
+                    if merged_roles and merged_roles != _normalize_roles_list(primary_row.get('roles')):
+                        patch['roles'] = merged_roles
+
+                if 'oauth_provider' in users_columns and 'oauth_sub' in users_columns:
+                    primary_provider = str(primary_row.get('oauth_provider') or '').strip().lower()
+                    secondary_provider = str(secondary_row.get('oauth_provider') or '').strip().lower()
+                    primary_sub = str(primary_row.get('oauth_sub') or '').strip()
+                    secondary_sub = str(secondary_row.get('oauth_sub') or '').strip()
+                    if not primary_provider and secondary_provider:
+                        patch['oauth_provider'] = secondary_provider
+                        primary_provider = secondary_provider
+                    if not primary_sub and secondary_sub and (not primary_provider or primary_provider == secondary_provider):
+                        patch['oauth_sub'] = secondary_sub
+
+                if 'oauth_email_verified' in users_columns:
+                    if not primary_row.get('oauth_email_verified') and secondary_row.get('oauth_email_verified'):
+                        patch['oauth_email_verified'] = True
+
+                if patch:
+                    set_clause = ', '.join(f"{key} = %s" for key in patch)
+                    args = list(patch.values()) + [primary_id]
+                    cursor.execute(f"UPDATE users SET {set_clause} WHERE id = %s", args)
+
+                cursor.execute("DELETE FROM users WHERE id = %s", (secondary_id,))
+                dbc.conn.commit()
+
+                merged_row = _to_row(cursor, primary_id)
+                if merged_row:
+                    logger.info(
+                        "Merged user accounts primary=%s secondary=%s reason=%s",
+                        primary_id,
+                        secondary_id,
+                        reason,
+                    )
+                    return merged_row
+                return primary_row
+            except Exception:
+                dbc.conn.rollback()
+                raise
+            finally:
+                cursor.close()
+    except Exception:
+        logger.exception(
+            "Failed to merge user accounts primary=%s secondary=%s reason=%s",
+            primary_id,
+            secondary_id,
+            reason,
+        )
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+        return primary_user
+
+
 def _build_google_auth_url(intent):
     state = secrets.token_urlsafe(32)
     session['google_oauth_state'] = state
@@ -1698,6 +2052,19 @@ def _create_or_update_google_user(profile, intent):
         flash('Google did not return a valid email.', 'error')
         return None
 
+    email_rows = dbc.users.get(email=email).exec()
+    email_user = email_rows[0] if email_rows else None
+    if user and email_user and int(user.get('id') or 0) != int(email_user.get('id') or 0):
+        # Prefer the real email account as the canonical identity and merge
+        # provider-created duplicates into it.
+        user = _merge_user_accounts(
+            primary_user=email_user,
+            secondary_user=user,
+            reason='google-oauth-email-link',
+        )
+    elif not user and email_user:
+        user = email_user
+
     now_ts = int(time.time())
     user_columns = set(dbc.columns.get('users', []))
     display_name = sanitize_input(profile.get('name', ''))
@@ -1714,8 +2081,9 @@ def _create_or_update_google_user(profile, intent):
                 flash('This email is already linked to another Google account.', 'error')
                 return None
         elif existing_provider and existing_sub:
-            flash('This account is already linked to a different sign-in provider.', 'error')
-            return None
+            if not _has_same_social_email_identity(user, email):
+                flash('This account is already linked to a different sign-in provider.', 'error')
+                return None
 
     if user and (user.get('is_blocked') or user.get('is_hidden')):
         flash('Your account is blocked. Please contact support.', 'error')
@@ -1777,13 +2145,18 @@ def _create_or_update_google_user(profile, intent):
             flash('This email is already linked to another Google account.', 'error')
             return None
     elif existing_provider and existing_sub:
-        flash('This account is already linked to a different sign-in provider.', 'error')
-        return None
+        if not _has_same_social_email_identity(user, email):
+            flash('This account is already linked to a different sign-in provider.', 'error')
+            return None
 
     update_data = {'last_online': now_ts}
     if 'roles' in user_columns:
         update_data['roles'] = hydrate_user_roles(user).get('roles')
-    if {'oauth_provider', 'oauth_sub'}.issubset(user_columns):
+    can_write_google_identity = (
+        {'oauth_provider', 'oauth_sub'}.issubset(user_columns)
+        and (not existing_provider or existing_provider == 'google')
+    )
+    if can_write_google_identity:
         update_data['oauth_provider'] = 'google'
         update_data['oauth_sub'] = google_sub
     if 'oauth_email_verified' in user_columns:
@@ -1968,6 +2341,39 @@ def _clear_orcid_oauth_session():
     session.pop('orcid_oauth_state_ts', None)
     session.pop('orcid_oauth_intent', None)
     session.pop('orcid_oauth_next_url', None)
+
+
+def _clear_orcid_pending_email_completion():
+    session.pop(ORCID_PENDING_PROFILE_SESSION_KEY, None)
+    session.pop(ORCID_PENDING_INTENT_SESSION_KEY, None)
+    session.pop(ORCID_PENDING_NEXT_URL_SESSION_KEY, None)
+
+
+def _store_orcid_pending_email_completion(profile, intent, next_url=None):
+    profile_payload = profile if isinstance(profile, dict) else {}
+    allowed_fields = (
+        'orcid',
+        'name',
+        'given_name',
+        'family_name',
+        'email',
+        'country_code',
+        'country_name',
+        'organization',
+        'department',
+        'position',
+        'employment_country_code',
+        'employment_country_name',
+        'employment_city',
+    )
+    clean_profile = {}
+    for key in allowed_fields:
+        value = profile_payload.get(key)
+        clean_profile[key] = str(value or '').strip()
+
+    session[ORCID_PENDING_PROFILE_SESSION_KEY] = clean_profile
+    session[ORCID_PENDING_INTENT_SESSION_KEY] = _orcid_intent(intent)
+    session[ORCID_PENDING_NEXT_URL_SESSION_KEY] = _sanitize_next_url(next_url)
 
 
 def _normalize_orcid_identifier(value):
@@ -2425,6 +2831,8 @@ def _create_or_update_orcid_user(profile, intent):
         flash('ORCID did not return a valid ORCID iD.', 'error')
         return None
 
+    has_linked_orcid_identity = _has_linked_orcid_identity(user, author_profile, orcid_id)
+
     now_ts = int(time.time())
     user_columns = set(dbc.columns.get('users', []))
     display_name = sanitize_input(profile.get('name', ''))
@@ -2442,6 +2850,18 @@ def _create_or_update_orcid_user(profile, intent):
     )
     created_new_user = False
 
+    if profile_email:
+        email_rows = dbc.users.get(email=profile_email).exec()
+        email_user = email_rows[0] if email_rows else None
+        if user and email_user and int(user.get('id') or 0) != int(email_user.get('id') or 0):
+            user = _merge_user_accounts(
+                primary_user=email_user,
+                secondary_user=user,
+                reason='orcid-oauth-email-link',
+            )
+        elif not user and email_user:
+            user = email_user
+
     if user:
         existing_provider = (user.get('oauth_provider') or '').strip().lower()
         existing_sub = _normalize_orcid_identifier(user.get('oauth_sub'))
@@ -2450,8 +2870,9 @@ def _create_or_update_orcid_user(profile, intent):
                 flash('This account is already linked to another ORCID iD.', 'error')
                 return None
         elif existing_provider and existing_sub:
-            flash('This account is already linked to a different sign-in provider.', 'error')
-            return None
+            if not has_linked_orcid_identity and not _has_same_social_email_identity(user, profile_email):
+                flash('This account is already linked to a different sign-in provider.', 'error')
+                return None
 
     if user and (user.get('is_blocked') or user.get('is_hidden')):
         flash('Your account is blocked. Please contact support.', 'error')
@@ -2519,13 +2940,18 @@ def _create_or_update_orcid_user(profile, intent):
             flash('This account is already linked to another ORCID iD.', 'error')
             return None
     elif existing_provider and existing_sub:
-        flash('This account is already linked to a different sign-in provider.', 'error')
-        return None
+        if not has_linked_orcid_identity and not _has_same_social_email_identity(user, profile_email):
+            flash('This account is already linked to a different sign-in provider.', 'error')
+            return None
 
     update_data = {'last_online': now_ts}
     if 'roles' in user_columns:
         update_data['roles'] = hydrate_user_roles(user).get('roles')
-    if {'oauth_provider', 'oauth_sub'}.issubset(user_columns):
+    can_write_orcid_identity = (
+        {'oauth_provider', 'oauth_sub'}.issubset(user_columns)
+        and (not existing_provider or existing_provider == 'orcid')
+    )
+    if can_write_orcid_identity:
         update_data['oauth_provider'] = 'orcid'
         update_data['oauth_sub'] = orcid_id
     if 'oauth_email_verified' in user_columns:
@@ -2569,6 +2995,7 @@ def _create_or_update_orcid_user(profile, intent):
 
 def app__orcid_auth_start():
     _clear_orcid_oauth_session()
+    _clear_orcid_pending_email_completion()
     intent = _orcid_intent(request.args.get('intent'))
     fallback = _oauth_fallback_endpoint(intent)
     if not _is_orcid_auth_available():
@@ -2628,10 +3055,21 @@ def app__orcid_callback():
             flash('ORCID sign-in failed. Please try again.', 'error')
             return redirect(url_for(fallback))
 
+        _, _, _, _, resolved_profile_email = _resolve_orcid_user(profile)
+        if not resolved_profile_email:
+            _clear_orcid_pending_email_completion()
+            _store_orcid_pending_email_completion(profile, intent, next_url=next_url)
+            flash(
+                'ORCID email is not public for this account. Please enter your email to continue.',
+                'warning'
+            )
+            return redirect(url_for('app__orcid_complete_email'))
+
         user = _create_or_update_orcid_user(profile, intent)
         if not user:
             return redirect(url_for(fallback))
 
+        _clear_orcid_pending_email_completion()
         _set_user_session(user)
         return _post_auth_redirect(user, next_url=next_url)
     except requests.RequestException:
@@ -2641,6 +3079,48 @@ def app__orcid_callback():
         current_app.logger.error("ORCID OAuth callback error: %s", traceback.format_exc())
         flash('System error. Please try again later.', 'error')
         return redirect(url_for(fallback))
+
+
+def app__orcid_complete_email():
+    pending_profile = session.get(ORCID_PENDING_PROFILE_SESSION_KEY)
+    intent = _orcid_intent(session.get(ORCID_PENDING_INTENT_SESSION_KEY))
+    next_url = _sanitize_next_url(session.get(ORCID_PENDING_NEXT_URL_SESSION_KEY))
+    fallback = _oauth_fallback_endpoint(intent)
+
+    if not isinstance(pending_profile, dict) or not _normalize_orcid_identifier(pending_profile.get('orcid')):
+        _clear_orcid_pending_email_completion()
+        flash('ORCID session expired. Please sign in again.', 'error')
+        return redirect(url_for(fallback))
+
+    if request.method == 'POST':
+        email = sanitize_input(request.form.get('email', '')).strip().lower()
+        if not email or not is_valid_email(email):
+            flash('Please enter a valid email address.', 'error')
+            return render_template(
+                'auth/orcid_email.html',
+                pending_email=email,
+                pending_orcid=_normalize_orcid_identifier(pending_profile.get('orcid')),
+            )
+
+        profile = dict(pending_profile)
+        profile['email'] = email
+        user = _create_or_update_orcid_user(profile, intent)
+        if not user:
+            return render_template(
+                'auth/orcid_email.html',
+                pending_email=email,
+                pending_orcid=_normalize_orcid_identifier(pending_profile.get('orcid')),
+            )
+
+        _clear_orcid_pending_email_completion()
+        _set_user_session(user)
+        return _post_auth_redirect(user, next_url=next_url)
+
+    return render_template(
+        'auth/orcid_email.html',
+        pending_email='',
+        pending_orcid=_normalize_orcid_identifier(pending_profile.get('orcid')),
+    )
 
 
 def app__login():
@@ -3092,6 +3572,7 @@ def app__forgot_password_verify():
 def app__logout():
     _clear_google_oauth_session()
     _clear_orcid_oauth_session()
+    _clear_orcid_pending_email_completion()
     session.pop(PENDING_REGISTRATION_SESSION_KEY, None)
     session.pop(PENDING_PASSWORD_RESET_SESSION_KEY, None)
     session.pop('user', None)
@@ -3118,4 +3599,5 @@ def register(app):
     app.add_url_rule('/auth/orcid/callback/', endpoint='app__orcid_callback_slash', view_func=not_auth_only(app__orcid_callback), methods=['GET'])
     app.add_url_rule('/api/auth/orcid/callback', endpoint='app__orcid_callback_api', view_func=not_auth_only(app__orcid_callback), methods=['GET'])
     app.add_url_rule('/api/auth/orcid/callback/', endpoint='app__orcid_callback_api_slash', view_func=not_auth_only(app__orcid_callback), methods=['GET'])
+    app.add_url_rule('/auth/orcid/complete-email', view_func=not_auth_only(app__orcid_complete_email), methods=['GET', 'POST'])
     app.add_url_rule('/logout', view_func=app__logout, methods=['POST'])

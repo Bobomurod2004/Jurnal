@@ -16,6 +16,39 @@ class _EmptyTable:
         return []
 
 
+class _FakeMutableQuery:
+    def __init__(self, rows, filters):
+        self._rows = rows
+        self._filters = filters
+        self._update_payload = None
+
+    def update(self, **kwargs):
+        self._update_payload = dict(kwargs)
+        return self
+
+    def exec(self):
+        matched = [
+            row for row in self._rows
+            if all(row.get(key) == value for key, value in self._filters.items())
+        ]
+        if self._update_payload is not None:
+            for row in matched:
+                row.update(self._update_payload)
+        return [dict(row) for row in matched]
+
+
+class _FakeMutableTable:
+    def __init__(self, rows):
+        self._rows = [dict(row) for row in rows]
+
+    def get(self, **kwargs):
+        return _FakeMutableQuery(self._rows, kwargs)
+
+    @property
+    def rows(self):
+        return self._rows
+
+
 def test_mainweb_login_rate_limit_key_uses_remote_addr():
     app = Flask(__name__)
     app.secret_key = 'test'
@@ -169,3 +202,68 @@ def test_runtime_schema_sync_helpers_skip_when_disabled(monkeypatch):
     assert auth_calls == []
     assert api_calls == []
     assert admin_calls == []
+
+
+def test_orcid_login_allows_existing_user_linked_via_author_profile(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    users_table = _FakeMutableTable([
+        {
+            'id': 10,
+            'email': 'google-user@example.com',
+            'name': 'Google',
+            'second_name': 'User',
+            'country_id': None,
+            'roles': ['author'],
+            'is_blocked': False,
+            'is_hidden': False,
+            'oauth_provider': 'google',
+            'oauth_sub': 'google-sub-123',
+            'oauth_email_verified': True,
+            'oauth_last_login_at': None,
+            'last_online': None,
+        }
+    ])
+
+    fake_dbc = type('FakeDBC', (), {
+        'users': users_table,
+        'columns': {
+            'users': [
+                'id', 'email', 'name', 'second_name', 'country_id', 'roles',
+                'is_blocked', 'is_hidden', 'oauth_provider', 'oauth_sub',
+                'oauth_email_verified', 'oauth_last_login_at', 'last_online',
+            ],
+            'author_profile': ['id', 'user_id', 'orcid', 'email'],
+        },
+        'fix_country': _EmptyTable(),
+    })()
+
+    monkeypatch.setattr(mainweb_auth, 'dbc', fake_dbc)
+    monkeypatch.setattr(mainweb_auth, 'hydrate_user_roles', lambda user: {'roles': user.get('roles') or []})
+    monkeypatch.setattr(mainweb_auth, '_sync_orcid_author_profile', lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(
+        mainweb_auth,
+        '_resolve_orcid_user',
+        lambda _profile: (
+            dict(users_table.rows[0]),
+            '0000-0001-2345-6789',
+            {'id': 5, 'user_id': 10, 'orcid': '0000-0001-2345-6789'},
+            'orcid-user@example.org',
+            'orcid-user@example.org',
+        ),
+    )
+
+    profile = {
+        'orcid': '0000-0001-2345-6789',
+        'email': 'orcid-user@example.org',
+        'name': 'ORCID User',
+    }
+
+    with app.test_request_context('/auth/orcid/callback'):
+        result = mainweb_auth._create_or_update_orcid_user(profile, intent='login')
+
+    assert result is not None
+    assert result['id'] == 10
+    assert result['oauth_provider'] == 'google'
+    assert result['oauth_sub'] == 'google-sub-123'
