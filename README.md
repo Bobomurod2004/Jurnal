@@ -44,6 +44,7 @@ docker compose ps
 - применяет `db_schema.sql` и `translations_seed.sql` при необходимости;
 - запускает SQL-миграции из `migrations/versions`;
 - заполняет baseline-данные (`countries`, `classifications`, `issue categories`, `tariffs`);
+- синхронизирует статические страницы из `mainweb/scripts/update_pages.py` (режим через `PAGES_SYNC_MODE`);
 - при наличии `SUPERADMIN_EMAIL` и `SUPERADMIN_PASSWORD` создаёт/обновляет супер-админа.
 
 Пока `db-init` не завершится успешно, `mainweb` и `fmadmin` не стартуют.
@@ -118,6 +119,8 @@ LOG_LEVEL=INFO
 SECRET_KEY=change-this-mainweb-secret
 FMADMIN_SECRET_KEY=change-this-fmadmin-secret
 TRANSLATION_SYNC_TOKEN=change-this-sync-token
+# Static pages sync mode: overwrite | only-missing | skip
+PAGES_SYNC_MODE=overwrite
 # Optional Google OAuth
 # GOOGLE_AUTH_ENABLED=1
 # GOOGLE_CLIENT_ID=your-google-client-id
@@ -156,6 +159,11 @@ ORCID OAuth checklist:
 - In ORCID Developer Tools, add `https://your-domain/auth/orcid/callback` to redirect URIs.
 - Set `ORCID_CLIENT_ID`, `ORCID_CLIENT_SECRET`, `ORCID_AUTH_ENABLED=1` in `.env`.
 - Use `ORCID_BASE_URL=https://sandbox.orcid.org` for sandbox testing, then switch to `https://orcid.org` for production.
+
+Static pages sync (`db-init`):
+- `PAGES_SYNC_MODE=overwrite` updates existing DB pages from repository content (recommended when server must match local content).
+- `PAGES_SYNC_MODE=only-missing` creates only missing pages and keeps edited DB content untouched.
+- `PAGES_SYNC_MODE=skip` disables page sync during initialization.
 
 ### Email note
 

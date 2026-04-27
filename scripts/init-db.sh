@@ -94,7 +94,24 @@ echo "Seeding baseline data..."
 python3 mainweb/scripts/seed_baseline_data.py
 
 echo "Ensuring baseline static pages..."
-python3 mainweb/scripts/update_pages.py --only-missing
+PAGES_SYNC_MODE="${PAGES_SYNC_MODE:-overwrite}"
+case "${PAGES_SYNC_MODE}" in
+    overwrite|update)
+        echo "Page sync mode: ${PAGES_SYNC_MODE} (updating existing page content)"
+        python3 mainweb/scripts/update_pages.py
+        ;;
+    only-missing)
+        echo "Page sync mode: only-missing (keeping existing page content)"
+        python3 mainweb/scripts/update_pages.py --only-missing
+        ;;
+    skip)
+        echo "Page sync mode: skip (static pages sync disabled)"
+        ;;
+    *)
+        echo "Error: unsupported PAGES_SYNC_MODE='${PAGES_SYNC_MODE}'. Use overwrite, only-missing, or skip."
+        exit 1
+        ;;
+esac
 
 if [ -n "${SUPERADMIN_EMAIL:-}" ] && [ -n "${SUPERADMIN_PASSWORD:-}" ]; then
     echo "Ensuring fmadmin superadmin account exists..."
