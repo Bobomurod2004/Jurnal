@@ -1524,14 +1524,23 @@ def _is_absolute_http_url(value):
     return parsed.scheme in {'http', 'https'} and bool(parsed.netloc)
 
 
+def _strip_inline_env_comment(value):
+    text = str(value or '').strip()
+    if not text:
+        return ''
+    # Support ".env" style inline comments like:
+    # ORCID_BASE_URL=https://sandbox.orcid.org   # test
+    return re.split(r'\s+#', text, maxsplit=1)[0].strip()
+
+
 def _google_redirect_uri():
-    configured = (settings.GOOGLE_REDIRECT_URI or '').strip()
+    configured = _strip_inline_env_comment(settings.GOOGLE_REDIRECT_URI)
     if configured and _is_absolute_http_url(configured):
         return configured
     if configured:
         logger.warning("Ignoring GOOGLE_REDIRECT_URI because it is not an absolute http(s) URL")
 
-    app_base_url = (settings.APP_BASE_URL or '').strip().rstrip('/')
+    app_base_url = _strip_inline_env_comment(settings.APP_BASE_URL).rstrip('/')
     if _is_absolute_http_url(app_base_url):
         return f"{app_base_url}/auth/google/callback"
 
@@ -1909,7 +1918,7 @@ def _orcid_auth_config_issues():
 
 
 def _orcid_base_url():
-    configured = (settings.ORCID_BASE_URL or '').strip().rstrip('/')
+    configured = _strip_inline_env_comment(settings.ORCID_BASE_URL).rstrip('/')
     if configured and _is_absolute_http_url(configured):
         return configured
     if configured:
@@ -1934,13 +1943,13 @@ def _orcid_public_api_base_url():
 
 
 def _orcid_redirect_uri():
-    configured = (settings.ORCID_REDIRECT_URI or '').strip()
+    configured = _strip_inline_env_comment(settings.ORCID_REDIRECT_URI)
     if configured and _is_absolute_http_url(configured):
         return configured
     if configured:
         logger.warning("Ignoring ORCID_REDIRECT_URI because it is not an absolute http(s) URL")
 
-    app_base_url = (settings.APP_BASE_URL or '').strip().rstrip('/')
+    app_base_url = _strip_inline_env_comment(settings.APP_BASE_URL).rstrip('/')
     if _is_absolute_http_url(app_base_url):
         return f"{app_base_url}/auth/orcid/callback"
 
@@ -2278,7 +2287,7 @@ def _resolve_orcid_user(profile):
         if by_email:
             user = by_email[0]
 
-    fallback_email = profile_email or _orcid_placeholder_email(orcid_id)
+    fallback_email = profile_email
     return user, orcid_id, author_profile, fallback_email, profile_email
 
 
@@ -2438,7 +2447,7 @@ def _create_or_update_orcid_user(profile, intent):
             'name': given_name or display_name or f'ORCID {display_tail}',
             'second_name': family_name or None,
             'father_name': None,
-            'email': fallback_email,
+            'email': fallback_email or None,
             'password': None,
             'country_id': resolved_country_id,
             'rolename': 'user',
@@ -2468,11 +2477,19 @@ def _create_or_update_orcid_user(profile, intent):
                 user = created_rows[0]
                 created_new_user = True
             else:
-                created_lookup = dbc.users.get(email=fallback_email).exec()
+                created_lookup = []
+                if {'oauth_provider', 'oauth_sub'}.issubset(user_columns):
+                    created_lookup = dbc.users.get(oauth_provider='orcid', oauth_sub=orcid_id).exec()
+                if not created_lookup and fallback_email:
+                    created_lookup = dbc.users.get(email=fallback_email).exec()
                 user = created_lookup[0] if created_lookup else None
         except Exception:
-            # Race-safe fallback for duplicated synthetic-email creation attempts.
-            created_lookup = dbc.users.get(email=fallback_email).exec()
+            # Race-safe fallback for concurrent ORCID sign-up attempts.
+            created_lookup = []
+            if {'oauth_provider', 'oauth_sub'}.issubset(user_columns):
+                created_lookup = dbc.users.get(oauth_provider='orcid', oauth_sub=orcid_id).exec()
+            if not created_lookup and fallback_email:
+                created_lookup = dbc.users.get(email=fallback_email).exec()
             user = created_lookup[0] if created_lookup else None
 
     if not user:
@@ -2503,9 +2520,11 @@ def _create_or_update_orcid_user(profile, intent):
         update_data['name'] = given_name or display_name
     if 'second_name' in user_columns and family_name and not user.get('second_name'):
         update_data['second_name'] = family_name
-    if 'email' in user_columns and profile_email:
+    if 'email' in user_columns:
         existing_email = (user.get('email') or '').strip().lower()
-        if not existing_email or existing_email.endswith('@orcid.local'):
+        if existing_email.endswith('@orcid.local'):
+            update_data['email'] = profile_email or None
+        elif profile_email and not existing_email:
             update_data['email'] = profile_email
     if 'country_id' in user_columns and resolved_country_id and not user.get('country_id'):
         update_data['country_id'] = resolved_country_id
