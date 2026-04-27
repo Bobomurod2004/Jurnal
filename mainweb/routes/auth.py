@@ -2262,6 +2262,8 @@ def _resolve_orcid_user(profile):
 
     user_columns = set(dbc.columns.get('users', []))
     has_oauth_identity_cols = {'oauth_provider', 'oauth_sub'}.issubset(user_columns)
+    # ORCID may omit email depending on scope/privacy. Keep a best-effort
+    # resolver so existing profile emails can replace @orcid.local placeholders.
     profile_email = _normalized_social_email(profile.get('email'))
 
     user = None
@@ -2282,10 +2284,23 @@ def _resolve_orcid_user(profile):
                 if linked_user:
                     user = linked_user[0]
 
+    if user and not author_profile:
+        by_user_profile = dbc.author_profile.get(user_id=user.get('id')).exec()
+        if by_user_profile:
+            author_profile = by_user_profile[0]
+
+    author_profile_email = _normalized_social_email(author_profile.get('email')) if author_profile else ''
+    if not profile_email and author_profile_email:
+        profile_email = author_profile_email
+
     if not user and profile_email:
         by_email = dbc.users.get(email=profile_email).exec()
         if by_email:
             user = by_email[0]
+            if not author_profile:
+                by_user_profile = dbc.author_profile.get(user_id=user.get('id')).exec()
+                if by_user_profile:
+                    author_profile = by_user_profile[0]
 
     fallback_email = profile_email or _orcid_placeholder_email(orcid_id)
     return user, orcid_id, author_profile, fallback_email, profile_email
@@ -2419,7 +2434,8 @@ def _create_or_update_orcid_user(profile, intent):
         display_name = sanitize_input(' '.join(part for part in [given_name, family_name] if part).strip())
     if not display_name and author_profile:
         display_name = sanitize_input(author_profile.get('name', ''))
-    email_verified = bool(profile_email)
+    # Keep oauth_email_verified tied only to ORCID-provided email payload.
+    email_verified = bool(_normalized_social_email(profile.get('email')))
     resolved_country_id = _resolve_country_id_from_iso_country(
         country_code=profile.get('employment_country_code') or profile.get('country_code'),
         country_name=profile.get('employment_country_name') or profile.get('country_name'),

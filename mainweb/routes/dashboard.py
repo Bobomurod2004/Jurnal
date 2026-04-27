@@ -1572,6 +1572,31 @@ def app__dashboard_profile():
                 profile_data['created_at'] = int(time.time())
                 dbc.author_profile.add(**profile_data).exec()
 
+            # Auto-heal ORCID placeholder emails once the author provides
+            # a real contact email in profile settings.
+            user_columns = set(dbc.columns.get('users', []))
+            if 'email' in user_columns:
+                user_rows = dbc.users.get(id=session['user_id']).exec()
+                if user_rows:
+                    user_row = user_rows[0]
+                    existing_email = (user_row.get('email') or '').strip().lower()
+                    if not existing_email or existing_email.endswith('@orcid.local'):
+                        try:
+                            dbc.users.get(id=session['user_id']).update(email=author_email).exec()
+                            session_user = session.get('user') or {}
+                            if session_user:
+                                session_user['email'] = author_email
+                                session['user'] = _decode_row_strings(session_user)
+                        except Exception:
+                            try:
+                                dbc.conn.rollback()
+                            except Exception:
+                                pass
+                            flash(
+                                'Author profile saved, but account email could not be updated (possibly already used).',
+                                'warning'
+                            )
+
             flash('Author profile updated successfully', 'success')
             return redirect(url_for('app__dashboard_profile'))
 
