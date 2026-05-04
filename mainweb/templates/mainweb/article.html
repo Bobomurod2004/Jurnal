@@ -3,9 +3,6 @@
 {% block title %}{{ publication.title }} - {{ t('website_title') }}{% endblock %}
 
 {% block content %}
-{% include 'components/headers/main_header.html' %}
-{% include 'components/hero/main_hero.html' %}
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
@@ -77,12 +74,170 @@
     position: relative;
 }
 
+.article-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(280px, 1fr);
+    gap: 1.5rem;
+}
+
+.article-main {
+    min-width: 0;
+}
+
+.article-sidebar {
+    border-left: 1px solid #f3f4f6;
+    padding-left: 1rem;
+    height: 100%;
+}
+
+.article-head-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+}
+
+.abstract-richtext p {
+    margin: 0 0 1rem;
+}
+
+.abstract-richtext ul,
+.abstract-richtext ol {
+    margin: 0 0 1rem 1.25rem;
+    padding-left: 1rem;
+}
+
+.abstract-richtext ul {
+    list-style: disc;
+}
+
+.abstract-richtext ol {
+    list-style: decimal;
+}
+
+.abstract-richtext li {
+    margin: 0.25rem 0;
+}
+
+.abstract-richtext a {
+    color: #2563eb;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.article-page-title {
+    font-size: clamp(1.5rem, 2.5vw, 2.2rem);
+    line-height: 1.3;
+    color: #0f172a;
+}
+
+.article-authors {
+    color: #334155;
+    line-height: 1.7;
+}
+
+.article-author-name {
+    border-bottom: 1px solid #cbd5e1;
+}
+
+.article-author-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.35rem;
+}
+
+.article-author-row:last-child {
+    margin-bottom: 0;
+}
+
+.article-author-label {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.article-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid #d1d5db;
+    border-radius: 9999px;
+    padding: 0.42rem 0.85rem;
+    font-size: 0.85rem;
+    color: #1f2937;
+    background: #ffffff;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.article-back-btn:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+    color: #0f172a;
+}
+
+.article-meta-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.article-meta-pill {
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #475569;
+    border-radius: 0.6rem;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.75rem;
+}
+
+.article-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+
+.article-action-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.86rem;
+    font-weight: 500;
+    color: #1d4ed8;
+    text-decoration: none;
+    border: 1px solid #dbeafe;
+    background: #eff6ff;
+    border-radius: 9999px;
+    padding: 0.45rem 0.8rem;
+    transition: all 0.2s ease;
+}
+
+.article-action-link:hover {
+    color: #1e3a8a;
+    border-color: #93c5fd;
+    background: #dbeafe;
+}
+
 .font-sserif {
     font-family: "IBM Plex Serif", serif;
 }
 
 /* Fallback for mobile devices */
 @media (max-width: 768px) {
+    .article-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .article-sidebar {
+        border-left: 0;
+        padding-left: 0;
+        padding-top: 1rem;
+    }
+
+    .article-head-row {
+        flex-direction: column;
+    }
+
     .reference-tooltip {
         position: fixed;
         bottom: auto;
@@ -98,85 +253,126 @@
 }
 </style>
 
+<div class="border-b border-gray-200 bg-gray-100/80">
+    <div class="container mx-auto px-4 py-3">
+        {% with logo_height=46, show_title=false %}
+        {% include 'components/headers/header_top.html' %}
+        {% endwith %}
+    </div>
+</div>
+
 <div class="mt-8 bg-white">
     <div class="container py-8 mx-auto">
-        <div class="grid grid-cols-4 gap-4">
-            <div class="col-span-3">
-                <div class="flex gap-3 mb-4">
-                    <div class="border border-slate-200 bg-white p-2 shadow-sm" style="width: 7rem; border-radius: 0;">
-                        <img src="{{ issue.cover_image|cover_or_default if issue else url_for('static', filename='uploads/issues/2025/07/db14cd28777c448b9a7079c568448f9b.jpg') }}" alt="{{ t('journal_cover') }}" class="block w-full h-auto object-contain bg-white" style="aspect-ratio: 2484 / 3512;">
-                    </div>
-                    <div>
-                        <h5 class="text-lg mt-2 font-medium">{{ t('website_title') }}</h5>
-                        <div class="text mb-4 text-gray-600 flex">
-                            <a href="{{ url_for('app__issue', issue_id=issue.id) if issue else url_for('app__issues') }}" class="flex items-center w-fit text-md text-blue-700 hover:text-blue-900 transition-colors border-green-400/0 border-b-1 hover:border-green-400">
-                                {{ t('volume') }} {{ issue.vol_no if issue else '' }}, {{ t('issue') }} {{ issue.issue_no if issue else '' }}
-                            </a>, 
-                            {% if issue %}
-                                {{ issue.year }}
-                            {% else %}
-                                N/A
+        <div class="article-layout">
+            <div class="article-main">
+                <div class="mb-4">
+                    <a id="article-back-btn" href="{{ url_for('app__articles') }}" class="article-back-btn">
+                        <iconify-icon icon="tabler:arrow-left"></iconify-icon>
+                        <span>{{ "Назад" if session.language == 'ru' else ("Back" if session.language == 'en' else "Orqaga qaytish") }}</span>
+                    </a>
+                </div>
+
+                <section class="mb-6 border border-slate-200 rounded-xl bg-white p-4 sm:p-5">
+                    <div class="article-head-row">
+                        <div class="border border-slate-200 bg-white p-2 shadow-sm shrink-0" style="width: 7rem; border-radius: 0;">
+                            <img src="{{ issue.cover_image|cover_or_default if issue else url_for('static', filename='uploads/issues/2025/07/db14cd28777c448b9a7079c568448f9b.jpg') }}" alt="{{ t('journal_cover') }}" class="block w-full h-auto object-contain bg-white" style="aspect-ratio: 2484 / 3512;">
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="text-sm text-gray-600 mb-2">
+                                <span class="font-medium">{{ t('website_title') }}</span>
+                                ·
+                                <a href="{{ url_for('app__issue', issue_id=issue.id) if issue else url_for('app__issues') }}" class="text-blue-700 hover:text-blue-900">
+                                    {% if t('volume') == 'Jild' and t('issue') == 'Son' %}
+                                        {{ issue.vol_no if issue else '-' }}-{{ t('volume') }}, {{ issue.issue_no if issue else '-' }}-{{ t('issue')|lower }}
+                                    {% else %}
+                                        {{ t('volume') }} {{ issue.vol_no if issue else '-' }}, {{ t('issue') }} {{ issue.issue_no if issue else '-' }}
+                                    {% endif %}
+                                </a>
+                                {% if issue and issue.year %}
+                                    · {{ issue.year }}
+                                {% endif %}
+                            </div>
+
+                            <h1 class="article-page-title font-sserif mb-3">{{ publication.title }}</h1>
+
+                            {% if main_author or co_authors %}
+                                {% set main_author_label = "Основной автор" if session.language == "ru" else ("Main author" if session.language == "en" else "Asosiy muallif") %}
+                                {% set co_authors_label = "Соавторы" if session.language == "ru" else ("Co-authors" if session.language == "en" else "Hammuallif(lar)") %}
+                                <div class="article-authors mb-3">
+                                    {% if main_author %}
+                                        <div class="article-author-row">
+                                            <span class="article-author-label">{{ main_author_label }}:</span>
+                                            <span class="article-author-name">{{ main_author.name }}</span>
+                                        </div>
+                                    {% endif %}
+                                    {% if co_authors %}
+                                        <div class="article-author-row">
+                                            <span class="article-author-label">{{ co_authors_label }}:</span>
+                                            <div>
+                                                {% for author in co_authors %}
+                                                    {% if not loop.first %}, {% endif %}<span class="article-author-name">{{ author.name }}</span>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="article-authors-citation hidden" aria-hidden="true">
+                                    {% if main_author %}{{ main_author.name }}{% endif %}{% if co_authors %}{% for author in co_authors %}{% if main_author or not loop.first %}, {% endif %}{{ author.name }}{% endfor %}{% endif %}
+                                </div>
                             {% endif %}
+
+                            <div class="article-meta-pills">
+                                <span class="article-meta-pill">{{ t('article_id') }}: {{ publication.id }}</span>
+                                {% if publication.date_sent %}
+                                    <span class="article-meta-pill">{{ t('received') }}: {{ publication.date_sent|timestamp_to_date }}</span>
+                                {% endif %}
+                                {% if publication.date_accept %}
+                                    <span class="article-meta-pill">{{ t('accepted') }}: {{ publication.date_accept|timestamp_to_date }}</span>
+                                {% endif %}
+                                {% if publication.date_publish %}
+                                    <span class="article-meta-pill">{{ t('published_online') }}: {{ publication.date_publish|timestamp_to_date }}</span>
+                                {% endif %}
+                                {% if publication.author_position_display %}
+                                    <span class="article-meta-pill">{{ metadata_labels.author_position_key }}: {{ publication.author_position_display }}</span>
+                                {% endif %}
+                                {% if publication.academic_title_display %}
+                                    <span class="article-meta-pill">{{ metadata_labels.academic_title_key }}: {{ publication.academic_title_display }}</span>
+                                {% endif %}
+                                {% if publication.academic_degree_display %}
+                                    <span class="article-meta-pill">{{ metadata_labels.academic_degree_key }}: {{ publication.academic_degree_display }}</span>
+                                {% endif %}
+                                {% if publication.series_display %}
+                                    <span class="article-meta-pill">{{ metadata_labels.series_key }}: {{ publication.series_display }}</span>
+                                {% endif %}
+                                <span class="article-meta-pill">{{ t('open_access') if not publication.is_paid else t('closed_access') }}</span>
+                            </div>
+
+                            <div class="article-action-row">
+                                <a href="#" id="article-share-btn" class="article-action-link">
+                                    <iconify-icon icon="tabler:share-2"></iconify-icon>
+                                    <span>{{ t('share') }}</span>
+                                </a>
+                                <a href="#" id="article-cite-btn" class="article-action-link">
+                                    <iconify-icon icon="tabler:quote"></iconify-icon>
+                                    <span>{{ t('cite_this_article') }}</span>
+                                </a>
+                                {% if publication.doi and publication.doi_link %}
+                                    <a href="{{ publication.doi_link }}" target="_blank" rel="noopener noreferrer" class="article-action-link">
+                                        <iconify-icon icon="tabler:arrow-up-right"></iconify-icon>
+                                        <span>{{ t('doi_label') }}: {{ publication.doi }}</span>
+                                    </a>
+                                {% elif publication.doi %}
+                                    <span class="article-action-link">{{ t('doi_label') }}: {{ publication.doi }}</span>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
-                </div>
-                <h4 class="text-2xl font-medium mb-4 font-sserif">{{ publication.title }}</h4>
-
-                <div class="mb-4">
-                    {% if main_author %}
-                        <a href="javascript:;" class="border-b hover:text-gray-800 hover:border-green-500">{{ main_author.name }}</a>
-                        {% if co_authors %}
-                            {% for author in co_authors %}
-                                , <a href="javascript:;" class="border-b hover:text-gray-800 hover:border-green-500">{{ author.name }}</a>
-                            {% endfor %}
-                        {% endif %}
-                    {% endif %}
-                </div>
-
-                <div class="mb-4 flex gap-4">
-                    <a href="javascript:;" class="text-blue-800 text-sm flex items-center group">
-                        <iconify-icon icon="tabler:share" class="text-lg me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
-                        <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
-                            {{ t('share') }}
-                        </span>
-                    </a>
-
-                    <a href="javascript:;" class="text-blue-800 text-sm flex items-center group">
-                        <iconify-icon icon="tabler:quote" class="text-lg me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
-                        <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
-                            {{ t('cite') }}
-                        </span>
-                    </a>
-
-                    {% if publication.doi %}
-                        <a href="{{ publication.doi_link }}" target="_blank" class="text-blue-800 text-sm flex items-center group">
-                            <iconify-icon icon="tabler:arrow-up-right" class="text-lg me-1 group-hover:text-fmmain transition-colors"></iconify-icon>
-                            <span class="text-blue-800 group-hover:text-blue-900 transition-colors border-green-400/0 border-b-1 group-hover:border-green-600">
-                                {{ t('doi_label') }}: {{ publication.doi }}
-                            </span>
-                        </a>
-                    {% endif %}
-                </div>
-
-                <div class="text-xs text-gray-500">
-                    {{ t('article_id') }}: {{ publication.id }} | 
-                    {% if publication.date_sent %}
-                        {{ t('received') }} {{ publication.date_sent|timestamp_to_date }}, 
-                    {% endif %}
-                    {% if publication.date_accept %}
-                        {{ t('accepted') }} {{ publication.date_accept|timestamp_to_date }}, 
-                    {% endif %}
-                    {% if publication.date_publish %}
-                        {{ t('published_online') }}: {{ publication.date_publish|timestamp_to_date }}
-                    {% endif %}
-                </div>
-
-                <hr class="h-px my-4 bg-fmmain-bg border-0">
+                </section>
 
                 <div class="mb-4 intersect intersect-full font-sserif" data-block-id="0" id="abstract">
                     <h4 class="text-xl font-medium mb-4">{{ t('abstract') }}</h4>
-                    <div class="mb-4">
-                        {{ publication.abstract }}
+                    <div class="mb-4 abstract-richtext article-content">
+                        {{ publication.abstract|render_richtext }}
                     </div>
                 </div>
 
@@ -287,7 +483,7 @@
                     {% if publication_refs %}
                         <div class="mb-8 intersect intersect-full" data-block-id="{{ (publication_parts|length) + 1 }}" id="references">
                             <h4 class="text-xl font-medium mb-4">{{ t('references') }}</h4>
-                            {% for ref in publication_refs[::-1] %}
+                            {% for ref in publication_refs %}
                                 <div class="py-3 mb-4 intersect-once intersect:animate-fade animate-duration-500 intersect:animate-delay-[50ms] animate-ease-linear" data-ref-index="{{ loop.index }}">
                                     <div class="flex text-xs mb-1 me-2">
                                         <span class="text-blue-600 font-medium me-2">[{{ loop.index }}]</span>
@@ -457,9 +653,9 @@
                 {% endif %}
 
             </div>
-            <div class="border-s border-gray-100 px-4 h-full">
+            <div class="article-sidebar">
                 <div class="h-full">
-                    <div class="mb-6" id="section1">
+                    <div class="mb-6 rounded-xl border border-gray-100 bg-gray-50/50 p-4" id="section1">
                         <h4 class="text-lg font-medium mb-2">{{ t('metrics') }}</h4>
 
                         <div class="flex items-center justify-between border-b border-gray-200 hover:bg-gray-50 text-sm py-2 px-1">
@@ -482,8 +678,8 @@
                             <div>{{ publication.stat_alt or 0 }}</div>
                         </div>
                     </div>
-                    <div id="section2" class="sticky top-20">
-                        <h4 class="text-lg font-medium mb-6">{{ t('outline') }}</h4>
+                    <div id="section2" class="sticky top-20 rounded-xl border border-gray-100 bg-white p-4">
+                        <h4 class="text-lg font-medium mb-4">{{ t('outline') }}</h4>
                         <div class="flex flex-col text-sm">
                             <a href="#abstract" data-block-id="0" class="text-blue-600 hover:text-blue-800 bg-gray-50 px-2 py-1 border-s-2 border-fmmain mb-2">{{ t('abstract') }}</a>
                             {% if has_access %}
@@ -552,51 +748,196 @@
 {% endblock %}
 
 {% block scripts %}
+<script id="article_template_data" type="application/json">
+    {
+        "user_logged_in": {% if session.user_id %}true{% else %}false{% endif %},
+        "login_url": {{ url_for("app__login")|tojson }},
+        "references": {
+            {% if publication_refs %}
+                {% for ref in publication_refs %}
+                    "{{ loop.index }}": {
+                        "id": {{ ref.id|tojson }},
+                        "authors": {{ ref.authors|tojson|safe }},
+                        "title": {{ ref.title|tojson|safe }},
+                        "doi": {{ ref.doi|default('')|tojson|safe }},
+                        "doi_link": {{ ref.doi_link|default('')|tojson|safe }}
+                    }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            {% endif %}
+        },
+        "id_to_sequential": {
+            {% if publication_refs %}
+                {% for ref in publication_refs %}
+                    "{{ ref.id }}": {{ loop.index }}{% if not loop.last %},{% endif %}
+                {% endfor %}
+            {% endif %}
+        },
+        "publication_title": {{ publication.title|tojson|safe }},
+        "publication_doi": {{ (publication.doi or '')|tojson|safe }},
+        "publication_year": {{ ((issue.year|string) if issue and issue.year else '')|tojson|safe }},
+        "journal_title": {{ t('website_title')|tojson|safe }},
+        "copied_text_label": {{ ("Скопировано" if session.language == 'ru' else ("Copied" if session.language == 'en' else "Nusxalandi")) | tojson }},
+        "copy_label": {{ t('copy_citation') | tojson }},
+        "share_label": {{ t('share') | tojson }}
+    }
+</script>
+
 <script>
-    // Set user login status
-    const USER_LOGGED_IN = {% if session.user_id %}true{% else %}false{% endif %};
-    const LOGIN_URL = '{{ url_for("app__login") }}';
-
-    const header = document.getElementById('header');
-    const menu = document.getElementById('menu');
-
-    window.addEventListener('scroll', function () {
-        const menuPosition = menu.getBoundingClientRect().top;
-        const scrollPosition = window.scrollY;
-
-        if (menuPosition <= 0) {
-            header.classList.remove('hidden');
-        } else {
-            header.classList.add('hidden');
+    let ARTICLE_TEMPLATE_DATA = {};
+    const templateDataElement = document.getElementById('article_template_data');
+    if (templateDataElement) {
+        try {
+            ARTICLE_TEMPLATE_DATA = JSON.parse(templateDataElement.textContent || '{}');
+        } catch (error) {
+            console.error('Failed to parse article template data', error);
         }
+    }
+
+    // Keep these globals for code that may rely on them elsewhere.
+    const USER_LOGGED_IN = Boolean(ARTICLE_TEMPLATE_DATA.user_logged_in);
+    const LOGIN_URL = ARTICLE_TEMPLATE_DATA.login_url || '{{ url_for("app__login") }}';
+    window.ARTICLE_TEMPLATE_DATA = ARTICLE_TEMPLATE_DATA;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const header = document.getElementById('header');
+        const menu = document.getElementById('menu');
+        if (!header || !menu) {
+            return;
+        }
+
+        window.addEventListener('scroll', function () {
+            const menuPosition = menu.getBoundingClientRect().top;
+            if (menuPosition <= 0) {
+                header.classList.remove('hidden');
+            } else {
+                header.classList.add('hidden');
+            }
+        });
     });
 </script>
 
 <script>
     $(document).ready(function() {
-        // References data generated from template
-        const references = {
-            {% if publication_refs %}
-                {% for ref in publication_refs %}
-                    {{ loop.index }}: {
-                        id: {{ ref.id }},
-                        authors: {{ ref.authors|tojson|safe }},
-                        title: {{ ref.title|tojson|safe }},
-                        doi: {{ ref.doi|default('')|tojson|safe }},
-                        doi_link: {{ ref.doi_link|default('')|tojson|safe }}
-                    }{% if not loop.last %},{% endif %}
-                {% endfor %}
-            {% endif %}
-        };
-        
-        // ID to sequential mapping
-        const idToSequential = {
-            {% if publication_refs %}
-                {% for ref in publication_refs %}
-                    {{ ref.id }}: {{ loop.index }}{% if not loop.last %},{% endif %}
-                {% endfor %}
-            {% endif %}
-        };
+        const templateData = window.ARTICLE_TEMPLATE_DATA || {};
+        const references = templateData.references || {};
+        const idToSequential = templateData.id_to_sequential || {};
+
+        const citationModal = $('#citation_modal');
+        const citationText = $('#citation_text');
+        const citationStyle = $('#citation_style');
+        const publicationTitle = templateData.publication_title || '';
+        const publicationDoi = templateData.publication_doi || '';
+        const publicationYear = templateData.publication_year || '';
+        const journalTitle = templateData.journal_title || '';
+        const copiedTextLabel = templateData.copied_text_label || 'Copied';
+        const copyLabel = templateData.copy_label || 'Copy';
+        const shareLabel = templateData.share_label || 'Share';
+
+        function getArticleAuthors() {
+            const citationText = $('.article-authors-citation').first().text().replace(/\s+/g, ' ').trim();
+            if (citationText) {
+                return citationText;
+            }
+            const text = $('.article-authors').text().replace(/\s+/g, ' ').trim();
+            return text || 'Unknown author';
+        }
+
+        function buildCitation(styleName) {
+            const authors = getArticleAuthors();
+            const year = publicationYear || '';
+            const doiPart = publicationDoi ? ` DOI: ${publicationDoi}` : '';
+            const pageUrl = window.location.href;
+
+            if (styleName === 'mla') {
+                return `${authors}. "${publicationTitle}." ${journalTitle}${year ? ` (${year})` : ''}.${doiPart} ${pageUrl}`;
+            }
+            if (styleName === 'chicago') {
+                return `${authors}. "${publicationTitle}." ${journalTitle}${year ? `, ${year}` : ''}.${doiPart} ${pageUrl}`;
+            }
+            if (styleName === 'harvard') {
+                return `${authors} ${year ? `(${year}) ` : ''}${publicationTitle}. ${journalTitle}.${doiPart} Available at: ${pageUrl}`;
+            }
+            return `${authors} ${year ? `(${year}). ` : ''}${publicationTitle}. ${journalTitle}.${doiPart} ${pageUrl}`;
+        }
+
+        function openCitationModal() {
+            citationStyle.val(citationStyle.val() || 'apa');
+            citationText.text(buildCitation(citationStyle.val()));
+            citationModal.removeClass('hidden');
+            $('body').addClass('overflow-hidden');
+        }
+
+        function closeCitationModal() {
+            citationModal.addClass('hidden');
+            $('body').removeClass('overflow-hidden');
+        }
+
+        $('#article-back-btn').on('click', function (e) {
+            if (document.referrer && document.referrer.startsWith(window.location.origin) && window.history.length > 1) {
+                e.preventDefault();
+                window.history.back();
+            }
+        });
+
+        $('#article-cite-btn').on('click', function (e) {
+            e.preventDefault();
+            openCitationModal();
+        });
+
+        $('#close_citation_modal').on('click', function () {
+            closeCitationModal();
+        });
+
+        citationModal.children().first().on('click', function () {
+            closeCitationModal();
+        });
+
+        citationModal.on('click', function (e) {
+            if (e.target === this) {
+                closeCitationModal();
+            }
+        });
+
+        citationStyle.on('change', function () {
+            citationText.text(buildCitation($(this).val()));
+        });
+
+        $('#copy_citation').on('click', function () {
+            const value = citationText.text().trim();
+            if (!value) {
+                return;
+            }
+            const button = $(this);
+            const resetLabel = () => setTimeout(() => button.text(copyLabel), 1200);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(value).then(function () {
+                    button.text(copiedTextLabel);
+                    resetLabel();
+                });
+                return;
+            }
+            const tempInput = $('<textarea>').val(value).appendTo('body').select();
+            document.execCommand('copy');
+            tempInput.remove();
+            button.text(copiedTextLabel);
+            resetLabel();
+        });
+
+        $('#article-share-btn').on('click', function (e) {
+            e.preventDefault();
+            const shareData = { title: publicationTitle, url: window.location.href };
+            const buttonLabel = $(this).find('span');
+            if (navigator.share) {
+                navigator.share(shareData).catch(function () {});
+                return;
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(window.location.href).then(function () {
+                    buttonLabel.text(copiedTextLabel);
+                    setTimeout(() => buttonLabel.text(shareLabel), 1200);
+                });
+            }
+        });
 
         // Create single tooltip element
         const tooltip = $('<div class="reference-tooltip"></div>').appendTo('body');
@@ -628,10 +969,6 @@
         // Process citations on page load
         processReferenceCitations();
         
-        // Debug: log references data
-        console.log('References:', references);
-        console.log('ID to Sequential:', idToSequential);
-
         // Tooltip event handlers
         $(document).on('mouseenter', '.reference-link[data-ref]', function(e) {
             const refSequential = $(this).data('ref');

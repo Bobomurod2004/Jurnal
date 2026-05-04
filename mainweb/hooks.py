@@ -4,7 +4,10 @@ import secrets
 import time
 import uuid
 
-import settings
+try:
+    import mainweb.settings as settings
+except ImportError:
+    import settings
 from flask import current_app, flash, g, jsonify, redirect, request, session, url_for
 from utils.private_uploads import upload_access_url
 

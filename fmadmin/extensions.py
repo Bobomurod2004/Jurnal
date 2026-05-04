@@ -8,7 +8,10 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from connector import PostgreSQLConnector
-import settings
+try:
+    import fmadmin.settings as settings
+except ImportError:
+    import settings
 
 # Initialize database connector with connection pooling
 db = PostgreSQLConnector(

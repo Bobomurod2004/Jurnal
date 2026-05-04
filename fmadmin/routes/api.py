@@ -9,7 +9,10 @@ from werkzeug.utils import secure_filename
 from extensions import db
 from modules.translate import t, translate, clear_translations_cache
 from utils.auth import api_permission_required, api_superadmin_required
-import settings
+try:
+    import fmadmin.settings as settings
+except ImportError:
+    import settings
 
 logger = logging.getLogger(__name__)
 api_content_required = api_permission_required('fmadmin.content.manage', 'Content management access required')

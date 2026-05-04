@@ -6,7 +6,10 @@ import uuid
 from flask import current_app, g, request, session, jsonify, redirect, url_for, flash
 from modules.translate import t, translate
 from extensions import db
-import settings
+try:
+    import fmadmin.settings as settings
+except ImportError:
+    import settings
 from utils.notifications import apply_localized_notification_content, role_notification_access_clause as build_role_notification_access_clause
 from utils.private_uploads import upload_access_url
 from utils.roles import hydrate_user_roles, primary_role, staff_roles_for_user, user_has_permission

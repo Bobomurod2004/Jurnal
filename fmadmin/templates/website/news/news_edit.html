@@ -45,15 +45,15 @@
       </div>
       <div class="mb-3 lang-field lang-en">
         <label for="content_en" class="form-label">{{ t("admin_label_content_en") }}</label>
-        <textarea class="form-control" id="content_en" name="content_en" rows="10">{{ news.content }}</textarea>
+        <textarea class="form-control ckeditor-word" id="content_en" name="content_en" rows="10" data-editor-height="280">{{ news.content }}</textarea>
       </div>
       <div class="mb-3 lang-field lang-ru">
         <label for="content_ru" class="form-label">{{ t("admin_label_content_ru") }}</label>
-        <textarea class="form-control" id="content_ru" name="content_ru" rows="10">{{ news.content_ru }}</textarea>
+        <textarea class="form-control ckeditor-word" id="content_ru" name="content_ru" rows="10" data-editor-height="280">{{ news.content_ru }}</textarea>
       </div>
       <div class="mb-3 lang-field lang-uz">
         <label for="content_uz" class="form-label">{{ t("admin_label_content_uz") }}</label>
-        <textarea class="form-control" id="content_uz" name="content_uz" rows="10">{{ news.content_uz }}</textarea>
+        <textarea class="form-control ckeditor-word" id="content_uz" name="content_uz" rows="10" data-editor-height="280">{{ news.content_uz }}</textarea>
       </div>
       <div class="mb-3">
         <label for="status" class="form-label">{{ t("admin_label_status") }}</label>
@@ -90,11 +90,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
 <script>
-  ClassicEditor.create(document.getElementById('content_en'));
-  ClassicEditor.create(document.getElementById('content_ru'));
-  ClassicEditor.create(document.getElementById('content_uz'));
   function setLang(lang) {
     document.querySelectorAll('.lang-field').forEach(e => e.style.display = 'none');
     if (lang === 'all') {

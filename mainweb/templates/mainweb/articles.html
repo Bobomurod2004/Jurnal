@@ -162,6 +162,30 @@
                             <div class="text-gray-600 mb-2">
                                 {{ article.authors }}
                             </div>
+                            {% if article.author_position_display or article.academic_title_display or article.academic_degree_display or article.series_display %}
+                                <div class="flex flex-wrap gap-2 mb-2">
+                                    {% if article.author_position_display %}
+                                        <span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
+                                            {{ metadata_labels.author_position_key }}: {{ article.author_position_display }}
+                                        </span>
+                                    {% endif %}
+                                    {% if article.academic_title_display %}
+                                        <span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
+                                            {{ metadata_labels.academic_title_key }}: {{ article.academic_title_display }}
+                                        </span>
+                                    {% endif %}
+                                    {% if article.academic_degree_display %}
+                                        <span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
+                                            {{ metadata_labels.academic_degree_key }}: {{ article.academic_degree_display }}
+                                        </span>
+                                    {% endif %}
+                                    {% if article.series_display %}
+                                        <span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
+                                            {{ metadata_labels.series_key }}: {{ article.series_display }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
 
                             <!-- Publication Info -->
                             <div class="flex items-center gap-4 text-sm text-gray-500 mb-3">
@@ -185,9 +209,10 @@
                             <!-- Abstract Preview -->
                             {% if article.abstract %}
                                 <div class="text-gray-700 mb-3">
-                                    <div class="abstract-preview" data-full-text="{{ article.abstract }}">
-                                        <span class="preview-text">{{ article.abstract[:200] }}{% if article.abstract|length > 200 %}...{% endif %}</span>
-                                        {% if article.abstract|length > 200 %}
+                                    {% set abstract_plain = article.abstract|striptags %}
+                                    <div class="abstract-preview" data-full-text="{{ abstract_plain }}">
+                                        <span class="preview-text">{{ abstract_plain[:200] }}{% if abstract_plain|length > 200 %}...{% endif %}</span>
+                                        {% if abstract_plain|length > 200 %}
                                             <button type="button" 
                                                     class="show-more-btn text-blue-600 hover:text-blue-800 text-sm ml-1"
                                                     onclick="toggleAbstract(this)">
@@ -243,11 +268,17 @@
                         <div class="flex items-center gap-2">
                             <button type="button" 
                                     class="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                    data-share-title="{{ article.title|e }}"
+                                    data-share-url="{{ url_for('app__article', article_id=article.id) }}"
                                     title="{{ t('share') }}">
                                 <iconify-icon icon="tabler:share"></iconify-icon>
                             </button>
                             <button type="button" 
                                     class="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                    data-cite-title="{{ article.title|e }}"
+                                    data-cite-authors="{{ article.authors|e }}"
+                                    data-cite-year="{{ article.issue.year if article.issue and article.issue.year else '' }}"
+                                    data-cite-url="{{ url_for('app__article', article_id=article.id) }}"
                                     title="{{ t('cite') }}">
                                 <iconify-icon icon="tabler:quote"></iconify-icon>
                             </button>
@@ -337,6 +368,9 @@
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('filters-form');
         const selects = form.querySelectorAll('select');
+        const copiedText = '{{ "Скопировано" if session.language == "ru" else ("Copied" if session.language == "en" else "Nusxalandi") }}';
+        const websiteTitle = {{ t('website_title')|tojson|safe }};
+        const fullOrigin = window.location.origin;
         
         selects.forEach(select => {
             select.addEventListener('change', function() {
@@ -353,6 +387,67 @@
             searchTimeout = setTimeout(() => {
                 form.submit();
             }, 500);
+        });
+
+        function toAbsoluteUrl(pathOrUrl) {
+            if (!pathOrUrl) {
+                return window.location.href;
+            }
+            if (/^https?:\/\//i.test(pathOrUrl)) {
+                return pathOrUrl;
+            }
+            return fullOrigin + pathOrUrl;
+        }
+
+        function flashButtonTitle(button, text) {
+            const oldTitle = button.getAttribute('title') || '';
+            button.setAttribute('title', text);
+            setTimeout(() => button.setAttribute('title', oldTitle), 1200);
+        }
+
+        function copyText(value) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                return navigator.clipboard.writeText(value);
+            }
+            return new Promise((resolve, reject) => {
+                try {
+                    const temp = document.createElement('textarea');
+                    temp.value = value;
+                    temp.style.position = 'fixed';
+                    temp.style.opacity = '0';
+                    document.body.appendChild(temp);
+                    temp.focus();
+                    temp.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(temp);
+                    resolve();
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+
+        document.querySelectorAll('[data-share-url]').forEach(button => {
+            button.addEventListener('click', function () {
+                const title = button.dataset.shareTitle || document.title;
+                const shareUrl = toAbsoluteUrl(button.dataset.shareUrl);
+                if (navigator.share) {
+                    navigator.share({ title, url: shareUrl }).catch(() => {});
+                    return;
+                }
+                copyText(shareUrl).then(() => flashButtonTitle(button, copiedText)).catch(() => {});
+            });
+        });
+
+        document.querySelectorAll('[data-cite-url]').forEach(button => {
+            button.addEventListener('click', function () {
+                const citeTitle = button.dataset.citeTitle || '';
+                const citeAuthors = button.dataset.citeAuthors || '';
+                const citeYear = button.dataset.citeYear || '';
+                const citeUrl = toAbsoluteUrl(button.dataset.citeUrl);
+                const citation = `${citeAuthors ? citeAuthors + '. ' : ''}${citeYear ? '(' + citeYear + '). ' : ''}${citeTitle}. ${websiteTitle}. ${citeUrl}`;
+                copyText(citation).then(() => flashButtonTitle(button, copiedText)).catch(() => {});
+            });
         });
     });
 </script>

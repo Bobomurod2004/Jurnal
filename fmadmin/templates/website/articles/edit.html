@@ -61,17 +61,17 @@
                     </div>
                     <div class="mb-3 lang-field lang-en">
                         <label class="form-label">{{ t("admin_label_abstract") }} (en)</label>
-                        <textarea class="form-control" name="abstract" rows="4">{{ article.abstract or '' }}</textarea>
+                        <textarea class="form-control ckeditor-word" id="abstract_en" name="abstract" rows="4" data-editor-height="220">{{ article.abstract or '' }}</textarea>
                     </div>
                     <div class="mb-3 lang-field lang-uz">
                         <label class="form-label">{{ t("admin_label_abstract") }} (uz)</label>
-                        <textarea class="form-control" name="abstract_uz"
-                            rows="4">{{ article.abstract_uz or '' }}</textarea>
+                        <textarea class="form-control ckeditor-word" id="abstract_uz" name="abstract_uz"
+                            rows="4" data-editor-height="220">{{ article.abstract_uz or '' }}</textarea>
                     </div>
                     <div class="mb-3 lang-field lang-ru">
                         <label class="form-label">{{ t("admin_label_abstract") }} (ru)</label>
-                        <textarea class="form-control" name="abstract_ru"
-                            rows="4">{{ article.abstract_ru or '' }}</textarea>
+                        <textarea class="form-control ckeditor-word" id="abstract_ru" name="abstract_ru"
+                            rows="4" data-editor-height="220">{{ article.abstract_ru or '' }}</textarea>
                     </div>
                     <div class="mb-3 lang-field lang-en">
                         <label class="form-label">{{ t("admin_label_keywords") }} (en)</label>
@@ -147,9 +147,45 @@
                         <input type="text" class="form-control" name="doi_link" value="{{ article.doi_link or '' }}">
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">{{ metadata_labels.author_position_key }}</label>
+                        <select class="form-select" name="author_position_key">
+                            <option value="">{{ t("admin_label_not_selected") }}</option>
+                            {% for option in author_position_options %}
+                            <option value="{{ option.key }}" {% if article.author_position_key==option.key %}selected{% endif %}>{{ option.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ metadata_labels.academic_title_key }}</label>
+                        <select class="form-select" name="academic_title_key">
+                            <option value="">{{ t("admin_label_not_selected") }}</option>
+                            {% for option in academic_title_options %}
+                            <option value="{{ option.key }}" {% if article.academic_title_key==option.key %}selected{% endif %}>{{ option.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ metadata_labels.academic_degree_key }}</label>
+                        <select class="form-select" name="academic_degree_key">
+                            <option value="">{{ t("admin_label_not_selected") }}</option>
+                            {% for option in academic_degree_options %}
+                            <option value="{{ option.key }}" {% if article.academic_degree_key==option.key %}selected{% endif %}>{{ option.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ metadata_labels.series_key }}</label>
+                        <select class="form-select" name="series_key">
+                            <option value="">{{ t("admin_label_not_selected") }}</option>
+                            {% for option in series_options %}
+                            <option value="{{ option.key }}" {% if article.series_key==option.key %}selected{% endif %}>{{ option.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_additional_info") }}</label>
-                        <textarea class="form-control" name="additional"
-                            rows="3">{{ article.additional or '' }}</textarea>
+                        <textarea class="form-control ckeditor-word" name="additional"
+                            rows="3" data-editor-height="180">{{ article.additional or '' }}</textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_date_sent") }}</label>
@@ -168,7 +204,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_comment") }}</label>
-                        <textarea class="form-control" name="comments" rows="3">{{ article.comments or '' }}</textarea>
+                        <textarea class="form-control ckeditor-word" name="comments" rows="3" data-editor-height="180">{{ article.comments or '' }}</textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_pdf_files") }}</label>
@@ -361,5 +397,50 @@
             selectElement.dispatchEvent(new Event('change'));
         });
     }
+
+    // Fallback script to guarantee CKEditor is applied
+    document.addEventListener("DOMContentLoaded", function () {
+        setTimeout(function() {
+            if (window.CKEDITOR) {
+                document.querySelectorAll('textarea.ckeditor-word').forEach(function(textarea) {
+                    if (!textarea.id) {
+                        textarea.id = 'editor-' + Math.random().toString(36).substr(2, 9);
+                    }
+                    if (!window.CKEDITOR.instances[textarea.id]) {
+                        console.log('Fallback: initializing CKEditor for', textarea.id);
+                        window.CKEDITOR.replace(textarea.id, {
+                            customConfig: '',
+                            height: parseInt(textarea.dataset.editorHeight || '220', 10),
+                            allowedContent: true,
+                            removePlugins: 'elementspath',
+                            resize_enabled: true,
+                            resize_dir: 'vertical',
+                            toolbar: [
+                                { name: 'clipboard', items: ['Undo', 'Redo'] },
+                                { name: 'styles', items: ['Format', 'Font', 'FontSize'] },
+                                { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strike', 'RemoveFormat'] },
+                                { name: 'colors', items: ['TextColor', 'BGColor'] },
+                                { name: 'paragraph', items: ['NumberedList', 'BulletedList', 'Outdent', 'Indent', 'Blockquote', 'JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock'] },
+                                { name: 'links', items: ['Link', 'Unlink'] },
+                                { name: 'insert', items: ['Table', 'HorizontalRule', 'SpecialChar'] },
+                                { name: 'tools', items: ['Maximize'] }
+                            ]
+                        });
+                        
+                        // Bind sync on submit
+                        var form = textarea.form;
+                        if (form && form.dataset.ckeditorFallbackBound !== '1') {
+                            form.dataset.ckeditorFallbackBound = '1';
+                            form.addEventListener('submit', function() {
+                                Object.keys(window.CKEDITOR.instances).forEach(function(key) {
+                                    window.CKEDITOR.instances[key].updateElement();
+                                });
+                            });
+                        }
+                    }
+                });
+            }
+        }, 500); // Slight delay to let basic.html do its thing first if it can
+    });
 </script>
 {% endblock %}

@@ -7,7 +7,10 @@ from urllib.parse import urljoin
 
 from flask import current_app
 
-import settings
+try:
+    import fmadmin.settings as settings
+except ImportError:
+    import settings
 from extensions import db
 
 logger = logging.getLogger(__name__)

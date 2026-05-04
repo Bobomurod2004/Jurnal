@@ -1,5 +1,8 @@
 import os
-import settings
+try:
+    import mainweb.settings as settings
+except ImportError:
+    import settings
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 

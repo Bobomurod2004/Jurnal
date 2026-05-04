@@ -8,7 +8,10 @@ from werkzeug.utils import secure_filename
 from flask import request, jsonify, session, url_for
 from extensions import dbc
 from modules.translate import t, translate, clear_translations_cache
-import settings
+try:
+    import mainweb.settings as settings
+except ImportError:
+    import settings
 from utils.auth import author_login_required, login_required, is_strong_password, is_valid_email
 from utils.emailer import send_notification_email
 from utils.notifications import (

@@ -223,6 +223,45 @@ def test_app_issues_ignores_invalid_year_filter(monkeypatch):
     assert len(response_context['issues']) == 2
 
 
+def test_app_issues_normalizes_category_aliases(monkeypatch):
+    issues = [
+        {'id': 1, 'year': 2026, 'issue_no': 1, 'title': 'Masters A', 'shortinfo': '', 'price': '', 'category': 'masters', 'is_paid': False, 'subscription_enable': True},
+        {'id': 2, 'year': 2026, 'issue_no': 2, 'title': 'PhD B', 'shortinfo': '', 'price': '', 'category': 'phd', 'is_paid': True, 'subscription_enable': False},
+    ]
+    categories = [
+        {'id': 1, 'alias': 'masters', 'name': "Series: Master's", 'name_uz': 'Seriya: Magistratura', 'name_ru': 'Серия: Магистратура'},
+        {'id': 2, 'alias': 'phd', 'name': 'Series: Doctoral', 'name_uz': 'Seriya: Doktorantura', 'name_ru': 'Серия: Докторантура'},
+        {'id': 3, 'alias': 'teacher', 'name': 'Series: Professors & Teachers', 'name_uz': "Seriya: Professor-o'qituvchilar", 'name_ru': 'Серия: Профессора-преподаватели'},
+        {'id': 4, 'alias': 'special', 'name': 'Special Issue', 'name_uz': 'Maxsus son', 'name_ru': 'Специальный выпуск'},
+    ]
+    fake_dbc = type('FakeDBC', (), {
+        'issues': _FakeTable(issues),
+        'fix_issue_categories': _FakeTable(categories),
+    })()
+
+    monkeypatch.setattr(public_routes, 'dbc', fake_dbc)
+    monkeypatch.setattr(public_routes, 'translate', lambda item: item)
+    monkeypatch.setattr(public_routes, '_apply_localized_content', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(public_routes, 'render_template', lambda _template, **context: context)
+
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    with app.test_request_context('/issues?category=fm%20magistratura'):
+        response_context = public_routes.app__issues()
+
+    assert response_context['current_filters']['category'] == 'masters'
+    assert len(response_context['issues']) == 1
+    assert response_context['issues'][0]['category'] == 'masters'
+
+    with app.test_request_context('/issues?category=fm%20magituradi'):
+        response_context_typo = public_routes.app__issues()
+
+    assert response_context_typo['current_filters']['category'] == 'masters'
+    assert len(response_context_typo['issues']) == 1
+    assert response_context_typo['issues'][0]['category'] == 'masters'
+
+
 def test_context_inject_latest_issue_uses_year_and_issue_number(monkeypatch):
     issues = [
         {'id': 1, 'year': 2025, 'issue_no': 12, 'title': 'Older', 'shortinfo': '', 'price': ''},
@@ -432,9 +471,9 @@ def test_ensure_seed_page_keeps_custom_localized_fields(monkeypatch):
 def test_editorial_policy_seed_content_is_english():
     seed_payload = public_routes._seed_page_payload('editorial_policy')
 
-    assert 'Editorial Independence' in seed_payload['content']
-    assert 'Peer Review' in seed_payload['content']
-    assert 'Редакционная независимость' in seed_payload['content_ru']
+    assert 'Editorial Policy Overview' in seed_payload['content']
+    assert 'Double-Blind Peer Review' in seed_payload['content']
+    assert 'Обзор редакционной политики' in seed_payload['content_ru']
 
 
 def test_dashboard_profile_document_labels_follow_selected_language(monkeypatch):

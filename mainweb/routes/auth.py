@@ -8,7 +8,10 @@ import traceback
 from urllib.parse import urlencode, urlparse
 
 import requests
-import settings
+try:
+    import mainweb.settings as settings
+except ImportError:
+    import settings
 from flask import current_app, flash, has_request_context, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 

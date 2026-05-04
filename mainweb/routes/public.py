@@ -3,16 +3,25 @@ import logging
 import os
 import re
 import time
+import io
+import zipfile
 from functools import lru_cache
 from urllib.parse import urlparse, parse_qs, unquote
 from flask import current_app, render_template, session, request, jsonify, flash, redirect, url_for, send_file, send_from_directory, abort
 from extensions import dbc
 from modules.translate import t, translate, clear_translations_cache
-import settings
+try:
+    import mainweb.settings as settings
+except ImportError:
+    import settings
 from utils.auth import is_valid_email, login_required, sanitize_input
 from utils.emailer import send_notification_email
 from utils.private_uploads import extract_private_upload_key
 from utils.roles import hydrate_user_roles, user_has_role
+from shared.publication_metadata import (
+    publication_metadata_field_labels,
+    publication_metadata_label,
+)
 
 EDITORIAL_MEMBER_TYPE_LABELS = {
     'en': {
@@ -147,6 +156,171 @@ def _clean_text(value):
     if value is None:
         return ''
     return str(value).strip()
+
+
+def _issue_sort_key(issue_row):
+    row = issue_row or {}
+    year = _parse_int(row.get('year')) or 0
+    issue_no_text = _clean_text(row.get('issue_no'))
+    issue_no_numeric = _parse_int(issue_no_text)
+    issue_no_sort = issue_no_numeric if issue_no_numeric is not None else -1
+    return (year, issue_no_sort, issue_no_text.lower())
+
+
+class _SimplePagination:
+    def __init__(self, page, pages):
+        self.page = max(_parse_int(page) or 1, 1)
+        self.pages = max(_parse_int(pages) or 1, 1)
+
+    @property
+    def has_prev(self):
+        return self.page > 1
+
+    @property
+    def has_next(self):
+        return self.page < self.pages
+
+    @property
+    def prev_num(self):
+        return self.page - 1
+
+    @property
+    def next_num(self):
+        return self.page + 1
+
+    def iter_pages(self, left_edge=1, left_current=2, right_current=2, right_edge=1):
+        last = 0
+        for num in range(1, self.pages + 1):
+            if (
+                num <= left_edge
+                or (num > self.page - left_current - 1 and num < self.page + right_current)
+                or num > self.pages - right_edge
+            ):
+                if last + 1 != num:
+                    yield None
+                yield num
+                last = num
+
+
+ISSUE_CATEGORY_ALIASES = {
+    'masters': 'masters',
+    'master': 'masters',
+    'magistr': 'masters',
+    'magistratura': 'masters',
+    'magistrantura': 'masters',
+    'magituradi': 'masters',
+    'магистр': 'masters',
+    'магистратура': 'masters',
+    'phd': 'phd',
+    'doctor': 'phd',
+    'doctoral': 'phd',
+    'doktor': 'phd',
+    'doktorant': 'phd',
+    'doktorantura': 'phd',
+    'доктор': 'phd',
+    'докторант': 'phd',
+    'докторантура': 'phd',
+    'teacher': 'teacher',
+    "o'qituvchi": 'teacher',
+    'oqituvchi': 'teacher',
+    'professor': 'teacher',
+    'professors': 'teacher',
+    'преподаватель': 'teacher',
+    'профессор': 'teacher',
+    'special': 'special',
+    'special issue': 'special',
+    'maxsus': 'special',
+    'maxsus son': 'special',
+    'специальный выпуск': 'special',
+}
+
+ISSUE_CATEGORY_PREFIXES = (
+    'fm',
+    'series',
+    'seriya',
+    'серия',
+)
+
+
+def _normalize_issue_category_text(value):
+    text = _clean_text(value).lower()
+    if not text:
+        return ''
+
+    text = (
+        text.replace('’', "'")
+        .replace('`', "'")
+        .replace('“', '"')
+        .replace('”', '"')
+        .replace('&', ' and ')
+    )
+    text = re.sub(r"[_\-/]+", ' ', text)
+    text = re.sub(r"[^\w\s']", ' ', text, flags=re.UNICODE)
+    return ' '.join(text.split())
+
+
+def _issue_category_candidates(value):
+    normalized = _normalize_issue_category_text(value)
+    if not normalized:
+        return set()
+
+    candidates = {normalized}
+    words = normalized.split()
+
+    while words and words[0] in ISSUE_CATEGORY_PREFIXES:
+        words = words[1:]
+    if words:
+        candidates.add(' '.join(words))
+
+    return {item for item in candidates if item}
+
+
+def _issue_category_lookup_map():
+    lookup = dict(ISSUE_CATEGORY_ALIASES)
+    try:
+        categories = dbc.fix_issue_categories.get().exec()
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+        categories = []
+
+    for category in categories:
+        alias_raw = _clean_text(category.get('alias'))
+        alias_normalized = _normalize_issue_category_text(alias_raw)
+        if not alias_normalized:
+            continue
+
+        for source in (alias_raw, category.get('name'), category.get('name_uz'), category.get('name_ru')):
+            for candidate in _issue_category_candidates(source):
+                lookup[candidate] = alias_raw
+    return lookup
+
+
+def _resolve_issue_category_filter(value):
+    raw_value = _clean_text(value)
+    if not raw_value:
+        return ''
+
+    lookup = _issue_category_lookup_map()
+    candidates = _issue_category_candidates(raw_value)
+    for candidate in candidates:
+        mapped = lookup.get(candidate)
+        if mapped:
+            return mapped
+
+    normalized = _normalize_issue_category_text(raw_value)
+    if any(fragment in normalized for fragment in ('magistr', 'magist', 'master', 'magitur')):
+        return 'masters'
+    if any(fragment in normalized for fragment in ('doktor', 'doctor', 'phd')):
+        return 'phd'
+    if any(fragment in normalized for fragment in ('teacher', 'oqit', "o'qit", 'professor', 'prepod', 'профессор', 'преподав')):
+        return 'teacher'
+    if any(fragment in normalized for fragment in ('special', 'maxsus', 'спец')):
+        return 'special'
+
+    return raw_value
 
 
 def _safe_internal_redirect(target, fallback_endpoint):
@@ -1062,6 +1236,7 @@ def app__contact():
 
 def app__articles():
     current_lang = _current_lang_code()
+    metadata_labels = publication_metadata_field_labels(current_lang)
     page = max(request.args.get('page', 1, type=int) or 1, 1)
     per_page = 20
 
@@ -1234,7 +1409,11 @@ def app__articles():
             'keywords': pub.get('keywords', []),
             'is_paid': pub.get('is_paid', False),
             'subscription_enable': pub.get('subscription_enable', False),
-            'issue': issue
+            'issue': issue,
+            'author_position_display': publication_metadata_label('author_position_key', pub.get('author_position_key'), current_lang),
+            'academic_title_display': publication_metadata_label('academic_title_key', pub.get('academic_title_key'), current_lang),
+            'academic_degree_display': publication_metadata_label('academic_degree_key', pub.get('academic_degree_key'), current_lang),
+            'series_display': publication_metadata_label('series_key', pub.get('series_key'), current_lang),
         })
 
     all_issues = dbc.issues.get().order_by('year').exec()
@@ -1246,6 +1425,7 @@ def app__articles():
 
     return render_template('mainweb/articles.html',
                          publications=processed_publications,
+                         metadata_labels=metadata_labels,
                          all_issues=all_issues,
                          all_volumes=all_volumes,
                          all_years=all_years,
@@ -1264,20 +1444,28 @@ def app__articles():
 
 
 def app__news():
-    page = request.args.get('page', 1, type=int)
+    page = max(request.args.get('page', 1, type=int) or 1, 1)
     per_page = 12
 
-    all_items = dbc.news.get(status='published').order_by('published_at').per_page(per_page).page(page).exec()
+    all_items = dbc.news.get(status='published').order_by('published_at').exec()
     news_items = dbc.news.get(type='news', status='published').order_by('published_at').exec()
     announcements = dbc.news.get(type='announcement', status='published').order_by('published_at').exec()
 
     for item in all_items + news_items + announcements:
-        item = translate(item)
+        translate(item)
+
+    total_results = len(all_items)
+    total_pages = max((total_results + per_page - 1) // per_page, 1)
+    page = min(page, total_pages)
+    start = (page - 1) * per_page
+    all_items = all_items[start:start + per_page]
+    pagination = _SimplePagination(page, total_pages)
 
     return render_template('mainweb/news.html',
                          all_items=all_items,
                          news_items=news_items,
-                         announcements=announcements)
+                         announcements=announcements,
+                         pagination=pagination)
 
 
 def app__news_detail(news_id):
@@ -1338,7 +1526,7 @@ def app__issues():
     year_filter_raw = _clean_text(request.args.get('year'))
     parsed_year_filter = _parse_int(year_filter_raw)
     year_filter = str(parsed_year_filter) if parsed_year_filter is not None else ''
-    category_filter = request.args.get('category')
+    category_filter = _resolve_issue_category_filter(request.args.get('category'))
     access_filter = request.args.get('access')
 
     query = dbc.issues.get()
@@ -1361,10 +1549,15 @@ def app__issues():
     for issue in issues:
         translate(issue)
         _apply_localized_content(issue, ('title', 'shortinfo', 'price'), lang=current_lang)
-    issues = sorted(issues, key=lambda x: (x['year'], x['issue_no']), reverse=True)
+    issues = sorted(issues, key=_issue_sort_key, reverse=True)
 
     all_issues = dbc.issues.get().exec()
-    available_years = sorted(set(issue['year'] for issue in all_issues), reverse=True)
+    available_years = sorted({
+        parsed_year
+        for issue in all_issues
+        for parsed_year in [_parse_int(issue.get('year'))]
+        if parsed_year is not None
+    }, reverse=True)
     available_categories = dbc.fix_issue_categories.get().exec()
     for cat in available_categories:
         translate(cat)
@@ -1736,7 +1929,7 @@ def app__issue(issue_id):
     all_issues = dbc.issues.get().exec()
     for list_issue in all_issues:
         _apply_localized_content(list_issue, ('title', 'shortinfo', 'price'), lang=current_lang)
-    all_issues = sorted(all_issues, key=lambda x: (x['year'], x['issue_no']))
+    all_issues = sorted(all_issues, key=_issue_sort_key)
 
     current_index = None
     for i, curr_issue in enumerate(all_issues):
@@ -1871,6 +2064,7 @@ def app__purchase_article(article_id):
 
 def app__article(article_id):
     current_lang = _current_lang_code()
+    metadata_labels = publication_metadata_field_labels(current_lang)
     publication = dbc.publications.get(id=article_id).exec()
     if not publication:
         flash('Article not found', 'error')
@@ -1878,6 +2072,26 @@ def app__article(article_id):
 
     publication = translate(publication[0])
     _apply_localized_content(publication, ('title', 'abstract', 'keywords', 'price'), lang=current_lang)
+    publication['author_position_display'] = publication_metadata_label(
+        'author_position_key',
+        publication.get('author_position_key'),
+        current_lang
+    )
+    publication['academic_title_display'] = publication_metadata_label(
+        'academic_title_key',
+        publication.get('academic_title_key'),
+        current_lang
+    )
+    publication['academic_degree_display'] = publication_metadata_label(
+        'academic_degree_key',
+        publication.get('academic_degree_key'),
+        current_lang
+    )
+    publication['series_display'] = publication_metadata_label(
+        'series_key',
+        publication.get('series_key'),
+        current_lang
+    )
     references_count = len(dbc.publication_refs.get(publication_id=article_id).exec())
     citations_count = len(dbc.publication_citations.get(publication_id=article_id).exec())
     publication['references_count'] = references_count
@@ -1949,6 +2163,7 @@ def app__article(article_id):
 
     return render_template('mainweb/article.html',
                          publication=publication,
+                         metadata_labels=metadata_labels,
                          has_access=has_access,
                          purchase_currency=purchase_currency,
                          purchase_amount=purchase_amount,
@@ -2089,6 +2304,37 @@ def _resolve_public_upload_abspath(stored_filepath):
     return candidate_path
 
 
+def _resolve_publication_download_file(publication):
+    publication_row = publication or {}
+    file_ids = publication_row.get('file_ids') or []
+    for file_id in reversed(file_ids):
+        file_record_rows = dbc.files.get(id=file_id).exec()
+        if not file_record_rows:
+            continue
+
+        file_record = file_record_rows[0]
+        stored_filepath = (file_record.get('filepath') or '').strip()
+        if not stored_filepath:
+            continue
+
+        file_path = _resolve_public_upload_abspath(stored_filepath)
+        if not file_path:
+            current_app.logger.warning(
+                'Blocked article download for publication=%s due to invalid filepath=%r',
+                publication_row.get('id'),
+                stored_filepath,
+            )
+            continue
+        if not os.path.exists(file_path):
+            continue
+
+        default_title = _clean_text(publication_row.get('title')) or f"article-{publication_row.get('id') or file_id}"
+        download_name = (file_record.get('name') or '').strip() or f"{default_title}.pdf"
+        return file_path, download_name
+
+    return None, None
+
+
 def app__download_article(article_id):
     publication = dbc.publications.get(id=article_id).exec()
     if not publication:
@@ -2116,35 +2362,7 @@ def app__download_article(article_id):
         flash('Article file not found', 'error')
         return redirect(url_for('app__article', article_id=article_id))
 
-    file_ids = publication.get('file_ids') or []
-    selected_file_path = None
-    selected_download_name = None
-
-    # Prefer the most recently attached file and gracefully skip stale file_ids.
-    for file_id in reversed(file_ids):
-        file_record_rows = dbc.files.get(id=file_id).exec()
-        if not file_record_rows:
-            continue
-
-        file_record = file_record_rows[0]
-        stored_filepath = (file_record.get('filepath') or '').strip()
-        if not stored_filepath:
-            continue
-
-        file_path = _resolve_public_upload_abspath(stored_filepath)
-        if not file_path:
-            current_app.logger.warning(
-                'Blocked article download for publication=%s due to invalid filepath=%r',
-                article_id,
-                stored_filepath,
-            )
-            continue
-        if not os.path.exists(file_path):
-            continue
-
-        selected_file_path = file_path
-        selected_download_name = (file_record.get('name') or '').strip() or f"{publication['title']}.pdf"
-        break
+    selected_file_path, selected_download_name = _resolve_publication_download_file(publication)
 
     if not selected_file_path:
         flash('Article file not found', 'error')
@@ -2172,6 +2390,85 @@ def app__download_article(article_id):
                     download_name=selected_download_name)
 
 
+def app__download_issue(issue_id):
+    issue_rows = dbc.issues.get(id=issue_id).exec()
+    if not issue_rows:
+        flash('Issue not found', 'error')
+        return redirect(url_for('app__issues'))
+
+    issue = issue_rows[0]
+    requires_access = bool(issue.get('is_paid') or issue.get('subscription_enable'))
+    access_context = {'has_access': True, 'access_via': 'open', 'tariff': None}
+    user_id = None
+    if requires_access:
+        user_id = session.get('user_id')
+        if not user_id:
+            flash('Please log in to download this issue', 'error')
+            return redirect(url_for('app__login'))
+
+        access_context = _resolve_issue_access_context(issue, user_id)
+        if not access_context.get('has_access'):
+            flash('Access denied. Please purchase or subscribe.', 'error')
+            return redirect(url_for('app__issue', issue_id=issue_id))
+
+    publications = dbc.publications.get(issue_id=issue_id).exec()
+    downloadable_files = []
+    for publication in publications:
+        file_path, download_name = _resolve_publication_download_file(publication)
+        if file_path:
+            downloadable_files.append((publication, file_path, download_name))
+
+    if not downloadable_files:
+        flash('Issue files not found', 'error')
+        return redirect(url_for('app__issue', issue_id=issue_id))
+
+    if access_context.get('access_via') == 'subscription':
+        tariff = access_context.get('tariff') or {}
+        if not _tariff_has_feature_permission(tariff, 'download_subscription_files'):
+            flash('Your current subscription does not include file downloads.', 'error')
+            return redirect(url_for('app__issue', issue_id=issue_id))
+        monthly_limit = _parse_int(tariff.get('monthly_download_limit')) or 0
+        limit_result = _consume_subscription_download_slot(user_id, monthly_limit)
+        if not limit_result.get('allowed'):
+            flash(f"Monthly download limit reached ({limit_result.get('limit')} downloads).", 'error')
+            return redirect(url_for('app__issue', issue_id=issue_id))
+
+    used_names = set()
+
+    def _unique_name(name):
+        filename = _clean_text(name) or 'article.pdf'
+        stem, ext = os.path.splitext(filename)
+        if not ext:
+            ext = '.pdf'
+        candidate = f"{stem}{ext}"
+        counter = 2
+        while candidate.lower() in used_names:
+            candidate = f"{stem}-{counter}{ext}"
+            counter += 1
+        used_names.add(candidate.lower())
+        return candidate
+
+    archive_buffer = io.BytesIO()
+    with zipfile.ZipFile(archive_buffer, mode='w', compression=zipfile.ZIP_DEFLATED) as archive:
+        for publication, file_path, download_name in downloadable_files:
+            archive.write(file_path, arcname=_unique_name(download_name))
+            try:
+                new_downloads = (publication.get('stat_alt') or 0) + 1
+                dbc.publications.get(id=publication.get('id')).update(stat_alt=new_downloads).exec()
+            except Exception:
+                current_app.logger.exception('Failed to update download count for article %s', publication.get('id'))
+
+    archive_buffer.seek(0)
+    issue_filename = f"volume-{_clean_text(issue.get('vol_no')) or 'x'}-issue-{_clean_text(issue.get('issue_no')) or 'x'}"
+    issue_filename = re.sub(r'[^a-zA-Z0-9._-]+', '-', issue_filename).strip('-').lower() or f"issue-{issue_id}"
+    return send_file(
+        archive_buffer,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=f"{issue_filename}.zip",
+    )
+
+
 def serve_static_uploads(filename):
     if extract_private_upload_key(filename):
         abort(404)
@@ -2192,6 +2489,7 @@ def register(app):
     app.add_url_rule('/issues', view_func=app__issues)
     app.add_url_rule('/issue/<int:issue_id>', view_func=app__issue)
     app.add_url_rule('/issue/purchase/<int:issue_id>', view_func=login_required(app__purchase_issue))
+    app.add_url_rule('/issue/download/<int:issue_id>', view_func=app__download_issue)
     app.add_url_rule('/article/<int:article_id>', view_func=app__article)
     app.add_url_rule('/article/download/<int:article_id>', view_func=app__download_article)
     app.add_url_rule('/static/uploads/<path:filename>', view_func=serve_static_uploads)

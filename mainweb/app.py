@@ -5,7 +5,10 @@ from flask import Flask, jsonify
 from flasgger import Swagger
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash
-import settings
+try:
+    import mainweb.settings as settings
+except ImportError:
+    import settings
 import hooks
 from extensions import dbc
 from utils.filters import register_filters

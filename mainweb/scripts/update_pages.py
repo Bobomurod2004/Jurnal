@@ -250,130 +250,204 @@ PAGES_DATA = {
         'content_uz': '''
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Mualliflar uchun ko'rsatmalar</h4>
-          <p class="mb-4">Qo'lyozmangizni nashr qilish uchun <strong>“Filologiya masalalari”</strong> elektron ilmiy-metodik jurnalini tanlaganingiz uchun tashakkur. Ushbu ko'rsatmalar qo'lyozmangizni ikki karra o'zaro yashirin ekspertiza (double-blinded peer review), tahrirlash va nashrga tayyorlash jarayonlarini samarali tashkil etish uchun ishlab chiqilgan.</p>
-          <p class="mb-0">Iltimos, talablarni diqqat bilan ko'rib chiqing. Bu qo'lyozmangizning jurnal mezonlariga mos kelishini ta'minlaydi.</p>
+          <p class="mb-4">Maqolangizni nashr qilishda <strong>“Filologiya masalalari”</strong> elektron ilmiy-metodik jurnalini tanlaganingiz uchun tashakkur. Ushbu ko'rsatmalar sizning qo'lyozmangizni ikki karra o'zaro yashirin baholash (double-blinded peer review), tahrirlash va nashr etish jarayonlarini oson ta'minlash borasidagi zarur sharoitlarni yaratish uchun muhim.</p>
+          <p class="mb-0">Iltimos, ularni o'qishga vaqt ajrating va iloji boricha diqqat bilan ko'rib chiqing, chunki bu qo'lyozmangizning jurnal talablariga javob berishini kafolatlaydi.</p>
         </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Mundarija</h4>
-          <ul class="list-disc list-inside space-y-1">
-            <li>Jurnal haqida</li>
-            <li>Ochiqlik (Open Access)</li>
-            <li>Ekspertizadan o'tkazish va etika talablari</li>
-            <li>Qo'lyozmangizni tayyorlash</li>
-            <li>Maqola turlari</li>
-            <li>Formatsiz topshirish</li>
-            <li>Tahrirlash xizmatlari</li>
-            <li>Tekshirish ro'yxati</li>
-            <li>Uchinchi tomon materiallaridan foydalanish</li>
-            <li>Qo'lyozmangizni topshirish</li>
-            <li>Nashr to'lovi</li>
-            <li>Mualliflik huquqi imkoniyatlari</li>
-          </ul>
-        </section>
+
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Jurnal haqida</h4>
-          <p class="mb-4"><strong>“Filologiya masalalari”</strong> yuqori sifatli va original tadqiqotlarni nashr etuvchi elektron ilmiy-metodik jurnal hisoblanadi.</p>
-          <p class="mb-4">Jurnalda barcha tillarda maqolalar e'lon qilinadi. Quyidagi maqola turlari qabul qilinadi:</p>
+          <p class="mb-4"><strong>“Filologiya masalalari”</strong> yuqori sifatli, original tadqiqotlarni nashr etuvchi elektron ilmiy-metodik jurnal hisoblanadi.</p>
+          <p class="mb-4">Jurnalda barcha tillarda maqolalar e'lon qilinadi. Jurnalning asosiy fokusi va ekspertiza siyosati haqida ma'lumot olish uchun jurnalning maqsadlari va qamroviga e'tibor qarating.</p>
+          <p class="mb-2">Jurnal quyidagi maqola turlarini qabul qiladi:</p>
           <ul class="list-disc list-inside space-y-1">
-            <li>Original tadqiqot maqolasi (Original Research Article)</li>
+            <li>Original tadqiqot maqola (Original Research Article)</li>
             <li>Sharh maqola (Review Article)</li>
           </ul>
         </section>
+
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Ochiqlik (Open Access)</h4>
-          <p class="mb-4">Jurnalning Open Select dasturi orqali maqolangizni ochiq foydalanish (open access) asosida nashr etishingiz mumkin. Bu maqolangiz chop etilgach darhol onlayn rejimda ommaga ochiq bo'lishini ta'minlaydi, natijada ko'rilishlar, o'quvchilar soni va ilmiy ta'sir doirasi oshadi.</p>
-          <p class="mb-0">Ochiqlik huquqi asosida nashr qilish uchun maqola nashr to'lovi undiriladi. Ushbu xarajatlar ko'pincha muassasa yoki moliyalashtiruvchi tashkilot tomonidan qoplanishi mumkin.</p>
+          <h4 class="text-lg font-semibold mb-3">Ochiqlik</h4>
+          <p class="mb-4">Jurnalning Open Select dasturi orqali siz mazkur jurnalda ochiqlik huquqi asosidagi ilmiy-metodik maqolangizni nashr qilish imkoniyatiga ega bo'lasiz. “Ochiqlik” siyosati maqolangiz chop etilgandan so'ng uning darhol onlayn rejimda mavjud bo'lishini ta'minlaydi.</p>
+          <p class="mb-0">Bu tadqiqotingizning keng miqyosda ko'rilishi, o'quvchilarining soni va ta'sir doirasining ortishiga zamin yaratadi. Maqolangizga ochiqlik huquqini berish uchun sizdan maqola nashr qilish to'lovini amalga oshirishingiz so'raladi va bu xarajatlar ko'pincha muassasangiz yoki moliyachi tomonidan qoplanishi mumkin.</p>
         </section>
+
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Ekspertizadan o'tkazish va etika talablari</h4>
-          <p class="mb-4"><strong>“Filologiya masalalari”</strong> nashriyoti ekspertiza jarayonining xolisligi va yaxlitligiga qat'iy amal qiladi.</p>
-          <p class="mb-0">Qo'lyozma muharrir tomonidan dastlabki yaroqlilik tekshiruvidan o'tgach, ikki nafar mustaqil anonim taqrizchi tomonidan <strong>ikki karra anonim ekspertiza</strong> asosida baholanadi. Mualliflar nashr etikasi tamoyillariga barcha bosqichlarda rioya etishlari shart.</p>
+          <p class="mb-4"><strong>“Filologiya masalalari”</strong> elektron ilmiy-metodik jurnali nashriyoti ekspertlar bahosining yaxlitligiga sodiqdir va qo'lyozmalarni tekshirish jarayonlarining eng yuqori standartlarini qo'llab-quvvatlaydi.</p>
+          <p class="mb-0">Maqolangiz muharrir tomonidan yaroqliligi baholangandan so'ng, u ikkita mustaqil, anonim taqrizchilar tomonidan ikki marta anonim tekshiruvdan o'tadi. Tekshiruv davomida nimani kutish mumkinligi haqida ko'proq bilib oling va nashr etikasi bo'yicha ko'rsatmalarimizni o'qing.</p>
         </section>
+
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Qo'lyozmangizni tayyorlash</h4>
-          <p class="mb-4">Qo'lyozma qat'iy va mantiqiy ketma-ketlikda rasmiylashtirilishi lozim:</p>
-          <ul class="list-disc list-inside space-y-1 mb-4">
-            <li>Sarlavha 3 tilda: o'zbek, rus va ingliz.</li>
-            <li>Annotatsiya va kalit so'zlar 3 tilda: o'zbek, rus va ingliz.</li>
-            <li>Asosiy matn IMRAD tartibida: <strong>INTRODUCTION</strong>, <strong>METHODS</strong>, <strong>RESULTS</strong>, <strong>DISCUSSION</strong>.</li>
-            <li>Ixtiyoriy bo'limlar: minnatdorchilik, manfaatlar deklaratsiyasi, tavsiyalar.</li>
-            <li>Ilovalar.</li>
-            <li>Jadvallar (sarlavhalari bilan, zarur bo'lsa alohida sahifalarda).</li>
-            <li>Raqamlar va zarur hollarda rasm taglavhalari ro'yxati.</li>
-          </ul>
-          <ul class="list-disc list-inside space-y-1">
-            <li>Annotatsiya: har bir tilda 250-300 so'z, unda maqsad, yangilik, usullar, asosiy natijalar va xulosalar yoritilishi kerak.</li>
-            <li>Kalit so'zlar: har bir tilda 8-10 tadan oshmasligi lozim.</li>
-            <li>Asosiy matn hajmi (kirishdan xulosagacha): 4000-7000 so'z (annotatsiya va kalit so'zlarsiz).</li>
-            <li>Foydalanilgan adabiyotlar: 30-60 ta, lotin alifbosida va qo'lyozma ingliz tilida bo'lmagan hollarda inglizcha tarjimasi bilan.</li>
+          <p class="mb-3 font-semibold">Maqola uchun umumiy talablar</p>
+          <ul class="list-disc list-inside space-y-2">
+            <li>Quyidagi elementlar qat'iy ketma-ketlikda yozilishi kerak: sarlavha 3 tilda (o'zbek, rus va ingliz); annotatsiya va kalit so'zlar ham 3 tilda; asosiy matn IMRAD tartibida - INTRODUCTION, METHODS, RESULTS AND DISCUSSION; (minnatdorchilik, manfaatlar deklaratsiyasi, tavsiyalar - ixtiyoriy); ilovalar; sarlavhalar bilan jadvallar (alohida sahifalarda); raqamlar; kerakli hollarda rasm taglavhalari (ro'yxat shaklida).</li>
+            <li>Annotatsiya 3 tilda (o'zbek, rus va ingliz) 250-300 ta so'zdan iborat bo'lib, tadqiqot maqsadi, yangiligi, usullari, asosiy natijalari va xulosalarini aks ettirishi kerak.</li>
+            <li>Kalit so'zlar 3 tilda (o'zbek, rus va ingliz) 8-10 tadan oshmasligi lozim.</li>
+            <li>Asosiy matn kirishdan xulosagacha 4000-7000 ta so'zdan iborat bo'lishi kerak (annotatsiya va kalit so'zlar bu hisobga kirmaydi).</li>
+            <li>Foydalanilgan adabiyotlar 30-60 ta bo'lishi, lotin alifbosida va ingliz tilidagi tarjimasi (agar qo'lyozma ingliz tilida bo'lmasa) bilan berilishi lozim.</li>
           </ul>
         </section>
+
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Maqola turlari</h4>
-          <div class="space-y-4">
+
+          <div class="space-y-5">
             <div>
               <h5 class="font-semibold mb-2">1. Original Research Article (original ilmiy maqola)</h5>
-              <p class="mb-3">Muallif tomonidan mustaqil o'tkazilgan empirik tadqiqot natijalariga asoslangan maqola. IMRAD bo'lim nomlari <strong>TO'LIQ BOSH HARFLARDA</strong> yoziladi.</p>
-              <ul class="list-disc list-inside space-y-2">
-                <li><strong>INTRODUCTION (KIRISH):</strong> mavzu dolzarbligi, ilmiy muammo qo'yilishi, qisqa adabiyotlar sharhi, ilmiy bo'shliq (research gap), maqsad va vazifalar, gipoteza (mavjud bo'lsa).</li>
-                <li><strong>METHODS (TADQIQOT METODLARI):</strong> tadqiqot dizayni, obyekt va predmet, ma'lumot yig'ish usullari (so'rovnoma, intervyu, kuzatish, matn/korpus tahlili), tanlanma tavsifi (hajm va parametrlari), tahlil usullari (SPSS, R, lingvistik/kognitiv), ishonchlilik va validlik masalalari.</li>
-                <li><strong>RESULTS (NATIJALAR):</strong> faqat faktik natijalar, jadval/grafik/diagrammalar (mavjud bo'lsa), statistik ko'rsatkichlar, aniqlangan qonuniyatlar.</li>
-                <li><strong>DISCUSSION (MUNOZARA):</strong> natijalar talqini, oldingi tadqiqotlar bilan taqqoslash, gipotezaning tasdiqlanishi yoki rad etilishi, nazariy va amaliy ahamiyat, cheklovlar, keyingi tadqiqot istiqbollari.</li>
-                <li><strong>CONCLUSION (XULOSA)</strong> (IMRAD tarkibiga kirmaydi, lekin majburiy): yakuniy xulosalar, ilmiy yangilik, qisqa umumlashtirish, iqtiboslarsiz.</li>
+              <p class="mb-3">Muallif tomonidan ilk bor o'tkazilgan empirik tadqiqot natijalariga asoslangan maqola. Muallif ma'lumotlarni mustaqil yig'adi, tahlil qiladi va xulosa chiqaradi. IMRAD tarkibiy bo'limlari nomlari <strong>TO'LIQ BOSH HARFLARDA</strong> yoziladi.</p>
+
+              <p class="mb-2 font-semibold">INTRODUCTION (KIRISH)</p>
+              <ul class="list-disc list-inside space-y-1 mb-2">
+                <li>tadqiqot mavzusining dolzarbligi</li>
+                <li>ilmiy muammoning qo'yilishi</li>
+                <li>mavjud tadqiqotlar bo'yicha qisqa sharh</li>
+                <li>ilmiy bo'shliqni aniqlash (research gap)</li>
+                <li>tadqiqotning maqsad va vazifalari</li>
+                <li>gipoteza (mavjud bo'lsa)</li>
+              </ul>
+              <p class="mb-3"><strong>Natija:</strong> mazkur tadqiqot zarurligini asoslash.</p>
+
+              <p class="mb-2 font-semibold">METHODS (TADQIQOT METODLARI)</p>
+              <ul class="list-disc list-inside space-y-1 mb-2">
+                <li>tadqiqot dizayni (eksperimental, korrelyatsion, korpus tahlili va boshqalar)</li>
+                <li>tadqiqot obyekti va predmeti</li>
+                <li>ma'lumot yig'ish metodlari: so'rovnoma, intervyu, kuzatish, matn/korpus tahlili</li>
+                <li>tanlanma tavsifi: hajmi va parametrlari</li>
+                <li>tahlil metodlari: statistik (SPSS, R va boshqalar), lingvistik/kognitiv</li>
+                <li>ishonchlilik va validlik masalalari</li>
+              </ul>
+              <p class="mb-3"><strong>Natija:</strong> tadqiqotni to'liq qayta takrorlash imkoniyati.</p>
+
+              <p class="mb-2 font-semibold">RESULTS (NATIJALAR)</p>
+              <ul class="list-disc list-inside space-y-1 mb-2">
+                <li>asosiy empirik natijalar</li>
+                <li>jadval, grafik va diagrammalar (mavjud bo'lsa)</li>
+                <li>statistik ko'rsatkichlar</li>
+                <li>aniqlangan qonuniyatlar</li>
+              </ul>
+              <p class="mb-3"><strong>Muhim:</strong> faqat "nima natija olindi?" savoliga javob.</p>
+
+              <p class="mb-2 font-semibold">DISCUSSION (MUNOZARA)</p>
+              <ul class="list-disc list-inside space-y-1 mb-2">
+                <li>natijalarni izohlash</li>
+                <li>oldingi tadqiqotlar bilan taqqoslash</li>
+                <li>gipotezaning tasdiqlanishi yoki rad etilishi</li>
+                <li>nazariy ahamiyati</li>
+                <li>amaliy ahamiyati</li>
+                <li>tadqiqot cheklovlari</li>
+                <li>keyingi tadqiqot istiqbollari</li>
+              </ul>
+              <p class="mb-3">Bu yerda ishning ilmiy qiymati ochib beriladi.</p>
+
+              <p class="mb-2 font-semibold">CONCLUSION (XULOSA)</p>
+              <p class="mb-2">(IMRAD tarkibiga kirmaydi, lekin majburiy)</p>
+              <ul class="list-disc list-inside space-y-1">
+                <li>yakuniy xulosalar</li>
+                <li>ilmiy yangilik</li>
+                <li>qisqa umumlashtirish</li>
+                <li>iqtiboslarsiz</li>
               </ul>
             </div>
+
             <div>
               <h5 class="font-semibold mb-2">2. Review Article (sharh ilmiy maqola)</h5>
-              <p class="mb-3">Muayyan ilmiy yo'nalish bo'yicha avval chop etilgan ishlarni tizimli tahlil qilish, taqqoslash va umumlashtirishga bag'ishlangan maqola. Yangi empirik ma'lumot yig'ish talab etilmaydi.</p>
-              <ul class="list-disc list-inside space-y-2">
-                <li><strong>INTRODUCTION (KIRISH):</strong> yo'nalish dolzarbligi, sharh zarurligi, muammoning qo'yilishi, sharh maqsadi va ilmiy bo'shliqni aniq ko'rsatish.</li>
-                <li><strong>METHODS (TADQIQOT METODLARI):</strong> manbalarni tanlash mezonlari, vaqt oralig'i, ma'lumotlar bazalari (Scopus, Web of Science va boshqalar), qidiruv strategiyasi (kalit so'zlar), kiritish/chiqarish mezonlari, tahlil usullari (tematik tahlil, meta-tahlil mavjud bo'lsa).</li>
-                <li><strong>RESULTS (NATIJALAR):</strong> asosiy ilmiy yondashuvlar, nazariy maktablar, qarama-qarshiliklar, zamonaviy tendensiyalar, taqqoslovchi jadvallar.</li>
-                <li><strong>DISCUSSION (MUNOZARA):</strong> umumlashtirilgan xulosalar, mavjud yondashuvlarni baholash, ilmiy bo'shliqlarni aniqlash, muammoli jihatlar, keyingi tadqiqot istiqbollari.</li>
-                <li><strong>CONCLUSION (XULOSA)</strong> (IMRAD tarkibiga kirmaydi, lekin majburiy): yakuniy umumlashtirishlar, nazariy xulosalar, tavsiyalar, iqtiboslarsiz.</li>
+              <p class="mb-3">Muayyan ilmiy yo'nalish bo'yicha avval chop etilgan tadqiqotlarni tizimli tahlil qilish, taqqoslash va umumlashtirishni o'z ichiga olgan maqola. Muallif yangi empirik ma'lumotlar yig'maydi, balki mavjud ilmiy ishlar asosida nazariy va metodologik xulosalar chiqaradi.</p>
+
+              <p class="mb-2 font-semibold">INTRODUCTION (KIRISH)</p>
+              <ul class="list-disc list-inside space-y-1 mb-2">
+                <li>ilmiy yo'nalishning dolzarbligi</li>
+                <li>sharh zarurligini asoslash</li>
+                <li>muammoning qo'yilishi</li>
+                <li>sharhning maqsadi</li>
+              </ul>
+              <p class="mb-3">Ilmiy bo'shliqni ko'rsatish majburiy.</p>
+
+              <p class="mb-2 font-semibold">METHODS (TADQIQOT METODLAR)</p>
+              <p class="mb-2">Ko'pincha e'tibordan chetda qoladi, lekin majburiy hisoblanadi.</p>
+              <ul class="list-disc list-inside space-y-1 mb-2">
+                <li>manbalarni tanlash mezonlari: vaqt oralig'i, ma'lumotlar bazalari (Scopus, Web of Science va boshqalar)</li>
+                <li>qidiruv strategiyasi (kalit so'zlar)</li>
+                <li>kiritish/chiqarib tashlash mezonlari</li>
+                <li>tahlil metodlari: tematik tahlil, meta-tahlil (mavjud bo'lsa)</li>
+              </ul>
+              <p class="mb-3">Sharhning ilmiy asoslanganligini ta'minlaydi.</p>
+
+              <p class="mb-2 font-semibold">RESULTS (NATIJALAR)</p>
+              <p class="mb-2">Bu yerda empirik ma'lumotlar emas, balki adabiyotlar tahlili natijalari taqdim etiladi.</p>
+              <ul class="list-disc list-inside space-y-1 mb-2">
+                <li>asosiy ilmiy yondashuvlar</li>
+                <li>nazariy maktablar</li>
+                <li>tadqiqotlardagi qarama-qarshiliklar</li>
+                <li>zamonaviy tendensiyalar</li>
+                <li>taqqoslovchi jadvallar</li>
+              </ul>
+              <p class="mb-3">Mavzu bo'yicha "ilmiy manzara" shakllantiriladi.</p>
+
+              <p class="mb-2 font-semibold">DISCUSSION (MUNOZARA)</p>
+              <p class="mb-2">Asosiy analitik bo'lim.</p>
+              <ul class="list-disc list-inside space-y-1 mb-3">
+                <li>adabiyotlar asosida umumlashtirilgan xulosalar</li>
+                <li>mavjud yondashuvlarni baholash</li>
+                <li>ilmiy bo'shliqlarni aniqlash</li>
+                <li>muammoli jihatlar</li>
+                <li>keyingi tadqiqot istiqbollari</li>
+              </ul>
+
+              <p class="mb-2 font-semibold">CONCLUSION (XULOSA)</p>
+              <p class="mb-2">(IMRAD tarkibiga kirmaydi, lekin majburiy)</p>
+              <ul class="list-disc list-inside space-y-1">
+                <li>yakuniy umumlashtirishlar</li>
+                <li>nazariy xulosalar</li>
+                <li>tavsiyalar</li>
+                <li>iqtiboslarsiz</li>
               </ul>
             </div>
           </div>
         </section>
+
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Formatsiz topshirish</h4>
-          <p class="mb-4">Mualliflar qo'lyozmalarni dastlabki bosqichda istalgan ilmiy format yoki tartibda topshirishlari mumkin. Qo'lyozma bitta yoki bir nechta fayl ko'rinishida, odatda Word (DOC yoki DOCX) formatida yuboriladi. Tasvirlar va jadvallar matn ichida yoki alohida fayl sifatida berilishi mumkin.</p>
-          <p class="mb-4">Dastlabki topshirishda qat'iy formatlash talabi yo'q, ammo qo'lyozma baholash uchun zarur elementlarni o'z ichiga olishi shart: annotatsiya, muallif haqidagi asosiy ma'lumotlar (I.F.Sh., lavozim, ilmiy daraja, email, telefon - 3 tilda), tasvirlar, jadvallar va ilovalar.</p>
-          <p class="mb-0">Foydalanilgan adabiyotlar ro'yxati <strong>APA</strong> uslubida rasmiylashtirilishi lozim. Fayl formatidan qat'i nazar, qayta ko'rib chiqish bosqichida tahrirlanadigan versiya taqdim etilishi shart.</p>
+          <p class="mb-4">Mualliflar o'z qo'lyozmalarini har qanday ilmiy formatda yoki tartibda taqdim etishlari mumkin. Qo'lyozmalar bitta yoki bir nechta fayl shaklida taqdim etilishi, bular Word (DOC yoki DOCX) fayllari bo'lishi mumkin. Tasvirlar va jadvallar matn ichida joylashtirilishi yoki alohida hujjatlar sifatida taqdim etilishi mumkin. Rasmlar tushunilishini ta'minlash uchun yetarli aniqlikda bo'lishi kerak.</p>
+          <ul class="list-disc list-inside space-y-2 mb-4">
+            <li>Qat'iy formatlash talablari mavjud emas, lekin barcha qo'lyozmalar uning dastlabki baholanishi uchun zarur bo'lgan muhim elementlarni o'z ichiga olishi kerak: annotatsiya, muallif haqidagi asosiy ma'lumotlar (I.F.Sh., lavozim, ilmiy daraja, elektron pochta, telefon raqami 3 tilda), tasvirlar, jadval va ilovalar. Qo'shimcha ma'lumotlar qo'lyozma qabul qilinganidan keyin so'ralishi mumkin.</li>
+            <li>Foydalanilgan adabiyotlar ro'yxati APA (American Psychological Association) uslubida tartibga solingan holda yuborilishi lozim.</li>
+          </ul>
+          <p class="mb-0">E'tibor bering, asl nusxaning fayl formatidan qat'iy nazar, maqolaning tahrirlanadigan versiyasi qayta ko'rib chiqish bosqichida taqdim etilishi kerak.</p>
         </section>
+
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Tahrirlash xizmatlari</h4>
-          <p class="mb-4"><strong>“Filologiya masalalari”</strong> nashriyoti qo'lyozmani topshirishga tayyorlash jarayonida qo'shimcha tahririy xizmatlarni taklif etadi.</p>
-          <p class="mb-0">Xizmatlar tarkibiga til tahriri (jumladan ingliz tili), imlo va grammatika tekshiruvi, texnik formatlash kirishi mumkin. Xizmat turlari va narxlar bo'yicha tahririyat bilan bog'laning.</p>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Tekshirish ro'yxati: nimalarni o'z ichiga olishi kerak</h4>
+          <h4 class="text-lg font-semibold mb-3">Tekshirish ro'yxati: nimalarni o'z ichiga olishi kerak?</h4>
           <ol class="list-decimal list-inside space-y-3">
-            <li><strong>Muallif tafsilotlari:</strong> barcha mualliflar jurnal mualliflik mezonlariga mos bo'lishi kerak. Muqova sahifasida to'liq ism-sharif, lavozim, ilmiy daraja, email, telefon kiritiladi. Mavjud bo'lsa ORCID, Google Scholar va Scopus havolalari ham beriladi. Eslatma: maqola chop etilgach bu ma'lumotlarni o'zgartirish mumkin emas.</li>
-            <li><strong>Tasvirlar:</strong> yuqori sifat talab etiladi (chiziqli tasvirlar uchun 1200 dpi, kulrang rang uchun 600 dpi, rangli tasvirlar uchun 300 dpi). Qabul qilinadigan formatlar: EPS, PS, JPEG, TIFF yoki Word (DOC/DOCX - Wordda chizilgan rasmlar uchun).</li>
-            <li><strong>Jadvallar:</strong> matndagi ma'lumotni takrorlamasdan qo'shimcha ilmiy qiymat berishi kerak. Jadval matnga murojaatsiz ham tushunarli bo'lishi va tahrirlanadigan faylda taqdim etilishi lozim.</li>
-            <li><strong>Tenglamalar:</strong> agar qo'lyozma Word formatida topshirilsa, tenglamalar tahrirlanadigan holatda bo'lishi shart.</li>
+            <li><strong>Muallif haqidagi tafsilotlar.</strong> Iltimos, ro'yxatdagi barcha mualliflar “Filologiya masalalari” elektron ilmiy-metodik jurnalining mualliflik mezonlariga mos kelishiga ishonch hosil qiling. Barcha mualliflar qo'lyozmaning muqova sahifasida o'zlarining to'liq ism-shariflari, lavozimlari, ilmiy darajalari, elektron pochta, telefon raqamlarini ko'rsatishlari kerak. Agar mavjud bo'lsa, ORCID, Google Scholar va Scopus havolalarini ham qo'shing. Agar nomlari ko'rsatilgan hammualliflardan birortasi o'zaro ko'rib chiqish jarayonida a'zolikni o'zgartirsa, yangi kerakli mualliflar izoh sifatida ko'rsatilishi mumkin. E'tibor bering, maqolangiz nashr qilinganidan keyin mazkur tafsilotlarga hech qanday o'zgartirish kiritib bo'lmaydi.</li>
+            <li><strong>Tasvirlar.</strong> Rasmlar yuqori sifatli bo'lishi kerak (chiziqli tasvir uchun 1200 dpi, kulrang rang uchun 600 dpi va rangli uchun 300 dpi, to'g'ri o'lchamda). Rasmlar jurnal tahririyati tomonidan tanlangan fayl formatlaridan birida taqdim etilishi kerak: EPS, PS, JPEG, TIFF yoki Microsoft Word (DOC yoki DOCX) fayllari Wordda chizilgan rasmlar uchun qabul qilinadi.</li>
+            <li><strong>Jadvallar.</strong> Jadvallar matndagi narsalarni takrorlashdan ko'ra yangi ma'lumotlarni taqdim etishi kerak. O'quvchilar jadvalni matnga murojaat qilmasdan sharhlay olishlari kerak. Iltimos, tahrirlanadigan fayllarni taqdim eting.</li>
+            <li><strong>Tenglamalar.</strong> Agar siz qo'lyozmangizni Word hujjati sifatida topshirayotgan bo'lsangiz, tenglamalarni tahrirlash mumkinligiga ishonch hosil qiling.</li>
           </ol>
         </section>
+
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Uchinchi tomon materiallaridan foydalanish</h4>
-          <p class="mb-4">Maqolada uchinchi tomon materiallaridan foydalanishda zarur ruxsatnomalarni oldindan olish talab etiladi. Qisqa iqtiboslar va ayrim turdagi materiallardan tanqidiy tahlil maqsadida cheklangan foydalanish ba'zi holatlarda rasmiy ruxsatsiz mumkin bo'lishi mumkin.</p>
-          <p class="mb-0">Agar maqolangizga mualliflik huquqi sizga tegishli bo'lmagan va amaldagi istisnolar bilan qamrab olinmagan material kiritilsa, topshirishdan oldin huquq egasining yozma ruxsati olinishi shart.</p>
+          <p class="mb-4">Maqolada uchinchi tomon materiallaridan qayta foydalanish uchun kerakli ruxsatni olishingiz kerak. Matnning qisqacha parchalari va boshqa ayrim turdagi materiallardan rasmiy ruxsatisiz tanqid va ko'rib chiqish maqsadida cheklangan miqdorda foydalanishga odatda ruxsat etiladi.</p>
+          <p class="mb-0">Maqolangizga mualliflik huquqi sizga tegishli bo'lmagan va ushbu norasmiy shartnoma bilan ta'minlanmagan har qanday materialni kiritmoqchi bo'lsangiz, yuborishdan oldin mualliflik huquqi egasidan yozma ruxsat olishingiz kerak bo'ladi.</p>
         </section>
+
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Qo'lyozmangizni topshirish</h4>
-          <p class="mb-4">Jurnal qo'lyozma topshirish va kuzatish jarayonini boshqarish uchun maxsus portal tizimidan foydalanadi. Portal orqali yuborgan materiallaringizni yagona oynada kuzatishingiz mumkin.</p>
-          <p class="mb-4">Dastlabki texnik talablarga javob bergan qo'lyozmalar <strong>antiplagiat.ru</strong> tizimida originallik bo'yicha tekshiriladi. Qo'lyozmangizni yuborish orqali siz ekspertiza va taqriz jarayonida originallik tekshiruviga rozilik bildirasiz.</p>
-          <p class="mb-0">Maqola qabul qilingandan so'ng, qabul qilingan nusxani albatta saqlab qo'yish tavsiya etiladi.</p>
+          <p class="mb-4">Ushbu jurnal topshirish jarayonini boshqarish uchun maxsus portaldan foydalanadi. Taqdimot portali sizga “Filologiya masalalari” elektron ilmiy-metodik jurnali portfeli bo'ylab yuborilgan xabarlaringizni bir joyda ko'rish imkonini beradi. Qo'lyozmangizni yuborish uchun bu yerni bosing.</p>
+          <p class="mb-4">Esda tutingki, “Filologiya masalalari” elektron ilmiy-metodik jurnali nashriyoti dastlabki texnik talablarga javob bergan qo'lyozmalarni tekshirish uchun antiplagiat.ru dan foydalanadi. Qo'lyozmangizni «Filologiya masalalari» elektron ilmiy-metodik jurnali tahririyatiga yuborish orqali siz ekspertiza va taqrizlash jarayonlarida originallikni tekshirishga rozilik bildirasiz.</p>
+          <p class="mb-0">Qabul qilingandan so'ng, qabul qilingan qo'lyozma nusxasini saqlashingizni tavsiya qilamiz.</p>
         </section>
+
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Nashr to'lovi</h4>
-          <p class="mb-0"><strong>“Filologiya masalalari”</strong> jurnalida bir yilda bir marta maqola nashr qilish narxi O'zbekiston Respublikasi fuqarolari uchun <strong>600 000 so'm</strong>, boshqa mualliflar uchun esa <strong>100 AQSH dollari</strong>ni tashkil etadi.</p>
+          <p class="mb-0">“Filologiya masalalari” elektron ilmiy-metodik jurnalida bir yilda bir marta maqola nashr qilish narxi O'zbekiston Respublikasi fuqarolari uchun <strong>600 000 (olti yuz ming) so'm</strong>. Boshqa mualliflar uchun esa <strong>100 (yuz) AQSH dollari</strong>ni tashkil qiladi.</p>
         </section>
+
         <section>
           <h4 class="text-lg font-semibold mb-3">Mualliflik huquqi imkoniyatlari</h4>
-          <p class="mb-4">Mualliflik huquqi original materialingizni himoya qiladi va maqolangizdan ruxsatsiz foydalanishning oldini olishga yordam beradi. Jurnal turli litsenziya va qayta foydalanish imkoniyatlarini, jumladan ochiq nashr uchun <strong>Creative Commons</strong> litsenziyalarini taklif etadi.</p>
-          <p class="mb-0">Savollar bo'lsa, quyidagi manzilga murojaat qiling: <a href="mailto:philologymatters@uzswlu.uz" class="text-fmmain hover:underline">philologymatters@uzswlu.uz</a>.</p>
+          <p class="mb-4">Mualliflik huquqi sizga asl materialingizni himoya qilish va maqolangizdan boshqalarning ruxsatingizsiz foydalanishining oldini olish imkoniyatini beradi. “Filologiya masalalari” elektron ilmiy-metodik jurnali turli xil litsenziyalar va qayta foydalanish imkoniyatlarini taklif etadi, shu jumladan ochiq foydalanish uchun nashr qilish uchun Creative Commons lisenziyalari.</p>
+          <p class="mb-0">Agar sizda biron bir savol yuzaga kelsa, iltimos biz bilan bog'laning: <a href="mailto:philologymatters@uzswlu.uz" class="text-fmmain hover:underline">philologymatters@uzswlu.uz</a>.</p>
         </section>
         ''',
         'content_ru': '''
@@ -1100,32 +1174,32 @@ PAGES_DATA = {
           <div class="space-y-4 text-gray-700">
             <div>
               <div class="font-medium text-gray-900">Foydalanish</div>
-              <p class="mt-1">Yillik o'rtacha .... ming marta ko'riladi yoki yuklab olinadi.</p>
+              <p class="mt-1">Yillik o'rtacha 400 ming marta ko'riladi yoki yuklab olinadi.</p>
             </div>
             <div>
               <div class="font-medium text-gray-900">Iqtibos ko'rsatkichlari</div>
-              <p class="mt-1">......</p>
+              <p class="mt-1">Crossref, Web of Science va Scopus bo'yicha jami iqtiboslar soni: 500 +</p>
             </div>
             <div>
-              <div class="font-medium text-gray-900">Tezlik/qabul qilish</div>
+              <div class="font-medium text-gray-900">Maqolaning o'rtacha e'lon qilinish muddatlari</div>
               <ul class="list-disc list-inside mt-2 space-y-1">
-                <li>5 kun — Submission to first decision → Maqola topshirilgandan dastlabki tahririy qarorgacha bo'lgan muddat;</li>
-                <li>9 kun — Submission to decision after review → Taqrizdan keyingi qaror qabul qilinishigacha bo'lgan muddat;</li>
-                <li>18 kun — Submission to acceptance → Maqola topshirilgandan qabul qilinishigacha bo'lgan muddat;</li>
-                <li>5 kun — Acceptance to online publication → Qabul qilingandan onlayn nashr etilgungacha bo'lgan muddat.</li>
+                <li>dastlabki texnik mosligi bo'yicha qarorgacha bo'lgan muddat 5 kun;</li>
+                <li>taqdim etishdan boshlab birinchi tahririy qarorga qadar taxminan 7 kun;</li>
+                <li>ko'rib chiqishdan so'ng birinchi qarorni topshirishgacha taxminan 8 kun;</li>
+                <li>qabul qilingan kundan boshlab Internetda nashrga qadar o'rtacha 6 kun;</li>
+                <li>qabul qilish darajasi 12%.</li>
               </ul>
             </div>
           </div>
         </section>
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Jurnal ko'rsatkichlarini tushunish va ulardan foydalanish</h4>
-          <p class="mb-4">Jurnal ko'rsatkichlari o'quvchilar va o'zlarining keyingi qo'lyozmalarini nashr qilish uchun qayerga topshirishni hal qilayotgan mualliflar uchun foydali vosita bo'lishi mumkin. Biroq, har qanday o'lchov jurnalning sifati va ta'siri haqidagi ma'lumotlarning faqat bir qismini aks ettiradi.</p>
-          <p class="mb-4">Har bir ko'rsatkichning o'z cheklovlari bor — uni hech qachon alohida ko'rib chiqmaslik kerak. Ko'rsatkichlar sifat tahlilini almashtirish uchun emas, balki qo'llab-quvvatlash uchun ishlatilishi kerak. Jurnalning maqsadlari va qamrovi, o'quvchilar soni va oldingi kontentni ko'rib chiqish kabi sifat omillari bilan bir qatorda ko'rsatkichlardan foydalanishni tavsiya qilamiz.</p>
-          <p class="mb-0">Bundan tashqari, individual maqola har doim nashr etilgan jurnalning samaradorligiga emas, balki uning mohiyatiga qarab baholanishi kerak. Qo'shimcha ma'lumot olish uchun jurnal ko'rsatkichlarini tushunish bo'yicha mualliflik xizmatlari qo'llanmasini o'qing.</p>
+          <p class="mb-4">Jurnal ko'rsatkichlari o'quvchilar va o'zlarining keyingi qo'lyozmalarini nashr qilish uchun qayerga topshirishni hal qilayotgan mualliflar uchun foydali vosita bo'lishi mumkin. Biroq, har qanday o'lchov jurnalning sifati va ta'siri haqidagi ma'lumotlarning faqat bir qismini aks ettiradi. Har bir ko'rsatkichning o'z cheklovlari mavjud, ya'ni uni hech qachon alohida ko'rib chiqmaslik kerak va ko'rsatkichlar sifat tahlilini almashtirish uchun emas, balki qo'llab-quvvatlash uchun ishlatilishi kerak.</p>
+          <p class="mb-0">Jurnalning maqsadlari va qamrovi, uning o'quvchilar soni va jurnalda chop etilgan oldingi kontentni ko'rib chiqish kabi boshqa sifat omillari bilan bir qatorda har doim bir qator ko'rsatkichlardan foydalanishingizni qat'iy tavsiya qilamiz. Bundan tashqari, individual maqola har doim nashr etilgan jurnalning samaradorligiga emas, balki uning mohiyatiga qarab baholanishi kerak.</p>
         </section>
         <section>
           <h4 class="text-lg font-semibold mb-3">Jurnal ko'rsatkichlari haqida qisqacha</h4>
-          <p class="mb-0">Yuqoridagi foydalanish va qabul qilish ma'lumotlari eng so'nggi to'liq kalendar yili uchun bo'lib, har yili fevral oyida yangilanadi. Tezlik ma'lumotlari har olti oyda oldingi olti oylik ma'lumotlar asosida yangilanadi. Iqtibos stavkalari yilning o'rtalarida yangilanadi. E'tibor bering, ba'zi jurnallar quyidagi ko'rsatkichlarning barchasini ko'rsatmasligi mumkin (sababini bilib oling).</p>
+          <p class="mb-0">Yuqoridagi foydalanish va qabul qilish ma'lumotlari eng so'nggi to'liq kalendar yili uchun va har yili fevral oyida yangilanadi. Tezlik ma'lumotlari har olti oyda oldingi olti oylik ma'lumotlar asosida yangilanadi. Iqtibos stavkalari har yili yilning o'rtalarida yangilanadi. E'tibor bering, ba'zi jurnallar quyidagi ko'rsatkichlarning hammasini ko'rsatmaydi (sababini bilib oling).</p>
         </section>
         ''',
         'content_ru': '''
@@ -1165,7 +1239,7 @@ PAGES_DATA = {
     },
     'aims_scope': {
         'title': 'Aims and Scope',
-        'title_uz': 'Maqsad va vazifalar',
+        'title_uz': 'Maqsadlari va qamrovi',
         'title_ru': 'Цели и задачи',
         'content': '''
         <section class="mb-8">
@@ -1186,19 +1260,28 @@ PAGES_DATA = {
         ''',
         'content_uz': '''
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Maqsad va qamrov</h4>
-          <p class="mb-0">Jurnal filologiya va tilshunoslik sohasidagi nazariy va amaliy tadqiqotlarni yoritishga, zamonaviy ilmiy yondashuvlarni targ'ib etishga qaratilgan.</p>
+          <h4 class="text-lg font-semibold mb-3">Maqsadlari va qamrovi</h4>
+          <p class="mb-4">“Filologiya masalalari” elektron ilmiy-metodik jurnal bo'lib, filologiya (10.00.00) va pedagogika (13.00.00) fanlari chorrahasida bilim, nazariya yoki metodologiyani ilgari suruvchi dunyo bo'ylab olib boriluvchi tadqiqot natijalarini qo'llab-quvvatlaydi.</p>
+          <p class="mb-4">Jurnal globallashgan dunyoda birinchi (ona tili), ikkinchi va chet tillarni o'rganish, o'rgatish va egallashda pedagogik masalalar bilan bir qatorda til va boshqa filologik muammolarning roli bilan bog'liq.</p>
+          <p class="mb-0">Jurnalda e'lon qilinuvchi tadqiqotlar ilmiy jamoatchilikka o'z tadqiqotlarining asl natijalarini e'lon qilish, filologiya va pedagogika fanlarining istiqbolli va dolzarb yo'nalishlariga e'tiborni jalb qilish, O'zbekiston va xorijiy filologlar o'rtasida ilmiy almashinuv va hamkorlikni rivojlantirish, O'zbekiston hamda xalqaro ilmiy hamjamiyat uchun dolzarb bo'lgan ilmiy tadqiqotlar natijalari va filologiya fanlarini rivojlantirish bo'yicha konstruktiv g'oyalarni, shuningdek, ularni o'qitishning innovasion uslublarini taqdim etish, kitobxonlarni filologiya tadqiqoti sohasidagi O'zbekiston, MDH mamlakatlari va uzoq xorijda ishlab chiqilgan eng so'nggi yo'nalishlar, nazariyalar hamda ularning amaliy qo'llanilishi bilan tanishtirish, til, madaniyat, bilish va muloqotning o'zaro ta'sirini ochib beruvchi fanlararo xarakterdagi keng ko'lamli dolzarb filologik va pedagogik muammolar bo'yicha original ilmiy tadqiqotlar natijalarini nashr etish bilan shug'ullanadi.</p>
+        </section>
+        <section class="mb-8">
+          <p class="mb-4">“Filologiya masalalari” til ta'limining har qanday jihatini o'rganish uchun filologiya va pedagogikaning barcha an'analaridan nazariyalar va metodologiyalarni o'zida mujassam etgan tadqiqotlarni rag'batlantiradi.</p>
+          <p class="mb-0">Filologiya va pedagogika chorrahasida o'rganiladigan yo'nalishlar qatoriga, lekin ular bilan cheklanmagan holda quyidagilar kiradi: tilshunoslik, adabiyotshunoslik, tarjimashunoslik, jurnalistika, metodika, pedagogika va psixologiya.</p>
+        </section>
+        <section class="mb-8">
+          <p class="mb-4">“Filologiya masalalari” asl tadqiqotlarga yo'naltirilgan jurnaldir. Maqolalar ta'limga amaliy va siyosiy ta'sir ko'rsatishi mumkin, ammo ular kuchli tadqiqotlarga asoslangan bo'lishi, tahlillari va muhokamalarida kuchli konseptual asosga ega bo'lishi kerak.</p>
+          <p class="mb-0">Jurnal sifatli, miqdoriy yoki aralash metodik paradigmalarning prinsipial qo'llanilishini aks ettiruvchi intizomiy va fanlararo tadqiqot an'analariga asoslangan filologiya hamda tegishli mutaxassisliklarning turli yo'nalishlarini qamrab oluvchi eksperimental tadqiqotlar, sharhlovchi maqolalar, amaliy hisobotlar va tadqiqot loyihalarini, jumladan amaliy tadqiqotlar, etnografik sohaga oid izlanishlar, eksperimental/yarim eksperimental tadqiqotlarni qabul qiladi. Maqolalar xalqaro o'quvchilar ommasiga mos bo'lishi kerak.</p>
+        </section>
+        <section class="mb-8">
+          <p class="mb-0">Filologiya va pedagogika fanlarining barcha jihatlariga oid maqolalar mamlakat, jamiyat yoki ta'lim olib borilayotgan hamda dunyoning barcha tillarida bo'lishi mumkin. Bunga ona va ikkinchi tillarni o'rgatish, immersion ta'lim bilan bog'liq masalalar, mazmunli til o'rgatish, ikki tillilik/ko'p tillilik va o'rganish muhitlari kiradi. Biroq til va ta'lim kompetensiyasi xorijiy tillardagi zamonaviy ta'limga (ya'ni, zamonaviy chet tillari yoki chet tili sifatidagi ingliz tili) taalluqli emas.</p>
+        </section>
+        <section class="mb-8">
+          <h4 class="text-lg font-semibold mb-3">Ikki tomonlama yopiq taqriz siyosati</h4>
+          <p class="mb-0">Ushbu jurnaldagi barcha tadqiqot maqolalari dastlabki tahririyat tekshiruvi va ikki tomonlama yopiq taqriz jarayoni asosida jiddiy ekspertizadan o'tkaziladi.</p>
         </section>
         <section>
-          <h4 class="text-lg font-semibold mb-3">Asosiy yo'nalishlar</h4>
-          <ul class="list-disc list-inside space-y-1">
-            <li>Umumiy va qiyosiy tilshunoslik</li>
-            <li>Amaliy tilshunoslik, tarjimashunoslik</li>
-            <li>Adabiyotshunoslik va matn tahlili</li>
-            <li>Diskurs va pragmatika tadqiqotlari</li>
-            <li>Til o'qitish metodikasi</li>
-            <li>Korpus va raqamli lingvistika</li>
-          </ul>
+          <p class="mb-0">Maqolangizni qanday yuborishni bilish uchun <a href="/page/author_instructions" class="text-fmmain hover:underline">mualliflar uchun ko'rsatmalar</a>ni o'qing.</p>
         </section>
         ''',
         'content_ru': '''

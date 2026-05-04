@@ -18,22 +18,28 @@ from add_all_classifications import seed_classifications
 
 ISSUE_CATEGORIES = [
     {
-        'alias': 'phd',
-        'name': 'PhD Series',
-        'name_uz': 'PhD Seriyasi',
-        'name_ru': 'Серия для докторантуры',
+        'alias': 'masters',
+        'name': "Series: Master's",
+        'name_uz': 'Seriya: Magistratura',
+        'name_ru': 'Серия: Магистратура',
     },
     {
-        'alias': 'masters',
-        'name': 'Masters Series',
-        'name_uz': 'Magistratura seriyasi',
-        'name_ru': 'Серия магистратуры',
+        'alias': 'phd',
+        'name': 'Series: Doctoral',
+        'name_uz': 'Seriya: Doktorantura',
+        'name_ru': 'Серия: Докторантура',
+    },
+    {
+        'alias': 'teacher',
+        'name': 'Series: Professors & Teachers',
+        'name_uz': "Seriya: Professor-o'qituvchilar",
+        'name_ru': 'Серия: Профессора-преподаватели',
     },
     {
         'alias': 'special',
-        'name': 'Special Issues',
-        'name_uz': 'Maxsus sonlar',
-        'name_ru': 'Специальные выпуски',
+        'name': 'Special Issue',
+        'name_uz': 'Maxsus son',
+        'name_ru': 'Специальный выпуск',
     },
 ]
 

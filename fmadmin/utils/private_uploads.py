@@ -2,7 +2,10 @@ import os
 
 from flask import url_for
 
-import settings
+try:
+    import fmadmin.settings as settings
+except ImportError:
+    import settings
 
 
 PRIVATE_UPLOAD_PREFIX = 'private://'

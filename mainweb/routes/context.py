@@ -3,7 +3,10 @@ from extensions import dbc
 from modules.translate import t
 from flask import session
 from utils.notifications import apply_localized_notification_content, dashboard_notification_access_clause
-import settings
+try:
+    import mainweb.settings as settings
+except ImportError:
+    import settings
 
 
 def register_context_processors(app):

@@ -2,32 +2,12 @@
 
 {% block content %}
 <style>
-    #blockModal .ck.ck-editor {
+    #blockModal .cke {
         width: 100%;
     }
 
-    #blockModal .ck-editor__editable_inline {
+    #blockModal .cke_contents {
         min-height: 380px;
-        max-height: 62vh;
-        font-family: "Times New Roman", Georgia, serif;
-        font-size: 16px;
-        line-height: 1.75;
-    }
-
-    #blockModal .ck-content p {
-        margin: 0 0 1em;
-    }
-
-    #blockModal .ck-content h1,
-    #blockModal .ck-content h2,
-    #blockModal .ck-content h3,
-    #blockModal .ck-content h4 {
-        margin: 1.2em 0 0.6em;
-    }
-
-    #blockModal .ck-content ul,
-    #blockModal .ck-content ol {
-        margin: 0 0 1em 1.2em;
     }
 </style>
 <div class="page-header d-print-none mb-4">
@@ -197,7 +177,7 @@
                                 {{ t("admin_btn_insert_ref") }}
                             </button>
                         </div>
-                        <textarea class="form-control" id="block-text" name="block_text" rows="10"></textarea>
+                        <textarea class="form-control ckeditor-word" id="block-text" name="block_text" rows="10" data-editor-height="380"></textarea>
                     </div>
                     <div class="mb-3 block-field block-image" style="display:none;">
                         <label for="block-image" class="form-label">{{ t("admin_label_image") }}</label>
@@ -619,7 +599,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
 <script>
     // Получаем данные из template
     const articleId = parseInt('{{ article_id }}');
@@ -627,6 +606,86 @@
 
     let contentList = contentListData;
     let ckeditorInstance = null;
+    const blockModalElement = document.getElementById('blockModal');
+
+    function ensureBlockEditorInstance() {
+        const textarea = document.getElementById('block-text');
+        if (!textarea || !window.CKEDITOR || typeof window.CKEDITOR.replace !== 'function') {
+            return null;
+        }
+
+        if (!textarea.id) {
+            textarea.id = 'block-text';
+        }
+
+        if (window.CKEDITOR.instances && window.CKEDITOR.instances[textarea.id]) {
+            ckeditorInstance = window.CKEDITOR.instances[textarea.id];
+            return ckeditorInstance;
+        }
+
+        const modal = textarea.closest('.modal');
+        if (modal && !modal.classList.contains('show')) {
+            return null;
+        }
+
+        const requestedHeight = Number.parseInt(textarea.dataset.editorHeight || '', 10);
+        const editorHeight = Number.isFinite(requestedHeight) && requestedHeight > 0 ? requestedHeight : 380;
+
+        ckeditorInstance = window.CKEDITOR.replace(textarea.id, {
+            customConfig: '',
+            height: editorHeight,
+            allowedContent: true,
+            removePlugins: 'elementspath',
+            resize_enabled: true,
+            resize_dir: 'vertical',
+            toolbar: [
+                { name: 'clipboard', items: ['Undo', 'Redo'] },
+                { name: 'styles', items: ['Format', 'Font', 'FontSize'] },
+                { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strike', 'RemoveFormat'] },
+                { name: 'colors', items: ['TextColor', 'BGColor'] },
+                { name: 'paragraph', items: ['NumberedList', 'BulletedList', 'Outdent', 'Indent', 'Blockquote', 'JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock'] },
+                { name: 'links', items: ['Link', 'Unlink'] },
+                { name: 'insert', items: ['Table', 'HorizontalRule', 'SpecialChar'] },
+                { name: 'tools', items: ['Maximize'] }
+            ]
+        });
+
+        return ckeditorInstance;
+    }
+
+    function getBlockEditorInstance() {
+        if (ckeditorInstance) {
+            return ckeditorInstance;
+        }
+
+        if (window.CKEDITOR && window.CKEDITOR.instances && window.CKEDITOR.instances['block-text']) {
+            ckeditorInstance = window.CKEDITOR.instances['block-text'];
+            return ckeditorInstance;
+        }
+
+        return ensureBlockEditorInstance();
+    }
+
+    function insertReferenceToken(token) {
+        const editor = getBlockEditorInstance();
+        if (editor && typeof editor.insertText === 'function') {
+            editor.focus();
+            editor.insertText(token);
+            return;
+        }
+
+        const textarea = document.getElementById('block-text');
+        if (!textarea) {
+            return;
+        }
+        const start = textarea.selectionStart || 0;
+        const end = textarea.selectionEnd || start;
+        textarea.value = textarea.value.slice(0, start) + token + textarea.value.slice(end);
+        const cursor = start + token.length;
+        textarea.selectionStart = cursor;
+        textarea.selectionEnd = cursor;
+        textarea.focus();
+    }
 
     function normalizeReferenceData(ref) {
         const data = Object.assign({}, ref || {});
@@ -692,23 +751,16 @@
 </div>`;
     document.body.insertAdjacentHTML('beforeend', customModalHtml);
 
-    ClassicEditor.create(document.getElementById('block-text'), {
-        toolbar: [
-            'heading', '|',
-            'bold', 'italic', 'link', '|',
-            'bulletedList', 'numberedList', '|',
-            'blockQuote', 'insertTable', '|',
-            'undo', 'redo'
-        ],
-        table: {
-            contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells']
-        }
-    }).then(editor => { ckeditorInstance = editor; })
-        .catch(error => { ckeditorInstance = null; });
+    if (blockModalElement) {
+        blockModalElement.addEventListener('shown.bs.modal', function () {
+            ensureBlockEditorInstance();
+        });
+    }
 
     document.getElementById('block-form').addEventListener('submit', function () {
-        if (ckeditorInstance && document.getElementById('block-type').value === 'text') {
-            document.getElementById('block-text').value = ckeditorInstance.getData();
+        const editor = getBlockEditorInstance();
+        if (editor && document.getElementById('block-type').value === 'text') {
+            editor.updateElement();
         }
     });
 
@@ -760,8 +812,8 @@
                     el.onclick = function () {
                         const id = this.getAttribute('data-id');
                         const modal = bootstrap.Modal.getInstance(document.getElementById('customInsertModal'));
-                        if (ckeditorInstance && id) {
-                            ckeditorInstance.execute('insertText', { text: `[[${id}]]` });
+                        if (id) {
+                            insertReferenceToken(`[[${id}]]`);
                         }
                         modal.hide();
                     };
@@ -775,14 +827,16 @@
 
     document.getElementById('custom-insert-add').onclick = function () {
         const title = document.getElementById('custom-insert-title').value.trim();
-        const resource = document.getElementById('custom-insert-resource').value.trim();
+        const resourceInput = document.getElementById('custom-insert-resource');
+        const resource = resourceInput ? resourceInput.value.trim() : '';
         const authors = document.getElementById('custom-insert-authors').value.trim();
         const doi = document.getElementById('custom-insert-doi').value.trim();
         const doi_link = document.getElementById('custom-insert-doi-link').value.trim();
         const wos_link = document.getElementById('custom-insert-wos-link').value.trim();
         const scopus_link = document.getElementById('custom-insert-scopus-link').value.trim();
         const gscholar_link = document.getElementById('custom-insert-gscholar-link').value.trim();
-        const web_link = document.getElementById('custom-insert-web-link').value.trim();
+        const webLinkInput = document.getElementById('custom-insert-web-link');
+        const web_link = webLinkInput ? webLinkInput.value.trim() : '';
         const errorDiv = document.getElementById('custom-insert-add-error');
         errorDiv.style.display = 'none';
         if (!title) {
@@ -820,9 +874,7 @@
                 }
                 if (ref && ref.id) {
                     const modal = bootstrap.Modal.getInstance(document.getElementById('customInsertModal'));
-                    if (ckeditorInstance) {
-                        ckeditorInstance.execute('insertText', { text: '[[' + String(ref.id) + ']]' });
-                    }
+                    insertReferenceToken('[[' + String(ref.id) + ']]');
                     modal.hide();
                 } else {
                     errorDiv.textContent = data && data.error ? data.error : '{{ t("admin_msg_error_add") }}';
@@ -885,7 +937,9 @@
         document.getElementById('block-index').value = '';
         document.getElementById('block-type').value = 'text';
         document.getElementById('block-title').value = '';
-        if (ckeditorInstance) ckeditorInstance.setData('');
+        const editor = getBlockEditorInstance();
+        if (editor) editor.setData('');
+        else document.getElementById('block-text').value = '';
         document.getElementById('block-image').value = '';
         document.getElementById('block-image-desc').value = '';
         document.getElementById('block-table').value = '';
@@ -898,7 +952,6 @@
         if (type === 'text') document.querySelector('.block-text').style.display = '';
         if (type === 'image') document.querySelector('.block-image').style.display = '';
         if (type === 'table') document.querySelector('.block-table').style.display = '';
-        if (type === 'text' && ckeditorInstance) ckeditorInstance.resize && ckeditorInstance.resize();
     }
 
     document.getElementById('block-type').addEventListener('change', function () {
@@ -919,7 +972,11 @@
         document.getElementById('block-type').value = block.type;
         document.getElementById('block-title').value = block.title || '';
         showBlockFields(block.type);
-        if (block.type === 'text' && ckeditorInstance) ckeditorInstance.setData(block.text || '');
+        if (block.type === 'text') {
+            const editor = getBlockEditorInstance();
+            if (editor) editor.setData(block.text || '');
+            else document.getElementById('block-text').value = block.text || '';
+        }
         if (block.type === 'image') {
             document.getElementById('block-image-desc').value = block.image_desc || '';
             if (block.image) document.getElementById('block-image-preview').innerHTML = `<img src='${block.image}' style='max-width:100%;max-height:200px;'>`;

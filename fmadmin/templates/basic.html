@@ -386,19 +386,156 @@
   <!-- Author Utilities -->
   {% include 'components/author_utils.html' %}
 
-  <script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+  <script>
+    // CKEditor 4.23+ LTS requires a paid license key. Use OSS 4.22.1 with CDN fallback sources.
+    window.__fmadminWordEditorReady = (function () {
+      const ckeditorSources = [
+        {
+          src: 'https://cdn.ckeditor.com/4.22.1/full-all/ckeditor.js',
+          basePath: 'https://cdn.ckeditor.com/4.22.1/full-all/'
+        },
+        {
+          src: 'https://cdnjs.cloudflare.com/ajax/libs/ckeditor/4.22.1/ckeditor.js',
+          basePath: 'https://cdnjs.cloudflare.com/ajax/libs/ckeditor/4.22.1/'
+        },
+        {
+          src: 'https://cdn.jsdelivr.net/npm/ckeditor4@4.22.1/ckeditor.js',
+          basePath: 'https://cdn.jsdelivr.net/npm/ckeditor4@4.22.1/'
+        }
+      ];
+
+      function loadCkeditorAt(index) {
+        if (window.CKEDITOR && typeof window.CKEDITOR.replace === 'function') {
+          return Promise.resolve(window.CKEDITOR);
+        }
+
+        if (index >= ckeditorSources.length) {
+          return Promise.reject(new Error('CKEditor script could not be loaded.'));
+        }
+
+        const candidate = ckeditorSources[index];
+        window.CKEDITOR_BASEPATH = candidate.basePath;
+
+        return new Promise(function (resolve, reject) {
+          const script = document.createElement('script');
+          script.src = candidate.src;
+          script.async = true;
+          script.onload = function () {
+            if (window.CKEDITOR && typeof window.CKEDITOR.replace === 'function') {
+              resolve(window.CKEDITOR);
+              return;
+            }
+            reject(new Error('CKEditor loaded without replace() API.'));
+          };
+          script.onerror = function () {
+            reject(new Error('Failed to load CKEditor from: ' + candidate.src));
+          };
+          document.head.appendChild(script);
+        }).catch(function () {
+          return loadCkeditorAt(index + 1);
+        });
+      }
+
+      return loadCkeditorAt(0);
+    })();
+  </script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
-      document.querySelectorAll('textarea.ckeditor').forEach(function (textarea) {
-        ClassicEditor.create(textarea, {
-          ckfinder: {
-            uploadUrl: '/fmadmin/api/upload_image',
-            headers: {
-              'X-CSRF-Token': window.csrfToken
-            }
+      function initWordEditors() {
+        if (!window.CKEDITOR || typeof window.CKEDITOR.replace !== 'function') {
+          return;
+        }
+
+        let generatedId = 0;
+
+        function syncAllEditorsToTextareas() {
+          if (!window.CKEDITOR || !window.CKEDITOR.instances) {
+            return;
           }
-        }).catch(error => { });
-      });
+          Object.keys(window.CKEDITOR.instances).forEach(function (instanceKey) {
+            const instance = window.CKEDITOR.instances[instanceKey];
+            if (instance && typeof instance.updateElement === 'function') {
+              instance.updateElement();
+            }
+          });
+        }
+
+        function bindFormSync(form) {
+          if (!form || form.dataset.ckeditorSyncBound === '1') {
+            return;
+          }
+          form.dataset.ckeditorSyncBound = '1';
+          form.addEventListener('submit', syncAllEditorsToTextareas);
+        }
+
+        function isInsideHiddenModal(textarea) {
+          const modal = textarea.closest('.modal');
+          return Boolean(modal && !modal.classList.contains('show'));
+        }
+
+        function initWordEditor(textarea) {
+          if (!textarea) {
+            return;
+          }
+
+          if (!textarea.id) {
+            generatedId += 1;
+            textarea.id = 'fm-word-editor-' + generatedId;
+          }
+
+          if (window.CKEDITOR.instances[textarea.id]) {
+            bindFormSync(textarea.form);
+            return;
+          }
+
+          if (isInsideHiddenModal(textarea)) {
+            return;
+          }
+
+          const requestedHeight = Number.parseInt(textarea.dataset.editorHeight || '', 10);
+          const editorHeight = Number.isFinite(requestedHeight) && requestedHeight > 0 ? requestedHeight : 260;
+
+          window.CKEDITOR.replace(textarea.id, {
+            customConfig: '',
+            height: editorHeight,
+            allowedContent: true,
+            removePlugins: 'elementspath',
+            resize_enabled: true,
+            resize_dir: 'vertical',
+            toolbar: [
+              { name: 'clipboard', items: ['Undo', 'Redo'] },
+              { name: 'styles', items: ['Format', 'Font', 'FontSize'] },
+              { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strike', 'RemoveFormat'] },
+              { name: 'colors', items: ['TextColor', 'BGColor'] },
+              { name: 'paragraph', items: ['NumberedList', 'BulletedList', 'Outdent', 'Indent', 'Blockquote', 'JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock'] },
+              { name: 'links', items: ['Link', 'Unlink'] },
+              { name: 'insert', items: ['Table', 'HorizontalRule', 'SpecialChar'] },
+              { name: 'tools', items: ['Maximize'] }
+            ]
+          });
+
+          bindFormSync(textarea.form);
+        }
+
+        document.querySelectorAll('textarea.ckeditor-word').forEach(initWordEditor);
+
+        document.querySelectorAll('.modal').forEach(function (modal) {
+          modal.addEventListener('shown.bs.modal', function () {
+            modal.querySelectorAll('textarea.ckeditor-word').forEach(initWordEditor);
+          });
+        });
+      }
+
+      if (window.__fmadminWordEditorReady && typeof window.__fmadminWordEditorReady.then === 'function') {
+        window.__fmadminWordEditorReady
+          .then(initWordEditors)
+          .catch(function () {
+            console.warn('CKEditor could not be initialized from configured CDNs.');
+          });
+        return;
+      }
+
+      initWordEditors();
     });
   </script>
 

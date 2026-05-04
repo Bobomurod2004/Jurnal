@@ -3,7 +3,10 @@ import os
 import re
 import time
 from urllib.parse import urlparse
-import settings
+try:
+    import mainweb.settings as settings
+except ImportError:
+    import settings
 from flask import render_template, session, request, jsonify, flash, redirect, url_for, current_app, send_file, abort
 from extensions import dbc
 from modules.translate import t, translate

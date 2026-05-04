@@ -4,7 +4,10 @@ from datetime import timedelta
 from flask import Flask, jsonify
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash
-import settings
+try:
+    import fmadmin.settings as settings
+except ImportError:
+    import settings
 from extensions import db
 from modules.translate import init_translations
 from hooks import register as register_hooks

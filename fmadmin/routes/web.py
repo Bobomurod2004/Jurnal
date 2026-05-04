@@ -14,7 +14,10 @@ from flask import Blueprint, send_from_directory, render_template, request, json
 from werkzeug.utils import secure_filename
 from modules.translate import t, translate
 from extensions import db
-import settings
+try:
+    import fmadmin.settings as settings
+except ImportError:
+    import settings
 from services.emailer import send_notification_email
 from utils.notifications import (
     apply_localized_notification_content,
@@ -39,6 +42,12 @@ from utils.roles import (
     user_has_role,
 )
 from services.stats import get_dashboard_snapshot
+from shared.publication_metadata import (
+    PUBLICATION_METADATA_COLUMN_TYPES,
+    normalize_publication_metadata_key,
+    publication_metadata_field_labels,
+    publication_metadata_options,
+)
 
 bp = Blueprint('fmadmin_web', __name__)
 logger = logging.getLogger(__name__)
@@ -91,6 +100,7 @@ EDITOR_ASSIGNMENT_EXTRA_COLUMN_TYPES = {
     'admin_decided_by': 'integer',
     'admin_decided_at': 'bigint'
 }
+PUBLICATION_EXTRA_COLUMN_TYPES = dict(PUBLICATION_METADATA_COLUMN_TYPES)
 
 EDITOR_ASSIGNMENT_STATUS_VALUES = {'pending', 'in_review', 'reviewed', 'rejected'}
 EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES = {'pending', 'in_review'}
@@ -2517,6 +2527,34 @@ def _ensure_editor_assignment_columns():
         except Exception:
             pass
 
+
+def _ensure_publication_metadata_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
+    try:
+        existing_columns = set(db.columns.get('publications', []))
+        if not existing_columns:
+            return
+
+        missing_columns = [name for name in PUBLICATION_EXTRA_COLUMN_TYPES.keys() if name not in existing_columns]
+        if not missing_columns:
+            return
+
+        cursor = db.conn.cursor()
+        for column_name in missing_columns:
+            column_type = PUBLICATION_EXTRA_COLUMN_TYPES[column_name]
+            cursor.execute(f"ALTER TABLE publications ADD COLUMN IF NOT EXISTS {column_name} {column_type};")
+        db.conn.commit()
+        cursor.close()
+        db._init_tables()
+        db._init_columns()
+    except Exception as e:
+        logger.warning("Publications metadata columns sync warning: %s", e)
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+
 def _ensure_role_notifications_table():
     if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
         return
@@ -2723,6 +2761,7 @@ def run_runtime_schema_syncs():
     _ensure_submission_columns()
     _ensure_user_columns()
     _ensure_editor_assignment_columns()
+    _ensure_publication_metadata_columns()
     _ensure_role_notifications_table()
     _ensure_editorial_members_table()
     _ensure_email_templates_table()
@@ -4937,7 +4976,11 @@ def issue_edit(issue_id):
             return redirect(url_for('issue_edit', issue_id=issue_id_new))
         else:
             data = request.json if request.is_json else request.form
-            created_at = parse_date(data.get('created_at'), with_time=True)
+            created_at_raw = data.get('created_at')
+            created_at = (
+                parse_date(created_at_raw, with_time=True)
+                or parse_date(created_at_raw, with_time=False)
+            )
             update_data = dict(
                 title=data.get('title'),
                 title_uz=data.get('title_uz'),
@@ -4954,8 +4997,9 @@ def issue_edit(issue_id):
                 price_ru=data.get('price_ru'),
                 subscription_enable=bool(data.get('subscription_enable')),
                 is_paid=bool(data.get('is_paid')),
-                created_at=created_at
             )
+            if created_at is not None:
+                update_data['created_at'] = created_at
             if cover_image:
                 update_data['cover_image'] = cover_image
             else:
@@ -4991,7 +5035,10 @@ def issue_edit(issue_id):
             return 'Выпуск не найден', 404
         issue = issue[0]
 
+    admin_lang = _admin_language()
     issue_categories = db.fix_issue_categories.get().exec()
+    for category in issue_categories:
+        category['name_display'] = _localized_content_field(category, 'name', admin_lang)
     return render_template('website/issues/edit.html', issue=issue, issue_categories = issue_categories)
 
 
@@ -5083,6 +5130,14 @@ def articles():
 @bp.route('/fmadmin/website/articles/<int:article_id>', methods=['GET', 'POST'])
 @is_superadmin_required
 def article_edit(article_id):
+    _ensure_publication_metadata_columns()
+    admin_lang = _admin_language()
+    metadata_labels = publication_metadata_field_labels(admin_lang)
+    author_position_options = publication_metadata_options('author_position_key', admin_lang)
+    academic_title_options = publication_metadata_options('academic_title_key', admin_lang)
+    academic_degree_options = publication_metadata_options('academic_degree_key', admin_lang)
+    series_options = publication_metadata_options('series_key', admin_lang)
+
     if request.method == 'POST':        
         title = request.form.get('title')
         title_uz = request.form.get('title_uz')
@@ -5114,6 +5169,20 @@ def article_edit(article_id):
         issue_id = request.form.get('issue_id') or None
         doi = request.form.get('doi')
         doi_link = request.form.get('doi_link')
+        author_position_key = normalize_publication_metadata_key('author_position_key', request.form.get('author_position_key'))
+        academic_title_key = normalize_publication_metadata_key('academic_title_key', request.form.get('academic_title_key'))
+        academic_degree_key = normalize_publication_metadata_key('academic_degree_key', request.form.get('academic_degree_key'))
+        series_key = normalize_publication_metadata_key('series_key', request.form.get('series_key'))
+        publication_columns = set(db.columns.get('publications', []))
+        metadata_payload = {}
+        if 'author_position_key' in publication_columns:
+            metadata_payload['author_position_key'] = author_position_key
+        if 'academic_title_key' in publication_columns:
+            metadata_payload['academic_title_key'] = academic_title_key
+        if 'academic_degree_key' in publication_columns:
+            metadata_payload['academic_degree_key'] = academic_degree_key
+        if 'series_key' in publication_columns:
+            metadata_payload['series_key'] = series_key
         date_sent = parse_date(request.form.get('date_sent'), with_time=True)
         date_accept = parse_date(request.form.get('date_accept'), with_time=True)
         date_publish = parse_date(request.form.get('date_publish'), with_time=True)
@@ -5168,6 +5237,7 @@ def article_edit(article_id):
                 issue_id=issue_id,
                 doi=doi,
                 doi_link=doi_link,
+                **metadata_payload,
                 date_sent=date_sent,
                 date_accept=date_accept,
                 date_publish=date_publish,
@@ -5200,6 +5270,7 @@ def article_edit(article_id):
                 issue_id=issue_id,
                 doi=doi,
                 doi_link=doi_link,
+                **metadata_payload,
                 date_sent=date_sent,
                 date_accept=date_accept,
                 date_publish=date_publish,
@@ -5233,6 +5304,10 @@ def article_edit(article_id):
             'issue_id': None,
             'doi': '',
             'doi_link': '',
+            'author_position_key': '',
+            'academic_title_key': '',
+            'academic_degree_key': '',
+            'series_key': '',
             'date_sent': None,
             'date_accept': None,
             'date_publish': None,
@@ -5252,7 +5327,17 @@ def article_edit(article_id):
         article = article[0]
     authors = db.author_profile.all().exec()
     issues = db.issues.all().exec()
-    return render_template('website/articles/edit.html', article=article, authors=authors, issues=issues)
+    return render_template(
+        'website/articles/edit.html',
+        article=article,
+        authors=authors,
+        issues=issues,
+        metadata_labels=metadata_labels,
+        author_position_options=author_position_options,
+        academic_title_options=academic_title_options,
+        academic_degree_options=academic_degree_options,
+        series_options=series_options,
+    )
 
 @bp.route('/fmadmin/website/articles/<int:article_id>/content', methods=['GET', 'POST'])
 @is_superadmin_required

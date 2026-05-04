@@ -6,7 +6,10 @@ from urllib.parse import urljoin
 
 from flask import current_app
 
-import settings
+try:
+    import mainweb.settings as settings
+except ImportError:
+    import settings
 
 logger = logging.getLogger(__name__)
 
