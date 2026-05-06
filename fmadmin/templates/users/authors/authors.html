@@ -77,6 +77,7 @@
         <tr>
           <th>{{ t("admin_label_orcid") }}</th>
           <th>{{ t("admin_authors_col_name") }}</th>
+          <th>{{ t("admin_users_country") }}</th>
           <th>{{ t("admin_authors_linked_user") }}</th>
           <th class="text-center">{{ t("admin_authors_as_main") }}</th>
           <th class="text-center">{{ t("admin_authors_as_co") }}</th>
@@ -86,10 +87,18 @@
       <tbody>
         {% for author in authors %}
         <tr>
-          <td class="align-middle">{{ author.orcid }}</td>
-          <td class="align-middle">{{ author.name }}</td>
+          <td class="align-middle">{{ author.orcid or '—' }}</td>
           <td class="align-middle">
-            {% if author.user_id and users_map[author.user_id] %}
+            {{ author.name }}
+            {% if author.id in duplicate_author_ids %}
+            <span class="badge bg-warning text-dark ms-1" title="{{ t('admin_authors_duplicate_badge_title') }}">
+              <i class="ti ti-copy"></i>
+            </span>
+            {% endif %}
+          </td>
+          <td class="align-middle text-muted small">{{ author.address_country or '—' }}</td>
+          <td class="align-middle">
+            {% if author.user_id and users_map.get(author.user_id) %}
             {{ users_map[author.user_id].name }} {{ users_map[author.user_id].second_name }} ({{
             users_map[author.user_id].email }})
             {% else %}
@@ -144,7 +153,6 @@
 <script>
   function quickSearchAuthor() {
     window.openAuthorSearchModal('quick_search', function (author) {
-      // Redirect to author edit page
       window.location.href = '/fmadmin/users/authors/' + author.id;
     });
   }

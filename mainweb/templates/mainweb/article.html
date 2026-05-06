@@ -1,4 +1,5 @@
 {% extends 'basic.html' %}
+{% from 'components/author_tooltip_macros.html' import render_author, render_author_list %}
 
 {% block title %}{{ publication.title }} - {{ t('website_title') }}{% endblock %}
 
@@ -191,6 +192,24 @@
     font-size: 0.75rem;
 }
 
+.article-meta-pill-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.article-meta-pill-open {
+    border-color: #86efac;
+    background: #ecfdf5;
+    color: #166534;
+}
+
+.article-meta-pill-closed {
+    border-color: #fcd34d;
+    background: #fffbeb;
+    color: #92400e;
+}
+
 .article-action-row {
     display: flex;
     flex-wrap: wrap;
@@ -281,6 +300,10 @@
                             <div class="text-sm text-gray-600 mb-2">
                                 <span class="font-medium">{{ t('website_title') }}</span>
                                 ·
+                                {% if publication.series_display %}
+                                    <span class="font-medium text-gray-700">{{ publication.series_display }}</span>
+                                    ·
+                                {% endif %}
                                 <a href="{{ url_for('app__issue', issue_id=issue.id) if issue else url_for('app__issues') }}" class="text-blue-700 hover:text-blue-900">
                                     {% if t('volume') == 'Jild' and t('issue') == 'Son' %}
                                         {{ issue.vol_no if issue else '-' }}-{{ t('volume') }}, {{ issue.issue_no if issue else '-' }}-{{ t('issue')|lower }}
@@ -302,16 +325,14 @@
                                     {% if main_author %}
                                         <div class="article-author-row">
                                             <span class="article-author-label">{{ main_author_label }}:</span>
-                                            <span class="article-author-name">{{ main_author.name }}</span>
+                                            {{ render_author(main_author, author_tooltip_ui, 'article-author-name') }}
                                         </div>
                                     {% endif %}
                                     {% if co_authors %}
                                         <div class="article-author-row">
                                             <span class="article-author-label">{{ co_authors_label }}:</span>
                                             <div>
-                                                {% for author in co_authors %}
-                                                    {% if not loop.first %}, {% endif %}<span class="article-author-name">{{ author.name }}</span>
-                                                {% endfor %}
+                                                {{ render_author_list(co_authors, author_tooltip_ui, 'article-author-name') }}
                                             </div>
                                         </div>
                                     {% endif %}
@@ -332,6 +353,9 @@
                                 {% if publication.date_publish %}
                                     <span class="article-meta-pill">{{ t('published_online') }}: {{ publication.date_publish|timestamp_to_date }}</span>
                                 {% endif %}
+                                {% if publication.page_range %}
+                                    <span class="article-meta-pill">{{ t('pages') }}: {{ publication.page_range }}</span>
+                                {% endif %}
                                 {% if publication.author_position_display %}
                                     <span class="article-meta-pill">{{ metadata_labels.author_position_key }}: {{ publication.author_position_display }}</span>
                                 {% endif %}
@@ -341,10 +365,17 @@
                                 {% if publication.academic_degree_display %}
                                     <span class="article-meta-pill">{{ metadata_labels.academic_degree_key }}: {{ publication.academic_degree_display }}</span>
                                 {% endif %}
-                                {% if publication.series_display %}
-                                    <span class="article-meta-pill">{{ metadata_labels.series_key }}: {{ publication.series_display }}</span>
+                                {% if not publication.is_paid %}
+                                    <span class="article-meta-pill article-meta-pill-status article-meta-pill-open">
+                                        <iconify-icon icon="tabler:lock-open"></iconify-icon>
+                                        {{ t('open_access') }}
+                                    </span>
+                                {% else %}
+                                    <span class="article-meta-pill article-meta-pill-status article-meta-pill-closed">
+                                        <iconify-icon icon="tabler:lock"></iconify-icon>
+                                        {{ t('closed_access') }}
+                                    </span>
                                 {% endif %}
-                                <span class="article-meta-pill">{{ t('open_access') if not publication.is_paid else t('closed_access') }}</span>
                             </div>
 
                             <div class="article-action-row">
@@ -358,11 +389,14 @@
                                 </a>
                                 {% if publication.doi and publication.doi_link %}
                                     <a href="{{ publication.doi_link }}" target="_blank" rel="noopener noreferrer" class="article-action-link">
-                                        <iconify-icon icon="tabler:arrow-up-right"></iconify-icon>
+                                        <img src="{{ url_for('static', filename='doi-logo.png') }}" alt="DOI" style="width:16px;height:16px;border-radius:4px;">
                                         <span>{{ t('doi_label') }}: {{ publication.doi }}</span>
                                     </a>
                                 {% elif publication.doi %}
-                                    <span class="article-action-link">{{ t('doi_label') }}: {{ publication.doi }}</span>
+                                    <span class="article-action-link">
+                                        <img src="{{ url_for('static', filename='doi-logo.png') }}" alt="DOI" style="width:16px;height:16px;border-radius:4px;">
+                                        <span>{{ t('doi_label') }}: {{ publication.doi }}</span>
+                                    </span>
                                 {% endif %}
                             </div>
                         </div>
@@ -403,7 +437,7 @@
                 {% if has_access %}
                     {% if publication.file_ids %}
                     <div class="mb-8" id="download">
-                        <a href="{{ url_for('app__download_article', article_id=publication.id) }}" class="inline-flex items-center px-4 py-2 bg-fmmain text-white rounded-md hover:bg-fmmain-dark transition-colors">
+                        <a href="{{ url_for('app__download_article', article_id=publication.id) }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-4 py-2 bg-fmmain text-white rounded-md hover:bg-fmmain-dark transition-colors">
                             <iconify-icon icon="tabler:download" class="me-2"></iconify-icon>
                             {{ t('download_full_article') }}
                         </a>

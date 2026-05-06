@@ -101,6 +101,9 @@
                 {% endif %}
                 {{ author_links|join(', ') }}
               </div>
+              {% if article.page_range %}
+              <div class="text-muted small">Maqola betlari: {{ article.page_range }}</div>
+              {% endif %}
             </div>
           </td>
           <td class="align-middle">

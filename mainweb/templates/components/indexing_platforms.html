@@ -1,0 +1,92 @@
+<!-- ============================================================
+     INDEXING & PARTNER PLATFORMS — Animated Marquee
+     ============================================================ -->
+<section class="indexing-section py-3" aria-label="Indexing platforms">
+    <div class="indexing-track-wrap">
+        <!-- Track is duplicated for seamless infinite loop -->
+        <div class="indexing-track" id="indexing-track">
+
+            <a href="https://oak.uz/userfiles/files/Perechen-2019.pdf#page=83" target="_blank" rel="noopener noreferrer" class="indexing-platform-card">
+                <div class="indexing-platform-icon" style="background:transparent;">
+                    <img src="{{ url_for('static', filename='commission.png') }}" alt="OAK / Commission" class="h-8 w-auto">
+                </div>
+                <div>
+                    <div class="indexing-platform-name">{{ t('indexing_oak_name') if t('indexing_oak_name') != 'indexing_oak_name' else 'OAK / Commission' }}</div>
+                    <div class="indexing-platform-type">{{ t('indexing_partner_official') if t('indexing_partner_official') != 'indexing_partner_official' else 'Official partner' }}</div>
+                </div>
+            </a>
+
+            <div class="indexing-platform-card">
+                <div class="indexing-platform-icon" style="background:transparent;">
+                    <img src="{{ url_for('static', filename='gs.png') }}" alt="Google Scholar" class="h-8 w-auto">
+                </div>
+                <div>
+                    <div class="indexing-platform-name">Google Scholar</div>
+                    <div class="indexing-platform-type">{{ t('indexing_discovery') if t('indexing_discovery') != 'indexing_discovery' else 'Discovery' }}</div>
+                </div>
+            </div>
+
+            <div class="indexing-platform-card">
+                <div class="indexing-platform-icon" style="background:transparent;">
+                    <img src="{{ url_for('static', filename='crossref.png') }}" alt="Crossref" class="h-8 w-auto">
+                </div>
+                <div>
+                    <div class="indexing-platform-name">CrossRef</div>
+                    <div class="indexing-platform-type">{{ t('indexing_doi_registry') if t('indexing_doi_registry') != 'indexing_doi_registry' else 'DOI registry' }}</div>
+                </div>
+            </div>
+
+            <div class="indexing-platform-card">
+                <div class="indexing-platform-icon" style="background:transparent;">
+                    <img src="{{ url_for('static', filename='doi.png') }}" alt="DOI" class="h-8 w-auto">
+                </div>
+                <div>
+                    <div class="indexing-platform-name">DOI</div>
+                    <div class="indexing-platform-type">{{ t('indexing_digital_identifier') if t('indexing_digital_identifier') != 'indexing_digital_identifier' else 'Digital identifier' }}</div>
+                </div>
+            </div>
+
+            <!-- Seamless loop duplicate -->
+            <a href="https://oak.uz/userfiles/files/Perechen-2019.pdf#page=83" target="_blank" rel="noopener noreferrer" class="indexing-platform-card" aria-hidden="true" tabindex="-1">
+                <div class="indexing-platform-icon" style="background:transparent;">
+                    <img src="{{ url_for('static', filename='commission.png') }}" alt="OAK / Commission" class="h-8 w-auto">
+                </div>
+                <div>
+                    <div class="indexing-platform-name">{{ t('indexing_oak_name') if t('indexing_oak_name') != 'indexing_oak_name' else 'OAK / Commission' }}</div>
+                    <div class="indexing-platform-type">{{ t('indexing_partner_official') if t('indexing_partner_official') != 'indexing_partner_official' else 'Official partner' }}</div>
+                </div>
+            </a>
+
+            <div class="indexing-platform-card" aria-hidden="true">
+                <div class="indexing-platform-icon" style="background:transparent;">
+                    <img src="{{ url_for('static', filename='gs.png') }}" alt="Google Scholar" class="h-8 w-auto">
+                </div>
+                <div>
+                    <div class="indexing-platform-name">Google Scholar</div>
+                    <div class="indexing-platform-type">{{ t('indexing_discovery') if t('indexing_discovery') != 'indexing_discovery' else 'Discovery' }}</div>
+                </div>
+            </div>
+
+            <div class="indexing-platform-card" aria-hidden="true">
+                <div class="indexing-platform-icon" style="background:transparent;">
+                    <img src="{{ url_for('static', filename='crossref.png') }}" alt="Crossref" class="h-8 w-auto">
+                </div>
+                <div>
+                    <div class="indexing-platform-name">CrossRef</div>
+                    <div class="indexing-platform-type">{{ t('indexing_doi_registry') if t('indexing_doi_registry') != 'indexing_doi_registry' else 'DOI registry' }}</div>
+                </div>
+            </div>
+
+            <div class="indexing-platform-card" aria-hidden="true">
+                <div class="indexing-platform-icon" style="background:transparent;">
+                    <img src="{{ url_for('static', filename='doi.png') }}" alt="DOI" class="h-8 w-auto">
+                </div>
+                <div>
+                    <div class="indexing-platform-name">DOI</div>
+                    <div class="indexing-platform-type">{{ t('indexing_digital_identifier') if t('indexing_digital_identifier') != 'indexing_digital_identifier' else 'Digital identifier' }}</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>

@@ -850,6 +850,7 @@ CREATE TABLE public.publications (
     abstract_ru text,
     doi text,
     doi_link text,
+    page_range text,
     author_position_key text,
     academic_title_key text,
     academic_degree_key text,

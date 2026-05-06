@@ -144,6 +144,30 @@ PUBLICATION_METADATA_CATALOG = {
             'ru': 'Доктор наук (DSc) по психологии',
             'en': 'Doctor of Sciences (DSc) in Psychology',
         },
+        {
+            'key': 'phd_language_culture',
+            'uz': "Til va madaniyat bo'yicha falsafa doktori (PhD)",
+            'ru': 'Доктор философии (PhD) по языку и культуре',
+            'en': 'Doctor of Philosophy (PhD) in Language and Culture',
+        },
+        {
+            'key': 'phd_linguistics',
+            'uz': "Lingvistika yo'nalishi bo'yicha falsafa doktori (PhD)",
+            'ru': 'Доктор философии (PhD) по лингвистике',
+            'en': 'Doctor of Philosophy (PhD) in Linguistics',
+        },
+        {
+            'key': 'phd_political_sciences',
+            'uz': "Siyosiy fanlar bo'yicha falsafa doktori (PhD)",
+            'ru': 'Доктор философии (PhD) по политическим наукам',
+            'en': 'Doctor of Philosophy (PhD) in Political Sciences',
+        },
+        {
+            'key': 'dsc_agriculture',
+            'uz': "Qishloq xo'jalik fanlari doktori (DSc)",
+            'ru': 'Доктор наук (DSc) по сельскому хозяйству',
+            'en': 'Doctor of Sciences (DSc) in Agriculture',
+        },
     ),
     'series_key': (
         {

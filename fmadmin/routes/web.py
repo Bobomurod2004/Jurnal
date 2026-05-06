@@ -101,6 +101,7 @@ EDITOR_ASSIGNMENT_EXTRA_COLUMN_TYPES = {
     'admin_decided_at': 'bigint'
 }
 PUBLICATION_EXTRA_COLUMN_TYPES = dict(PUBLICATION_METADATA_COLUMN_TYPES)
+PUBLICATION_EXTRA_COLUMN_TYPES['page_range'] = 'text'
 
 EDITOR_ASSIGNMENT_STATUS_VALUES = {'pending', 'in_review', 'reviewed', 'rejected'}
 EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES = {'pending', 'in_review'}
@@ -603,6 +604,16 @@ def _normalize_plain_article_text(raw_text):
             continue
         paragraphs.append(f"<p>{'<br>'.join(html_escape(line, quote=False) for line in lines)}</p>")
     return ''.join(paragraphs)
+
+
+def _normalize_article_page_range(value):
+    text = _clean_text(value)
+    if not text:
+        return None
+    text = text.replace('–', '-').replace('—', '-')
+    text = re.sub(r'\s*-\s*', '-', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text[:50] or None
 
 
 def _sanitize_article_block_html(raw_html):
@@ -2468,8 +2479,13 @@ def _ensure_user_columns():
         for column_name in missing_columns:
             column_type = USER_EXTRA_COLUMN_TYPES[column_name]
             cursor.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {column_name} {column_type};")
-        if 'is_hidden' in missing_columns:
-            cursor.execute("UPDATE users SET is_hidden = FALSE WHERE is_hidden IS NULL;")
+        # Keep visibility flags consistent for legacy rows where values might stay NULL.
+        cursor.execute("UPDATE users SET is_hidden = FALSE WHERE is_hidden IS NULL;")
+        cursor.execute("UPDATE users SET is_blocked = FALSE WHERE is_blocked IS NULL;")
+        cursor.execute("ALTER TABLE users ALTER COLUMN is_hidden SET DEFAULT FALSE;")
+        cursor.execute("ALTER TABLE users ALTER COLUMN is_blocked SET DEFAULT FALSE;")
+        cursor.execute("ALTER TABLE users ALTER COLUMN is_hidden SET NOT NULL;")
+        cursor.execute("ALTER TABLE users ALTER COLUMN is_blocked SET NOT NULL;")
         if 'roles' in existing_columns or 'roles' in missing_columns:
             cursor.execute(
                 "UPDATE users "
@@ -4584,83 +4600,365 @@ def authors():
         query = query.like(name=search_name)
     if search_orcid:
         if search_by_name:
-            # Поиск по полному имени в поле ORCID
             query = query.like(name=search_orcid)
         else:
-            # Обычный поиск по ORCID
             query = query.like(orcid=search_orcid)
 
-    # Получаем id авторов для фильтрации по наличию статей
-    if has_articles == 'true':
-        # Только авторы, у которых есть публикации как main_author
-        author_ids_with_articles = [p['main_author_id'] for p in db.publications.all().exec() if p['main_author_id'] is not None]
-        if author_ids_with_articles:
-            query = query.any(id=author_ids_with_articles)
+    if has_articles in ('true', 'false'):
+        cursor = db.conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT DISTINCT main_author_id FROM publications WHERE main_author_id IS NOT NULL"
+            )
+            author_ids_with_articles = [r[0] for r in cursor.fetchall()]
+        finally:
+            cursor.close()
+        if has_articles == 'true':
+            query = query.any(id=author_ids_with_articles) if author_ids_with_articles else query.any(id=[-1])
         else:
-            query = query.any(id=[-1])  # Не будет найдено
-    elif has_articles == 'false':
-        # Только авторы, у которых нет публикаций как main_author
-        author_ids_with_articles = [p['main_author_id'] for p in db.publications.all().exec() if p['main_author_id'] is not None]
-        all_author_ids = [a['id'] for a in db.author_profile.all().exec()]
-        author_ids_without_articles = list(set(all_author_ids) - set(author_ids_with_articles))
-        if author_ids_without_articles:
-            query = query.any(id=author_ids_without_articles)
-        else:
-            query = query.any(id=[-1])
+            all_author_ids = [a['id'] for a in db.author_profile.all().exec()]
+            without = list(set(all_author_ids) - set(author_ids_with_articles))
+            query = query.any(id=without) if without else query.any(id=[-1])
 
     total_authors = query.copy().count().exec()
-    authors = query.per_page(per_page).page(page).exec()
+    authors_page = query.per_page(per_page).page(page).exec()
     total_pages = (total_authors + per_page - 1) // per_page
 
-    # Для отображения количества статей как автор/соавтор
-    publications = db.publications.all().exec()
-    author_stats = {}
-    for a in authors:
-        as_main = sum(1 for p in publications if p['main_author_id'] == a['id'])
-        as_co = sum(1 for p in publications if a['id'] in (p['subauthor_ids'] or []))
-        author_stats[a['id']] = {'as_main': as_main, 'as_co': as_co}
+    # Article counts via SQL — avoids loading all publications into memory
+    author_ids_page = [a['id'] for a in authors_page]
+    author_stats = {aid: {'as_main': 0, 'as_co': 0} for aid in author_ids_page}
+    if author_ids_page:
+        cursor = db.conn.cursor()
+        try:
+            placeholders = ','.join(['%s'] * len(author_ids_page))
+            cursor.execute(
+                f"SELECT main_author_id, COUNT(*) FROM publications WHERE main_author_id IN ({placeholders}) GROUP BY main_author_id",
+                author_ids_page,
+            )
+            for aid, cnt in cursor.fetchall():
+                if aid in author_stats:
+                    author_stats[aid]['as_main'] = cnt
+            cursor.execute(
+                "SELECT aid, COUNT(*) FROM (SELECT UNNEST(subauthor_ids) AS aid FROM publications WHERE subauthor_ids IS NOT NULL) t WHERE aid = ANY(%s::int[]) GROUP BY aid",
+                (author_ids_page,),
+            )
+            for aid, cnt in cursor.fetchall():
+                if aid in author_stats:
+                    author_stats[aid]['as_co'] = cnt
+        finally:
+            cursor.close()
 
-    # Для отображения связанного пользователя
+    # Detect authors whose linked user shares email/ORCID with another user (duplicates)
+    duplicate_author_ids = set()
+    if author_ids_page:
+        cursor = db.conn.cursor()
+        try:
+            cursor.execute("""
+                SELECT ap.id
+                FROM author_profile ap
+                JOIN users u ON u.id = ap.user_id
+                WHERE ap.id = ANY(%s::int[])
+                  AND (
+                      (u.email IS NOT NULL AND TRIM(u.email) != '' AND LOWER(TRIM(u.email)) NOT LIKE '%%@orcid.local' AND EXISTS (
+                          SELECT 1
+                          FROM users u2
+                          WHERE u2.id != u.id
+                            AND LOWER(TRIM(u2.email)) = LOWER(TRIM(u.email))
+                      ))
+                      OR (
+                          regexp_replace(UPPER(TRIM(COALESCE(ap.orcid, ''))), '[^0-9X]', '', 'g') ~ '^[0-9]{15}[0-9X]$'
+                          AND EXISTS (
+                              SELECT 1
+                              FROM author_profile ap2
+                              WHERE ap2.id != ap.id
+                                AND regexp_replace(UPPER(TRIM(COALESCE(ap2.orcid, ''))), '[^0-9X]', '', 'g')
+                                    = regexp_replace(UPPER(TRIM(COALESCE(ap.orcid, ''))), '[^0-9X]', '', 'g')
+                          )
+                      )
+                      OR (
+                          regexp_replace(UPPER(TRIM(COALESCE(ap.orcid, ''))), '[^0-9X]', '', 'g') ~ '^[0-9]{15}[0-9X]$'
+                          AND EXISTS (
+                              SELECT 1 FROM information_schema.columns
+                              WHERE table_schema = 'public' AND table_name = 'users'
+                                AND column_name = 'oauth_sub'
+                          )
+                          AND EXISTS (
+                              SELECT 1
+                              FROM users u4
+                              WHERE u4.id != u.id
+                                AND LOWER(COALESCE(u4.oauth_provider, '')) = 'orcid'
+                                AND regexp_replace(UPPER(TRIM(COALESCE(u4.oauth_sub, ''))), '[^0-9X]', '', 'g')
+                                    = regexp_replace(UPPER(TRIM(COALESCE(ap.orcid, ''))), '[^0-9X]', '', 'g')
+                          )
+                      )
+                  )
+            """, (author_ids_page,))
+            duplicate_author_ids = {r[0] for r in cursor.fetchall()}
+        finally:
+            cursor.close()
+
     users_map = {u['id']: u for u in db.users.all().exec()}
 
-    return render_template('users/authors/authors.html', authors=authors, page=page, total_authors=total_authors, total_pages=total_pages,
-                           search_name=search_name, search_orcid=search_orcid, search_by_name=search_by_name, has_articles=has_articles,
-                           author_stats=author_stats, users_map=users_map)
+    return render_template(
+        'users/authors/authors.html',
+        authors=authors_page,
+        page=page,
+        total_authors=total_authors,
+        total_pages=total_pages,
+        search_name=search_name,
+        search_orcid=search_orcid,
+        search_by_name=search_by_name,
+        has_articles=has_articles,
+        author_stats=author_stats,
+        users_map=users_map,
+        duplicate_author_ids=duplicate_author_ids,
+    )
+
+
+def _find_duplicate_users_for_author(author):
+    """Return list of user dicts that share the same email or ORCID as this author's linked user."""
+    author_user_id = author.get('user_id')
+    author_orcid = _normalize_orcid_identifier(author.get('orcid'))
+    author_orcid_compact = author_orcid.replace('-', '') if author_orcid else ''
+
+    # Determine the canonical email to search for
+    lookup_email = ''
+    if author_user_id:
+        linked = db.users.all().equal(id=author_user_id).exec()
+        if linked:
+            lookup_email = _normalized_social_email(linked[0].get('email'))
+    if not lookup_email:
+        lookup_email = _normalized_social_email(author.get('email'))
+
+    if not lookup_email and not author_orcid_compact:
+        return []
+
+    cursor = db.conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT DISTINCT u.*
+            FROM users u
+            WHERE u.id != %s
+              AND (
+                  (%s != '' AND LOWER(u.email) = %s)
+                  OR (%s != '' AND EXISTS (
+                      SELECT 1 FROM author_profile ap2
+                      WHERE ap2.user_id = u.id
+                        AND regexp_replace(UPPER(TRIM(COALESCE(ap2.orcid, ''))), '[^0-9X]', '', 'g') = %s
+                        AND ap2.id != %s
+                  ))
+                  OR (%s != '' AND EXISTS (
+                      SELECT 1 FROM information_schema.columns
+                      WHERE table_schema = 'public' AND table_name = 'users'
+                        AND column_name IN ('oauth_provider', 'oauth_sub')
+                  ) AND EXISTS (
+                      SELECT 1 FROM users u3
+                      WHERE u3.id = u.id
+                        AND LOWER(COALESCE(u3.oauth_provider, '')) = 'orcid'
+                        AND regexp_replace(UPPER(TRIM(COALESCE(u3.oauth_sub, ''))), '[^0-9X]', '', 'g') = %s
+                  ))
+              )
+            ORDER BY u.id DESC
+            LIMIT 20
+        """, (
+            author_user_id or 0,
+            lookup_email, lookup_email,
+            author_orcid_compact, author_orcid_compact, author.get('id') or 0,
+            author_orcid_compact, author_orcid_compact,
+        ))
+        cols = [desc[0] for desc in cursor.description]
+        return [dict(zip(cols, row)) for row in cursor.fetchall()]
+    except Exception:
+        logger.exception("Error finding duplicate users for author %s", author.get('id'))
+        return []
+    finally:
+        cursor.close()
+
+
+def _normalized_social_email(value):
+    email = _clean_text(value).lower()
+    if not email:
+        return ''
+    if email.endswith('@orcid.local'):
+        return ''
+    # Keep validation lightweight for admin merge paths.
+    if '@' not in email:
+        return ''
+    return email
+
+
+def _normalize_orcid_identifier(value):
+    text = _clean_text(value)
+    if not text:
+        return ''
+    compact = re.sub(r'[^0-9Xx]', '', text)
+    if len(compact) == 16 and re.match(r'^\d{15}[\dXx]$', compact):
+        compact = compact.upper()
+        return f'{compact[0:4]}-{compact[4:8]}-{compact[8:12]}-{compact[12:16]}'
+    return ''
+
+
+def _table_column_exists(cursor, cache, table_name, column_name):
+    key = (table_name, column_name)
+    if key in cache:
+        return cache[key]
+    cursor.execute(
+        """
+        SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = %s
+              AND column_name = %s
+        );
+        """,
+        (table_name, column_name),
+    )
+    exists = bool(cursor.fetchone()[0])
+    cache[key] = exists
+    return exists
+
+
+def _merge_author_profile_references(cursor, column_cache, source_author_id, target_author_id):
+    if not source_author_id or not target_author_id or source_author_id == target_author_id:
+        return
+
+    for table_name in ('submissions', 'publications'):
+        if _table_column_exists(cursor, column_cache, table_name, 'main_author_id'):
+            cursor.execute(
+                f"UPDATE {table_name} SET main_author_id = %s WHERE main_author_id = %s",
+                (target_author_id, source_author_id),
+            )
+
+    array_columns = (
+        ('submissions', 'sub_author_ids'),
+        ('publications', 'subauthor_ids'),
+        ('publications', 'sub_author_ids'),
+    )
+    for table_name, column_name in array_columns:
+        if not _table_column_exists(cursor, column_cache, table_name, column_name):
+            continue
+        cursor.execute(
+            f"""
+            UPDATE {table_name}
+               SET {column_name} = array_replace({column_name}, %s, %s)
+             WHERE {column_name} IS NOT NULL
+               AND %s = ANY({column_name})
+            """,
+            (source_author_id, target_author_id, source_author_id),
+        )
+
+
+def _merge_author_profiles_for_users(cursor, column_cache, primary_user_id, secondary_user_id, now_ts):
+    if not _table_column_exists(cursor, column_cache, 'author_profile', 'user_id'):
+        return
+
+    cursor.execute("SELECT * FROM author_profile WHERE user_id = %s ORDER BY id ASC", (primary_user_id,))
+    primary_cols = [desc[0] for desc in cursor.description]
+    primary_rows = [dict(zip(primary_cols, row)) for row in cursor.fetchall()]
+
+    cursor.execute("SELECT * FROM author_profile WHERE user_id = %s ORDER BY id ASC", (secondary_user_id,))
+    secondary_cols = [desc[0] for desc in cursor.description]
+    secondary_rows = [dict(zip(secondary_cols, row)) for row in cursor.fetchall()]
+    if not secondary_rows:
+        return
+
+    canonical = primary_rows[0] if primary_rows else secondary_rows.pop(0)
+    canonical_id = _parse_int(canonical.get('id'))
+    if not canonical_id:
+        return
+
+    if _parse_int(canonical.get('user_id')) != int(primary_user_id):
+        if _table_column_exists(cursor, column_cache, 'author_profile', 'updated_at'):
+            cursor.execute(
+                "UPDATE author_profile SET user_id = %s, updated_at = %s WHERE id = %s",
+                (primary_user_id, now_ts, canonical_id),
+            )
+        else:
+            cursor.execute(
+                "UPDATE author_profile SET user_id = %s WHERE id = %s",
+                (primary_user_id, canonical_id),
+            )
+        canonical['user_id'] = primary_user_id
+
+    merge_fields = (
+        'name',
+        'organization',
+        'email',
+        'position',
+        'address_street',
+        'address_country',
+        'address_city',
+        'address_zip',
+        'phone',
+        'orcid',
+        'department',
+    )
+
+    for row in secondary_rows:
+        source_id = _parse_int(row.get('id'))
+        if not source_id:
+            continue
+
+        patch = {}
+        for field_name in merge_fields:
+            source_value = row.get(field_name)
+            source_text = _clean_text(source_value)
+            if not source_text:
+                continue
+
+            current_text = _clean_text(canonical.get(field_name))
+            if field_name == 'email':
+                source_email = _normalized_social_email(source_text)
+                current_email = _normalized_social_email(current_text)
+                if source_email and not current_email:
+                    patch[field_name] = source_email
+                continue
+            if field_name == 'orcid':
+                source_orcid = _normalize_orcid_identifier(source_text)
+                current_orcid = _normalize_orcid_identifier(current_text)
+                if source_orcid and not current_orcid:
+                    patch[field_name] = source_orcid
+                continue
+            if not current_text:
+                patch[field_name] = source_value
+
+        if patch:
+            if _table_column_exists(cursor, column_cache, 'author_profile', 'updated_at'):
+                patch['updated_at'] = now_ts
+            set_clause = ', '.join(f"{key} = %s" for key in patch)
+            args = list(patch.values()) + [canonical_id]
+            cursor.execute(f"UPDATE author_profile SET {set_clause} WHERE id = %s", args)
+            canonical.update(patch)
+
+        _merge_author_profile_references(cursor, column_cache, source_id, canonical_id)
+        cursor.execute("DELETE FROM author_profile WHERE id = %s", (source_id,))
+
 
 @bp.route('/fmadmin/users/authors/<int:author_id>', methods=['GET', 'POST'])
 @is_superadmin_required
 def author_edit(author_id):
     if request.method == 'POST':
+        data = request.form
+        address_country = data.get('address_country', '').strip()
         if author_id == 0:
-            name = request.form.get('name')
-            user_id = request.form.get('user_id') or None
-            organization = request.form.get('organization')
-            email = request.form.get('email')
-            position = request.form.get('position')
-            address_street = request.form.get('address_street')
-            address_country = request.form.get('address_country')
-            address_city = request.form.get('address_city')
-            address_zip = request.form.get('address_zip')
-            phone = request.form.get('phone')
-            orcid = request.form.get('orcid')
-            department = request.form.get('department')
-            created_at = parse_date(request.form.get('created_at'), with_time=True)
-            updated_at = parse_date(request.form.get('updated_at'), with_time=True)
+            created_at = parse_date(data.get('created_at'), with_time=True)
+            updated_at = parse_date(data.get('updated_at'), with_time=True)
             created_authors = db.author_profile.add(
-                user_id=user_id,
-                name=name,
-                organization=organization,
-                email=email,
-                position=position,
-                address_street=address_street,
+                user_id=data.get('user_id') or None,
+                name=data.get('name'),
+                organization=data.get('organization'),
+                email=data.get('email'),
+                position=data.get('position'),
+                address_street=data.get('address_street'),
                 address_country=address_country,
-                address_city=address_city,
-                address_zip=address_zip,
-                phone=phone,
-                orcid=orcid,
-                department=department,
+                address_city=data.get('address_city'),
+                address_zip=data.get('address_zip'),
+                phone=data.get('phone'),
+                orcid=data.get('orcid'),
+                department=data.get('department'),
                 created_at=created_at or int(datetime.datetime.now().timestamp()),
-                updated_at=updated_at or int(datetime.datetime.now().timestamp())
+                updated_at=updated_at or int(datetime.datetime.now().timestamp()),
             ).exec()
             created_author = created_authors[0] if created_authors else None
             if not created_author or not created_author.get('id'):
@@ -4669,7 +4967,6 @@ def author_edit(author_id):
             new_alert(_msg_text('Muallif muvaffaqiyatli yaratildi', 'Автор успешно создан', 'Author created successfully'), 'success')
             return redirect(url_for('author_edit', author_id=created_author['id']))
         else:
-            data = request.json if request.is_json else request.form
             created_at = parse_date(data.get('created_at'), with_time=True)
             updated_at = parse_date(data.get('updated_at'), with_time=True)
             db.author_profile.all().equal(id=author_id).update(
@@ -4679,49 +4976,306 @@ def author_edit(author_id):
                 email=data.get('email'),
                 position=data.get('position'),
                 address_street=data.get('address_street'),
-                address_country=data.get('address_country'),
+                address_country=address_country,
                 address_city=data.get('address_city'),
                 address_zip=data.get('address_zip'),
                 phone=data.get('phone'),
                 orcid=data.get('orcid'),
                 department=data.get('department'),
                 created_at=created_at,
-                updated_at=updated_at or int(datetime.datetime.now().timestamp())
+                updated_at=updated_at or int(datetime.datetime.now().timestamp()),
             ).exec()
             new_alert(_msg_text('Muallif muvaffaqiyatli saqlandi', 'Автор успешно сохранён', 'Author saved successfully'), 'success')
             return redirect(url_for('author_edit', author_id=author_id))
 
     if author_id == 0:
         author = {
-            'id': 0,
-            'user_id': None,
-            'name': '',
-            'organization': '',
-            'email': '',
-            'position': '',
-            'address_street': '',
-            'address_country': '',
-            'address_city': '',
-            'address_zip': '',
-            'phone': '',
-            'orcid': '',
-            'department': '',
-            'created_at': None,
-            'updated_at': None
+            'id': 0, 'user_id': None, 'name': '', 'organization': '', 'email': '',
+            'position': '', 'address_street': '', 'address_country': '', 'address_city': '',
+            'address_zip': '', 'phone': '', 'orcid': '', 'department': '',
+            'created_at': None, 'updated_at': None,
         }
     else:
         author = db.author_profile.all().equal(id=author_id).exec()
         if not author:
             return 'Автор не найден', 404
         author = author[0]
-    # Получить id всех user_id, которые уже привязаны к author_profile
+
     all_authors = db.author_profile.all().exec()
     used_user_ids = set(a['user_id'] for a in all_authors if a['user_id'])
-    # Добавить текущего пользователя, если он есть
     if author.get('user_id'):
         used_user_ids.discard(author['user_id'])
     users = [u for u in db.users.all().exec() if u['id'] not in used_user_ids or u['id'] == author.get('user_id')]
-    return render_template('users/authors/edit.html', author=author, users=users)
+    countries = db.fix_country.all().exec()
+    duplicate_users = _find_duplicate_users_for_author(author) if author_id != 0 else []
+    return render_template('users/authors/edit.html', author=author, users=users,
+                           countries=countries, duplicate_users=duplicate_users)
+
+
+@bp.route('/fmadmin/users/authors/<int:author_id>/merge', methods=['POST'])
+@is_superadmin_required
+def author_merge_users(author_id):
+    """Merge a duplicate user account into the primary user linked to this author."""
+    primary_user_id = request.form.get('primary_user_id', type=int)
+    secondary_user_id = request.form.get('secondary_user_id', type=int)
+    if not primary_user_id or not secondary_user_id or primary_user_id == secondary_user_id:
+        new_alert(_msg_text('Noto\'g\'ri ma\'lumotlar', 'Неверные данные', 'Invalid data'), 'danger')
+        return redirect(url_for('author_edit', author_id=author_id))
+
+    now_ts = int(datetime.datetime.now().timestamp())
+    column_cache = {}
+
+    def _to_row(cursor, user_id):
+        cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+        fetched = cursor.fetchone()
+        if not fetched:
+            return None
+        cols = [desc[0] for desc in cursor.description]
+        return dict(zip(cols, fetched))
+
+    try:
+        with db._lock:
+            cursor = db.conn.cursor()
+            try:
+                lock_first, lock_second = sorted([primary_user_id, secondary_user_id])
+                cursor.execute(
+                    "SELECT id FROM users WHERE id IN (%s, %s) ORDER BY id FOR UPDATE",
+                    (lock_first, lock_second),
+                )
+
+                primary_row = _to_row(cursor, primary_user_id)
+                secondary_row = _to_row(cursor, secondary_user_id)
+                if not primary_row or not secondary_row:
+                    db.conn.rollback()
+                    new_alert(_msg_text('Foydalanuvchi topilmadi', 'Пользователь не найден', 'User not found'), 'danger')
+                    return redirect(url_for('author_edit', author_id=author_id))
+
+                _merge_author_profiles_for_users(
+                    cursor,
+                    column_cache,
+                    primary_user_id=primary_user_id,
+                    secondary_user_id=secondary_user_id,
+                    now_ts=now_ts,
+                )
+
+                user_ref_columns = (
+                    ('author_profile', 'user_id'),
+                    ('submissions', 'user_id'),
+                    ('payments', 'user_id'),
+                    ('user_doc_uploads', 'user_id'),
+                    ('files', 'user_id'),
+                    ('news', 'author_id'),
+                    ('editor_assignments', 'editor_id'),
+                    ('editor_assignments', 'assigned_by'),
+                    ('editor_notifications', 'editor_id'),
+                    ('role_notifications', 'target_user_id'),
+                    ('role_notifications', 'actor_user_id'),
+                    ('editorial_members', 'created_by'),
+                    ('editorial_members', 'updated_by'),
+                    ('email_templates', 'created_by'),
+                    ('email_templates', 'updated_by'),
+                )
+                for table_name, column_name in user_ref_columns:
+                    if not _table_column_exists(cursor, column_cache, table_name, column_name):
+                        continue
+                    cursor.execute(
+                        f"UPDATE {table_name} SET {column_name} = %s WHERE {column_name} = %s",
+                        (primary_user_id, secondary_user_id),
+                    )
+
+                users_columns = set(primary_row.keys()) | set(secondary_row.keys())
+                patch = {}
+
+                if 'email' in users_columns:
+                    primary_email_raw = _clean_text(primary_row.get('email')).lower()
+                    secondary_email_raw = _clean_text(secondary_row.get('email')).lower()
+                    primary_email = _normalized_social_email(primary_email_raw)
+                    secondary_email = _normalized_social_email(secondary_email_raw)
+                    if secondary_email and not primary_email:
+                        patch['email'] = secondary_email
+                    elif not primary_email_raw and secondary_email_raw:
+                        patch['email'] = secondary_email_raw
+
+                for field_name in (
+                    'name', 'second_name', 'father_name', 'password', 'country_id', 'region', 'avatar',
+                    'tariff_id', 'editor_specialization', 'ui_language', 'token', 'rolename',
+                    'editor_admin_id',
+                ):
+                    if field_name not in users_columns:
+                        continue
+                    primary_value = primary_row.get(field_name)
+                    secondary_value = secondary_row.get(field_name)
+                    if primary_value in (None, '', []) and secondary_value not in (None, '', []):
+                        patch[field_name] = secondary_value
+
+                for field_name in ('accept_rules_time', 'register_time', 'created_at'):
+                    if field_name not in users_columns:
+                        continue
+                    primary_value = _parse_int(primary_row.get(field_name)) or 0
+                    secondary_value = _parse_int(secondary_row.get(field_name)) or 0
+                    if primary_value <= 0 and secondary_value > 0:
+                        patch[field_name] = secondary_value
+                    elif primary_value > 0 and secondary_value > 0 and secondary_value < primary_value:
+                        patch[field_name] = secondary_value
+
+                for field_name in ('last_online', 'subscription_end_date'):
+                    if field_name not in users_columns:
+                        continue
+                    primary_value = _parse_int(primary_row.get(field_name)) or 0
+                    secondary_value = _parse_int(secondary_row.get(field_name)) or 0
+                    if secondary_value > primary_value:
+                        patch[field_name] = secondary_value
+
+                if 'is_notify' in users_columns and bool(secondary_row.get('is_notify')) and not bool(primary_row.get('is_notify')):
+                    patch['is_notify'] = True
+
+                if 'roles' in users_columns:
+                    merged_roles = []
+                    for role_name in parse_role_names(primary_row.get('roles')) + parse_role_names(secondary_row.get('roles')):
+                        if role_name not in merged_roles:
+                            merged_roles.append(role_name)
+                    if merged_roles and merged_roles != parse_role_names(primary_row.get('roles')):
+                        patch['roles'] = merged_roles
+
+                if 'admin_tracks' in users_columns:
+                    merged_tracks = []
+                    for track_name in _parse_text_list(primary_row.get('admin_tracks')) + _parse_text_list(secondary_row.get('admin_tracks')):
+                        track_clean = _clean_text(track_name)
+                        if track_clean and track_clean not in merged_tracks:
+                            merged_tracks.append(track_clean)
+                    if merged_tracks and merged_tracks != _parse_text_list(primary_row.get('admin_tracks')):
+                        patch['admin_tracks'] = merged_tracks
+
+                if 'oauth_provider' in users_columns and 'oauth_sub' in users_columns:
+                    primary_provider = _clean_text(primary_row.get('oauth_provider')).lower()
+                    secondary_provider = _clean_text(secondary_row.get('oauth_provider')).lower()
+                    primary_sub = _clean_text(primary_row.get('oauth_sub'))
+                    secondary_sub = _clean_text(secondary_row.get('oauth_sub'))
+                    if not primary_provider and secondary_provider:
+                        patch['oauth_provider'] = secondary_provider
+                        primary_provider = secondary_provider
+                    if not primary_sub and secondary_sub and (not primary_provider or primary_provider == secondary_provider):
+                        patch['oauth_sub'] = secondary_sub
+
+                if 'updated_at' in users_columns:
+                    patch['updated_at'] = now_ts
+
+                if patch:
+                    set_clause = ', '.join(f"{k} = %s" for k in patch)
+                    cursor.execute(
+                        f"UPDATE users SET {set_clause} WHERE id = %s",
+                        list(patch.values()) + [primary_user_id],
+                    )
+
+                cursor.execute("DELETE FROM users WHERE id = %s", (secondary_user_id,))
+                db.conn.commit()
+                logger.info("Admin merged user accounts primary=%s secondary=%s author=%s", primary_user_id, secondary_user_id, author_id)
+            except Exception:
+                db.conn.rollback()
+                raise
+            finally:
+                cursor.close()
+
+        new_alert(_msg_text(
+            f'Foydalanuvchilar birlashtirildi (ID {secondary_user_id} → {primary_user_id})',
+            f'Аккаунты объединены (ID {secondary_user_id} → {primary_user_id})',
+            f'Accounts merged (ID {secondary_user_id} → {primary_user_id})',
+        ), 'success')
+    except Exception:
+        db.conn.rollback()
+        logger.exception("Failed to merge user accounts primary=%s secondary=%s", primary_user_id, secondary_user_id)
+        new_alert(_msg_text('Birlashtirishda xatolik yuz berdi', 'Ошибка при объединении', 'Merge failed'), 'danger')
+    return redirect(url_for('author_edit', author_id=author_id))
+
+
+@bp.route('/fmadmin/users/authors/<int:author_id>/link-user', methods=['POST'])
+@is_superadmin_required
+def author_link_user(author_id):
+    candidate_user_id = request.form.get('user_id', type=int)
+    if not candidate_user_id:
+        new_alert(_msg_text('Noto\'g\'ri foydalanuvchi', 'Неверный пользователь', 'Invalid user'), 'danger')
+        return redirect(url_for('author_edit', author_id=author_id))
+
+    now_ts = int(datetime.datetime.now().timestamp())
+    column_cache = {}
+    try:
+        with db._lock:
+            cursor = db.conn.cursor()
+            try:
+                cursor.execute("SELECT id, user_id FROM author_profile WHERE id = %s FOR UPDATE", (author_id,))
+                row = cursor.fetchone()
+                if not row:
+                    db.conn.rollback()
+                    new_alert(_msg_text('Muallif topilmadi', 'Автор не найден', 'Author not found'), 'danger')
+                    return redirect(url_for('authors'))
+
+                old_user_id = row[1]
+
+                cursor.execute("SELECT id FROM users WHERE id = %s", (candidate_user_id,))
+                if not cursor.fetchone():
+                    db.conn.rollback()
+                    new_alert(_msg_text('Foydalanuvchi topilmadi', 'Пользователь не найден', 'User not found'), 'danger')
+                    return redirect(url_for('author_edit', author_id=author_id))
+
+                has_updated_at = _table_column_exists(cursor, column_cache, 'author_profile', 'updated_at')
+                if has_updated_at:
+                    cursor.execute(
+                        "UPDATE author_profile SET user_id = %s, updated_at = %s WHERE id = %s",
+                        (candidate_user_id, now_ts, author_id),
+                    )
+                else:
+                    cursor.execute(
+                        "UPDATE author_profile SET user_id = %s WHERE id = %s",
+                        (candidate_user_id, author_id),
+                    )
+
+                # If the profile was linked to a different user, migrate all FK references
+                # from that old user to the new (candidate) user so no records are left orphaned.
+                if old_user_id and old_user_id != candidate_user_id:
+                    user_ref_columns = (
+                        ('author_profile', 'user_id'),
+                        ('submissions', 'user_id'),
+                        ('payments', 'user_id'),
+                        ('user_doc_uploads', 'user_id'),
+                        ('files', 'user_id'),
+                        ('news', 'author_id'),
+                        ('editor_assignments', 'editor_id'),
+                        ('editor_assignments', 'assigned_by'),
+                        ('editor_notifications', 'editor_id'),
+                        ('role_notifications', 'target_user_id'),
+                        ('role_notifications', 'actor_user_id'),
+                        ('editorial_members', 'created_by'),
+                        ('editorial_members', 'updated_by'),
+                        ('email_templates', 'created_by'),
+                        ('email_templates', 'updated_by'),
+                    )
+                    for table_name, column_name in user_ref_columns:
+                        if not _table_column_exists(cursor, column_cache, table_name, column_name):
+                            continue
+                        cursor.execute(
+                            f"UPDATE {table_name} SET {column_name} = %s WHERE {column_name} = %s",
+                            (candidate_user_id, old_user_id),
+                        )
+
+                db.conn.commit()
+            except Exception:
+                db.conn.rollback()
+                raise
+            finally:
+                cursor.close()
+
+        new_alert(
+            _msg_text('Asosiy foydalanuvchi bog\'landi', 'Основной пользователь привязан', 'Primary user linked'),
+            'success'
+        )
+    except Exception:
+        db.conn.rollback()
+        logger.exception("Failed to link author %s with user %s", author_id, candidate_user_id)
+        new_alert(
+            _msg_text('Bog\'lashda xatolik yuz berdi', 'Ошибка при привязке', 'Linking failed'),
+            'danger'
+        )
+    return redirect(url_for('author_edit', author_id=author_id))
 
 
 @bp.route('/fmadmin/website/issues')
@@ -5169,6 +5723,7 @@ def article_edit(article_id):
         issue_id = request.form.get('issue_id') or None
         doi = request.form.get('doi')
         doi_link = request.form.get('doi_link')
+        page_range = _normalize_article_page_range(request.form.get('page_range'))
         author_position_key = normalize_publication_metadata_key('author_position_key', request.form.get('author_position_key'))
         academic_title_key = normalize_publication_metadata_key('academic_title_key', request.form.get('academic_title_key'))
         academic_degree_key = normalize_publication_metadata_key('academic_degree_key', request.form.get('academic_degree_key'))
@@ -5183,6 +5738,8 @@ def article_edit(article_id):
             metadata_payload['academic_degree_key'] = academic_degree_key
         if 'series_key' in publication_columns:
             metadata_payload['series_key'] = series_key
+        if 'page_range' in publication_columns:
+            metadata_payload['page_range'] = page_range
         date_sent = parse_date(request.form.get('date_sent'), with_time=True)
         date_accept = parse_date(request.form.get('date_accept'), with_time=True)
         date_publish = parse_date(request.form.get('date_publish'), with_time=True)
@@ -5304,6 +5861,7 @@ def article_edit(article_id):
             'issue_id': None,
             'doi': '',
             'doi_link': '',
+            'page_range': '',
             'author_position_key': '',
             'academic_title_key': '',
             'academic_degree_key': '',

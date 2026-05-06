@@ -147,6 +147,10 @@
                         <input type="text" class="form-control" name="doi_link" value="{{ article.doi_link or '' }}">
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Maqola betlari</label>
+                        <input type="text" class="form-control" name="page_range" value="{{ article.page_range or '' }}" placeholder="7-26">
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">{{ metadata_labels.author_position_key }}</label>
                         <select class="form-select" name="author_position_key">
                             <option value="">{{ t("admin_label_not_selected") }}</option>

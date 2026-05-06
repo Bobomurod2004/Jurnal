@@ -1,5 +1,6 @@
 # flake8: noqa
 import logging
+import mimetypes
 import os
 import re
 import time
@@ -104,6 +105,79 @@ ISSUE_UI_TEXTS = {
         'international_title': 'Из других стран'
     }
 }
+COUNTRY_STATS_UI_TEXTS = {
+    'en': {
+        'title': 'Country Statistics',
+        'view_full_map': 'View map',
+        'view_all_countries': 'View all countries',
+        'modal_title': 'Statistics by Country',
+        'top_title': 'Top 10 - Statistics',
+        'select_country': 'Select a country',
+        'total': 'Total',
+        'authors': 'Authors',
+        'views': 'Views',
+        'downloads': 'Downloads',
+        'close': 'Close',
+        'unknown_country': 'Unknown country',
+        'view_country_stats': 'View statistics',
+    },
+    'uz': {
+        'title': "Davlatlar statistikasi",
+        'view_full_map': "Xaritani ko'rish",
+        'view_all_countries': "Barchasini ko'rish",
+        'modal_title': "Davlatlar bo'yicha statistika",
+        'top_title': 'Top 10 - Statistika',
+        'select_country': 'Davlat tanlang',
+        'total': 'Jami',
+        'authors': 'Mualliflar',
+        'views': "Ko'rishlar",
+        'downloads': 'Yuklamalar',
+        'close': 'Yopish',
+        'unknown_country': "Noma'lum davlat",
+        'view_country_stats': "Statistikani ko'rish",
+    },
+    'ru': {
+        'title': 'Статистика по странам',
+        'view_full_map': 'Открыть карту',
+        'view_all_countries': 'Показать все страны',
+        'modal_title': 'Статистика по странам',
+        'top_title': 'Топ-10 - Статистика',
+        'select_country': 'Выберите страну',
+        'total': 'Всего',
+        'authors': 'Авторы',
+        'views': 'Просмотры',
+        'downloads': 'Загрузки',
+        'close': 'Закрыть',
+        'unknown_country': 'Неизвестная страна',
+        'view_country_stats': 'Показать статистику',
+    },
+}
+AUTHOR_TOOLTIP_UI_TEXTS = {
+    'en': {
+        'email_label': 'Email',
+        'organization_label': 'Organization',
+        'country_label': 'Country',
+        'workplace_label': 'Workplace',
+        'orcid_label': 'ORCID',
+        'not_specified': 'Not specified',
+    },
+    'uz': {
+        'email_label': 'Email',
+        'organization_label': 'Tashkilot',
+        'country_label': 'Mamlakat',
+        'workplace_label': 'Ishlash joyi',
+        'orcid_label': 'ORCID',
+        'not_specified': "Ko'rsatilmagan",
+    },
+    'ru': {
+        'email_label': 'Email',
+        'organization_label': 'Организация',
+        'country_label': 'Страна',
+        'workplace_label': 'Место работы',
+        'orcid_label': 'ORCID',
+        'not_specified': 'Не указано',
+    },
+}
 UZBEKISTAN_LOCATION_TOKENS = (
     "o'zbekiston", 'ozbekiston', 'uzbekistan', 'узбекистан', 'tashkent', 'toshkent'
 )
@@ -132,6 +206,136 @@ ALLOWED_TARIFF_FEATURE_PERMISSIONS = {
     'article_discount',
     'issue_discount',
 }
+
+COUNTRY_ISO_BY_NAME = {
+    # Central Asia
+    'Uzbekistan': 'uz', "O'zbekiston": 'uz', 'Ozbekiston': 'uz', 'Uzbekiston': 'uz', 'Ўзбекистон': 'uz',
+    'Russia': 'ru', 'Россия': 'ru', 'Rossiya': 'ru', 'Russian Federation': 'ru',
+    'Kazakhstan': 'kz', "Qozog'iston": 'kz', 'Казахстан': 'kz',
+    'Kyrgyzstan': 'kg', 'Qirgʻiziston': 'kg', 'Кыргызстан': 'kg',
+    'Tajikistan': 'tj', 'Tojikiston': 'tj', 'Таджикистан': 'tj',
+    'Turkmenistan': 'tm', 'Турменистан': 'tm',
+    'Azerbaijan': 'az', 'Озарбайжон': 'az', 'Азербайджан': 'az',
+    'Georgia': 'ge', 'Грузия': 'ge',
+    'Armenia': 'am', 'Armaniston': 'am', 'Армения': 'am',
+    'Mongolia': 'mn', 'Mongʻoliya': 'mn',
+    # Middle East
+    'Turkey': 'tr', 'Türkiye': 'tr', 'Turkiya': 'tr', 'Турция': 'tr',
+    'Iran': 'ir', 'Eron': 'ir', 'Иран': 'ir',
+    'Iraq': 'iq', 'Iroq': 'iq',
+    'Saudi Arabia': 'sa', 'Saudiya Arabistoni': 'sa',
+    'United Arab Emirates': 'ae', 'UAE': 'ae', 'BAA': 'ae',
+    'Kuwait': 'kw', 'Quvayt': 'kw',
+    'Qatar': 'qa', 'Qatar': 'qa',
+    'Jordan': 'jo', 'Iordaniya': 'jo',
+    'Lebanon': 'lb', 'Livan': 'lb',
+    'Syria': 'sy', 'Suriya': 'sy',
+    'Israel': 'il', 'Isroil': 'il',
+    'Egypt': 'eg', 'Misr': 'eg', 'Египет': 'eg',
+    'Yemen': 'ye', 'Yaman': 'ye',
+    # South & East Asia
+    'China': 'cn', 'Xitoy': 'cn', 'Китай': 'cn',
+    'Japan': 'jp', 'Yaponiya': 'jp', 'Япония': 'jp',
+    'South Korea': 'kr', 'Korea': 'kr', 'Janubiy Koreya': 'kr',
+    'North Korea': 'kp', 'Shimoliy Koreya': 'kp',
+    'India': 'in', 'Hindiston': 'in', 'Индия': 'in',
+    'Pakistan': 'pk', 'Pokiston': 'pk', 'Пакистан': 'pk',
+    'Bangladesh': 'bd', 'Bangladesh': 'bd',
+    'Afghanistan': 'af', 'Afgʻoniston': 'af', 'Афганистан': 'af',
+    'Indonesia': 'id', 'Indoneziya': 'id',
+    'Malaysia': 'my', 'Malayziya': 'my',
+    'Philippines': 'ph', 'Filippin': 'ph',
+    'Vietnam': 'vn', 'Vyetnam': 'vn',
+    'Thailand': 'th', 'Tailand': 'th',
+    'Singapore': 'sg', 'Singapur': 'sg',
+    'Taiwan': 'tw', 'Tayvan': 'tw',
+    'Myanmar': 'mm', 'Burma': 'mm',
+    'Cambodia': 'kh', 'Kambodja': 'kh',
+    'Sri Lanka': 'lk', 'Shri-Lanka': 'lk',
+    'Nepal': 'np', 'Nepal': 'np',
+    # Europe (West)
+    'Germany': 'de', 'Deutschland': 'de', 'Germaniya': 'de', 'Германия': 'de',
+    'United Kingdom': 'gb', 'UK': 'gb', 'Britain': 'gb', 'Buyuk Britaniya': 'gb', 'England': 'gb',
+    'France': 'fr', 'Frantsiya': 'fr', 'Франция': 'fr',
+    'Italy': 'it', 'Italiya': 'it', 'Италия': 'it',
+    'Spain': 'es', 'Ispaniya': 'es', 'Испания': 'es',
+    'Netherlands': 'nl', 'Niderlandiya': 'nl', 'Holland': 'nl',
+    'Switzerland': 'ch', 'Shveytsariya': 'ch',
+    'Sweden': 'se', 'Shvetsiya': 'se',
+    'Norway': 'no', 'Norvegiya': 'no',
+    'Finland': 'fi', 'Finlyandiya': 'fi',
+    'Belgium': 'be', 'Belgiya': 'be',
+    'Austria': 'at', 'Avstriya': 'at',
+    'Denmark': 'dk', 'Daniya': 'dk',
+    'Ireland': 'ie', 'Irlandiya': 'ie',
+    'Portugal': 'pt', 'Portugaliya': 'pt',
+    'Greece': 'gr', 'Gretsiya': 'gr',
+    # Europe (East)
+    'Poland': 'pl', 'Polsha': 'pl', 'Польша': 'pl',
+    'Ukraine': 'ua', 'Ukraina': 'ua', 'Украина': 'ua',
+    'Belarus': 'by', 'Belorussiya': 'by', 'Беларусь': 'by',
+    'Czech Republic': 'cz', 'Czechia': 'cz', 'Chexiya': 'cz',
+    'Slovakia': 'sk', 'Slovakiya': 'sk',
+    'Hungary': 'hu', 'Vengriya': 'hu',
+    'Romania': 'ro', 'Ruminiya': 'ro',
+    'Bulgaria': 'bg', 'Bolgariya': 'bg',
+    'Serbia': 'rs', 'Serbiya': 'rs',
+    'Croatia': 'hr', 'Xorvatiya': 'hr',
+    'Slovenia': 'si', 'Sloveniya': 'si',
+    'Lithuania': 'lt', 'Litva': 'lt',
+    'Latvia': 'lv', 'Latviya': 'lv',
+    'Estonia': 'ee', 'Estoniya': 'ee',
+    'Moldova': 'md', 'Moldova': 'md',
+    'Albania': 'al', 'Albaniya': 'al',
+    'North Macedonia': 'mk', 'Makedoniya': 'mk',
+    'Bosnia and Herzegovina': 'ba', 'Bosniya': 'ba',
+    # North America
+    'United States': 'us', 'USA': 'us', 'U.S.A.': 'us', 'AQSh': 'us', 'America': 'us',
+    'Canada': 'ca', 'Kanada': 'ca', 'Канада': 'ca',
+    'Mexico': 'mx', 'Meksika': 'mx',
+    # Latin America
+    'Brazil': 'br', 'Braziliya': 'br',
+    'Argentina': 'ar', 'Argentina': 'ar',
+    'Colombia': 'co', 'Kolumbiya': 'co',
+    'Chile': 'cl', 'Chili': 'cl',
+    'Peru': 'pe', 'Peru': 'pe',
+    'Venezuela': 've', 'Venesuela': 've',
+    # Africa
+    'Morocco': 'ma', 'Marokash': 'ma',
+    'Algeria': 'dz', 'Jazoir': 'dz',
+    'Tunisia': 'tn', 'Tunis': 'tn',
+    'Libya': 'ly', 'Liviya': 'ly',
+    'Nigeria': 'ng', 'Nigeriya': 'ng',
+    'South Africa': 'za', 'Janubiy Afrika': 'za',
+    'Kenya': 'ke', 'Keniya': 'ke',
+    'Ethiopia': 'et', 'Efiopiya': 'et',
+    'Ghana': 'gh', 'Gana': 'gh',
+    'Tanzania': 'tz', 'Tanzaniya': 'tz',
+    # Oceania
+    'Australia': 'au', 'Avstraliya': 'au', 'Австралия': 'au',
+    'New Zealand': 'nz', 'Yangi Zelandiya': 'nz',
+}
+
+COUNTRY_ISO_LOOKUP = {
+    re.sub(r'\s+', ' ', str(name or '')).strip().lower(): str(iso or '').strip().lower()
+    for name, iso in COUNTRY_ISO_BY_NAME.items()
+    if str(name or '').strip() and str(iso or '').strip()
+}
+
+COUNTRY_DISPLAY_BY_ISO = {}
+for _country_name_raw, _country_iso_raw in COUNTRY_ISO_BY_NAME.items():
+    _country_name_clean = str(_country_name_raw or '').strip()
+    _country_iso_clean = str(_country_iso_raw or '').strip().lower()
+    if not _country_name_clean or not _country_iso_clean:
+        continue
+    if re.match(r"^[A-Za-z0-9 .,'()\-]+$", _country_name_clean):
+        COUNTRY_DISPLAY_BY_ISO.setdefault(_country_iso_clean, _country_name_clean)
+for _country_name_raw, _country_iso_raw in COUNTRY_ISO_BY_NAME.items():
+    _country_name_clean = str(_country_name_raw or '').strip()
+    _country_iso_clean = str(_country_iso_raw or '').strip().lower()
+    if not _country_name_clean or not _country_iso_clean:
+        continue
+    COUNTRY_DISPLAY_BY_ISO.setdefault(_country_iso_clean, _country_name_clean)
 
 
 def _parse_int(value):
@@ -344,14 +548,18 @@ def _safe_internal_redirect(target, fallback_endpoint):
     return target_text
 
 
-def _should_increment_article_view(article_id, ttl_seconds=6 * 60 * 60):
+def _should_increment_article_view(article_id, user_id=None, ttl_seconds=6 * 60 * 60):
     if not article_id:
         return False
     viewed = session.get('article_views')
     if not isinstance(viewed, dict):
         viewed = {}
     now_ts = int(time.time())
-    key = str(article_id)
+    user_id_int = _parse_int(user_id)
+    if user_id_int is not None:
+        key = f"{article_id}:user:{user_id_int}"
+    else:
+        key = f"{article_id}:guest"
     last_seen = _parse_int(viewed.get(key))
     if last_seen and (now_ts - last_seen) < ttl_seconds:
         return False
@@ -359,6 +567,323 @@ def _should_increment_article_view(article_id, ttl_seconds=6 * 60 * 60):
     session['article_views'] = viewed
     session.modified = True
     return True
+
+
+def _normalize_country_name(value):
+    return re.sub(r'\s+', ' ', _clean_text(value)).strip()
+
+
+def _country_iso_for_name(country_name):
+    normalized_name = _normalize_country_name(country_name).lower()
+    if not normalized_name:
+        return ''
+    return COUNTRY_ISO_LOOKUP.get(normalized_name, '')
+
+
+def _country_stat_bucket(country_name):
+    normalized_name = _normalize_country_name(country_name)
+    if not normalized_name:
+        return '', '', ''
+    iso = _country_iso_for_name(normalized_name)
+    if iso:
+        bucket_key = iso
+        display_name = COUNTRY_DISPLAY_BY_ISO.get(iso) or normalized_name
+        return bucket_key, display_name, iso
+    # Check if the value is already a bare 2-letter ISO code (e.g. from CDN header)
+    if re.match(r'^[A-Za-z]{2}$', normalized_name):
+        iso_candidate = normalized_name.lower()
+        display_name = COUNTRY_DISPLAY_BY_ISO.get(iso_candidate) or normalized_name.upper()
+        return iso_candidate, display_name, iso_candidate
+    return normalized_name.lower(), normalized_name, ''
+
+
+@lru_cache(maxsize=1)
+def _country_localized_names_by_iso():
+    localized = {}
+    try:
+        countries = dbc.fix_country.get().exec() or []
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+        return localized
+
+    for country in countries:
+        name_en = _clean_text(country.get('name'))
+        name_uz = _clean_text(country.get('name_uz'))
+        name_ru = _clean_text(country.get('name_ru'))
+        iso = ''
+
+        for candidate_name in (name_en, name_uz, name_ru):
+            if not candidate_name:
+                continue
+            iso = _country_iso_for_name(candidate_name)
+            if iso:
+                break
+
+        if not iso:
+            continue
+
+        bucket = localized.setdefault(iso, {})
+        if name_en and not bucket.get('en'):
+            bucket['en'] = name_en
+        if name_uz and not bucket.get('uz'):
+            bucket['uz'] = name_uz
+        if name_ru and not bucket.get('ru'):
+            bucket['ru'] = name_ru
+
+    return localized
+
+
+def _localized_country_display_name(iso_code, fallback_name='', lang=None):
+    language = _clean_text(lang or _current_lang_code()).lower()
+    if language not in {'uz', 'ru', 'en'}:
+        language = 'en'
+
+    iso = _clean_text(iso_code).lower()
+    if iso:
+        localized_names = _country_localized_names_by_iso().get(iso) or {}
+        localized_name = (
+            _clean_text(localized_names.get(language))
+            or _clean_text(localized_names.get('en'))
+            or _clean_text(localized_names.get('uz'))
+            or _clean_text(localized_names.get('ru'))
+        )
+        if localized_name:
+            return localized_name
+
+        known_name = _clean_text(COUNTRY_DISPLAY_BY_ISO.get(iso))
+        if known_name:
+            return known_name
+        return iso.upper()
+
+    return _clean_text(fallback_name)
+
+
+def _author_workplace(author_row):
+    row = author_row or {}
+    department = _clean_text(row.get('department'))
+    position = _clean_text(row.get('position'))
+    if department and position and department.lower() != position.lower():
+        return f"{department}, {position}"
+    return department or position
+
+
+def _author_country_display_name(country_value, lang=None):
+    raw_country = _clean_text(country_value)
+    if not raw_country:
+        return ''
+    bucket_key, fallback_name, iso = _country_stat_bucket(raw_country)
+    if not (bucket_key or fallback_name):
+        return raw_country
+    return _localized_country_display_name(iso, fallback_name=fallback_name or raw_country, lang=lang)
+
+
+def _normalize_orcid_profile(orcid_value):
+    text = _clean_text(orcid_value)
+    if not text:
+        return '', ''
+
+    match = re.search(r'(\d{4}-\d{4}-\d{4}-[\dXx]{4})', text)
+    if match:
+        orcid_id = match.group(1).upper()
+        return orcid_id, f"https://orcid.org/{orcid_id}"
+
+    digits_only = re.sub(r'[^0-9Xx]', '', text).upper()
+    if len(digits_only) == 16:
+        orcid_id = f"{digits_only[0:4]}-{digits_only[4:8]}-{digits_only[8:12]}-{digits_only[12:16]}"
+        return orcid_id, f"https://orcid.org/{orcid_id}"
+
+    return text, ''
+
+
+def _author_tooltip_payload(author_row, lang=None):
+    row = author_row or {}
+    name = _clean_text(row.get('name'))
+    if not name:
+        return None
+    orcid_value, orcid_url = _normalize_orcid_profile(row.get('orcid'))
+    return {
+        'name': name,
+        'email': _clean_text(row.get('email')),
+        'organization': _clean_text(row.get('organization')),
+        'country': _author_country_display_name(row.get('address_country'), lang=lang),
+        'workplace': _author_workplace(row),
+        'orcid': orcid_value,
+        'orcid_url': orcid_url,
+    }
+
+
+def _ensure_country_activity_stats_table():
+    if getattr(_ensure_country_activity_stats_table, '_ready', False):
+        return True
+
+    cursor = None
+    try:
+        cursor = dbc.conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS country_activity_stats (
+                country_key TEXT PRIMARY KEY,
+                country_name TEXT NOT NULL,
+                views_count BIGINT NOT NULL DEFAULT 0,
+                downloads_count BIGINT NOT NULL DEFAULT 0,
+                created_at BIGINT NOT NULL,
+                updated_at BIGINT NOT NULL
+            );
+            """
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_country_activity_stats_updated_at "
+            "ON country_activity_stats(updated_at);"
+        )
+        dbc.conn.commit()
+        _ensure_country_activity_stats_table._ready = True
+        return True
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+        logger.exception("Failed to ensure country_activity_stats table")
+        return False
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+
+def _resolve_user_country_name(user_id):
+    user_id_int = _parse_int(user_id)
+    if user_id_int is None:
+        return ''
+
+    cursor = None
+    try:
+        cursor = dbc.conn.cursor()
+        cursor.execute(
+            """
+            SELECT
+                COALESCE(
+                    NULLIF(TRIM(fc.name), ''),
+                    NULLIF(TRIM(fc.name_uz), ''),
+                    NULLIF(TRIM(fc.name_ru), '')
+                ) AS country_name
+            FROM users u
+            LEFT JOIN fix_country fc ON fc.id = u.country_id
+            WHERE u.id = %s
+            LIMIT 1
+            """,
+            (user_id_int,)
+        )
+        row = cursor.fetchone()
+        country_name = _normalize_country_name(row[0] if row else '')
+        if country_name:
+            return country_name
+
+        cursor.execute(
+            """
+            SELECT TRIM(address_country)
+            FROM author_profile
+            WHERE user_id = %s
+              AND address_country IS NOT NULL
+              AND TRIM(address_country) != ''
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (user_id_int,)
+        )
+        fallback_row = cursor.fetchone()
+        return _normalize_country_name(fallback_row[0] if fallback_row else '')
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+        return ''
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+
+def _resolve_request_country_name():
+    for header_name in (
+        'CF-IPCountry',
+        'CloudFront-Viewer-Country',
+        'X-AppEngine-Country',
+        'X-Country-Code',
+    ):
+        header_value = _clean_text(request.headers.get(header_name)).upper()
+        if not header_value or header_value in {'XX', 'ZZ', 'T1'}:
+            continue
+        if re.match(r'^[A-Z]{2}$', header_value):
+            iso_lower = header_value.lower()
+            country_name = COUNTRY_DISPLAY_BY_ISO.get(iso_lower)
+            if country_name:
+                return country_name
+            # Country code not in our lookup — still record using ISO code as key
+            # so it shows up in stats (without flag, but counted)
+            return header_value
+    return ''
+
+
+def _record_country_activity(user_id, metric, amount=1):
+    metric_key = _clean_text(metric).lower()
+    if metric_key not in {'view', 'download'}:
+        return
+    amount_int = _parse_int(amount) or 0
+    if amount_int <= 0:
+        return
+
+    country_name = _resolve_user_country_name(user_id)
+    if not country_name:
+        country_name = _resolve_request_country_name()
+    if not country_name:
+        return
+
+    bucket_key, display_name, _iso = _country_stat_bucket(country_name)
+    if not bucket_key or not display_name:
+        return
+
+    if not _ensure_country_activity_stats_table():
+        return
+
+    views_inc = amount_int if metric_key == 'view' else 0
+    downloads_inc = amount_int if metric_key == 'download' else 0
+    now_ts = int(time.time())
+    cursor = None
+    try:
+        cursor = dbc.conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO country_activity_stats (
+                country_key,
+                country_name,
+                views_count,
+                downloads_count,
+                created_at,
+                updated_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (country_key) DO UPDATE
+            SET
+                country_name = EXCLUDED.country_name,
+                views_count = country_activity_stats.views_count + EXCLUDED.views_count,
+                downloads_count = country_activity_stats.downloads_count + EXCLUDED.downloads_count,
+                updated_at = EXCLUDED.updated_at;
+            """,
+            (bucket_key, display_name, views_inc, downloads_inc, now_ts, now_ts)
+        )
+        dbc.conn.commit()
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+        logger.exception("Failed to record country activity: user_id=%s metric=%s", user_id, metric_key)
+    finally:
+        if cursor is not None:
+            cursor.close()
 
 
 def _get_site_setting(key, default=''):
@@ -741,6 +1266,16 @@ def _issue_ui_texts():
     return ISSUE_UI_TEXTS.get(lang, ISSUE_UI_TEXTS['en'])
 
 
+def _country_stats_ui_texts():
+    lang = _current_lang_code()
+    return COUNTRY_STATS_UI_TEXTS.get(lang, COUNTRY_STATS_UI_TEXTS['en'])
+
+
+def _author_tooltip_ui_texts():
+    lang = _current_lang_code()
+    return AUTHOR_TOOLTIP_UI_TEXTS.get(lang, AUTHOR_TOOLTIP_UI_TEXTS['en'])
+
+
 def _split_issue_shortinfo_items(text):
     items = []
     buffer = []
@@ -1035,34 +1570,170 @@ def app__index():
     popular_publications = dbc.publications.get().order_by('stat_views').per_page(8).page(1).exec()
     news_items = dbc.news.get(type='news', status='published').order_by('published_at').per_page(4).page(1).exec()
     announcements = dbc.news.get(type='announcement', status='published').order_by('published_at').per_page(4).page(1).exec()
-    featured_editor = _select_featured_editorial_member(_load_public_editorial_members())
+    editorial_members = _load_public_editorial_members() or []
     home_video_usage_url = _get_home_video_url('home_video_site_usage_url', current_lang)
     home_video_submission_url = _get_home_video_url('home_video_submission_url', current_lang)
     home_video_usage_embed = _youtube_embed_url(home_video_usage_url)
     home_video_submission_embed = _youtube_embed_url(home_video_submission_url)
 
-    author_name_cache = {}
+    try:
+        stat_total_publications = dbc.publications.count().exec() or 0
+        stat_total_views = dbc.publications.summ('stat_views', is_overall=True).exec() or 0
+        stat_total_downloads = dbc.publications.summ('stat_alt', is_overall=True).exec() or 0
+        stat_total_authors = dbc.author_profile.count().exec() or 0
+        stat_total_issues = dbc.issues.count().exec() or 0
+    except Exception:
+        stat_total_publications = 0
+        stat_total_views = 0
+        stat_total_downloads = 0
+        stat_total_authors = 0
+        stat_total_issues = 0
 
-    def get_author_name(author_id):
+    journal_stats = {
+        'publications': int(stat_total_publications),
+        'views': int(stat_total_views),
+        'downloads': int(stat_total_downloads),
+        'authors': int(stat_total_authors),
+        'issues': int(stat_total_issues),
+    }
+
+    country_stats = []
+    country_stats_top = []
+    country_stats_ui = _country_stats_ui_texts()
+    author_tooltip_ui = _author_tooltip_ui_texts()
+    try:
+        cursor = dbc.conn.cursor()
+        cursor.execute(
+            """
+            SELECT
+                TRIM(ap.address_country) AS country,
+                COUNT(DISTINCT ap.id) AS authors_cnt
+            FROM author_profile ap
+            WHERE ap.address_country IS NOT NULL AND TRIM(ap.address_country) != ''
+            GROUP BY TRIM(ap.address_country)
+            ORDER BY authors_cnt DESC
+            """
+        )
+        author_rows = cursor.fetchall() or []
+
+        activity_rows = []
+        if _ensure_country_activity_stats_table():
+            cursor.execute(
+                """
+                SELECT country_name, views_count, downloads_count
+                FROM country_activity_stats
+                """
+            )
+            activity_rows = cursor.fetchall() or []
+        cursor.close()
+
+        aggregated = {}
+
+        def _merge_country_row(country_name, authors=0, views=0, downloads=0):
+            bucket_key, display_name, iso = _country_stat_bucket(country_name)
+            if not bucket_key:
+                return
+
+            if bucket_key not in aggregated:
+                aggregated[bucket_key] = {
+                    'name': display_name,
+                    'authors': 0,
+                    'count': 0,
+                    'views': 0,
+                    'downloads': 0,
+                    'iso': iso,
+                }
+
+            item = aggregated[bucket_key]
+            item['authors'] += max(0, _parse_int(authors) or 0)
+            item['views'] += max(0, _parse_int(views) or 0)
+            item['downloads'] += max(0, _parse_int(downloads) or 0)
+            if iso and not item.get('iso'):
+                item['iso'] = iso
+                item['name'] = COUNTRY_DISPLAY_BY_ISO.get(iso) or display_name
+
+        for country_name, authors_cnt in author_rows:
+            _merge_country_row(country_name, authors=authors_cnt)
+
+        for country_name, views_cnt, downloads_cnt in activity_rows:
+            _merge_country_row(country_name, views=views_cnt, downloads=downloads_cnt)
+
+        for item in aggregated.values():
+            authors_value = max(0, _parse_int(item.get('authors')) or 0)
+            views_value = max(0, _parse_int(item.get('views')) or 0)
+            downloads_value = max(0, _parse_int(item.get('downloads')) or 0)
+            item['authors'] = authors_value
+            item['views'] = views_value
+            item['downloads'] = downloads_value
+            item['count'] = authors_value + views_value + downloads_value
+
+        sorted_stats = sorted(
+            aggregated.values(),
+            key=lambda item: (
+                -(item.get('count') or 0),
+                -(item.get('authors') or 0),
+                -(item.get('views') or 0),
+                -(item.get('downloads') or 0),
+                (item.get('name') or '').lower(),
+            )
+        )
+        max_cnt = max((item.get('count') or 0 for item in sorted_stats), default=0)
+        max_cnt = max(max_cnt, 1)
+        for item in sorted_stats:
+            count_value = _parse_int(item.get('count')) or 0
+            item['pct'] = round(count_value / max_cnt * 100) if count_value > 0 else 0
+            item['name'] = _localized_country_display_name(
+                item.get('iso'),
+                fallback_name=item.get('name'),
+                lang=current_lang,
+            )
+        country_stats = sorted_stats
+        country_stats_top = sorted_stats[:10]
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+        country_stats = []
+        country_stats_top = []
+
+    author_profile_cache = {}
+
+    def get_author_profile(author_id):
         if not author_id:
             return None
-        if author_id not in author_name_cache:
-            author = dbc.author_profile.get(id=author_id).exec()
-            author_name_cache[author_id] = translate(author[0]).get('name') if author else None
-        return author_name_cache[author_id]
+        if author_id not in author_profile_cache:
+            author_rows = dbc.author_profile.get(id=author_id).exec()
+            if author_rows:
+                author_profile_cache[author_id] = _author_tooltip_payload(
+                    translate(author_rows[0]),
+                    lang=current_lang,
+                )
+            else:
+                author_profile_cache[author_id] = None
+        return author_profile_cache[author_id]
 
     def enrich_home_publication(pub):
         translate(pub)
         _apply_localized_content(pub, ('title', 'abstract', 'keywords'), lang=current_lang)
-        pub['main_author_name'] = get_author_name(pub.get('main_author_id'))
+        pub['page_range'] = _clean_text(pub.get('page_range'))
+        if pub.get('doi') and not pub.get('doi_link'):
+            pub['doi_link'] = f"https://doi.org/{pub.get('doi')}"
 
-        subauthor_names = []
+        author_profiles = []
+        main_author_profile = get_author_profile(pub.get('main_author_id'))
+        if main_author_profile:
+            author_profiles.append(main_author_profile)
+
         subauthor_ids = pub.get('subauthor_ids') or pub.get('sub_author_ids') or []
         for author_id in subauthor_ids:
-            author_name = get_author_name(author_id)
-            if author_name:
-                subauthor_names.append(author_name)
-        pub['subauthor_names'] = subauthor_names
+            author_profile = get_author_profile(author_id)
+            if author_profile:
+                author_profiles.append(author_profile)
+
+        pub['author_profiles'] = author_profiles
+        pub['main_author_name'] = author_profiles[0]['name'] if author_profiles else ''
+        pub['subauthor_names'] = [author_item.get('name') for author_item in author_profiles[1:] if author_item.get('name')]
 
         if pub.get('issue_id'):
             issue = dbc.issues.get(id=pub['issue_id']).exec()
@@ -1074,6 +1745,19 @@ def app__index():
         for pub in publications:
             enrich_home_publication(pub)
 
+    # Recent issues for sidebar quick navigation
+    recent_issues = []
+    try:
+        recent_issues = dbc.issues.get().order_by('year').per_page(8).page(1).exec()
+        for iss in recent_issues:
+            try:
+                translate(iss)
+                _apply_localized_content(iss, ('title', 'shortinfo', 'price'), lang=current_lang)
+            except Exception:
+                pass
+    except Exception:
+        recent_issues = []
+
     for item in news_items + announcements:
         translate(item)
 
@@ -1084,9 +1768,15 @@ def app__index():
         popular_publications=popular_publications,
         news_items=news_items,
         announcements=announcements,
-        featured_editor=featured_editor,
+        editorial_members=editorial_members,
         home_video_usage_embed=home_video_usage_embed,
-        home_video_submission_embed=home_video_submission_embed
+        home_video_submission_embed=home_video_submission_embed,
+        journal_stats=journal_stats,
+        country_stats=country_stats,
+        country_stats_top=country_stats_top,
+        country_stats_ui=country_stats_ui,
+        author_tooltip_ui=author_tooltip_ui,
+        recent_issues=recent_issues,
     )
 
 
@@ -1237,6 +1927,7 @@ def app__contact():
 def app__articles():
     current_lang = _current_lang_code()
     metadata_labels = publication_metadata_field_labels(current_lang)
+    author_tooltip_ui = _author_tooltip_ui_texts()
     page = max(request.args.get('page', 1, type=int) or 1, 1)
     per_page = 20
 
@@ -1293,18 +1984,30 @@ def app__articles():
         translate(publication)
         _apply_localized_content(publication, ('title', 'abstract', 'keywords', 'price'), lang=current_lang)
 
-    author_name_cache = {}
+    author_profile_cache = {}
     issue_cache = {}
     references_count_cache = {}
     citations_count_cache = {}
 
-    def get_author_name(author_id):
+    def get_author_profile(author_id):
         if not author_id:
             return None
-        if author_id not in author_name_cache:
+        if author_id not in author_profile_cache:
             author_row = dbc.author_profile.get(id=author_id).exec()
-            author_name_cache[author_id] = author_row[0].get('name') if author_row else None
-        return author_name_cache[author_id]
+            if author_row:
+                author_profile_cache[author_id] = _author_tooltip_payload(
+                    translate(author_row[0]),
+                    lang=current_lang,
+                )
+            else:
+                author_profile_cache[author_id] = None
+        return author_profile_cache[author_id]
+
+    def get_author_name(author_id):
+        author_profile = get_author_profile(author_id)
+        if author_profile:
+            return author_profile.get('name')
+        return None
 
     def get_issue(issue_id):
         if not issue_id:
@@ -1379,36 +2082,43 @@ def app__articles():
 
     processed_publications = []
     for pub in publications:
-        author_names = []
+        author_profiles = []
         if pub['main_author_id']:
-            main_author_name = get_author_name(pub['main_author_id'])
-            if main_author_name:
-                author_names.append(main_author_name)
+            main_author_profile = get_author_profile(pub['main_author_id'])
+            if main_author_profile:
+                author_profiles.append(main_author_profile)
 
         co_author_ids = pub.get('subauthor_ids') or pub.get('sub_author_ids') or []
         for author_id in co_author_ids:
-            co_author_name = get_author_name(author_id)
-            if co_author_name:
-                author_names.append(co_author_name)
+            co_author_profile = get_author_profile(author_id)
+            if co_author_profile:
+                author_profiles.append(co_author_profile)
 
         issue = get_issue(pub['issue_id']) if pub.get('issue_id') else None
         references_count = get_references_count(pub['id'])
         citations_count = get_citations_count(pub['id'])
+        doi_value = _clean_text(pub.get('doi'))
+        doi_link = _clean_text(pub.get('doi_link'))
+        if doi_value and not doi_link:
+            doi_link = f"https://doi.org/{doi_value}"
 
         processed_publications.append({
             'id': pub['id'],
             'title': pub['title'],
             'abstract': pub['abstract'],
-            'authors': ', '.join(author_names),
+            'authors': ', '.join(author_item.get('name') for author_item in author_profiles if author_item.get('name')),
+            'author_profiles': author_profiles,
             'date_publish': pub['date_publish'],
             'stat_views': pub.get('stat_views', 0),
             'stat_crossref': pub.get('stat_crossref', 0),
             'references_count': references_count,
             'citations_count': citations_count,
-            'doi': pub.get('doi'),
+            'doi': doi_value,
+            'doi_link': doi_link,
             'keywords': pub.get('keywords', []),
             'is_paid': pub.get('is_paid', False),
             'subscription_enable': pub.get('subscription_enable', False),
+            'page_range': _clean_text(pub.get('page_range')),
             'issue': issue,
             'author_position_display': publication_metadata_label('author_position_key', pub.get('author_position_key'), current_lang),
             'academic_title_display': publication_metadata_label('academic_title_key', pub.get('academic_title_key'), current_lang),
@@ -1440,7 +2150,8 @@ def app__articles():
                          total_results=total_results,
                          total_pages=total_pages,
                          page=page,
-                         per_page=per_page)
+                         per_page=per_page,
+                         author_tooltip_ui=author_tooltip_ui)
 
 
 def app__news():
@@ -1919,6 +2630,7 @@ def _resolve_article_access(publication, user_id=None):
 
 def app__issue(issue_id):
     current_lang = _current_lang_code()
+    author_tooltip_ui = _author_tooltip_ui_texts()
     issue = dbc.issues.get(id=issue_id).exec()
     if not issue:
         flash('Issue not found', 'error')
@@ -1944,34 +2656,50 @@ def app__issue(issue_id):
 
     publications = dbc.publications.get(issue_id=issue_id).exec()
     articles = []
+    author_profile_cache = {}
+
+    def get_author_profile(author_id):
+        if not author_id:
+            return None
+        if author_id not in author_profile_cache:
+            author_rows = dbc.author_profile.get(id=author_id).exec()
+            if author_rows:
+                author_profile_cache[author_id] = _author_tooltip_payload(
+                    translate(author_rows[0]),
+                    lang=current_lang,
+                )
+            else:
+                author_profile_cache[author_id] = None
+        return author_profile_cache[author_id]
 
     if publications:
         for pub in publications:
             translate(pub)
             _apply_localized_content(pub, ('title', 'abstract', 'keywords', 'price'), lang=current_lang)
-            main_author = None
-            if pub['main_author_id']:
-                main_authors = dbc.author_profile.get(id=pub['main_author_id']).exec()
-                if main_authors:
-                    main_author = main_authors[0]
+            author_profiles = []
+            main_author_profile = get_author_profile(pub.get('main_author_id'))
+            if main_author_profile:
+                author_profiles.append(main_author_profile)
 
-            co_authors = []
-            if pub['subauthor_ids']:
-                for author_id in pub['subauthor_ids']:
-                    co_authors_result = dbc.author_profile.get(id=author_id).exec()
-                    if co_authors_result:
-                        co_authors.append(co_authors_result[0])
+            co_author_ids = pub.get('subauthor_ids') or pub.get('sub_author_ids') or []
+            for author_id in co_author_ids:
+                co_author_profile = get_author_profile(author_id)
+                if co_author_profile:
+                    author_profiles.append(co_author_profile)
 
-            authors = main_author['name'] if main_author else ''
-            if co_authors:
-                if authors:
-                    authors += ', '
-                authors += ', '.join(author['name'] for author in co_authors)
+            doi_value = _clean_text(pub.get('doi'))
+            doi_link = _clean_text(pub.get('doi_link'))
+            if doi_value and not doi_link:
+                doi_link = f"https://doi.org/{doi_value}"
 
             articles.append({
                 'id': pub['id'],
                 'title': pub['title'],
-                'authors': authors
+                'authors': ', '.join(author_item.get('name') for author_item in author_profiles if author_item.get('name')),
+                'author_profiles': author_profiles,
+                'doi': doi_value,
+                'doi_link': doi_link,
+                'page_range': _clean_text(pub.get('page_range')),
             })
     issue = translate(issue)
     _apply_localized_content(issue, ('title', 'shortinfo', 'price'), lang=current_lang)
@@ -1988,7 +2716,8 @@ def app__issue(issue_id):
                          next_issue=next_issue,
                          articles=articles,
                          issue_shortinfo=issue_shortinfo,
-                         issue_ui=issue_ui)
+                         issue_ui=issue_ui,
+                         author_tooltip_ui=author_tooltip_ui)
 
 
 def app__purchase_issue(issue_id):
@@ -2065,6 +2794,8 @@ def app__purchase_article(article_id):
 def app__article(article_id):
     current_lang = _current_lang_code()
     metadata_labels = publication_metadata_field_labels(current_lang)
+    author_tooltip_ui = _author_tooltip_ui_texts()
+    viewer_user_id = session.get('user_id')
     publication = dbc.publications.get(id=article_id).exec()
     if not publication:
         flash('Article not found', 'error')
@@ -2072,6 +2803,9 @@ def app__article(article_id):
 
     publication = translate(publication[0])
     _apply_localized_content(publication, ('title', 'abstract', 'keywords', 'price'), lang=current_lang)
+    if publication.get('doi') and not publication.get('doi_link'):
+        publication['doi_link'] = f"https://doi.org/{publication.get('doi')}"
+    publication['page_range'] = _clean_text(publication.get('page_range'))
     publication['author_position_display'] = publication_metadata_label(
         'author_position_key',
         publication.get('author_position_key'),
@@ -2096,13 +2830,14 @@ def app__article(article_id):
     citations_count = len(dbc.publication_citations.get(publication_id=article_id).exec())
     publication['references_count'] = references_count
     publication['citations_count'] = citations_count
-    if _should_increment_article_view(article_id):
+    if _should_increment_article_view(article_id, user_id=viewer_user_id):
         new_views = (publication.get('stat_views') or 0) + 1
         try:
             dbc.publications.get(id=article_id).update(stat_views=new_views).exec()
             publication['stat_views'] = new_views
         except Exception:
             current_app.logger.exception('Failed to update view count for article %s', article_id)
+        _record_country_activity(viewer_user_id, metric='view', amount=1)
     access_context = _resolve_article_access_context(publication, session.get('user_id'))
     has_access = bool(access_context.get('has_access'))
     purchase_currency = _default_currency_for_language()
@@ -2112,16 +2847,23 @@ def app__article(article_id):
 
     main_author = None
     if publication['main_author_id']:
-        main_author = dbc.author_profile.get(id=publication['main_author_id']).exec()
-        if main_author:
-            main_author = translate(main_author[0])
+        main_author_rows = dbc.author_profile.get(id=publication['main_author_id']).exec()
+        if main_author_rows:
+            main_author = _author_tooltip_payload(
+                translate(main_author_rows[0]),
+                lang=current_lang,
+            )
 
     co_authors = []
-    if publication['subauthor_ids']:
-        for author_id in publication['subauthor_ids']:
-            co_author = dbc.author_profile.get(id=author_id).exec()
-            if co_author:
-                co_authors.append(translate(co_author[0]))
+    for author_id in (publication.get('subauthor_ids') or publication.get('sub_author_ids') or []):
+        co_author_rows = dbc.author_profile.get(id=author_id).exec()
+        if co_author_rows:
+            co_author_profile = _author_tooltip_payload(
+                translate(co_author_rows[0]),
+                lang=current_lang,
+            )
+            if co_author_profile:
+                co_authors.append(co_author_profile)
 
     issue = None
     if publication['issue_id']:
@@ -2171,6 +2913,7 @@ def app__article(article_id):
                          purchase_discount_percent=purchase_discount_percent,
                          main_author=main_author,
                          co_authors=co_authors,
+                         author_tooltip_ui=author_tooltip_ui,
                          issue=issue,
                          publication_parts=parts,
                          publication_figures=figures,
@@ -2384,10 +3127,15 @@ def app__download_article(article_id):
         dbc.publications.get(id=article_id).update(stat_alt=new_downloads).exec()
     except Exception:
         current_app.logger.exception('Failed to update download count for article %s', article_id)
+    _record_country_activity(session.get('user_id'), metric='download', amount=1)
 
-    return send_file(selected_file_path,
-                    as_attachment=True,
-                    download_name=selected_download_name)
+    mime_type = mimetypes.guess_type(selected_file_path)[0] or 'application/pdf'
+    return send_file(
+        selected_file_path,
+        as_attachment=False,
+        download_name=selected_download_name,
+        mimetype=mime_type,
+    )
 
 
 def app__download_issue(issue_id):
@@ -2457,6 +3205,7 @@ def app__download_issue(issue_id):
                 dbc.publications.get(id=publication.get('id')).update(stat_alt=new_downloads).exec()
             except Exception:
                 current_app.logger.exception('Failed to update download count for article %s', publication.get('id'))
+    _record_country_activity(session.get('user_id'), metric='download', amount=len(downloadable_files))
 
     archive_buffer.seek(0)
     issue_filename = f"volume-{_clean_text(issue.get('vol_no')) or 'x'}-issue-{_clean_text(issue.get('issue_no')) or 'x'}"

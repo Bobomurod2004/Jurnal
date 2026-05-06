@@ -1,4 +1,5 @@
 {% extends 'basic.html' %}
+{% from 'components/author_tooltip_macros.html' import render_author_list %}
 
 {% block title %}{{ t('website_title') }}{% endblock %}
 
@@ -8,13 +9,201 @@
 {% include 'components/hero/main_hero.html' %}
 
 <!-- ============================================================
-     TWO-COLUMN LAYOUT: Main Content + Right Sidebar
+    JOURNAL STATISTICS BAR — Below Hero
+    ============================================================ -->
+{% include 'components/stats_bar.html' %}
+
+<!-- ============================================================
+     INDEXING & PARTNER PLATFORMS — Animated Marquee
+     ============================================================ -->
+{% include 'components/indexing_platforms.html' %}
+
+<!-- ============================================================
+     THREE-COLUMN LAYOUT: Left Sidebar | Main Content | Right Sidebar
      ============================================================ -->
 <div class="container mx-auto px-4 py-10">
-    <div class="flex flex-col lg:flex-row gap-8 xl:gap-10">
+    <div class="flex flex-col xl:flex-row gap-6 xl:gap-8">
 
-        <!-- ===== LEFT: Main Content (70%) ===== -->
-        <div class="flex-1 min-w-0 space-y-10">
+        <!-- ===================================================
+             LEFT SIDEBAR (~22%) — Journal info, Cover, Links
+             =================================================== -->
+        <aside class="xl:w-56 shrink-0 order-2 xl:order-1">
+            <div class="xl:sticky xl:top-24 space-y-5">
+
+                <!-- Latest Issue Cover -->
+                {% if latest_issue %}
+                <div class="sidebar-card intersect-once intersect:animate-fade animate-duration-500 animate-ease-out">
+                    <h5 class="sidebar-card-title">
+                        <iconify-icon icon="solar:book-bold-duotone" class="text-fmmain"></iconify-icon>
+                        {{ t('menu_current_issue') }}
+                    </h5>
+                    <a href="{{ url_for('app__issue', issue_id=latest_issue.id) }}" class="block group">
+                        <div class="mb-3 border border-slate-200 bg-white p-3 shadow-lg" style="border-radius: 0; box-shadow: 0 14px 32px -22px rgba(15, 23, 42, 0.45);">
+                            <div class="mx-auto overflow-hidden border border-slate-200 bg-white" style="border-radius: 0;">
+                                <img src="{{ latest_issue.cover_image|cover_or_default }}"
+                                     alt="{{ latest_issue.title }}"
+                                     class="block w-full h-auto object-contain bg-white transition-transform duration-300 group-hover:scale-105"
+                                     style="aspect-ratio: 2484 / 3512;">
+                            </div>
+                        </div>
+                        <div class="font-semibold text-gray-900 group-hover:text-fmmain transition-colors text-xs leading-snug">{{ latest_issue.title }}</div>
+                    </a>
+                    {% if recent_issues %}
+                    <div class="mt-3">
+                        <div class="flex items-center justify-between text-xs text-gray-600">
+                            <div class="font-medium">{{ t('recent_issues') if t('recent_issues') != 'recent_issues' else 'Recent issues' }}</div>
+                            <button type="button" id="recent-issues-toggle" aria-expanded="true" class="text-sm text-fmmain hover:text-fmmain/80 transition-colors">{{ t('collapse') if t('collapse') != 'collapse' else 'Hide' }}</button>
+                        </div>
+                        <ul id="recent-issues-list" class="mt-2 space-y-1 text-xs text-gray-700">
+                            {% for iss in recent_issues %}
+                            <li>
+                                <a href="{{ url_for('app__issue', issue_id=iss.id) }}" class="hover:text-fmmain">
+                                    {% if iss.title %}
+                                        <span class="block font-medium">{{ iss.title }}</span>
+                                        <span class="block text-[11px] text-gray-500">{{ t('volume') }} {{ iss.vol_no }}, {{ t('issue') }} {{ iss.issue_no }} ({{ iss.year }})</span>
+                                    {% else %}
+                                        {{ t('volume') }} {{ iss.vol_no }}, {{ t('issue') }} {{ iss.issue_no }} ({{ iss.year }})
+                                    {% endif %}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Country Map Widget -->
+                {% if country_stats %}
+                <div class="sidebar-card intersect-once intersect:animate-fade animate-duration-500 animate-delay-100 animate-ease-out">
+                    <h5 class="sidebar-card-title">
+                        <iconify-icon icon="solar:global-bold-duotone" class="text-fmmain"></iconify-icon>
+                        {{ country_stats_ui.title }}
+                    </h5>
+
+                    <!-- Mini map preview — click to expand -->
+                    <div class="country-map-preview" onclick="openCountryMapModal()" role="button" tabindex="0"
+                         aria-label="{{ country_stats_ui.view_full_map }}"
+                         onkeydown="if(event.key==='Enter'||event.key===' ')openCountryMapModal()">
+                        <div id="world-map-mini" style="height: 150px;"></div>
+                        <div class="country-map-expand-hint">
+                            <iconify-icon icon="solar:maximize-square-2-bold-duotone" class="text-xs"></iconify-icon>
+                            {{ country_stats_ui.view_full_map }}
+                        </div>
+                    </div>
+
+                    <!-- Top 10 countries compact list -->
+                    <div class="mt-3 space-y-1.5">
+                        {% for item in country_stats_top %}
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-[10px] text-gray-400 min-w-[14px] text-right">{{ loop.index }}</span>
+                            {% if item.iso %}
+                            <span class="fi fi-{{ item.iso }} shrink-0" style="width:18px;height:14px;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,0.1);"></span>
+                            {% else %}
+                            <iconify-icon icon="solar:global-line-duotone" class="text-gray-300 text-xs shrink-0"></iconify-icon>
+                            {% endif %}
+                            <span class="flex-1 text-xs text-gray-700 truncate">{{ item.name }}</span>
+                            <span class="text-xs font-bold text-fmmain shrink-0">{{ item.count }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <button onclick="openCountryMapModal()"
+                            class="inline-flex items-center gap-1 text-xs font-medium text-fmmain hover:text-fmmain/80 transition-colors group mt-3">
+                        {{ country_stats_ui.view_all_countries }}
+                        <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-sm transition-transform group-hover:translate-x-0.5"></iconify-icon>
+                    </button>
+                </div>
+                {% else %}
+                <!-- Journal Info Card (fallback when no country stats) -->
+                <div class="sidebar-card intersect-once intersect:animate-fade animate-duration-500 animate-delay-100 animate-ease-out">
+                    <h5 class="sidebar-card-title">
+                        <iconify-icon icon="solar:info-square-bold-duotone" class="text-fmmain"></iconify-icon>
+                        {{ t('about_journal') }}
+                    </h5>
+                    <ul class="space-y-2">
+                        {% set issn_online = t('journal_issn_online') %}
+                        {% if issn_online and issn_online != 'journal_issn_online' %}
+                        <li class="flex flex-col gap-0.5">
+                            <span class="text-[10px] font-700 uppercase tracking-widest text-gray-400">ISSN (online)</span>
+                            <span class="text-xs font-semibold text-gray-800">{{ issn_online }}</span>
+                        </li>
+                        {% endif %}
+                        {% set issn_print = t('journal_issn_print') %}
+                        {% if issn_print and issn_print != 'journal_issn_print' %}
+                        <li class="flex flex-col gap-0.5">
+                            <span class="text-[10px] font-700 uppercase tracking-widest text-gray-400">ISSN (print)</span>
+                            <span class="text-xs font-semibold text-gray-800">{{ issn_print }}</span>
+                        </li>
+                        {% endif %}
+                        {% set freq = t('journal_frequency') %}
+                        {% if freq and freq != 'journal_frequency' %}
+                        <li class="flex flex-col gap-0.5">
+                            <span class="text-[10px] font-700 uppercase tracking-widest text-gray-400">{{ t('journal_frequency_label') if t else 'Frequency' }}</span>
+                            <span class="text-xs font-semibold text-gray-800">{{ freq }}</span>
+                        </li>
+                        {% endif %}
+                        {% set founded = t('journal_founded') %}
+                        {% if founded and founded != 'journal_founded' %}
+                        <li class="flex flex-col gap-0.5">
+                            <span class="text-[10px] font-700 uppercase tracking-widest text-gray-400">{{ t('journal_founded_label') if t else 'Founded' }}</span>
+                            <span class="text-xs font-semibold text-gray-800">{{ founded }}</span>
+                        </li>
+                        {% endif %}
+                    </ul>
+                    <a href="{{ url_for('app__page_alias', alias='aims_scope') }}"
+                       class="inline-flex items-center gap-1 text-xs font-medium text-fmmain hover:text-fmmain/80 transition-colors group mt-3">
+                        {{ t('learn_more_aims') }}
+                        <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-sm transition-transform group-hover:translate-x-0.5"></iconify-icon>
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- Quick Links -->
+                <div class="sidebar-card intersect-once intersect:animate-fade animate-duration-500 animate-delay-200 animate-ease-out">
+                    <h5 class="sidebar-card-title">
+                        <iconify-icon icon="solar:link-round-bold-duotone" class="text-fmmain"></iconify-icon>
+                        {{ t('quick_links') if t else 'Quick Links' }}
+                    </h5>
+                    <nav class="space-y-0.5">
+                        <a href="{{ url_for('app__page_alias', alias='submission_guidelines') }}" class="sidebar-quick-link">
+                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain shrink-0"></iconify-icon>
+                            {{ t('menu_submission_guidelines') }}
+                        </a>
+                        <a href="{{ url_for('app__page_alias', alias='author_instructions') }}" class="sidebar-quick-link">
+                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain shrink-0"></iconify-icon>
+                            {{ t('menu_author_instructions') }}
+                        </a>
+                        <a href="{{ url_for('app__editorial') }}" class="sidebar-quick-link">
+                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain shrink-0"></iconify-icon>
+                            {{ t('menu_editorial_board') }}
+                        </a>
+                        <a href="{{ url_for('app__page_alias', alias='aims_scope') }}" class="sidebar-quick-link">
+                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain shrink-0"></iconify-icon>
+                            {{ t('menu_aims_scope') }}
+                        </a>
+                        <a href="{{ url_for('app__issues') }}" class="sidebar-quick-link">
+                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain shrink-0"></iconify-icon>
+                            {{ t('menu_all_issues') }}
+                        </a>
+                        <a href="{{ url_for('app__page_alias', alias='for_all_researchers') }}" class="sidebar-quick-link">
+                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain shrink-0"></iconify-icon>
+                            {{ t('menu_subscribe') }}
+                        </a>
+                        <a href="{{ url_for('app__contact') }}" class="sidebar-quick-link">
+                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain shrink-0"></iconify-icon>
+                            {{ t('footer_contact') }}
+                        </a>
+                    </nav>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- ===================================================
+             CENTER: Main Content (~52%)
+             =================================================== -->
+        <div class="flex-1 min-w-0 space-y-8 order-1 xl:order-2">
 
             <!-- About Journal -->
             <section class="fm-section-card intersect-once intersect:animate-fade animate-duration-500 animate-ease-out">
@@ -34,59 +223,8 @@
                 </div>
             </section>
 
-            <!-- Editor-in-Chief -->
-            <section class="fm-section-card intersect-once intersect:animate-fade animate-duration-500 animate-ease-out">
-                <div class="flex items-start gap-4">
-                    <div class="shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-fmmain-light to-fmmain-bg flex items-center justify-center text-fmmain text-xl">
-                        <iconify-icon icon="solar:pen-new-square-bold-duotone"></iconify-icon>
-                    </div>
-                    <div>
-                        {% set featured_editor_name = featured_editor.full_name if featured_editor and featured_editor.full_name else t('featured_editor_pending') %}
-                        {% set featured_editor_title = (featured_editor.position or featured_editor.title or '') if featured_editor else '' %}
-                        {% set featured_editor_org = (featured_editor.organization or '') if featured_editor else '' %}
-                        {% set featured_editor_image = (featured_editor.image or featured_editor.avatar or '') if featured_editor else '' %}
-                        {% set featured_editor_label = (featured_editor.member_type_label if featured_editor and featured_editor.member_type_label else t('editor_in_chief')) %}
-                        <div class="flex items-center gap-3 mb-4">
-                            <h4 class="text-base font-semibold text-gray-900">{{ featured_editor_label }}</h4>
-                            <a href="{{ url_for('app__editorial') }}"
-                                class="text-xs font-medium text-fmmain hover:text-fmmain/80 transition-colors inline-flex items-center gap-1 group">
-                                {{ t('view_editorial_board') }}
-                                <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-sm transition-transform duration-200 group-hover:translate-x-0.5"></iconify-icon>
-                            </a>
-                        </div>
-                        <div class="flex items-center gap-4">
-                            <div class="size-14 overflow-hidden rounded-xl bg-gradient-to-br from-fmmain-light to-fmmain-bg text-fmmain shadow-sm">
-                                {% if featured_editor_image %}
-                                    {% if featured_editor_image.startswith('http://') or featured_editor_image.startswith('https://') or featured_editor_image.startswith('/') %}
-                                    <img src="{{ featured_editor_image }}" alt="{{ featured_editor_name }}" class="h-full w-full object-cover">
-                                    {% else %}
-                                    <img src="{{ url_for('static', filename=featured_editor_image) }}" alt="{{ featured_editor_name }}" class="h-full w-full object-cover">
-                                    {% endif %}
-                                {% else %}
-                                <div class="flex h-full w-full items-center justify-center text-3xl">
-                                    <iconify-icon icon="solar:user-bold" aria-hidden="true"></iconify-icon>
-                                </div>
-                                {% endif %}
-                            </div>
-                            <div>
-                                <h3 class="text-lg font-semibold text-gray-900">{{ featured_editor_name }}</h3>
-                                {% if featured_editor_title and featured_editor_org and featured_editor_org != featured_editor_title %}
-                                <span class="text-gray-500 text-sm">{{ featured_editor_title }}, {{ featured_editor_org }}</span>
-                                {% elif featured_editor_title %}
-                                <span class="text-gray-500 text-sm">{{ featured_editor_title }}</span>
-                                {% elif featured_editor_org %}
-                                <span class="text-gray-500 text-sm">{{ featured_editor_org }}</span>
-                                {% else %}
-                                <span class="text-gray-500 text-sm">{{ t('editorial_board_description') }}</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
             <!-- Articles Section with Tabs -->
-            <section id="video-guides" class="intersect-once intersect:animate-fade animate-duration-500 animate-ease-out">
+            <section id="articles-section" class="intersect-once intersect:animate-fade animate-duration-500 animate-ease-out">
                 <div class="flex items-center gap-2 mb-5">
                     <iconify-icon icon="solar:document-text-bold-duotone" class="text-fmmain text-xl"></iconify-icon>
                     <h4 class="text-xl font-bold text-gray-900">{{ t('articles') }}</h4>
@@ -110,13 +248,13 @@
                 <div class="text-sm text-gray-500 mt-3 mb-3">{{ t('latest_publications_day') }}</div>
 
                 <!-- Latest Tab -->
-                <div id="latest-tab" class="tab-content grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div id="latest-tab" class="tab-content space-y-4">
                     {% for publication in latest_publications %}
-                    <div class="article-card group">
+                    <div class="article-card article-card-stagger group">
                         <div class="flex items-center gap-2 text-xs mb-3">
                             <span class="badge badge-neutral">{{ t('research_article') }}</span>
-                            <span class="badge {% if not publication.is_paid %}badge-success{% else %}badge-neutral{% endif %}">
-                                <iconify-icon icon="solar:check-circle-bold-duotone" class="text-xs"></iconify-icon>
+                            <span class="badge {% if not publication.is_paid %}badge-success{% else %}badge-warning{% endif %}">
+                                <iconify-icon icon="{% if not publication.is_paid %}tabler:lock-open{% else %}tabler:lock{% endif %}" class="text-xs"></iconify-icon>
                                 {% if not publication.is_paid %}{{ t('open_access') }}{% else %}{{ t('closed_access') }}{% endif %}
                             </span>
                         </div>
@@ -124,15 +262,55 @@
                             class="font-medium text-gray-900 hover:text-fmmain transition-colors leading-snug line-clamp-2 block">{{ publication.title }}</a>
                         <div class="mt-3 pt-3 border-t border-gray-100">
                             <div class="text-sm text-gray-600">
-                                {% if publication.main_author_name %}{{ publication.main_author_name }}
-                                {% if publication.subauthor_names %}, ... {{ publication.subauthor_names[0] if publication.subauthor_names }}{% endif %}
+                                {% if publication.author_profiles %}
+                                    {{ render_author_list(publication.author_profiles[:2], author_tooltip_ui) }}
+                                    {% if publication.author_profiles|length > 2 %}, ...{% endif %}
+                                {% elif publication.main_author_name %}{{ publication.main_author_name }}
+                                    {% if publication.subauthor_names %}, ... {{ publication.subauthor_names[0] if publication.subauthor_names }}{% endif %}
                                 {% endif %}
                             </div>
-                            <div class="text-xs text-gray-400 mt-1">{{ publication.date_publish|timestamp_to_date }}</div>
+                            {% if publication.doi %}
+                            <div class="mt-1 text-xs">
+                                {% if publication.doi_link %}
+                                <a href="{{ publication.doi_link }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-blue-700 hover:text-blue-900">
+                                    <img src="{{ url_for('static', filename='doi-logo.png') }}" alt="DOI" style="width:12px;height:12px;border-radius:3px;">
+                                    <span class="truncate">{{ publication.doi }}</span>
+                                </a>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1 text-gray-500">
+                                    <img src="{{ url_for('static', filename='doi-logo.png') }}" alt="DOI" style="width:12px;height:12px;border-radius:3px;">
+                                    <span class="truncate">{{ publication.doi }}</span>
+                                </span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            <div class="flex items-center justify-between mt-1">
+                                <div class="text-xs text-gray-400">{{ publication.date_publish|timestamp_to_date }}</div>
+                                <div class="flex items-center gap-3">
+                                    {% if publication.stat_views %}
+                                    <span class="article-stat-badge">
+                                        <iconify-icon icon="solar:eye-line-duotone"></iconify-icon>
+                                        {{ publication.stat_views }}
+                                    </span>
+                                    {% endif %}
+                                    {% if publication.page_range %}
+                                    <span class="article-stat-badge">
+                                        <iconify-icon icon="solar:document-text-line-duotone"></iconify-icon>
+                                        {{ publication.page_range }}
+                                    </span>
+                                    {% endif %}
+                                    {% if publication.stat_alt %}
+                                    <span class="article-stat-badge">
+                                        <iconify-icon icon="solar:download-minimalistic-line-duotone"></iconify-icon>
+                                        {{ publication.stat_alt }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
                         {% if not publication.is_paid %}
                         <div class="mt-3">
-                            <a href="{{ url_for('app__download_article', article_id=publication.id) }}"
+                            <a href="{{ url_for('app__download_article', article_id=publication.id) }}" target="_blank" rel="noopener noreferrer"
                                 class="inline-flex items-center gap-1.5 text-xs font-medium text-fmmain hover:text-fmmain/80 transition-colors">
                                 <iconify-icon icon="tabler:file-type-pdf" class="text-base"></iconify-icon>
                                 {{ t('download_pdf') }}
@@ -141,20 +319,18 @@
                         {% endif %}
                     </div>
                     {% else %}
-                    <div class="article-card text-sm text-gray-500 sm:col-span-2">
-                        {{ t('no_articles_available') }}
-                    </div>
+                    <div class="article-card text-sm text-gray-500">{{ t('no_articles_available') }}</div>
                     {% endfor %}
                 </div>
 
                 <!-- Downloaded Tab -->
-                <div id="downloaded-tab" class="tab-content hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div id="downloaded-tab" class="tab-content hidden space-y-4">
                     {% for publication in downloaded_publications %}
-                    <div class="article-card group">
+                    <div class="article-card article-card-stagger group">
                         <div class="flex items-center gap-2 text-xs mb-3">
                             <span class="badge badge-neutral">{{ t('research_article') }}</span>
-                            <span class="badge {% if not publication.is_paid %}badge-success{% else %}badge-neutral{% endif %}">
-                                <iconify-icon icon="solar:check-circle-bold-duotone" class="text-xs"></iconify-icon>
+                            <span class="badge {% if not publication.is_paid %}badge-success{% else %}badge-warning{% endif %}">
+                                <iconify-icon icon="{% if not publication.is_paid %}tabler:lock-open{% else %}tabler:lock{% endif %}" class="text-xs"></iconify-icon>
                                 {% if not publication.is_paid %}{{ t('open_access') }}{% else %}{{ t('closed_access') }}{% endif %}
                             </span>
                         </div>
@@ -162,15 +338,55 @@
                             class="font-medium text-gray-900 hover:text-fmmain transition-colors leading-snug line-clamp-2 block">{{ publication.title }}</a>
                         <div class="mt-3 pt-3 border-t border-gray-100">
                             <div class="text-sm text-gray-600">
-                                {% if publication.main_author_name %}{{ publication.main_author_name }}
-                                {% if publication.subauthor_names %}, ... {{ publication.subauthor_names[0] if publication.subauthor_names }}{% endif %}
+                                {% if publication.author_profiles %}
+                                    {{ render_author_list(publication.author_profiles[:2], author_tooltip_ui) }}
+                                    {% if publication.author_profiles|length > 2 %}, ...{% endif %}
+                                {% elif publication.main_author_name %}{{ publication.main_author_name }}
+                                    {% if publication.subauthor_names %}, ... {{ publication.subauthor_names[0] if publication.subauthor_names }}{% endif %}
                                 {% endif %}
                             </div>
-                            <div class="text-xs text-gray-400 mt-1">{{ publication.date_publish|timestamp_to_date }}</div>
+                            {% if publication.doi %}
+                            <div class="mt-1 text-xs">
+                                {% if publication.doi_link %}
+                                <a href="{{ publication.doi_link }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-blue-700 hover:text-blue-900">
+                                    <img src="{{ url_for('static', filename='doi-logo.png') }}" alt="DOI" style="width:12px;height:12px;border-radius:3px;">
+                                    <span class="truncate">{{ publication.doi }}</span>
+                                </a>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1 text-gray-500">
+                                    <img src="{{ url_for('static', filename='doi-logo.png') }}" alt="DOI" style="width:12px;height:12px;border-radius:3px;">
+                                    <span class="truncate">{{ publication.doi }}</span>
+                                </span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            <div class="flex items-center justify-between mt-1">
+                                <div class="text-xs text-gray-400">{{ publication.date_publish|timestamp_to_date }}</div>
+                                <div class="flex items-center gap-3">
+                                    {% if publication.stat_views %}
+                                    <span class="article-stat-badge">
+                                        <iconify-icon icon="solar:eye-line-duotone"></iconify-icon>
+                                        {{ publication.stat_views }}
+                                    </span>
+                                    {% endif %}
+                                    {% if publication.page_range %}
+                                    <span class="article-stat-badge">
+                                        <iconify-icon icon="solar:document-text-line-duotone"></iconify-icon>
+                                        {{ publication.page_range }}
+                                    </span>
+                                    {% endif %}
+                                    {% if publication.stat_alt %}
+                                    <span class="article-stat-badge">
+                                        <iconify-icon icon="solar:download-minimalistic-line-duotone"></iconify-icon>
+                                        {{ publication.stat_alt }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
                         {% if not publication.is_paid %}
                         <div class="mt-3">
-                            <a href="{{ url_for('app__download_article', article_id=publication.id) }}"
+                            <a href="{{ url_for('app__download_article', article_id=publication.id) }}" target="_blank" rel="noopener noreferrer"
                                 class="inline-flex items-center gap-1.5 text-xs font-medium text-fmmain hover:text-fmmain/80 transition-colors">
                                 <iconify-icon icon="tabler:file-type-pdf" class="text-base"></iconify-icon>
                                 {{ t('download_pdf') }}
@@ -179,20 +395,18 @@
                         {% endif %}
                     </div>
                     {% else %}
-                    <div class="article-card text-sm text-gray-500 sm:col-span-2">
-                        {{ t('no_articles_available') }}
-                    </div>
+                    <div class="article-card text-sm text-gray-500">{{ t('no_articles_available') }}</div>
                     {% endfor %}
                 </div>
 
                 <!-- Popular Tab -->
-                <div id="popular-tab" class="tab-content hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div id="popular-tab" class="tab-content hidden space-y-4">
                     {% for publication in popular_publications %}
-                    <div class="article-card group">
+                    <div class="article-card article-card-stagger group">
                         <div class="flex items-center gap-2 text-xs mb-3">
                             <span class="badge badge-neutral">{{ t('research_article') }}</span>
-                            <span class="badge {% if not publication.is_paid %}badge-success{% else %}badge-neutral{% endif %}">
-                                <iconify-icon icon="solar:check-circle-bold-duotone" class="text-xs"></iconify-icon>
+                            <span class="badge {% if not publication.is_paid %}badge-success{% else %}badge-warning{% endif %}">
+                                <iconify-icon icon="{% if not publication.is_paid %}tabler:lock-open{% else %}tabler:lock{% endif %}" class="text-xs"></iconify-icon>
                                 {% if not publication.is_paid %}{{ t('open_access') }}{% else %}{{ t('closed_access') }}{% endif %}
                             </span>
                         </div>
@@ -200,15 +414,55 @@
                             class="font-medium text-gray-900 hover:text-fmmain transition-colors leading-snug line-clamp-2 block">{{ publication.title }}</a>
                         <div class="mt-3 pt-3 border-t border-gray-100">
                             <div class="text-sm text-gray-600">
-                                {% if publication.main_author_name %}{{ publication.main_author_name }}
-                                {% if publication.subauthor_names %}, ... {{ publication.subauthor_names[0] if publication.subauthor_names }}{% endif %}
+                                {% if publication.author_profiles %}
+                                    {{ render_author_list(publication.author_profiles[:2], author_tooltip_ui) }}
+                                    {% if publication.author_profiles|length > 2 %}, ...{% endif %}
+                                {% elif publication.main_author_name %}{{ publication.main_author_name }}
+                                    {% if publication.subauthor_names %}, ... {{ publication.subauthor_names[0] if publication.subauthor_names }}{% endif %}
                                 {% endif %}
                             </div>
-                            <div class="text-xs text-gray-400 mt-1">{{ publication.date_publish|timestamp_to_date }}</div>
+                            {% if publication.doi %}
+                            <div class="mt-1 text-xs">
+                                {% if publication.doi_link %}
+                                <a href="{{ publication.doi_link }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-blue-700 hover:text-blue-900">
+                                    <img src="{{ url_for('static', filename='doi-logo.png') }}" alt="DOI" style="width:12px;height:12px;border-radius:3px;">
+                                    <span class="truncate">{{ publication.doi }}</span>
+                                </a>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1 text-gray-500">
+                                    <img src="{{ url_for('static', filename='doi-logo.png') }}" alt="DOI" style="width:12px;height:12px;border-radius:3px;">
+                                    <span class="truncate">{{ publication.doi }}</span>
+                                </span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            <div class="flex items-center justify-between mt-1">
+                                <div class="text-xs text-gray-400">{{ publication.date_publish|timestamp_to_date }}</div>
+                                <div class="flex items-center gap-3">
+                                    {% if publication.stat_views %}
+                                    <span class="article-stat-badge">
+                                        <iconify-icon icon="solar:eye-line-duotone"></iconify-icon>
+                                        {{ publication.stat_views }}
+                                    </span>
+                                    {% endif %}
+                                    {% if publication.page_range %}
+                                    <span class="article-stat-badge">
+                                        <iconify-icon icon="solar:document-text-line-duotone"></iconify-icon>
+                                        {{ publication.page_range }}
+                                    </span>
+                                    {% endif %}
+                                    {% if publication.stat_alt %}
+                                    <span class="article-stat-badge">
+                                        <iconify-icon icon="solar:download-minimalistic-line-duotone"></iconify-icon>
+                                        {{ publication.stat_alt }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
                         {% if not publication.is_paid %}
                         <div class="mt-3">
-                            <a href="{{ url_for('app__download_article', article_id=publication.id) }}"
+                            <a href="{{ url_for('app__download_article', article_id=publication.id) }}" target="_blank" rel="noopener noreferrer"
                                 class="inline-flex items-center gap-1.5 text-xs font-medium text-fmmain hover:text-fmmain/80 transition-colors">
                                 <iconify-icon icon="tabler:file-type-pdf" class="text-base"></iconify-icon>
                                 {{ t('download_pdf') }}
@@ -217,9 +471,7 @@
                         {% endif %}
                     </div>
                     {% else %}
-                    <div class="article-card text-sm text-gray-500 sm:col-span-2">
-                        {{ t('no_articles_available') }}
-                    </div>
+                    <div class="article-card text-sm text-gray-500">{{ t('no_articles_available') }}</div>
                     {% endfor %}
                 </div>
 
@@ -290,16 +542,6 @@
                     {% endif %}
                 </div>
 
-                <div id="conferences-tab" class="news-tab-content hidden space-y-3">
-                    <div class="article-card group">
-                        <div class="flex items-center gap-2 text-xs mb-2 text-gray-400">
-                            <iconify-icon icon="solar:calendar-line-duotone" class="text-sm"></iconify-icon>
-                            14 May 2025
-                        </div>
-                        <a href="" class="font-semibold text-gray-900 hover:text-fmmain transition-colors">{{ t('international_conference') }}</a>
-                    </div>
-                </div>
-
                 <div class="flex py-5">
                     <a href="{{ url_for('app__news') }}"
                         class="inline-flex items-center gap-1.5 text-sm font-medium text-fmmain hover:text-fmmain/80 transition-colors group">
@@ -316,20 +558,14 @@
                     <iconify-icon icon="solar:video-library-bold-duotone" class="text-fmmain text-xl"></iconify-icon>
                     <h4 class="text-xl font-bold text-gray-900">{{ t('home_video_guides_title') }}</h4>
                 </div>
-
                 <div class="grid gap-6 md:grid-cols-2">
                     {% if home_video_usage_embed %}
                     <div class="rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm">
                         <div class="w-full bg-gray-100" style="aspect-ratio: 16 / 9;">
-                            <iframe
-                                src="{{ home_video_usage_embed }}"
-                                title="{{ t('home_video_site_usage_title') }}"
-                                class="w-full h-full"
-                                frameborder="0"
+                            <iframe src="{{ home_video_usage_embed }}" title="{{ t('home_video_site_usage_title') }}"
+                                class="w-full h-full" frameborder="0"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                referrerpolicy="strict-origin-when-cross-origin"
-                                allowfullscreen
-                                loading="lazy"></iframe>
+                                referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe>
                         </div>
                         <div class="p-4">
                             <div class="text-sm font-semibold text-gray-900">{{ t('home_video_site_usage_title') }}</div>
@@ -337,19 +573,13 @@
                         </div>
                     </div>
                     {% endif %}
-
                     {% if home_video_submission_embed %}
                     <div class="rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm">
                         <div class="w-full bg-gray-100" style="aspect-ratio: 16 / 9;">
-                            <iframe
-                                src="{{ home_video_submission_embed }}"
-                                title="{{ t('home_video_submission_title') }}"
-                                class="w-full h-full"
-                                frameborder="0"
+                            <iframe src="{{ home_video_submission_embed }}" title="{{ t('home_video_submission_title') }}"
+                                class="w-full h-full" frameborder="0"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                referrerpolicy="strict-origin-when-cross-origin"
-                                allowfullscreen
-                                loading="lazy"></iframe>
+                                referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe>
                         </div>
                         <div class="p-4">
                             <div class="text-sm font-semibold text-gray-900">{{ t('home_video_submission_title') }}</div>
@@ -386,32 +616,108 @@
 
         </div>
 
-        <!-- ===== RIGHT: Sidebar (30%) ===== -->
-        <aside class="lg:w-80 shrink-0">
-            <div class="lg:sticky lg:top-24 space-y-6">
+        <!-- ===================================================
+             RIGHT SIDEBAR (~26%) — Stats, Metrics, Subscribe
+             =================================================== -->
+        <aside class="xl:w-64 shrink-0 order-3">
+            <div class="xl:sticky xl:top-24 space-y-5">
 
-                <!-- Journal Stats -->
+                <!-- Editorial Board Slider -->
+                <div class="sidebar-card intersect-once intersect:animate-fade animate-duration-500 animate-delay-100 animate-ease-out" data-editorial-slider-card>
+                    <div class="flex items-center justify-between mb-3">
+                        <h5 class="sidebar-card-title !mb-0">
+                            <iconify-icon icon="solar:users-group-rounded-bold-duotone" class="text-fmmain"></iconify-icon>
+                            {{ t('menu_editorial_board') }}
+                        </h5>
+                        {% if editorial_members and editorial_members|length > 1 %}
+                        <div class="editorial-slider-controls">
+                            <button type="button" class="editorial-slider-btn" data-editorial-prev aria-label="Previous editor">
+                                <iconify-icon icon="solar:alt-arrow-left-line-duotone"></iconify-icon>
+                            </button>
+                            <button type="button" class="editorial-slider-btn" data-editorial-next aria-label="Next editor">
+                                <iconify-icon icon="solar:alt-arrow-right-line-duotone"></iconify-icon>
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if editorial_members %}
+                    <div class="editorial-slider" data-editorial-slider data-interval="4200">
+                        {% for member in editorial_members %}
+                        {% set member_name = member.full_name or member.name or '' %}
+                        {% set member_image = member.image or member.avatar or '' %}
+                        {% set member_role = member.member_type_label or member.member_type or '' %}
+                        {% set member_title = member.position or member.title or '' %}
+                        {% set member_org = member.organization or '' %}
+                        <article class="editorial-slide{% if loop.first %} is-active{% endif %}" data-editorial-slide>
+                            <div class="flex items-center gap-3">
+                                <div class="editorial-slide-avatar">
+                                    {% if member_image %}
+                                        {% if member_image.startswith('http://') or member_image.startswith('https://') or member_image.startswith('/') %}
+                                        <img src="{{ member_image }}" alt="{{ member_name }}" class="h-full w-full object-cover">
+                                        {% else %}
+                                        <img src="{{ url_for('static', filename=member_image) }}" alt="{{ member_name }}" class="h-full w-full object-cover">
+                                        {% endif %}
+                                    {% else %}
+                                    <div class="flex h-full w-full items-center justify-center text-xl text-fmmain">
+                                        <iconify-icon icon="solar:user-bold"></iconify-icon>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="min-w-0">
+                                    <h6 class="editorial-slide-name">{{ member_name }}</h6>
+                                    <div class="editorial-slide-role">{{ member_role }}</div>
+                                </div>
+                            </div>
+                            {% if member_title or member_org %}
+                            <p class="editorial-slide-meta">
+                                {% if member_title %}{{ member_title }}{% endif %}{% if member_title and member_org and member_org != member_title %}, {% endif %}{% if member_org and member_org != member_title %}{{ member_org }}{% endif %}
+                            </p>
+                            {% endif %}
+                        </article>
+                        {% endfor %}
+                    </div>
+
+                    {% if editorial_members|length > 1 %}
+                    <div class="editorial-slider-dots">
+                        {% for member in editorial_members %}
+                        <button type="button" class="editorial-slider-dot{% if loop.first %} is-active{% endif %}" data-editorial-dot="{{ loop.index0 }}" aria-label="Go to editor {{ loop.index }}"></button>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <p class="text-xs text-gray-500">{{ t('editorial_board_description') }}</p>
+                    {% endif %}
+
+                    <a href="{{ url_for('app__editorial') }}"
+                        class="inline-flex items-center gap-1 text-xs font-medium text-fmmain hover:text-fmmain/80 transition-colors group mt-3">
+                        {{ t('view_editorial_board') }}
+                        <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-sm transition-transform group-hover:translate-x-0.5"></iconify-icon>
+                    </a>
+                </div>
+
+                <!-- Journal Indicators -->
                 <div class="sidebar-card intersect-once intersect:animate-fade animate-duration-500 animate-ease-out">
                     <h5 class="sidebar-card-title">
                         <iconify-icon icon="solar:chart-2-bold-duotone" class="text-fmmain"></iconify-icon>
-                        {{ t('journal_metrics') if t else 'Journal Metrics' }}
+                        {{ t('journal_metrics') if t else "Jurnal ko'rsatkichlari" }}
                     </h5>
                     <div class="grid grid-cols-2 gap-3">
-                        <div class="stat-mini-card">
-                            <div class="stat-mini-value">{{ t('stat_1_value') }}</div>
-                            <div class="stat-mini-label">{{ t('stat_1_text') }}</div>
+                        <div class="rounded-2xl border border-gray-200 bg-white p-3 text-center">
+                            <div class="text-4xl font-bold leading-none text-fmmain">{{ t('stat_1_value') }}</div>
+                            <div class="mt-2 text-xs text-gray-500 leading-5">{{ t('stat_1_text') }}</div>
                         </div>
-                        <div class="stat-mini-card">
-                            <div class="stat-mini-value">{{ t('stat_2_value') }}</div>
-                            <div class="stat-mini-label">{{ t('stat_2_text') }}</div>
+                        <div class="rounded-2xl border border-gray-200 bg-white p-3 text-center">
+                            <div class="text-4xl font-bold leading-none text-fmmain">{{ t('stat_2_value') }}</div>
+                            <div class="mt-2 text-xs text-gray-500 leading-5">{{ t('stat_2_text') }}</div>
                         </div>
-                        <div class="stat-mini-card">
-                            <div class="stat-mini-value">{{ t('stat_3_value') }}</div>
-                            <div class="stat-mini-label">{{ t('stat_3_text') }}</div>
+                        <div class="rounded-2xl border border-gray-200 bg-white p-3 text-center">
+                            <div class="text-4xl font-bold leading-none text-fmmain">{{ t('stat_3_value') }}</div>
+                            <div class="mt-2 text-xs text-gray-500 leading-5">{{ t('stat_3_text') }}</div>
                         </div>
-                        <div class="stat-mini-card">
-                            <div class="stat-mini-value">{{ t('stat_4_value') }}</div>
-                            <div class="stat-mini-label">{{ t('stat_4_text') }}</div>
+                        <div class="rounded-2xl border border-gray-200 bg-white p-3 text-center">
+                            <div class="text-4xl font-bold leading-none text-fmmain">{{ t('stat_4_value') }}</div>
+                            <div class="mt-2 text-xs text-gray-500 leading-5">{{ t('stat_4_text') }}</div>
                         </div>
                     </div>
                     <a href="{{ url_for('app__page_alias', alias='journal_metrics') }}"
@@ -419,58 +725,6 @@
                         {{ t('view_all_insights') }}
                         <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-sm transition-transform group-hover:translate-x-0.5"></iconify-icon>
                     </a>
-                </div>
-
-                <!-- Latest Issue -->
-                {% if latest_issue %}
-                <div class="sidebar-card intersect-once intersect:animate-fade animate-duration-500 animate-delay-100 animate-ease-out">
-                    <h5 class="sidebar-card-title">
-                        <iconify-icon icon="solar:book-bold-duotone" class="text-fmmain"></iconify-icon>
-                        {{ t('menu_current_issue') }}
-                    </h5>
-                    <a href="{{ url_for('app__issue', issue_id=latest_issue.id) }}" class="block group">
-                        <div class="mb-4 border border-slate-200 bg-white p-4 shadow-lg" style="border-radius: 0; box-shadow: 0 18px 40px -28px rgba(15, 23, 42, 0.45);">
-                            <div class="mx-auto overflow-hidden border border-slate-200 bg-white" style="max-width: min(100%, 18rem); border-radius: 0;">
-                                <img src="{{ latest_issue.cover_image|cover_or_default }}" alt="{{ latest_issue.title }}" class="block w-full h-auto object-contain bg-white transition-transform duration-300 group-hover:scale-105" style="aspect-ratio: 2484 / 3512;">
-                            </div>
-                        </div>
-                        <div class="font-semibold text-gray-900 group-hover:text-fmmain transition-colors text-sm">{{ latest_issue.title }}</div>
-                    </a>
-                </div>
-                {% endif %}
-
-                <!-- Quick Links -->
-                <div class="sidebar-card intersect-once intersect:animate-fade animate-duration-500 animate-delay-200 animate-ease-out">
-                    <h5 class="sidebar-card-title">
-                        <iconify-icon icon="solar:link-round-bold-duotone" class="text-fmmain"></iconify-icon>
-                        {{ t('quick_links') if t else 'Quick Links' }}
-                    </h5>
-                    <nav class="space-y-1">
-                        <a href="{{ url_for('app__page_alias', alias='submission_guidelines') }}" class="sidebar-quick-link">
-                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain"></iconify-icon>
-                            {{ t('menu_submission_guidelines') }}
-                        </a>
-                        <a href="{{ url_for('app__page_alias', alias='author_instructions') }}" class="sidebar-quick-link">
-                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain"></iconify-icon>
-                            {{ t('menu_author_instructions') }}
-                        </a>
-                        <a href="{{ url_for('app__editorial') }}" class="sidebar-quick-link">
-                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain"></iconify-icon>
-                            {{ t('menu_editorial_board') }}
-                        </a>
-                        <a href="{{ url_for('app__page_alias', alias='aims_scope') }}" class="sidebar-quick-link">
-                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain"></iconify-icon>
-                            {{ t('menu_aims_scope') }}
-                        </a>
-                        <a href="{{ url_for('app__issues') }}" class="sidebar-quick-link">
-                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain"></iconify-icon>
-                            {{ t('menu_all_issues') }}
-                        </a>
-                        <a href="{{ url_for('app__contact') }}" class="sidebar-quick-link">
-                            <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain"></iconify-icon>
-                            {{ t('footer_contact') }}
-                        </a>
-                    </nav>
                 </div>
 
                 <!-- Subscribe CTA -->
@@ -493,29 +747,521 @@
     </div>
 </div>
 
+<!-- ============================================================
+     COUNTRY MAP MODAL
+     ============================================================ -->
+{% if country_stats %}
+<div id="country-map-modal" class="country-map-modal" style="display:none;" role="dialog" aria-modal="true"
+     aria-label="{{ country_stats_ui.title }}">
+    <div class="country-map-modal-inner">
+
+        <div class="country-map-modal-header">
+            <h3>
+                <iconify-icon icon="solar:global-bold-duotone" class="text-fmmain text-xl"></iconify-icon>
+                {{ country_stats_ui.modal_title }}
+            </h3>
+            <button type="button" class="country-map-modal-close" onclick="closeCountryMapModal()" aria-label="{{ country_stats_ui.close }}">
+                <iconify-icon icon="solar:close-circle-bold-duotone"></iconify-icon>
+            </button>
+        </div>
+
+        <div class="country-map-modal-body">
+            <!-- Full interactive map -->
+            <div class="country-map-modal-map">
+                <div id="world-map-full"></div>
+            </div>
+
+            <!-- Ranked country list -->
+            <div class="country-map-modal-list">
+                <div class="country-map-modal-list-title">{{ country_stats_ui.top_title }}</div>
+                <div id="country-stat-detail" class="country-stat-detail" aria-live="polite">
+                    <div class="country-stat-detail-head">
+                        <span id="country-stat-detail-flag" class="country-stat-detail-flag">
+                            <iconify-icon icon="solar:global-line-duotone"></iconify-icon>
+                        </span>
+                        <span id="country-stat-detail-name" class="country-stat-detail-name">{{ country_stats_ui.select_country }}</span>
+                    </div>
+                    <div class="country-stat-detail-row">
+                        <span>{{ country_stats_ui.total }}</span>
+                        <strong id="country-stat-detail-total">0</strong>
+                    </div>
+                    <div class="country-stat-detail-row">
+                        <span>{{ country_stats_ui.authors }}</span>
+                        <strong id="country-stat-detail-authors">0</strong>
+                    </div>
+                    <div class="country-stat-detail-row">
+                        <span>{{ country_stats_ui.views }}</span>
+                        <strong id="country-stat-detail-views">0</strong>
+                    </div>
+                    <div class="country-stat-detail-row">
+                        <span>{{ country_stats_ui.downloads }}</span>
+                        <strong id="country-stat-detail-downloads">0</strong>
+                    </div>
+                </div>
+                {% for item in country_stats_top %}
+                <button
+                    type="button"
+                    class="country-map-list-item js-country-stat-item"
+                    data-country-name="{{ item.name|e }}"
+                    data-country-iso="{{ item.iso|default('', true) }}"
+                    data-country-total="{{ item.count|default(0) }}"
+                    data-country-authors="{{ item.authors|default(0) }}"
+                    data-country-views="{{ item.views|default(0) }}"
+                    data-country-downloads="{{ item.downloads|default(0) }}"
+                    aria-label="{{ item.name|e }} - {{ country_stats_ui.view_country_stats }}"
+                >
+                    <span class="country-map-rank">{{ loop.index }}</span>
+                    <span class="country-map-list-flag">
+                        {% if item.iso %}
+                        <span class="fi fi-{{ item.iso }}"></span>
+                        {% else %}
+                        <iconify-icon icon="solar:global-line-duotone" class="text-gray-300 text-xs"></iconify-icon>
+                        {% endif %}
+                    </span>
+                    <span class="country-map-list-name" title="{{ item.name }}">{{ item.name }}</span>
+                    <span class="country-map-list-count">{{ item.count }}</span>
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}
 {% block scripts %}
 
+{% if country_stats %}
+<!-- D3 + TopoJSON for animated world map -->
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<style>
+    .country-map-list-item {
+        width: 100%;
+        border: none;
+        background: transparent;
+        text-align: left;
+        cursor: pointer;
+    }
+    .country-map-list-item.is-active {
+        background: rgba(27, 138, 74, 0.12);
+        box-shadow: inset 0 0 0 1px rgba(27, 138, 74, 0.28);
+    }
+    .country-stat-detail {
+        margin: 2px 6px 10px;
+        padding: 10px 11px;
+        border-radius: 8px;
+        border: 1px solid rgba(27, 138, 74, 0.2);
+        background: rgba(27, 138, 74, 0.05);
+    }
+    .country-stat-detail-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 7px;
+    }
+    .country-stat-detail-flag {
+        display: inline-flex;
+        width: 20px;
+        height: 15px;
+        border-radius: 3px;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+        color: #9ca3af;
+        background: #ffffff;
+        font-size: 11px;
+        flex-shrink: 0;
+    }
+    .country-stat-detail-name {
+        font-size: 12px;
+        font-weight: 700;
+        color: #1f2937;
+        min-width: 0;
+    }
+    .country-stat-detail-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11px;
+        color: #4b5563;
+        margin-top: 3px;
+    }
+    .country-stat-detail-row strong {
+        color: #166534;
+        font-weight: 700;
+    }
+</style>
+{% endif %}
+
 <script>
-    $(document).ready(function () {
-        $('.tab-link').click(function () {
-            $('.tab-link').removeClass('border-green-900').addClass('border-green-500/0');
-            $('.tab-link').attr('aria-selected', 'false');
-            $(this).addClass('border-green-900').removeClass('border-green-500/0');
-            $(this).attr('aria-selected', 'true');
-            $('.tab-content').addClass('hidden');
-            $('#' + $(this).data('tab') + '-tab').removeClass('hidden');
+$(document).ready(function () {
+
+    /* ── Tab switching with fade animation ── */
+    function switchTab(tabId, $btn, $allBtns, $allContents) {
+        $allBtns.removeClass('border-green-900').addClass('border-green-500/0');
+        $allBtns.attr('aria-selected', 'false');
+        $btn.addClass('border-green-900').removeClass('border-green-500/0');
+        $btn.attr('aria-selected', 'true');
+        $allContents.addClass('hidden');
+        var $panel = $('#' + tabId + '-tab');
+        $panel.removeClass('hidden').addClass('tab-content-fade');
+        setTimeout(function () { $panel.removeClass('tab-content-fade'); }, 350);
+        triggerStagger($panel.find('.article-card-stagger'));
+    }
+
+    $('.tab-link').click(function () {
+        switchTab($(this).data('tab'), $(this), $('.tab-link'), $('.tab-content'));
+    });
+
+    $('.news-tab-link').click(function () {
+        switchTab($(this).data('news-tab'), $(this), $('.news-tab-link'), $('.news-tab-content'));
+    });
+
+    /* ── Article card stagger ── */
+    function triggerStagger($cards) {
+        $cards.each(function (i, el) {
+            setTimeout(function () { $(el).addClass('is-visible'); }, i * 70);
+        });
+    }
+
+    if ('IntersectionObserver' in window) {
+        var staggerObs = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    triggerStagger($(entry.target).find('.article-card-stagger:not(.is-visible)'));
+                }
+            });
+        }, { threshold: 0.1 });
+        document.querySelectorAll('.tab-content').forEach(function (el) { staggerObs.observe(el); });
+    } else {
+        $('.article-card-stagger').addClass('is-visible');
+    }
+
+    triggerStagger($('#latest-tab .article-card-stagger'));
+
+    /* ── Editorial slider: auto + manual controls ── */
+    (function initEditorialSlider() {
+        var slider = document.querySelector('[data-editorial-slider]');
+        if (!slider) return;
+
+        var slides = Array.from(slider.querySelectorAll('[data-editorial-slide]'));
+        if (!slides.length) return;
+
+        var card = slider.closest('[data-editorial-slider-card]');
+        var prevBtn = card ? card.querySelector('[data-editorial-prev]') : null;
+        var nextBtn = card ? card.querySelector('[data-editorial-next]') : null;
+        var dots = card ? Array.from(card.querySelectorAll('[data-editorial-dot]')) : [];
+        var intervalMs = parseInt(slider.getAttribute('data-interval'), 10) || 4200;
+        var activeIndex = 0;
+        var timer = null;
+
+        function setActive(index) {
+            activeIndex = (index + slides.length) % slides.length;
+            slides.forEach(function (slide, idx) {
+                slide.classList.toggle('is-active', idx === activeIndex);
+            });
+            dots.forEach(function (dot, idx) {
+                dot.classList.toggle('is-active', idx === activeIndex);
+            });
+        }
+
+        function nextSlide() {
+            setActive(activeIndex + 1);
+        }
+
+        function prevSlide() {
+            setActive(activeIndex - 1);
+        }
+
+        function stopAutoplay() {
+            if (!timer) return;
+            clearInterval(timer);
+            timer = null;
+        }
+
+        function startAutoplay() {
+            if (slides.length < 2) return;
+            stopAutoplay();
+            timer = setInterval(nextSlide, intervalMs);
+        }
+
+        if (prevBtn) prevBtn.addEventListener('click', function () { prevSlide(); startAutoplay(); });
+        if (nextBtn) nextBtn.addEventListener('click', function () { nextSlide(); startAutoplay(); });
+
+        dots.forEach(function (dot) {
+            dot.addEventListener('click', function () {
+                var idx = parseInt(dot.getAttribute('data-editorial-dot'), 10);
+                if (Number.isNaN(idx)) return;
+                setActive(idx);
+                startAutoplay();
+            });
         });
 
-        $('.news-tab-link').click(function () {
-            $('.news-tab-link').removeClass('border-green-900').addClass('border-green-500/0');
-            $('.news-tab-link').attr('aria-selected', 'false');
-            $(this).addClass('border-green-900').removeClass('border-green-500/0');
-            $(this).attr('aria-selected', 'true');
-            $('.news-tab-content').addClass('hidden');
-            $('#' + $(this).data('news-tab') + '-tab').removeClass('hidden');
+        slider.addEventListener('mouseenter', stopAutoplay);
+        slider.addEventListener('mouseleave', startAutoplay);
+
+        setActive(0);
+        startAutoplay();
+    })();
+});
+
+/* ── Country World Map — D3 + TopoJSON ── */
+{% if country_stats %}
+(function () {
+
+    /* 1. Server data */
+    var countryStatsUi = {{ country_stats_ui|tojson }};
+    var totalLabel = countryStatsUi.total || 'Total';
+    var authorsLabel = countryStatsUi.authors || 'Authors';
+    var viewsLabel = countryStatsUi.views || 'Views';
+    var downloadsLabel = countryStatsUi.downloads || 'Downloads';
+    var unknownCountryLabel = countryStatsUi.unknown_country || 'Unknown country';
+    var cStats = {};
+    {% for item in country_stats %}{% if item.iso %}
+    cStats["{{ item.iso|upper }}"] = { name:"{{ item.name|replace('"','\\"') }}", iso:"{{ item.iso }}", total:{{ item.count|default(0) }}, authors:{{ item.authors|default(0) }}, views:{{ item.views|default(0) }}, downloads:{{ item.downloads|default(0) }} };{% endif %}{% endfor %}
+
+    var maxCount = 1;
+    Object.values(cStats).forEach(function(d){ if((d.total||0)>maxCount) maxCount=(d.total||0); });
+
+    /* 2. ISO-3166-1 alpha-2 ↔ numeric */
+    var _a2n={AF:4,AL:8,DZ:12,AD:20,AO:24,AG:28,AR:32,AM:51,AU:36,AT:40,AZ:31,BS:44,BH:48,BD:50,BB:52,BY:112,BE:56,BZ:84,BJ:204,BT:64,BO:68,BA:70,BW:72,BR:76,BN:96,BG:100,BF:854,BI:108,CV:132,KH:116,CM:120,CA:124,CF:140,TD:148,CL:152,CN:156,CO:170,KM:174,CG:178,CD:180,CR:188,HR:191,CU:192,CY:196,CZ:203,DK:208,DJ:262,DM:212,DO:214,EC:218,EG:818,SV:222,GQ:226,ER:232,EE:233,SZ:748,ET:231,FJ:242,FI:246,FR:250,GA:266,GM:270,GE:268,DE:276,GH:288,GR:300,GD:308,GT:320,GN:324,GW:624,GY:328,HT:332,HN:340,HU:348,IS:352,IN:356,ID:360,IR:364,IQ:368,IE:372,IL:376,IT:380,JM:388,JP:392,JO:400,KZ:398,KE:404,KI:296,KP:408,KR:410,KW:414,KG:417,LA:418,LV:428,LB:422,LS:426,LR:430,LY:434,LI:438,LT:440,LU:442,MG:450,MW:454,MY:458,MV:462,ML:466,MT:470,MH:584,MR:478,MU:480,MX:484,FM:583,MD:498,MC:492,MN:496,ME:499,MA:504,MZ:508,MM:104,NA:516,NR:520,NP:524,NL:528,NZ:554,NI:558,NE:562,NG:566,MK:807,NO:578,OM:512,PK:586,PW:585,PS:275,PA:591,PG:598,PY:600,PE:604,PH:608,PL:616,PT:620,QA:634,RO:642,RU:643,RW:646,KN:659,LC:662,VC:670,WS:882,SM:674,ST:678,SA:682,SN:686,RS:688,SC:690,SL:694,SG:702,SK:703,SI:705,SB:90,SO:706,ZA:710,SS:728,ES:724,LK:144,SD:729,SR:740,SE:752,CH:756,SY:760,TW:158,TJ:762,TZ:834,TH:764,TL:626,TG:768,TO:776,TT:780,TN:788,TR:792,TM:795,TV:798,UG:800,UA:804,AE:784,GB:826,US:840,UY:858,UZ:860,VU:548,VE:862,VN:704,YE:887,ZM:894,ZW:716,CI:384,PR:630,GU:316,MO:446};
+    var _n2a={};
+    Object.keys(_a2n).forEach(function(a){ _n2a[_a2n[a]]=a; });
+
+    /* 3. Country fill color */
+    function countryColor(numId) {
+        var a2=_n2a[numId];
+        if(!a2||!cStats[a2]) return '#D4EDDA';
+        var total=(cStats[a2].total||0);
+        var t=Math.pow(total/maxCount,0.55);
+        var r=Math.round(129+(27-129)*t), g=Math.round(199+(94-199)*t), b=Math.round(132+(30-132)*t);
+        return 'rgb('+r+','+g+','+b+')';
+    }
+
+    /* 4. Number formatter */
+    function fmtN(n){ n=n||0; if(n>=1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'')+'M'; if(n>=1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'')+'K'; return n.toLocaleString(); }
+
+    /* 5. Tooltip (fixed, body-level) */
+    var _tip=document.createElement('div');
+    _tip.id='country-map-tooltip';
+    document.body.appendChild(_tip);
+
+    function showTip(event,numId){
+        var a2=_n2a[numId]; if(!a2||!cStats[a2]){_tip.style.display='none';return;}
+        var d=cStats[a2];
+        _tip.innerHTML='<div class="cmt-header"><span class="cmt-flag"><span class="fi fi-'+d.iso+'"></span></span><span class="cmt-name">'+d.name+'</span></div><div class="cmt-rows"><div class="cmt-row"><span class="cmt-dot cmt-dot-a"></span><span class="cmt-lbl">'+totalLabel+'</span><span class="cmt-val">'+fmtN(d.total)+'</span></div><div class="cmt-row"><span class="cmt-dot cmt-dot-v"></span><span class="cmt-lbl">'+authorsLabel+'</span><span class="cmt-val">'+fmtN(d.authors)+'</span></div><div class="cmt-row"><span class="cmt-dot cmt-dot-v"></span><span class="cmt-lbl">'+viewsLabel+'</span><span class="cmt-val">'+fmtN(d.views)+'</span></div><div class="cmt-row"><span class="cmt-dot cmt-dot-d"></span><span class="cmt-lbl">'+downloadsLabel+'</span><span class="cmt-val">'+fmtN(d.downloads)+'</span></div></div>';
+        _tip.style.display='block';
+        moveTip(event);
+    }
+    function moveTip(ev){ var x=ev.clientX+16,y=ev.clientY-14; if(x+220>window.innerWidth)x=ev.clientX-228; if(y+135>window.innerHeight)y=ev.clientY-135; if(y<4)y=4; _tip.style.left=x+'px'; _tip.style.top=y+'px'; }
+    function hideTip(){ _tip.style.display='none'; }
+
+    var _detailName = document.getElementById('country-stat-detail-name');
+    var _detailFlag = document.getElementById('country-stat-detail-flag');
+    var _detailTotal = document.getElementById('country-stat-detail-total');
+    var _detailAuthors = document.getElementById('country-stat-detail-authors');
+    var _detailViews = document.getElementById('country-stat-detail-views');
+    var _detailDownloads = document.getElementById('country-stat-detail-downloads');
+    var _listItems = Array.prototype.slice.call(document.querySelectorAll('.js-country-stat-item'));
+
+    function setDetailCard(payload) {
+        if (!_detailName || !_detailTotal || !_detailAuthors || !_detailViews || !_detailDownloads || !_detailFlag) return;
+        var iso = String(payload.iso || '').toLowerCase();
+        _detailName.textContent = payload.name || unknownCountryLabel;
+        _detailTotal.textContent = fmtN(payload.total || 0);
+        _detailAuthors.textContent = fmtN(payload.authors || 0);
+        _detailViews.textContent = fmtN(payload.views || 0);
+        _detailDownloads.textContent = fmtN(payload.downloads || 0);
+        if (iso) {
+            _detailFlag.innerHTML = '<span class="fi fi-' + iso + '" style="width:20px;height:15px;display:block;"></span>';
+        } else {
+            _detailFlag.innerHTML = '<iconify-icon icon="solar:global-line-duotone"></iconify-icon>';
+        }
+    }
+
+    function activateListItem(activeItem) {
+        _listItems.forEach(function (item) {
+            item.classList.toggle('is-active', item === activeItem);
+        });
+    }
+
+    function selectCountryFromListButton(buttonEl) {
+        if (!buttonEl) return;
+        var payload = {
+            name: buttonEl.getAttribute('data-country-name') || '',
+            iso: buttonEl.getAttribute('data-country-iso') || '',
+            total: parseInt(buttonEl.getAttribute('data-country-total') || '0', 10) || 0,
+            authors: parseInt(buttonEl.getAttribute('data-country-authors') || '0', 10) || 0,
+            views: parseInt(buttonEl.getAttribute('data-country-views') || '0', 10) || 0,
+            downloads: parseInt(buttonEl.getAttribute('data-country-downloads') || '0', 10) || 0,
+        };
+        setDetailCard(payload);
+        activateListItem(buttonEl);
+    }
+
+    function selectCountryByIso(isoCode) {
+        var isoUpper = String(isoCode || '').toUpperCase();
+        if (!isoUpper || !cStats[isoUpper]) return;
+        var payload = cStats[isoUpper];
+        setDetailCard({
+            name: payload.name,
+            iso: payload.iso,
+            total: payload.total || 0,
+            authors: payload.authors || 0,
+            views: payload.views || 0,
+            downloads: payload.downloads || 0,
+        });
+        var matched = null;
+        _listItems.forEach(function (item) {
+            if (String(item.getAttribute('data-country-iso') || '').toUpperCase() === isoUpper) {
+                matched = item;
+            }
+        });
+        activateListItem(matched);
+    }
+
+    /* 6. Shared TopoJSON cache */
+    var _topo=null, _pending=[];
+    function withTopo(cb){
+        if(_topo){cb(_topo);return;}
+        _pending.push(cb);
+        if(_pending.length>1)return;
+        d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+            .then(function(t){ _topo=t; _pending.forEach(function(fn){fn(t);}); _pending=[]; })
+            .catch(function(){ /* map not critical */ });
+    }
+
+    /* 7. Draw a D3 SVG map into a container element */
+    function drawMap(containerId,opts){
+        opts=opts||{};
+        var el=document.getElementById(containerId);
+        if(!el)return;
+        d3.select(el).selectAll('*').remove();
+        var w=el.clientWidth||el.offsetWidth||220;
+        var h=el.clientHeight||el.offsetHeight||150;
+        withTopo(function(topo){
+            var countries=topojson.feature(topo,topo.objects.countries);
+            var proj=d3.geoNaturalEarth1().fitExtent([[2,2],[w-2,h-2]],countries);
+            var pathFn=d3.geoPath().projection(proj);
+            var svg=d3.select(el).append('svg')
+                .attr('width','100%').attr('height','100%')
+                .attr('viewBox','0 0 '+w+' '+h).style('display','block').style('border-radius','8px');
+            svg.append('rect').attr('width',w).attr('height',h).attr('fill','#EBF5F0').attr('rx',8);
+            var g=svg.append('g');
+            g.selectAll('.country')
+                .data(countries.features).enter().append('path')
+                .attr('class',function(d){ var a2=_n2a[+d.id]; return 'country'+(a2&&cStats[a2]?' has-data':''); })
+                .attr('d',pathFn)
+                .attr('fill',function(d){ return countryColor(+d.id); })
+                .attr('stroke','#ffffff')
+                .attr('stroke-width',opts.mini?0.3:0.5)
+                .style('opacity',0)
+                .on('mouseover',function(event,d){
+                    var a2=_n2a[+d.id];
+                    if(a2&&cStats[a2]){ d3.select(this).classed('hovered',true); showTip(event,+d.id); }
+                })
+                .on('mousemove',function(event){ moveTip(event); })
+                .on('mouseout',function(event,d){ d3.select(this).classed('hovered',false); hideTip(); })
+                .on('click', function(event, d){
+                    var a2=_n2a[+d.id];
+                    if(a2&&cStats[a2]){
+                        selectCountryByIso(a2);
+                    }
+                })
+                .transition().duration(opts.mini?380:750)
+                .delay(function(d){ var c=pathFn.centroid(d); if(!c||isNaN(c[0]))return 0; return (c[0]/w)*(opts.mini?260:520); })
+                .style('opacity',1);
+            if(!opts.mini){
+                var zoom=d3.zoom().scaleExtent([1,8]).on('zoom',function(event){ g.attr('transform',event.transform); });
+                svg.call(zoom).style('cursor','grab');
+                /* Custom +/- buttons */
+                var bw=document.createElement('div'); bw.className='fm-map-zoom-btns';
+                var bi=document.createElement('button'), bo=document.createElement('button');
+                bi.type=bo.type='button'; bi.className=bo.className='fm-map-zoom-btn';
+                bi.textContent='+'; bo.textContent='−';
+                bi.onclick=function(){ svg.transition().duration(300).call(zoom.scaleBy,1.5); };
+                bo.onclick=function(){ svg.transition().duration(300).call(zoom.scaleBy,0.67); };
+                bw.appendChild(bi); bw.appendChild(bo);
+                var wrap=el.parentNode; wrap.style.position='relative'; wrap.appendChild(bw);
+            }
+        });
+    }
+
+    /* 8. Modal */
+    var _fullDrawn=false, _miniDrawn=false, _modalOpen=false;
+
+    window.openCountryMapModal=function(){
+        var m=document.getElementById('country-map-modal'); if(!m)return;
+        m.style.display='flex'; document.body.style.overflow='hidden'; _modalOpen=true;
+        setTimeout(function(){ m.classList.add('is-open'); if(!_fullDrawn){ _fullDrawn=true; setTimeout(function(){ drawMap('world-map-full'); },80); } },12);
+    };
+
+    window.closeCountryMapModal=function(){
+        var m=document.getElementById('country-map-modal'); if(!m)return;
+        m.classList.remove('is-open'); hideTip();
+        setTimeout(function(){ m.style.display='none'; document.body.style.overflow=''; _modalOpen=false; },300);
+    };
+
+    var _m=document.getElementById('country-map-modal');
+    if(_m) _m.addEventListener('click',function(e){ if(e.target===_m) window.closeCountryMapModal(); });
+    document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&_modalOpen) window.closeCountryMapModal(); });
+
+    _listItems.forEach(function (item) {
+        item.addEventListener('click', function () {
+            selectCountryFromListButton(item);
         });
     });
+    if (_listItems.length) {
+        selectCountryFromListButton(_listItems[0]);
+    }
+
+    /* 9. Init mini map (wait for D3 + topojson to load) */
+    function tryMini(){
+        if(typeof d3==='undefined'||typeof topojson==='undefined') return false;
+        if(_miniDrawn) return true;
+        _miniDrawn=true;
+        drawMap('world-map-mini',{mini:true});
+        return true;
+    }
+    if(!tryMini()){ var _wt=setInterval(function(){ if(tryMini()) clearInterval(_wt); },60); }
+
+})();
+{% endif %}
+</script>
+
+<script>
+$(function(){
+    var $toggle = $('#recent-issues-toggle');
+    var $list = $('#recent-issues-list');
+    if (!$toggle.length || !$list.length) return;
+
+    var storageKey = 'recent_issues_collapsed_v1';
+    var showText = {{ (t('show') if t('show') != 'show' else 'Show')|tojson }};
+    var hideText = {{ (t('collapse') if t('collapse') != 'collapse' else 'Hide')|tojson }};
+
+    function setCollapsed(collapsed){
+        if (collapsed) {
+            $list.hide();
+            $toggle.attr('aria-expanded','false').text(showText);
+            localStorage.setItem(storageKey,'1');
+        } else {
+            $list.show();
+            $toggle.attr('aria-expanded','true').text(hideText);
+            localStorage.removeItem(storageKey);
+        }
+    }
+
+    var collapsed = localStorage.getItem(storageKey) === '1';
+    setCollapsed(collapsed);
+
+    $toggle.on('click', function(e){
+        e.preventDefault();
+        setCollapsed($toggle.attr('aria-expanded') === 'true');
+    });
+});
 </script>
 
 {% endblock %}

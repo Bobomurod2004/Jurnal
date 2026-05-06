@@ -1628,6 +1628,15 @@ def _ensure_user_oauth_columns():
         for column_name in missing_columns:
             column_type = USER_OAUTH_EXTRA_COLUMN_TYPES[column_name]
             cursor.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {column_name} {column_type};")
+        # Keep account state flags deterministic for all newly created users.
+        if 'is_hidden' in existing_columns or 'is_hidden' in missing_columns:
+            cursor.execute("UPDATE users SET is_hidden = FALSE WHERE is_hidden IS NULL;")
+            cursor.execute("ALTER TABLE users ALTER COLUMN is_hidden SET DEFAULT FALSE;")
+            cursor.execute("ALTER TABLE users ALTER COLUMN is_hidden SET NOT NULL;")
+        if 'is_blocked' in existing_columns or 'is_blocked' in missing_columns:
+            cursor.execute("UPDATE users SET is_blocked = FALSE WHERE is_blocked IS NULL;")
+            cursor.execute("ALTER TABLE users ALTER COLUMN is_blocked SET DEFAULT FALSE;")
+            cursor.execute("ALTER TABLE users ALTER COLUMN is_blocked SET NOT NULL;")
         if 'roles' in existing_columns or 'roles' in missing_columns:
             cursor.execute(
                 "UPDATE users "

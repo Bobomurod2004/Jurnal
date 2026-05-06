@@ -24,6 +24,54 @@
     </div>
 </div>
 
+{% if duplicate_users %}
+<div class="alert alert-warning mb-4">
+    <div class="d-flex align-items-start">
+        <i class="ti ti-alert-triangle me-2 mt-1 flex-shrink-0" style="font-size:1.2rem;"></i>
+        <div class="w-100">
+            <strong>{{ t("admin_authors_duplicate_warning") }}</strong>
+            <p class="mb-2 mt-1 text-muted small">{{ t("admin_authors_duplicate_hint") }}</p>
+            {% for dup in duplicate_users %}
+            <div class="card mb-2 border-warning">
+                <div class="card-body py-2 px-3">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="fw-medium">{{ dup.name }} {{ dup.second_name or '' }}</div>
+                            <div class="text-muted small">{{ dup.email }} &nbsp;|&nbsp; ID: {{ dup.id }}
+                                {% if dup.oauth_provider %}&nbsp;|&nbsp; <span class="badge bg-blue-lt">{{ dup.oauth_provider }}</span>{% endif %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            {% if author.user_id %}
+                            <form method="post" action="{{ url_for('author_merge_users', author_id=author.id) }}"
+                                  onsubmit="return confirm('{{ t('admin_authors_merge_confirm') }}')">
+                                <input type="hidden" name="primary_user_id" value="{{ author.user_id }}">
+                                <input type="hidden" name="secondary_user_id" value="{{ dup.id }}">
+                                <button type="submit" class="btn btn-sm btn-warning">
+                                    <i class="ti ti-git-merge me-1"></i>
+                                    {{ t("admin_authors_merge_btn") }}
+                                </button>
+                            </form>
+                            {% else %}
+                            <form method="post" action="{{ url_for('author_link_user', author_id=author.id) }}"
+                                  onsubmit="return confirm('{{ t('admin_authors_merge_confirm') }}')">
+                                <input type="hidden" name="user_id" value="{{ dup.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-primary">
+                                    <i class="ti ti-link me-1"></i>
+                                    Asosiyga bog'lash
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <form id="main-author-form" method="post" enctype="multipart/form-data">
     <div class="row justify-content-center">
         <div class="col-lg-8">
@@ -54,8 +102,15 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_users_country") }}</label>
-                        <input type="text" class="form-control" name="address_country"
-                            value="{{ author.address_country or '' }}">
+                        <select class="form-select tom-select-country" name="address_country" id="address_country_select">
+                            <option value="">{{ t("admin_option_not_selected_m") }}</option>
+                            {% for c in countries %}
+                            <option value="{{ c.name }}"
+                                {% if author.address_country and author.address_country|lower == c.name|lower %}selected{% endif %}>
+                                {{ c.name }}{% if c.name_uz and c.name_uz != c.name %} / {{ c.name_uz }}{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_authors_city") }}</label>
@@ -82,7 +137,8 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_authors_department") }}</label>
-                        <input type="text" class="form-control" name="department" value="{{ author.department or '' }}">
+                        <input type="text" class="form-control" name="department" value="{{ author.department or '' }}"
+                            placeholder="{{ t('admin_authors_department_placeholder') }}">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_users_created_at") }}</label>
@@ -128,25 +184,27 @@
         document.getElementById('save-author-btn').click();
     });
 
-    // Function to search for user (placeholder - would need user search API)
     function searchUser() {
-        // For now, we'll use a simple prompt to search by email
         const email = prompt("{{ t('admin_js_search_user_prompt') }}");
         if (!email) return;
-
-        // Search through existing options first
         const select = document.getElementById('user_id_select');
-        const options = select.querySelectorAll('option');
-
-        for (let option of options) {
+        for (let option of select.querySelectorAll('option')) {
             if (option.textContent.toLowerCase().includes(email.toLowerCase())) {
                 option.selected = true;
                 select.dispatchEvent(new Event('change'));
                 return;
             }
         }
-
         alert("{{ t('admin_js_search_user_not_found') }}");
+    }
+
+    // Tom Select for country dropdown
+    if (typeof TomSelect !== 'undefined') {
+        new TomSelect('#address_country_select', {
+            allowEmptyOption: true,
+            placeholder: '{{ t("admin_option_not_selected_m") }}',
+            maxOptions: 300,
+        });
     }
 </script>
 {% endblock %}

@@ -12,6 +12,13 @@ _cache_ttl = 300  # 5 minutes
 
 STATIC_TRANSLATIONS = {
     'uz': {
+        'admin_authors_duplicate_warning': "Dublikat akkauntlar aniqlandi",
+        'admin_authors_duplicate_hint': "Bu muallif bilan bir xil email yoki ORCID ga ega boshqa foydalanuvchilar mavjud. Birlashtirish uchun tugmani bosing.",
+        'admin_authors_merge_confirm': "Akkauntlarni birlashtirmoqchimisiz? Bu amal qaytarib bo'lmaydi.",
+        'admin_authors_merge_btn': "Birlashtirish",
+        'admin_authors_merge_no_primary': "Avval asosiy foydalanuvchini bog'lang",
+        'admin_authors_duplicate_badge_title': "Dublikat akkaunt mavjud",
+        'admin_authors_department_placeholder': "Masalan: Fizika kafedrasi",
         'admin_payments_title': "To'lovlar",
         'admin_title_edit_payment': "To'lovni tahrirlash",
         'admin_label_filters': "Filtrlar",
@@ -45,6 +52,13 @@ STATIC_TRANSLATIONS = {
         'admin_pagination_entries': "ta yozuv",
     },
     'ru': {
+        'admin_authors_duplicate_warning': "Обнаружены дублирующиеся аккаунты",
+        'admin_authors_duplicate_hint': "Найдены другие пользователи с тем же email или ORCID. Нажмите кнопку для объединения.",
+        'admin_authors_merge_confirm': "Объединить аккаунты? Это действие необратимо.",
+        'admin_authors_merge_btn': "Объединить",
+        'admin_authors_merge_no_primary': "Сначала привяжите основного пользователя",
+        'admin_authors_duplicate_badge_title': "Есть дублирующий аккаунт",
+        'admin_authors_department_placeholder': "Например: Кафедра физики",
         'admin_payments_title': "Платежи",
         'admin_title_edit_payment': "Редактировать платеж",
         'admin_label_filters': "Фильтры",
@@ -78,6 +92,13 @@ STATIC_TRANSLATIONS = {
         'admin_pagination_entries': "записей",
     },
     'en': {
+        'admin_authors_duplicate_warning': "Duplicate accounts detected",
+        'admin_authors_duplicate_hint': "Other users with the same email or ORCID were found. Click merge to consolidate them.",
+        'admin_authors_merge_confirm': "Merge accounts? This action cannot be undone.",
+        'admin_authors_merge_btn': "Merge",
+        'admin_authors_merge_no_primary': "Link a primary user first",
+        'admin_authors_duplicate_badge_title': "Has duplicate account",
+        'admin_authors_department_placeholder': "E.g. Department of Physics",
         'admin_payments_title': "Payments",
         'admin_title_edit_payment': "Edit payment",
         'admin_label_filters': "Filters",

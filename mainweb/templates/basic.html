@@ -273,6 +273,213 @@
         });
     </script>
 
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var wraps = Array.from(document.querySelectorAll('.author-tooltip-wrap'));
+            if (!wraps.length) {
+                return;
+            }
+
+            var hideTimers = new WeakMap();
+            var triggerByWrap = new WeakMap();
+            var cardByWrap = new WeakMap();
+            var cardOrigins = new WeakMap();
+
+            wraps.forEach(function (wrap) {
+                var trigger = wrap.querySelector('.author-tooltip-trigger');
+                var card = wrap.querySelector('.author-tooltip-card');
+                if (!trigger || !card) {
+                    return;
+                }
+                triggerByWrap.set(wrap, trigger);
+                cardByWrap.set(wrap, card);
+            });
+
+            function clearHideTimer(wrap) {
+                var timer = hideTimers.get(wrap);
+                if (timer) {
+                    clearTimeout(timer);
+                    hideTimers.delete(wrap);
+                }
+            }
+
+            function getTrigger(wrap) {
+                return triggerByWrap.get(wrap);
+            }
+
+            function getCard(wrap) {
+                return cardByWrap.get(wrap);
+            }
+
+            function detachCardToBody(card) {
+                if (!card || card.parentElement === document.body) {
+                    return;
+                }
+
+                cardOrigins.set(card, {
+                    parent: card.parentElement,
+                    nextSibling: card.nextSibling
+                });
+                document.body.appendChild(card);
+            }
+
+            function restoreCardOrigin(card) {
+                var origin = cardOrigins.get(card);
+                if (!card || !origin) {
+                    return;
+                }
+
+                var parent = origin.parent;
+                var nextSibling = origin.nextSibling;
+                if (!parent) {
+                    cardOrigins.delete(card);
+                    return;
+                }
+
+                if (nextSibling && nextSibling.parentNode === parent) {
+                    parent.insertBefore(card, nextSibling);
+                } else {
+                    parent.appendChild(card);
+                }
+                cardOrigins.delete(card);
+            }
+
+            function positionCard(trigger, card) {
+                if (!trigger || !card) {
+                    return;
+                }
+
+                card.style.left = '-9999px';
+                card.style.top = '-9999px';
+
+                var triggerRect = trigger.getBoundingClientRect();
+                var cardRect = card.getBoundingClientRect();
+                var viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+                var viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+                var gutter = 12;
+                var gap = 10;
+
+                var left = triggerRect.left + (triggerRect.width / 2) - (cardRect.width / 2);
+                var maxLeft = Math.max(gutter, viewportWidth - cardRect.width - gutter);
+                left = Math.max(gutter, Math.min(left, maxLeft));
+
+                var top = triggerRect.bottom + gap;
+                if (top + cardRect.height > viewportHeight - gutter) {
+                    top = triggerRect.top - cardRect.height - gap;
+                }
+                if (top < gutter) {
+                    top = gutter;
+                }
+
+                card.style.left = Math.round(left) + 'px';
+                card.style.top = Math.round(top) + 'px';
+            }
+
+            function hideTooltip(wrap) {
+                var trigger = getTrigger(wrap);
+                var card = getCard(wrap);
+                if (!card) {
+                    return;
+                }
+
+                card.classList.remove('is-visible');
+                card.setAttribute('aria-hidden', 'true');
+                card.style.left = '-9999px';
+                card.style.top = '-9999px';
+                if (trigger) {
+                    trigger.setAttribute('aria-expanded', 'false');
+                }
+                restoreCardOrigin(card);
+            }
+
+            function scheduleHide(wrap, delay) {
+                clearHideTimer(wrap);
+                var timer = setTimeout(function () {
+                    hideTooltip(wrap);
+                }, delay);
+                hideTimers.set(wrap, timer);
+            }
+
+            function showTooltip(wrap) {
+                var trigger = getTrigger(wrap);
+                var card = getCard(wrap);
+                if (!trigger || !card) {
+                    return;
+                }
+
+                clearHideTimer(wrap);
+                wraps.forEach(function (otherWrap) {
+                    if (otherWrap !== wrap) {
+                        clearHideTimer(otherWrap);
+                        hideTooltip(otherWrap);
+                    }
+                });
+
+                detachCardToBody(card);
+                card.classList.add('is-visible');
+                card.setAttribute('aria-hidden', 'false');
+                trigger.setAttribute('aria-expanded', 'true');
+                positionCard(trigger, card);
+            }
+
+            wraps.forEach(function (wrap) {
+                var trigger = getTrigger(wrap);
+                var card = getCard(wrap);
+                if (!trigger || !card) {
+                    return;
+                }
+
+                trigger.addEventListener('mouseenter', function () {
+                    showTooltip(wrap);
+                });
+
+                trigger.addEventListener('focus', function () {
+                    showTooltip(wrap);
+                });
+
+                wrap.addEventListener('mouseleave', function () {
+                    scheduleHide(wrap, 100);
+                });
+
+                trigger.addEventListener('blur', function () {
+                    scheduleHide(wrap, 100);
+                });
+
+                card.addEventListener('mouseenter', function () {
+                    clearHideTimer(wrap);
+                });
+
+                card.addEventListener('mouseleave', function () {
+                    scheduleHide(wrap, 100);
+                });
+            });
+
+            document.addEventListener('click', function (event) {
+                if (event.target.closest('.author-tooltip-wrap') || event.target.closest('.author-tooltip-card')) {
+                    return;
+                }
+                wraps.forEach(function (wrap) {
+                    clearHideTimer(wrap);
+                    hideTooltip(wrap);
+                });
+            });
+
+            window.addEventListener('resize', function () {
+                wraps.forEach(function (wrap) {
+                    clearHideTimer(wrap);
+                    hideTooltip(wrap);
+                });
+            });
+
+            window.addEventListener('scroll', function () {
+                wraps.forEach(function (wrap) {
+                    clearHideTimer(wrap);
+                    hideTooltip(wrap);
+                });
+            }, true);
+        });
+    </script>
+
 </body>
 
 </html>

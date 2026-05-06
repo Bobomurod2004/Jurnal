@@ -1,33 +1,128 @@
 <section class="hero-section mt-6 overflow-hidden rounded-xl border border-gray-200">
-    <div class="container mx-auto px-6 md:px-8">
+
+    <!-- Decorative animated blobs -->
+    <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div class="absolute -top-16 -right-16 w-64 h-64 rounded-full"
+             style="background: radial-gradient(circle, rgba(27,138,74,0.08) 0%, transparent 70%);
+                    animation: float-slow 7s ease-in-out infinite;"></div>
+        <div class="absolute bottom-0 left-8 w-40 h-40 rounded-full"
+             style="background: radial-gradient(circle, rgba(27,138,74,0.05) 0%, transparent 70%);
+                    animation: float-slow 9s ease-in-out 2s infinite;"></div>
+    </div>
+
+    <div class="container mx-auto px-6 md:px-8 relative z-10">
         <div class="grid gap-8 py-10 md:grid-cols-12 md:items-center md:py-14 lg:py-16">
+
+            <!-- Left: Text content with stagger animation -->
             <div class="md:col-span-7 lg:col-span-8">
-                <div class="inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-fmmain mb-4 shadow-xs border border-fmmain/10">
+
+                <!-- Badge -->
+                <div class="hero-animate-1 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-fmmain mb-4 shadow-xs border border-fmmain/10">
                     <iconify-icon icon="solar:book-2-bold-duotone" class="text-sm"></iconify-icon>
                     {{ t('hero_subtitle') }}
                 </div>
-                <h1 class="text-3xl font-bold leading-tight text-gray-900 font-serif md:text-4xl lg:text-4xl" style="letter-spacing: -0.02em;">{{ t('website_title') }}</h1>
-                <p class="mt-4 max-w-2xl text-sm leading-7 text-gray-600 md:text-base">{{ t('about_journal_text') }}</p>
 
-                <div class="mt-7 flex flex-wrap items-center gap-3">
-                    <a href="{{ url_for('app__dashboard_new_article') }}" class="inline-flex items-center gap-2 rounded-lg bg-fmmain px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200 group">
+                <!-- Title -->
+                <h1 class="hero-animate-2 text-3xl font-bold leading-tight text-gray-900 font-serif md:text-4xl lg:text-4xl" style="letter-spacing: -0.02em;">
+                    {{ t('website_title') }}
+                </h1>
+
+                <!-- Description -->
+                <p class="hero-animate-3 mt-4 max-w-2xl text-sm leading-7 text-gray-600 md:text-base">
+                    {{ t('about_journal_text') }}
+                </p>
+
+                <!-- CTA Buttons -->
+                <div class="hero-animate-4 mt-7 flex flex-wrap items-center gap-3">
+                    <a href="{{ url_for('app__dashboard_new_article') }}"
+                       class="inline-flex items-center gap-2 rounded-lg bg-fmmain px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200 group">
                         {{ t('submit_article') }}
                         <iconify-icon icon="tabler:arrow-up-right" class="text-base transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"></iconify-icon>
                     </a>
-                    <a href="{{ url_for('app__issues') }}" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white/90 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:border-fmmain/30 hover:bg-white hover:text-gray-900 transition-all duration-200 shadow-xs group">
+                    <a href="{{ url_for('app__issues') }}"
+                       class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white/90 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:border-fmmain/30 hover:bg-white hover:text-gray-900 transition-all duration-200 shadow-xs group">
                         {{ t('menu_current_issue') }}
                         <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-base text-fmmain transition-transform duration-200 group-hover:translate-x-1"></iconify-icon>
                     </a>
                 </div>
+
             </div>
 
+            <!-- Right: Journal cover with float animation -->
             <div class="md:col-span-5 lg:col-span-4 flex justify-center">
                 {% set hero_cover = url_for('static', filename='obl.jpg') %}
-                <a href="{{ url_for('app__index') }}" class="relative block mx-auto max-w-52 md:max-w-60 transition-transform duration-300 hover:scale-[1.02]" aria-label="{{ t('website_title') }}">
+                <a href="{{ url_for('app__index') }}"
+                   class="hero-animate-img relative block mx-auto max-w-52 md:max-w-60"
+                   aria-label="{{ t('website_title') }}">
                     <div class="absolute -inset-4 bg-gradient-to-br from-fmmain/5 to-blue-500/5 blur-xl" style="border-radius: 0;"></div>
-                    <img src="{{ hero_cover }}" alt="{{ t('hero_image_alt') }}" class="relative block h-auto w-full object-contain" style="border-radius: 0; aspect-ratio: 2540 / 3544; box-shadow: 0 20px 48px -30px rgba(15, 23, 42, 0.45);">
+                    <div class="hero-float">
+                        <img src="{{ hero_cover }}"
+                             alt="{{ t('hero_image_alt') }}"
+                             class="relative block h-auto w-full object-contain transition-transform duration-300 hover:scale-[1.03]"
+                             style="border-radius: 0; aspect-ratio: 2540 / 3544; box-shadow: 0 24px 56px -28px rgba(15, 23, 42, 0.55);">
+                    </div>
                 </a>
             </div>
+
         </div>
     </div>
 </section>
+
+<script>
+(function () {
+    function formatCounterValue(value) {
+        if (value >= 1000000) {
+            return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+        }
+        if (value >= 1000) {
+            return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+        }
+        return value.toLocaleString();
+    }
+
+    function animateCounter(el) {
+        const target = parseInt(el.dataset.counter, 10) || 0;
+        const duration = 1700;
+        const startTime = performance.now();
+
+        function easeOutExpo(t) {
+            return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+        }
+
+        function step(now) {
+            const progress = Math.min((now - startTime) / duration, 1);
+            const current = Math.round(easeOutExpo(progress) * target);
+            el.textContent = formatCounterValue(current);
+            if (progress < 1) {
+                requestAnimationFrame(step);
+            }
+        }
+
+        requestAnimationFrame(step);
+    }
+
+    const counters = document.querySelectorAll('.hero-mini-stat-value[data-counter]');
+    if (!counters.length) {
+        return;
+    }
+
+    if (!('IntersectionObserver' in window)) {
+        counters.forEach(animateCounter);
+        return;
+    }
+
+    const observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+            if (!entry.isIntersecting) {
+                return;
+            }
+            animateCounter(entry.target);
+            observer.unobserve(entry.target);
+        });
+    }, { threshold: 0.35 });
+
+    counters.forEach(function (counter) {
+        observer.observe(counter);
+    });
+})();
+</script>

@@ -1,0 +1,116 @@
+<!-- ============================================================
+     JOURNAL STATISTICS BAR — Animated Counters
+     Variables: journal_stats.publications, .views, .downloads, .authors, .issues
+     ============================================================ -->
+<section class="stats-bar mt-4 rounded-xl" aria-label="{{ t('journal_metrics') }}">
+    <div class="container mx-auto px-4 relative z-10">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+
+            <!-- Publications -->
+            <div class="stat-counter-card">
+                <div class="stat-counter-icon">
+                    <iconify-icon icon="solar:document-text-bold-duotone"></iconify-icon>
+                </div>
+                <span
+                    class="stat-counter-value"
+                    data-counter="{{ journal_stats.publications }}"
+                    data-suffix="">0</span>
+                <span class="stat-counter-label">{{ t('stat_publications') if t else 'Maqolalar' }}</span>
+            </div>
+
+            <!-- Views -->
+            <div class="stat-counter-card">
+                <div class="stat-counter-icon">
+                    <iconify-icon icon="solar:eye-bold-duotone"></iconify-icon>
+                </div>
+                <span
+                    class="stat-counter-value"
+                    data-counter="{{ journal_stats.views }}"
+                    data-suffix="">0</span>
+                <span class="stat-counter-label">{{ t('stat_views') if t else "Ko'rishlar" }}</span>
+            </div>
+
+            <!-- Downloads -->
+            <div class="stat-counter-card">
+                <div class="stat-counter-icon">
+                    <iconify-icon icon="solar:download-minimalistic-bold-duotone"></iconify-icon>
+                </div>
+                <span
+                    class="stat-counter-value"
+                    data-counter="{{ journal_stats.downloads }}"
+                    data-suffix="">0</span>
+                <span class="stat-counter-label">{{ t('stat_downloads') if t else 'Yuklamalar' }}</span>
+            </div>
+
+            <!-- Authors -->
+            <div class="stat-counter-card">
+                <div class="stat-counter-icon">
+                    <iconify-icon icon="solar:users-group-rounded-bold-duotone"></iconify-icon>
+                </div>
+                <span
+                    class="stat-counter-value"
+                    data-counter="{{ journal_stats.authors }}"
+                    data-suffix="">0</span>
+                <span class="stat-counter-label">{{ t('stat_authors') if t else 'Mualliflar' }}</span>
+            </div>
+
+            <!-- Issues -->
+            <div class="stat-counter-card sm:col-span-1 col-span-2 sm:col-start-auto col-start-1 lg:col-span-1">
+                <div class="stat-counter-icon">
+                    <iconify-icon icon="solar:book-2-bold-duotone"></iconify-icon>
+                </div>
+                <span
+                    class="stat-counter-value"
+                    data-counter="{{ journal_stats.issues }}"
+                    data-suffix="">0</span>
+                <span class="stat-counter-label">{{ t('stat_issues') if t else 'Sonlar' }}</span>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<script>
+(function () {
+    function formatNumber(n) {
+        if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+        if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+        return n.toLocaleString();
+    }
+
+    function animateCounter(el) {
+        const target = parseInt(el.dataset.counter, 10) || 0;
+        const suffix = el.dataset.suffix || '';
+        const duration = 1800;
+        const startTime = performance.now();
+
+        function easeOutExpo(t) {
+            return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+        }
+
+        function step(now) {
+            const elapsed = now - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const current = Math.round(easeOutExpo(progress) * target);
+            el.textContent = formatNumber(current) + suffix;
+            if (progress < 1) requestAnimationFrame(step);
+        }
+
+        requestAnimationFrame(step);
+    }
+
+    const counters = document.querySelectorAll('[data-counter]');
+    if (!counters.length) return;
+
+    const observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+                animateCounter(entry.target);
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.3 });
+
+    counters.forEach(function (el) { observer.observe(el); });
+})();
+</script>
