@@ -83,9 +83,25 @@
                         <input type="text" class="form-control" value="{{ author.id }}" readonly>
                     </div>
                     {% endif %}
-                    <div class="mb-3">
-                        <label class="form-label">{{ t("admin_users_name") }}</label>
-                        <input type="text" class="form-control" name="name" value="{{ author.name or '' }}">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{{ t("admin_users_name") }}</label>
+                                <input type="text" class="form-control" name="first_name" value="{{ author.first_name or '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{{ t("admin_users_second_name") }}</label>
+                                <input type="text" class="form-control" name="second_name" value="{{ author.second_name or '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">{{ t("admin_users_father_name") }}</label>
+                                <input type="text" class="form-control" name="father_name" value="{{ author.father_name or '' }}">
+                            </div>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_authors_organization") }}</label>

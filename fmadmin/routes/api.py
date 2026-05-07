@@ -174,6 +174,51 @@ def _parse_text_array(value):
     return [item.strip().strip('"').strip("'") for item in text.split(',') if item.strip()]
 
 
+def _clean_text(value):
+    if value is None:
+        return ''
+    return str(value).strip()
+
+
+def _split_author_full_name(value):
+    parts = [part for part in _clean_text(value).split() if part]
+    if not parts:
+        return '', '', ''
+    if len(parts) == 1:
+        return parts[0], '', ''
+    if len(parts) == 2:
+        return parts[0], parts[1], ''
+    return parts[0], parts[1], ' '.join(parts[2:])
+
+
+def _compose_author_full_name(first_name, second_name='', father_name=''):
+    return ' '.join(
+        part for part in (
+            _clean_text(first_name),
+            _clean_text(second_name),
+            _clean_text(father_name),
+        )
+        if part
+    )
+
+
+def _table_column_exists(cursor, table_name, column_name):
+    cursor.execute(
+        """
+        SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = %s
+              AND column_name = %s
+        );
+        """,
+        (table_name, column_name),
+    )
+    row = cursor.fetchone()
+    return bool(row[0]) if row else False
+
+
 def _normalize_feature_permission(value):
     normalized = str(value or '').strip().lower()
     return normalized if normalized in ALLOWED_TARIFF_FEATURE_PERMISSIONS else None
@@ -897,22 +942,36 @@ def api_getauthor():
 @api_users_required
 def api_createauthor():
     data = _json_payload()
-    if not data.get('name'):
+    raw_name = _clean_text(data.get('name'))
+    if not raw_name:
         return jsonify({'success': False, 'message': 'Name is required'})
 
-    result = db.author_profile.add(
-        name=data.get('name'),
-        organization=data.get('organization'),
-        email=data.get('email'),
-        position=data.get('position'),
-        address_street=data.get('address_street'),
-        address_country=data.get('address_country'),
-        address_city=data.get('address_city'),
-        address_zip=data.get('address_zip'),
-        phone=data.get('phone'),
-        orcid=data.get('orcid'),
-        created_at=int(time.time())
-    ).exec()
+    first_name, second_name, father_name = _split_author_full_name(raw_name)
+    full_name = _compose_author_full_name(first_name, second_name, father_name) or raw_name
+    payload = {
+        'name': full_name,
+        'organization': data.get('organization'),
+        'email': data.get('email'),
+        'position': data.get('position'),
+        'address_street': data.get('address_street'),
+        'address_country': data.get('address_country'),
+        'address_city': data.get('address_city'),
+        'address_zip': data.get('address_zip'),
+        'phone': data.get('phone'),
+        'orcid': data.get('orcid'),
+        'created_at': int(time.time()),
+    }
+
+    cursor = db.conn.cursor()
+    try:
+        if _table_column_exists(cursor, 'author_profile', 'second_name'):
+            payload['second_name'] = second_name or None
+        if _table_column_exists(cursor, 'author_profile', 'father_name'):
+            payload['father_name'] = father_name or None
+    finally:
+        cursor.close()
+
+    result = db.author_profile.add(**payload).exec()
 
     return jsonify({'success': True, 'author': result[0] if result else None})
 

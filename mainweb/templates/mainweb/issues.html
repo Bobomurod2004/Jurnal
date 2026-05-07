@@ -24,18 +24,19 @@
                         </select>
                     </div>
                     
-                    <!-- Category Filter -->
-                    {% if available_categories %}
+                    <!-- Series Filter -->
                     <div>
-                        <label for="category" class="block text-sm font-medium text-gray-700 mb-1">{{ t('category') }}</label>
+                        <label for="category" class="block text-sm font-medium text-gray-700 mb-1">{{ t('menu_categories') }}</label>
                         <select name="category" id="category" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
-                            <option value="">{{ t('all_categories') }}</option>
-                            {% for category in available_categories %}
-                            <option value="{{ category.alias }}" {% if current_filters.category == category.alias %}selected{% endif %}>{{ category.name }}</option>
-                            {% endfor %}
+                            <option value="">{{ t('all_series') }}</option>
+                            <option value="masters" {% if current_filters.category == 'masters' %}selected{% endif %}>{{ t('menu_series_masters') }}</option>
+                            <option value="phd" {% if current_filters.category == 'phd' %}selected{% endif %}>{{ t('menu_series_phd') }}</option>
+                            <option value="teacher" {% if current_filters.category == 'teacher' %}selected{% endif %}>{{ t('menu_series_teacher') }}</option>
+                            <option value="special_masters" {% if current_filters.category == 'special_masters' %}selected{% endif %}>{{ t('menu_special_issue_masters') }}</option>
+                            <option value="special_phd" {% if current_filters.category == 'special_phd' %}selected{% endif %}>{{ t('menu_special_issue_phd') }}</option>
+                            <option value="special_teacher" {% if current_filters.category == 'special_teacher' %}selected{% endif %}>{{ t('menu_special_issue_teacher') }}</option>
                         </select>
                     </div>
-                    {% endif %}
                     
                     <!-- Access Type Filter -->
                     <div>

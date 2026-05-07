@@ -69,13 +69,13 @@
                         <input type="text" class="form-control" name="year" value="{{ issue.year or '' }}">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">{{ t("admin_label_category") }}</label>
+                        <label class="form-label">Seriya</label>
 
                         <select name="category" class="form-select" id="">
                             <option value="">{{ t("admin_label_not_specified") }}</option>
                             {% for category in issue_categories %}
                             <option value="{{ category.alias }}" {% if issue.category==category.alias %}selected{% endif
-                                %}>{{ category.name_display or category.name }}</option>
+                                %}>{{ category.name_display or category.alias }}</option>
                             {% endfor %}
                         </select>
                     </div>

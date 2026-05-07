@@ -9,14 +9,14 @@
         {% endif %}
     </a>
 
-    <div class="flex flex-wrap items-center gap-2 text-sm">
-        <div class="relative inline-block text-left">
+    <div class="relative z-60 flex flex-wrap items-center gap-2 text-sm">
+        <div class="relative inline-block text-left z-70">
             <button type="button" class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 font-medium text-gray-700 hover:border-fmmain/40 hover:text-gray-900 transition-colors" data-dropdown-trigger aria-expanded="false" aria-haspopup="true">
                 <span class="fi fi-{% if session.get('language') == 'uz' %}uz{% elif session.get('language') == 'ru' %}ru{% else %}gb{% endif %} max-h-3"></span>
                 <iconify-icon icon="tabler:chevron-down" class="text-sm text-gray-500"></iconify-icon>
             </button>
 
-            <div class="absolute right-0 z-10 mt-2 hidden w-56 origin-top-right rounded-lg bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" tabindex="-1">
+            <div class="absolute right-0 z-70 mt-2 hidden w-56 origin-top-right rounded-lg bg-white ring-1 shadow-lg ring-black/5 focus:outline-hidden" role="menu" aria-orientation="vertical" tabindex="-1">
                 <div class="py-1" role="none">
                     <form method="POST" action="{{ url_for('app__change_language', lang='uz') }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

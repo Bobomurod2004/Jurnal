@@ -406,6 +406,21 @@ class _SimplePagination:
                 last = num
 
 
+MASTERS_ISSUE_ALIASES = {
+    'masters',
+    'special_masters',
+}
+MASTERS_ISSUE_ALIASES_NORMALIZED = {
+    'masters',
+    'special masters',
+}
+MASTERS_SERIES_KEYS = {
+    'series_masters',
+    'special_issue_masters',
+}
+MASTERS_SERIES_SESSION_KEY = 'mainweb_masters_series_enabled'
+
+
 ISSUE_CATEGORY_ALIASES = {
     'masters': 'masters',
     'master': 'masters',
@@ -436,6 +451,27 @@ ISSUE_CATEGORY_ALIASES = {
     'maxsus': 'special',
     'maxsus son': 'special',
     'специальный выпуск': 'special',
+    'special_masters': 'special_masters',
+    'special masters': 'special_masters',
+    'masters_special': 'special_masters',
+    'masters special': 'special_masters',
+    'special master': 'special_masters',
+    'maxsus magistratura': 'special_masters',
+    'специальный выпуск магистратура': 'special_masters',
+    'special_phd': 'special_phd',
+    'special phd': 'special_phd',
+    'phd_special': 'special_phd',
+    'phd special': 'special_phd',
+    'special doctoral': 'special_phd',
+    'maxsus doktorantura': 'special_phd',
+    'специальный выпуск докторантура': 'special_phd',
+    'special_teacher': 'special_teacher',
+    'special teacher': 'special_teacher',
+    'teacher_special': 'special_teacher',
+    'teacher special': 'special_teacher',
+    'special academic staff': 'special_teacher',
+    "maxsus professor o'qituvchilar": 'special_teacher',
+    'специальный выпуск профессорско преподавательский состав': 'special_teacher',
 }
 
 ISSUE_CATEGORY_PREFIXES = (
@@ -461,6 +497,54 @@ def _normalize_issue_category_text(value):
     text = re.sub(r"[_\-/]+", ' ', text)
     text = re.sub(r"[^\w\s']", ' ', text, flags=re.UNICODE)
     return ' '.join(text.split())
+
+
+def _is_masters_issue_alias(value):
+    raw = _clean_text(value).lower().replace('-', '_')
+    if raw in MASTERS_ISSUE_ALIASES:
+        return True
+    return _normalize_issue_category_text(value) in MASTERS_ISSUE_ALIASES_NORMALIZED
+
+
+def _set_masters_series_mode(enabled):
+    session[MASTERS_SERIES_SESSION_KEY] = bool(enabled)
+    session.modified = True
+
+
+def _masters_series_mode_enabled():
+    return bool(session.get(MASTERS_SERIES_SESSION_KEY))
+
+
+def _masters_issue_category_for_redirect(issue_row):
+    normalized = _normalize_issue_category_text((issue_row or {}).get('category'))
+    if normalized == 'special masters':
+        return 'special_masters'
+    return 'masters'
+
+
+def _is_masters_issue(issue_row):
+    return _is_masters_issue_alias((issue_row or {}).get('category'))
+
+
+def _is_masters_publication(publication_row, issue_row=None, issue_cache=None):
+    publication = publication_row or {}
+    series_key = _clean_text(publication.get('series_key')).lower()
+    if series_key in MASTERS_SERIES_KEYS:
+        return True
+
+    resolved_issue = issue_row
+    if resolved_issue is None:
+        issue_id = _parse_int(publication.get('issue_id'))
+        if issue_id is not None:
+            if issue_cache is not None and issue_id in issue_cache:
+                resolved_issue = issue_cache[issue_id]
+            else:
+                issue_rows = dbc.issues.get(id=issue_id).exec()
+                resolved_issue = issue_rows[0] if issue_rows else None
+                if issue_cache is not None:
+                    issue_cache[issue_id] = resolved_issue
+
+    return _is_masters_issue(resolved_issue)
 
 
 def _issue_category_candidates(value):
@@ -508,6 +592,7 @@ def _resolve_issue_category_filter(value):
         return ''
 
     lookup = _issue_category_lookup_map()
+    alias_values = {_clean_text(alias) for alias in lookup.values() if _clean_text(alias)}
     candidates = _issue_category_candidates(raw_value)
     for candidate in candidates:
         mapped = lookup.get(candidate)
@@ -515,14 +600,32 @@ def _resolve_issue_category_filter(value):
             return mapped
 
     normalized = _normalize_issue_category_text(raw_value)
-    if any(fragment in normalized for fragment in ('magistr', 'magist', 'master', 'magitur')):
-        return 'masters'
-    if any(fragment in normalized for fragment in ('doktor', 'doctor', 'phd')):
-        return 'phd'
-    if any(fragment in normalized for fragment in ('teacher', 'oqit', "o'qit", 'professor', 'prepod', 'профессор', 'преподав')):
-        return 'teacher'
-    if any(fragment in normalized for fragment in ('special', 'maxsus', 'спец')):
+    has_masters = any(fragment in normalized for fragment in ('magistr', 'magist', 'master', 'magitur'))
+    has_phd = any(fragment in normalized for fragment in ('doktor', 'doctor', 'phd'))
+    has_teacher = any(fragment in normalized for fragment in ('teacher', 'oqit', "o'qit", 'professor', 'prepod', 'профессор', 'преподав'))
+    has_special = any(fragment in normalized for fragment in ('special', 'maxsus', 'спец'))
+
+    if has_special:
+        if has_masters:
+            for alias in ('special_masters', 'masters_special', 'special-masters', 'masters-special'):
+                if alias in alias_values:
+                    return alias
+        if has_phd:
+            for alias in ('special_phd', 'phd_special', 'special-phd', 'phd-special'):
+                if alias in alias_values:
+                    return alias
+        if has_teacher:
+            for alias in ('special_teacher', 'teacher_special', 'special-teacher', 'teacher-special'):
+                if alias in alias_values:
+                    return alias
         return 'special'
+
+    if has_masters:
+        return 'masters'
+    if has_phd:
+        return 'phd'
+    if has_teacher:
+        return 'teacher'
 
     return raw_value
 
@@ -1565,9 +1668,19 @@ def app__index():
         session.modified = True
 
     current_lang = _current_lang_code()
-    latest_publications = dbc.publications.get().order_by('date_publish').per_page(8).page(1).exec()
-    downloaded_publications = dbc.publications.get().order_by('stat_alt').per_page(8).page(1).exec()
-    popular_publications = dbc.publications.get().order_by('stat_views').per_page(8).page(1).exec()
+    issue_cache_for_masters = {}
+
+    def _load_home_publications(order_field, limit=8, sample_size=80):
+        rows = dbc.publications.get().order_by(order_field).per_page(sample_size).page(1).exec()
+        visible_rows = [
+            row for row in rows
+            if not _is_masters_publication(row, issue_cache=issue_cache_for_masters)
+        ]
+        return visible_rows[:limit]
+
+    latest_publications = _load_home_publications('date_publish')
+    downloaded_publications = _load_home_publications('stat_alt')
+    popular_publications = _load_home_publications('stat_views')
     news_items = dbc.news.get(type='news', status='published').order_by('published_at').per_page(4).page(1).exec()
     announcements = dbc.news.get(type='announcement', status='published').order_by('published_at').per_page(4).page(1).exec()
     editorial_members = _load_public_editorial_members() or []
@@ -1735,10 +1848,14 @@ def app__index():
         pub['main_author_name'] = author_profiles[0]['name'] if author_profiles else ''
         pub['subauthor_names'] = [author_item.get('name') for author_item in author_profiles[1:] if author_item.get('name')]
 
-        if pub.get('issue_id'):
-            issue = dbc.issues.get(id=pub['issue_id']).exec()
+        issue_id = _parse_int(pub.get('issue_id'))
+        if issue_id is not None:
+            if issue_id not in issue_cache_for_masters:
+                issue_rows = dbc.issues.get(id=issue_id).exec()
+                issue_cache_for_masters[issue_id] = issue_rows[0] if issue_rows else None
+            issue = issue_cache_for_masters.get(issue_id)
             if issue:
-                translated_issue = translate(issue[0])
+                translated_issue = translate(dict(issue))
                 pub['issue'] = _apply_localized_content(translated_issue, ('title', 'shortinfo', 'price'), lang=current_lang)
 
     for publications in [latest_publications, downloaded_publications, popular_publications]:
@@ -1748,7 +1865,11 @@ def app__index():
     # Recent issues for sidebar quick navigation
     recent_issues = []
     try:
-        recent_issues = dbc.issues.get().order_by('year').per_page(8).page(1).exec()
+        recent_issues_rows = dbc.issues.get().order_by('year').per_page(40).page(1).exec()
+        recent_issues = [
+            issue for issue in recent_issues_rows
+            if not _is_masters_issue(issue)
+        ][:8]
         for iss in recent_issues:
             try:
                 translate(iss)
@@ -1943,10 +2064,17 @@ def app__articles():
         sort_by = 'newest'
 
     query = dbc.publications.get()
+    issue_cache_for_masters = {}
 
     parsed_issue_id = _parse_int(issue_filter)
     if issue_filter and parsed_issue_id is not None:
-        query = query.equal(issue_id=parsed_issue_id)
+        selected_issue_rows = dbc.issues.get(id=parsed_issue_id).exec()
+        selected_issue = selected_issue_rows[0] if selected_issue_rows else None
+        issue_cache_for_masters[parsed_issue_id] = selected_issue
+        if selected_issue and not _is_masters_issue(selected_issue):
+            query = query.equal(issue_id=parsed_issue_id)
+        else:
+            query = query.get(id=-1)
     elif issue_filter:
         issue_filter = ''
 
@@ -1954,8 +2082,15 @@ def app__articles():
     if year_filter and parsed_year is not None:
         year_issues = dbc.issues.get(year=parsed_year).exec()
         if year_issues:
-            issue_ids = [issue['id'] for issue in year_issues]
-            query = query.any(issue_id=issue_ids)
+            visible_year_issues = [
+                issue for issue in year_issues
+                if not _is_masters_issue(issue)
+            ]
+            issue_ids = [issue['id'] for issue in visible_year_issues]
+            if issue_ids:
+                query = query.any(issue_id=issue_ids)
+            else:
+                query = query.get(id=-1)
         else:
             query = query.get(id=-1)
     elif year_filter:
@@ -1964,8 +2099,15 @@ def app__articles():
     if volume_filter:
         volume_issues = dbc.issues.get(vol_no=volume_filter).exec()
         if volume_issues:
-            issue_ids = [issue['id'] for issue in volume_issues]
-            query = query.any(issue_id=issue_ids)
+            visible_volume_issues = [
+                issue for issue in volume_issues
+                if not _is_masters_issue(issue)
+            ]
+            issue_ids = [issue['id'] for issue in visible_volume_issues]
+            if issue_ids:
+                query = query.any(issue_id=issue_ids)
+            else:
+                query = query.get(id=-1)
         else:
             query = query.get(id=-1)
 
@@ -1983,6 +2125,10 @@ def app__articles():
     for publication in publications:
         translate(publication)
         _apply_localized_content(publication, ('title', 'abstract', 'keywords', 'price'), lang=current_lang)
+    publications = [
+        publication for publication in publications
+        if not _is_masters_publication(publication, issue_cache=issue_cache_for_masters)
+    ]
 
     author_profile_cache = {}
     issue_cache = {}
@@ -2127,6 +2273,7 @@ def app__articles():
         })
 
     all_issues = dbc.issues.get().order_by('year').exec()
+    all_issues = [issue for issue in all_issues if not _is_masters_issue(issue)]
     for issue in all_issues:
         translate(issue)
         _apply_localized_content(issue, ('title', 'shortinfo', 'price'), lang=current_lang)
@@ -2237,7 +2384,10 @@ def app__issues():
     year_filter_raw = _clean_text(request.args.get('year'))
     parsed_year_filter = _parse_int(year_filter_raw)
     year_filter = str(parsed_year_filter) if parsed_year_filter is not None else ''
-    category_filter = _resolve_issue_category_filter(request.args.get('category'))
+    category_filter_raw = _clean_text(request.args.get('category'))
+    category_filter = _resolve_issue_category_filter(category_filter_raw)
+    masters_series_mode = _is_masters_issue_alias(category_filter)
+    _set_masters_series_mode(masters_series_mode)
     access_filter = request.args.get('access')
 
     query = dbc.issues.get()
@@ -2257,28 +2407,36 @@ def app__issues():
             query = query.equal(subscription_enable=True)
 
     issues = query.order_by('year').exec()
+    if not masters_series_mode:
+        issues = [
+            issue for issue in issues
+            if not _is_masters_issue(issue)
+        ]
     for issue in issues:
         translate(issue)
         _apply_localized_content(issue, ('title', 'shortinfo', 'price'), lang=current_lang)
     issues = sorted(issues, key=_issue_sort_key, reverse=True)
 
     all_issues = dbc.issues.get().exec()
+    year_source = [
+        issue for issue in all_issues
+        if _is_masters_issue(issue)
+    ] if masters_series_mode else [
+        issue for issue in all_issues
+        if not _is_masters_issue(issue)
+    ]
     available_years = sorted({
         parsed_year
-        for issue in all_issues
+        for issue in year_source
         for parsed_year in [_parse_int(issue.get('year'))]
         if parsed_year is not None
     }, reverse=True)
-    available_categories = dbc.fix_issue_categories.get().exec()
-    for cat in available_categories:
-        translate(cat)
     return render_template('mainweb/issues.html',
                          issues=issues,
                          available_years=available_years,
-                         available_categories=available_categories,
                          current_filters={
                              'year': year_filter,
-                             'category': category_filter,
+                             'category': category_filter_raw,
                              'access': access_filter
                          })
 
@@ -2637,8 +2795,15 @@ def app__issue(issue_id):
         return redirect(url_for('app__issues'))
 
     issue = issue[0]
+    issue_is_masters = _is_masters_issue(issue)
+    if issue_is_masters and not _masters_series_mode_enabled():
+        return redirect(url_for('app__issues', category=_masters_issue_category_for_redirect(issue)))
 
     all_issues = dbc.issues.get().exec()
+    if issue_is_masters:
+        all_issues = [row for row in all_issues if _is_masters_issue(row)]
+    else:
+        all_issues = [row for row in all_issues if not _is_masters_issue(row)]
     for list_issue in all_issues:
         _apply_localized_content(list_issue, ('title', 'shortinfo', 'price'), lang=current_lang)
     all_issues = sorted(all_issues, key=_issue_sort_key)
@@ -2763,7 +2928,15 @@ def app__purchase_article(article_id):
         flash('Article not found', 'error')
         return redirect(url_for('app__articles'))
 
-    publication = translate(publication[0])
+    publication = publication[0]
+    issue_cache_for_visibility = {}
+    if _is_masters_publication(publication, issue_cache=issue_cache_for_visibility) and not _masters_series_mode_enabled():
+        issue_id = _parse_int(publication.get('issue_id'))
+        issue_row = issue_cache_for_visibility.get(issue_id) if issue_id is not None else None
+        target_category = _masters_issue_category_for_redirect(issue_row or {'category': 'masters'})
+        return redirect(url_for('app__issues', category=target_category))
+
+    publication = translate(publication)
     _apply_localized_content(publication, ('title', 'abstract', 'keywords', 'price'), lang=current_lang)
 
     if not publication.get('is_paid'):
@@ -2801,7 +2974,18 @@ def app__article(article_id):
         flash('Article not found', 'error')
         return redirect(url_for('app__articles'))
 
-    publication = translate(publication[0])
+    publication = publication[0]
+    issue_row_for_visibility = None
+    issue_id = _parse_int(publication.get('issue_id'))
+    if issue_id is not None:
+        issue_rows = dbc.issues.get(id=issue_id).exec()
+        issue_row_for_visibility = issue_rows[0] if issue_rows else None
+
+    if _is_masters_publication(publication, issue_row=issue_row_for_visibility) and not _masters_series_mode_enabled():
+        target_category = _masters_issue_category_for_redirect(issue_row_for_visibility or {'category': 'masters'})
+        return redirect(url_for('app__issues', category=target_category))
+
+    publication = translate(publication)
     _apply_localized_content(publication, ('title', 'abstract', 'keywords', 'price'), lang=current_lang)
     if publication.get('doi') and not publication.get('doi_link'):
         publication['doi_link'] = f"https://doi.org/{publication.get('doi')}"
@@ -2866,11 +3050,9 @@ def app__article(article_id):
                 co_authors.append(co_author_profile)
 
     issue = None
-    if publication['issue_id']:
-        issue_data = dbc.issues.get(id=publication['issue_id']).exec()
-        if issue_data:
-            translated_issue = translate(issue_data[0])
-            issue = _apply_localized_content(translated_issue, ('title', 'shortinfo', 'price'), lang=current_lang)
+    if issue_row_for_visibility:
+        translated_issue = translate(dict(issue_row_for_visibility))
+        issue = _apply_localized_content(translated_issue, ('title', 'shortinfo', 'price'), lang=current_lang)
 
     parts = []
     figures = []
@@ -3085,6 +3267,12 @@ def app__download_article(article_id):
         return redirect(url_for('app__articles'))
 
     publication = publication[0]
+    issue_cache_for_visibility = {}
+    if _is_masters_publication(publication, issue_cache=issue_cache_for_visibility) and not _masters_series_mode_enabled():
+        issue_id = _parse_int(publication.get('issue_id'))
+        issue_row = issue_cache_for_visibility.get(issue_id) if issue_id is not None else None
+        target_category = _masters_issue_category_for_redirect(issue_row or {'category': 'masters'})
+        return redirect(url_for('app__issues', category=target_category))
 
     requires_access = bool(publication.get('is_paid') or publication.get('subscription_enable'))
     access_context = {'has_access': True, 'access_via': 'open', 'tariff': None}
@@ -3145,6 +3333,8 @@ def app__download_issue(issue_id):
         return redirect(url_for('app__issues'))
 
     issue = issue_rows[0]
+    if _is_masters_issue(issue) and not _masters_series_mode_enabled():
+        return redirect(url_for('app__issues', category=_masters_issue_category_for_redirect(issue)))
     requires_access = bool(issue.get('is_paid') or issue.get('subscription_enable'))
     access_context = {'has_access': True, 'access_via': 'open', 'tariff': None}
     user_id = None

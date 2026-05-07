@@ -64,6 +64,7 @@
         <tr>
           <th>{{ t("admin_label_issue_no") }}</th>
           <th>{{ t("admin_label_title") }}</th>
+          <th>Seriya</th>
           <th>{{ t("admin_label_publication_date") }}</th>
           <th>{{ t("admin_label_status") }}</th>
           <th>{{ t("admin_label_articles_count") }}</th>
@@ -75,6 +76,7 @@
         <tr>
           <td class="align-middle">{{ issue.vol_no }}-{{ issue.issue_no }}</td>
           <td class="align-middle">{{ issue.title_display or issue.title }}</td>
+          <td class="align-middle">{{ issue.series_display or '-' }}</td>
           <td class="align-middle">{{ issue.created_at | datetimeformat }}</td>
           <td class="align-middle">
             {% if issue.subscription_enable %}

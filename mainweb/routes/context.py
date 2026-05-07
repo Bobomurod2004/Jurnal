@@ -33,6 +33,10 @@ def register_context_processors(app):
             return '' if fallback is None else fallback
         return localized
 
+    def _is_masters_issue_alias(value):
+        normalized = str(value or '').strip().lower().replace('-', '_').replace(' ', '_')
+        return normalized in {'masters', 'special_masters'}
+
     def _ensure_role_notifications_table():
         try:
             cursor = dbc.conn.cursor()
@@ -108,7 +112,10 @@ def register_context_processors(app):
 
     @app.context_processor
     def inject_latest_issue():
-        issues = dbc.issues.get().exec()
+        issues = [
+            issue for issue in (dbc.issues.get().exec() or [])
+            if not _is_masters_issue_alias(issue.get('category'))
+        ]
         if not issues:
             return {'latest_issue': None}
 

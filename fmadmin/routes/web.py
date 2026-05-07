@@ -389,6 +389,28 @@ def _clean_text(value):
     return str(value).strip()
 
 
+def _split_author_full_name(value):
+    parts = [part for part in re.split(r'\s+', _clean_text(value)) if part]
+    if not parts:
+        return '', '', ''
+    if len(parts) == 1:
+        return parts[0], '', ''
+    if len(parts) == 2:
+        return parts[0], parts[1], ''
+    return parts[0], parts[1], ' '.join(parts[2:])
+
+
+def _compose_author_full_name(first_name, second_name='', father_name=''):
+    return ' '.join(
+        part for part in (
+            _clean_text(first_name),
+            _clean_text(second_name),
+            _clean_text(father_name),
+        )
+        if part
+    )
+
+
 def _normalize_email_template_alias(value):
     normalized = _clean_text(value).lower()
     normalized = re.sub(r'[^a-z0-9_]+', '_', normalized)
@@ -2292,6 +2314,60 @@ def _admin_language():
     if language in {'uz', 'ru', 'en'}:
         return language
     return 'uz'
+
+
+def _issue_series_options(lang=None):
+    language = _clean_text(lang or _admin_language()).lower()
+    if language not in {'uz', 'ru', 'en'}:
+        language = 'uz'
+    catalog = {
+        'masters': {
+            'uz': 'Seriya: Magistratura',
+            'ru': 'Серия: Магистратура',
+            'en': "Series: Master's Program",
+        },
+        'phd': {
+            'uz': 'Seriya: Doktorantura',
+            'ru': 'Серия: Докторантура',
+            'en': 'Series: Doctoral Program',
+        },
+        'teacher': {
+            'uz': "Seriya: Professor-o'qituvchilar",
+            'ru': 'Серия: Профессорско-преподавательский состав',
+            'en': 'Series: Academic Staff',
+        },
+        'special_masters': {
+            'uz': 'Maxsus son (magistratura)',
+            'ru': 'Специальный выпуск (магистратура)',
+            'en': "Special Issue (Master's Program)",
+        },
+        'special_phd': {
+            'uz': 'Maxsus son (doktorantura)',
+            'ru': 'Специальный выпуск (докторантура)',
+            'en': 'Special Issue (Doctoral Program)',
+        },
+        'special_teacher': {
+            'uz': "Maxsus son (professor-o'qituvchilar)",
+            'ru': 'Специальный выпуск (профессорско-преподавательский состав)',
+            'en': 'Special Issue (Academic Staff)',
+        },
+    }
+    ordered_aliases = (
+        'masters',
+        'phd',
+        'teacher',
+        'special_masters',
+        'special_phd',
+        'special_teacher',
+    )
+    options = []
+    for alias in ordered_aliases:
+        labels = catalog.get(alias) or {}
+        options.append({
+            'alias': alias,
+            'name_display': labels.get(language) or labels.get('uz') or alias,
+        })
+    return options
 
 
 def _resolve_classification_area(classification_id):
@@ -4883,6 +4959,8 @@ def _merge_author_profiles_for_users(cursor, column_cache, primary_user_id, seco
 
     merge_fields = (
         'name',
+        'second_name',
+        'father_name',
         'organization',
         'email',
         'position',
@@ -4938,28 +5016,51 @@ def _merge_author_profiles_for_users(cursor, column_cache, primary_user_id, seco
 @bp.route('/fmadmin/users/authors/<int:author_id>', methods=['GET', 'POST'])
 @is_superadmin_required
 def author_edit(author_id):
+    column_cache = {}
+    cursor = db.conn.cursor()
+    try:
+        has_second_name_column = _table_column_exists(cursor, column_cache, 'author_profile', 'second_name')
+        has_father_name_column = _table_column_exists(cursor, column_cache, 'author_profile', 'father_name')
+    finally:
+        cursor.close()
+
     if request.method == 'POST':
         data = request.form
+        first_name = _clean_text(data.get('first_name'))
+        second_name = _clean_text(data.get('second_name'))
+        father_name = _clean_text(data.get('father_name'))
+        full_name = _compose_author_full_name(first_name, second_name, father_name)
+        if not full_name:
+            full_name = _clean_text(data.get('name'))
+            if not first_name and full_name:
+                first_name, second_name, father_name = _split_author_full_name(full_name)
+
         address_country = data.get('address_country', '').strip()
+        payload = {
+            'user_id': data.get('user_id') or None,
+            'name': full_name,
+            'organization': data.get('organization'),
+            'email': data.get('email'),
+            'position': data.get('position'),
+            'address_street': data.get('address_street'),
+            'address_country': address_country,
+            'address_city': data.get('address_city'),
+            'address_zip': data.get('address_zip'),
+            'phone': data.get('phone'),
+            'orcid': data.get('orcid'),
+            'department': data.get('department'),
+        }
+        if has_second_name_column:
+            payload['second_name'] = second_name or None
+        if has_father_name_column:
+            payload['father_name'] = father_name or None
+
         if author_id == 0:
             created_at = parse_date(data.get('created_at'), with_time=True)
             updated_at = parse_date(data.get('updated_at'), with_time=True)
-            created_authors = db.author_profile.add(
-                user_id=data.get('user_id') or None,
-                name=data.get('name'),
-                organization=data.get('organization'),
-                email=data.get('email'),
-                position=data.get('position'),
-                address_street=data.get('address_street'),
-                address_country=address_country,
-                address_city=data.get('address_city'),
-                address_zip=data.get('address_zip'),
-                phone=data.get('phone'),
-                orcid=data.get('orcid'),
-                department=data.get('department'),
-                created_at=created_at or int(datetime.datetime.now().timestamp()),
-                updated_at=updated_at or int(datetime.datetime.now().timestamp()),
-            ).exec()
+            payload['created_at'] = created_at or int(datetime.datetime.now().timestamp())
+            payload['updated_at'] = updated_at or int(datetime.datetime.now().timestamp())
+            created_authors = db.author_profile.add(**payload).exec()
             created_author = created_authors[0] if created_authors else None
             if not created_author or not created_author.get('id'):
                 new_alert(_msg_text('Muallif yaratilmadi', 'Автор не создан', 'Author was not created'), 'danger')
@@ -4969,22 +5070,9 @@ def author_edit(author_id):
         else:
             created_at = parse_date(data.get('created_at'), with_time=True)
             updated_at = parse_date(data.get('updated_at'), with_time=True)
-            db.author_profile.all().equal(id=author_id).update(
-                user_id=data.get('user_id') or None,
-                name=data.get('name'),
-                organization=data.get('organization'),
-                email=data.get('email'),
-                position=data.get('position'),
-                address_street=data.get('address_street'),
-                address_country=address_country,
-                address_city=data.get('address_city'),
-                address_zip=data.get('address_zip'),
-                phone=data.get('phone'),
-                orcid=data.get('orcid'),
-                department=data.get('department'),
-                created_at=created_at,
-                updated_at=updated_at or int(datetime.datetime.now().timestamp()),
-            ).exec()
+            payload['created_at'] = created_at
+            payload['updated_at'] = updated_at or int(datetime.datetime.now().timestamp())
+            db.author_profile.all().equal(id=author_id).update(**payload).exec()
             new_alert(_msg_text('Muallif muvaffaqiyatli saqlandi', 'Автор успешно сохранён', 'Author saved successfully'), 'success')
             return redirect(url_for('author_edit', author_id=author_id))
 
@@ -4993,6 +5081,7 @@ def author_edit(author_id):
             'id': 0, 'user_id': None, 'name': '', 'organization': '', 'email': '',
             'position': '', 'address_street': '', 'address_country': '', 'address_city': '',
             'address_zip': '', 'phone': '', 'orcid': '', 'department': '',
+            'second_name': '', 'father_name': '', 'first_name': '',
             'created_at': None, 'updated_at': None,
         }
     else:
@@ -5000,6 +5089,12 @@ def author_edit(author_id):
         if not author:
             return 'Автор не найден', 404
         author = author[0]
+        first_name, fallback_second_name, fallback_father_name = _split_author_full_name(author.get('name'))
+        author_second_name = _clean_text(author.get('second_name'))
+        author_father_name = _clean_text(author.get('father_name'))
+        author['first_name'] = first_name
+        author['second_name'] = author_second_name or fallback_second_name
+        author['father_name'] = author_father_name or fallback_father_name
 
     all_authors = db.author_profile.all().exec()
     used_user_ids = set(a['user_id'] for a in all_authors if a['user_id'])
@@ -5284,6 +5379,10 @@ def issues():
     page = request.args.get('page', 1, type=int)
     per_page = 20
     admin_lang = _admin_language()
+    series_label_map = {
+        item['alias']: item['name_display']
+        for item in _issue_series_options(admin_lang)
+    }
     # Получаем значения фильтров
     search_title = request.args.get('title', '').strip()
     search_vol_no = request.args.get('vol_no', '').strip()
@@ -5321,6 +5420,8 @@ def issues():
     issue_article_count = {}
     for issue in issues:
         issue['title_display'] = _localized_content_field(issue, 'title', admin_lang, strict=True)
+        issue_category = _clean_text(issue.get('category'))
+        issue['series_display'] = series_label_map.get(issue_category, issue_category)
         issue_article_count[issue['id']] = sum(1 for p in publications if p['issue_id'] == issue['id'])
     # Формируем query_string для пагинации (без page)
     args_for_pagination = {k: v for k, v in request.args.items() if k != 'page' and v}
@@ -5590,9 +5691,7 @@ def issue_edit(issue_id):
         issue = issue[0]
 
     admin_lang = _admin_language()
-    issue_categories = db.fix_issue_categories.get().exec()
-    for category in issue_categories:
-        category['name_display'] = _localized_content_field(category, 'name', admin_lang)
+    issue_categories = _issue_series_options(admin_lang)
     return render_template('website/issues/edit.html', issue=issue, issue_categories = issue_categories)
 
 

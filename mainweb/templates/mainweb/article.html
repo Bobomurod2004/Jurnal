@@ -779,6 +779,53 @@
     </div>
 </div>
 
+<!-- Share Modal -->
+<div class="relative z-60 hidden" id="share_modal" aria-labelledby="share-modal-title" role="dialog" aria-modal="true">
+    <div class="fixed inset-0 bg-gray-500/75 transition-opacity" aria-hidden="true"></div>
+
+    <div class="fixed inset-0 z-70 w-screen overflow-y-auto">
+        <div class="container mx-auto flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 w-full" style="max-width: 560px;">
+                <div class="px-4 sm:px-6 py-5">
+                    <h3 id="share-modal-title" class="text-lg font-semibold text-gray-900 mb-4">{{ t('share') }}</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <a id="share_telegram" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50 transition-colors">
+                            <iconify-icon icon="tabler:brand-telegram" class="text-base text-[#229ED9]"></iconify-icon>
+                            Telegram
+                        </a>
+                        <a id="share_whatsapp" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-green-300 hover:bg-green-50 transition-colors">
+                            <iconify-icon icon="tabler:brand-whatsapp" class="text-base text-[#25D366]"></iconify-icon>
+                            WhatsApp
+                        </a>
+                        <a id="share_email" href="#" class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-red-300 hover:bg-red-50 transition-colors">
+                            <iconify-icon icon="tabler:mail" class="text-base text-red-500"></iconify-icon>
+                            {{ t('email') }}
+                        </a>
+                        <a id="share_linkedin" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-sky-300 hover:bg-sky-50 transition-colors">
+                            <iconify-icon icon="tabler:brand-linkedin" class="text-base text-[#0A66C2]"></iconify-icon>
+                            LinkedIn
+                        </a>
+                        <a id="share_x" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50 transition-colors">
+                            <iconify-icon icon="tabler:brand-x" class="text-base text-gray-900"></iconify-icon>
+                            X
+                        </a>
+                        <button type="button" id="copy_share_link" class="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-fmmain/30 hover:bg-fmmain-light/20 transition-colors">
+                            <iconify-icon icon="tabler:link" class="text-base text-fmmain"></iconify-icon>
+                            Havolani nusxalash
+                        </button>
+                    </div>
+                    <button type="button" id="native_share_btn" class="mt-3 hidden w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition-colors">
+                        Qurilma orqali ulashish
+                    </button>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                    <button type="button" id="close_share_modal" class="inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:w-auto">{{ t('close') }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -809,10 +856,11 @@
         "publication_title": {{ publication.title|tojson|safe }},
         "publication_doi": {{ (publication.doi or '')|tojson|safe }},
         "publication_year": {{ ((issue.year|string) if issue and issue.year else '')|tojson|safe }},
+        "publication_page_range": {{ (publication.page_range or '')|tojson|safe }},
+        "publication_published_at": {{ (publication.date_publish or 0)|tojson }},
         "journal_title": {{ t('website_title')|tojson|safe }},
         "copied_text_label": {{ ("Скопировано" if session.language == 'ru' else ("Copied" if session.language == 'en' else "Nusxalandi")) | tojson }},
-        "copy_label": {{ t('copy_citation') | tojson }},
-        "share_label": {{ t('share') | tojson }}
+        "copy_label": {{ t('copy_citation') | tojson }}
     }
 </script>
 
@@ -857,53 +905,283 @@
         const idToSequential = templateData.id_to_sequential || {};
 
         const citationModal = $('#citation_modal');
+        const shareModal = $('#share_modal');
         const citationText = $('#citation_text');
         const citationStyle = $('#citation_style');
         const publicationTitle = templateData.publication_title || '';
         const publicationDoi = templateData.publication_doi || '';
         const publicationYear = templateData.publication_year || '';
+        const publicationPageRange = templateData.publication_page_range || '';
+        const publicationPublishedAt = templateData.publication_published_at || 0;
         const journalTitle = templateData.journal_title || '';
         const copiedTextLabel = templateData.copied_text_label || 'Copied';
         const copyLabel = templateData.copy_label || 'Copy';
-        const shareLabel = templateData.share_label || 'Share';
+        const shareCopyButton = $('#copy_share_link');
+        const shareCopyDefaultLabel = shareCopyButton.text().trim();
 
-        function getArticleAuthors() {
-            const citationText = $('.article-authors-citation').first().text().replace(/\s+/g, ' ').trim();
-            if (citationText) {
-                return citationText;
+        function getArticleAuthorsRaw() {
+            const authorsText = $('.article-authors-citation').first().text().replace(/\s+/g, ' ').trim();
+            if (authorsText) {
+                return authorsText;
             }
             const text = $('.article-authors').text().replace(/\s+/g, ' ').trim();
             return text || 'Unknown author';
         }
 
+        function normalizePageRange(value) {
+            return String(value || '').trim().replace(/\s*[-–]\s*/g, '–');
+        }
+
+        function normalizeDoi(value) {
+            const raw = String(value || '').trim();
+            if (!raw) {
+                return '';
+            }
+            const fromUrl = raw.match(/10\.\d{4,9}\/\S+/i);
+            if (fromUrl && fromUrl[0]) {
+                return fromUrl[0].replace(/[.)\],;]+$/, '');
+            }
+            return raw.replace(/^https?:\/\/(dx\.)?doi\.org\//i, '').replace(/[.)\],;]+$/, '');
+        }
+
+        function normalizeYear(value) {
+            const text = String(value || '').trim();
+            if (/^\d{4}$/.test(text)) {
+                return text;
+            }
+            if (publicationPublishedAt) {
+                const timestamp = Number(publicationPublishedAt);
+                if (!Number.isNaN(timestamp) && timestamp > 0) {
+                    const date = new Date(timestamp > 1e12 ? timestamp : timestamp * 1000);
+                    if (!Number.isNaN(date.getTime())) {
+                        return String(date.getUTCFullYear());
+                    }
+                }
+            }
+            return '';
+        }
+
+        function publishedMonthName() {
+            const timestamp = Number(publicationPublishedAt);
+            if (Number.isNaN(timestamp) || timestamp <= 0) {
+                return '';
+            }
+            const date = new Date(timestamp > 1e12 ? timestamp : timestamp * 1000);
+            if (Number.isNaN(date.getTime())) {
+                return '';
+            }
+            return date.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
+        }
+
+        function parseAuthorsList() {
+            const raw = getArticleAuthorsRaw();
+            if (!raw) {
+                return [];
+            }
+            return raw
+                .split(',')
+                .map(function (name) { return name.trim(); })
+                .filter(function (name) { return Boolean(name); });
+        }
+
+        function parseAuthorName(name) {
+            const cleaned = String(name || '').replace(/\s+/g, ' ').trim();
+            if (!cleaned) {
+                return { surname: '', given: '' };
+            }
+
+            if (cleaned.includes(',')) {
+                const parts = cleaned.split(',');
+                return {
+                    surname: (parts[0] || '').trim(),
+                    given: parts.slice(1).join(' ').trim(),
+                };
+            }
+
+            const tokens = cleaned.split(' ');
+            if (tokens.length === 1) {
+                return { surname: tokens[0], given: '' };
+            }
+            return {
+                surname: tokens[tokens.length - 1],
+                given: tokens.slice(0, -1).join(' '),
+            };
+        }
+
+        function givenToInitials(givenNames) {
+            const tokens = String(givenNames || '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .split(' ')
+                .filter(function (token) { return Boolean(token); });
+
+            const initials = [];
+            tokens.forEach(function (token) {
+                token.split('-').forEach(function (segment) {
+                    const cleaned = segment.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ]/g, '');
+                    if (cleaned) {
+                        initials.push(cleaned.charAt(0).toUpperCase() + '.');
+                    }
+                });
+            });
+            return initials.join(' ');
+        }
+
+        function formatAuthorAPA(name) {
+            const parsed = parseAuthorName(name);
+            if (!parsed.surname) {
+                return String(name || '').trim();
+            }
+            const initials = givenToInitials(parsed.given);
+            return initials ? `${parsed.surname}, ${initials}` : parsed.surname;
+        }
+
+        function formatAuthorChicago(name) {
+            const parsed = parseAuthorName(name);
+            if (!parsed.surname) {
+                return String(name || '').trim();
+            }
+            return parsed.given ? `${parsed.surname}, ${parsed.given}` : parsed.surname;
+        }
+
+        function joinAuthorsAPA(authorsList) {
+            if (!authorsList.length) {
+                return 'Unknown author';
+            }
+            const formatted = authorsList.map(formatAuthorAPA);
+            if (formatted.length === 1) {
+                return formatted[0];
+            }
+            if (formatted.length === 2) {
+                return `${formatted[0]}, & ${formatted[1]}`;
+            }
+            return `${formatted.slice(0, -1).join(', ')}, & ${formatted[formatted.length - 1]}`;
+        }
+
+        function joinAuthorsChicago(authorsList) {
+            if (!authorsList.length) {
+                return 'Unknown author';
+            }
+            const formatted = authorsList.map(formatAuthorChicago);
+            if (formatted.length === 1) {
+                return formatted[0];
+            }
+            if (formatted.length === 2) {
+                return `${formatted[0]} and ${formatted[1]}`;
+            }
+            return `${formatted.slice(0, -1).join(', ')}, and ${formatted[formatted.length - 1]}`;
+        }
+
+        function authorsHarvard(authorsList) {
+            if (!authorsList.length) {
+                return 'Unknown author';
+            }
+            const firstAuthor = formatAuthorAPA(authorsList[0]);
+            if (authorsList.length > 1) {
+                return `${firstAuthor} et al.`;
+            }
+            return firstAuthor;
+        }
+
         function buildCitation(styleName) {
-            const authors = getArticleAuthors();
-            const year = publicationYear || '';
-            const doiPart = publicationDoi ? ` DOI: ${publicationDoi}` : '';
+            const authorsList = parseAuthorsList();
+            const year = normalizeYear(publicationYear);
+            const pages = normalizePageRange(publicationPageRange);
+            const doi = normalizeDoi(publicationDoi);
+            const doiUrl = doi ? `https://doi.org/${doi}` : '';
+            const monthName = publishedMonthName();
             const pageUrl = window.location.href;
+            const title = String(publicationTitle || '').trim();
+            const journal = String(journalTitle || '').trim();
 
             if (styleName === 'mla') {
-                return `${authors}. "${publicationTitle}." ${journalTitle}${year ? ` (${year})` : ''}.${doiPart} ${pageUrl}`;
+                return `${getArticleAuthorsRaw()}. "${title}." ${journal}${year ? ` (${year})` : ''}.${doi ? ` DOI: ${doi}` : ''} ${pageUrl}`;
             }
             if (styleName === 'chicago') {
-                return `${authors}. "${publicationTitle}." ${journalTitle}${year ? `, ${year}` : ''}.${doiPart} ${pageUrl}`;
+                const authors = joinAuthorsChicago(authorsList);
+                const periodYear = year ? `${year}. ` : '';
+                const monthPart = monthName ? `, ${monthName}` : '';
+                const pagesPart = pages ? `, ${pages}` : '';
+                if (doi) {
+                    return `${authors}. ${periodYear}“${title}.” ${journal}${monthPart}${pagesPart}. doi:${doi}.`;
+                }
+                return `${authors}. ${periodYear}“${title}.” ${journal}${monthPart}${pagesPart}. ${pageUrl}`;
             }
             if (styleName === 'harvard') {
-                return `${authors} ${year ? `(${year}) ` : ''}${publicationTitle}. ${journalTitle}.${doiPart} Available at: ${pageUrl}`;
+                const authors = authorsHarvard(authorsList);
+                const yearPart = year ? ` (${year})` : '';
+                const pagesPart = pages ? `, pp. ${pages}` : '';
+                if (doi) {
+                    return `${authors}${yearPart} ‘${title}’, ${journal}${pagesPart}. doi: ${doi}.`;
+                }
+                return `${authors}${yearPart} ‘${title}’, ${journal}${pagesPart}. Available at: ${pageUrl}.`;
             }
-            return `${authors} ${year ? `(${year}). ` : ''}${publicationTitle}. ${journalTitle}.${doiPart} ${pageUrl}`;
+
+            const authors = joinAuthorsAPA(authorsList);
+            const yearPart = year ? `(${year}). ` : '';
+            const pagesPart = pages ? `, ${pages}` : '';
+            if (doiUrl) {
+                return `${authors} ${yearPart}${title}. ${journal}${pagesPart}. ${doiUrl}`;
+            }
+            return `${authors} ${yearPart}${title}. ${journal}${pagesPart}. ${pageUrl}`;
         }
 
         function openCitationModal() {
             citationStyle.val(citationStyle.val() || 'apa');
             citationText.text(buildCitation(citationStyle.val()));
             citationModal.removeClass('hidden');
-            $('body').addClass('overflow-hidden');
+            syncBodyScrollLock();
         }
 
         function closeCitationModal() {
             citationModal.addClass('hidden');
-            $('body').removeClass('overflow-hidden');
+            syncBodyScrollLock();
+        }
+
+        function syncBodyScrollLock() {
+            const isCitationOpen = !citationModal.hasClass('hidden');
+            const isShareOpen = !shareModal.hasClass('hidden');
+            $('body').toggleClass('overflow-hidden', isCitationOpen || isShareOpen);
+        }
+
+        function buildSharePayload() {
+            const url = window.location.href;
+            const title = String(publicationTitle || document.title || '').trim();
+            const text = title;
+            return { url, title, text };
+        }
+
+        function updateShareLinks() {
+            const payload = buildSharePayload();
+            const encodedUrl = encodeURIComponent(payload.url);
+            const encodedTitle = encodeURIComponent(payload.title);
+            const encodedText = encodeURIComponent(payload.text);
+            const textWithUrl = encodeURIComponent(`${payload.text}\n${payload.url}`);
+            const emailBody = encodeURIComponent(`${payload.text}\n\n${payload.url}`);
+
+            $('#share_telegram').attr('href', `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`);
+            $('#share_whatsapp').attr('href', `https://wa.me/?text=${textWithUrl}`);
+            $('#share_email').attr('href', `mailto:?subject=${encodedTitle}&body=${emailBody}`);
+            $('#share_linkedin').attr('href', `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`);
+            $('#share_x').attr('href', `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`);
+
+            const nativeShareButton = $('#native_share_btn');
+            if (navigator.share) {
+                nativeShareButton.removeClass('hidden');
+            } else {
+                nativeShareButton.addClass('hidden');
+            }
+        }
+
+        function openShareModal() {
+            updateShareLinks();
+            shareModal.removeClass('hidden');
+            syncBodyScrollLock();
+        }
+
+        function closeShareModal() {
+            shareModal.addClass('hidden');
+            syncBodyScrollLock();
         }
 
         $('#article-back-btn').on('click', function (e) {
@@ -959,18 +1237,54 @@
 
         $('#article-share-btn').on('click', function (e) {
             e.preventDefault();
-            const shareData = { title: publicationTitle, url: window.location.href };
-            const buttonLabel = $(this).find('span');
-            if (navigator.share) {
-                navigator.share(shareData).catch(function () {});
+            openShareModal();
+        });
+
+        $('#close_share_modal').on('click', function () {
+            closeShareModal();
+        });
+
+        shareModal.children().first().on('click', function () {
+            closeShareModal();
+        });
+
+        shareModal.on('click', function (e) {
+            if (e.target === this) {
+                closeShareModal();
+            }
+        });
+
+        $('#native_share_btn').on('click', function () {
+            if (!navigator.share) {
                 return;
             }
+            const payload = buildSharePayload();
+            navigator.share({ title: payload.title, text: payload.text, url: payload.url }).catch(function () {});
+        });
+
+        shareCopyButton.on('click', function () {
+            const payload = buildSharePayload();
+            const resetLabel = function () {
+                setTimeout(function () {
+                    shareCopyButton.text(shareCopyDefaultLabel);
+                }, 1200);
+            };
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(window.location.href).then(function () {
-                    buttonLabel.text(copiedTextLabel);
-                    setTimeout(() => buttonLabel.text(shareLabel), 1200);
+                navigator.clipboard.writeText(payload.url).then(function () {
+                    shareCopyButton.text(copiedTextLabel);
+                    resetLabel();
                 });
+                return;
             }
+            const tempInput = $('<textarea>').val(payload.url).appendTo('body').select();
+            document.execCommand('copy');
+            tempInput.remove();
+            shareCopyButton.text(copiedTextLabel);
+            resetLabel();
+        });
+
+        shareModal.find('a').on('click', function () {
+            closeShareModal();
         });
 
         // Create single tooltip element

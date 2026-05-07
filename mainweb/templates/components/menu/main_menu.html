@@ -69,16 +69,17 @@
 
             <div class="relative inline-block text-left">
                 <button type="button" class="inline-flex items-center gap-1.5 rounded-md px-4 py-2 whitespace-nowrap hover:bg-gray-50 hover:text-gray-900 transition-colors" data-dropdown-trigger aria-expanded="false" aria-haspopup="true">
-                    {{ t('menu_categories') if t('menu_categories') != 'menu_categories' else 'Turkumlar' }}
+                    {{ t('menu_categories') if t('menu_categories') != 'menu_categories' else 'Seriyalar' }}
                     <iconify-icon icon="tabler:chevron-down" class="text-base text-gray-500"></iconify-icon>
                 </button>
                 <div class="absolute left-0 z-50 mt-2 hidden w-64 origin-top-left rounded-lg bg-white ring-1 shadow-lg ring-black/5" role="menu" aria-orientation="vertical" tabindex="-1">
                     <div class="py-1" role="none">
-                        <a href="{{ url_for('app__issues', category='regular') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_series_regular') }}</a>
                         <a href="{{ url_for('app__issues', category='masters') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_series_masters') }}</a>
                         <a href="{{ url_for('app__issues', category='phd') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_series_phd') }}</a>
-                        <a href="{{ url_for('app__issues', category='special') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_special_issues') }}</a>
-                        <a href="{{ url_for('app__articles', sort='most_viewed') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_most_read') }}</a>
+                        <a href="{{ url_for('app__issues', category='teacher') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_series_teacher') }}</a>
+                        <a href="{{ url_for('app__issues', category='special_masters') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_special_issue_masters') }}</a>
+                        <a href="{{ url_for('app__issues', category='special_phd') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_special_issue_phd') }}</a>
+                        <a href="{{ url_for('app__issues', category='special_teacher') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" role="menuitem" tabindex="-1">{{ t('menu_special_issue_teacher') }}</a>
                     </div>
                 </div>
             </div>
