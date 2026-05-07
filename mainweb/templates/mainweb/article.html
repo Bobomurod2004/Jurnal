@@ -3,6 +3,16 @@
 
 {% block title %}{{ publication.title }} - {{ t('website_title') }}{% endblock %}
 
+{% block head_meta %}
+<meta property="og:type" content="article">
+<meta property="og:title" content="{{ publication.title|striptags }}">
+<meta property="og:description" content="{{ (publication.abstract or publication.title or '')|striptags|trim|truncate(220, True, '') }}">
+<meta property="og:url" content="{{ request.url }}">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="{{ publication.title|striptags }}">
+<meta name="twitter:description" content="{{ (publication.abstract or publication.title or '')|striptags|trim|truncate(220, True, '') }}">
+{% endblock %}
+
 {% block content %}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
