@@ -1070,7 +1070,7 @@ PAGES_DATA = {
     },
     'site_editing_services': {
         'title': 'Site Editing Services',
-        'title_uz': 'Sayt tahrirlash xizmatlari',
+        'title_uz': 'Tahrirlash xizmatlari',
         'title_ru': 'Услуги редактирования сайта',
         'content': '''
         <section class="mb-8">
@@ -1420,12 +1420,12 @@ PAGES_DATA = {
         '''
     },
     'for_uzgumya_researchers': {
-        'title': 'For UzGUMYA Researchers',
-        'title_uz': 'UzDJTU tadqiqotchilari uchun',
+        'title': "For O'zDJTU Researchers",
+        'title_uz': 'O\'zDJTU tadqiqotchilari uchun',
         'title_ru': 'Для исследователей УзГУМЯ',
         'content': '''
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">For UzGUMYA Researchers</h4>
+          <h4 class="text-lg font-semibold mb-3">For O'zDJTU Researchers</h4>
           <p class="mb-0">Researchers from the university can receive guidance on the authorship process and methodological support. Topics aligned with internal academic priorities may be recommended separately.</p>
         </section>
         <section>
@@ -1439,7 +1439,7 @@ PAGES_DATA = {
         ''',
         'content_uz': '''
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">UzDJTU tadqiqotchilari uchun</h4>
+          <h4 class="text-lg font-semibold mb-3">O'zDJTU tadqiqotchilari uchun</h4>
           <p class="mb-0">Universitet tadqiqotchilari uchun mualliflik jarayoni bo'yicha maslahat va metodik ko'mak ko'rsatiladi. Ichki ilmiy yo'nalishlarga mos mavzular alohida tavsiya qilinishi mumkin.</p>
         </section>
         <section>

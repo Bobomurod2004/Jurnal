@@ -119,13 +119,19 @@ def register_context_processors(app):
         if not issues:
             return {'latest_issue': None}
 
-        latest_issue_item = max(
-            issues,
-            key=lambda item: (
+        def _latest_issue_sort_key(item):
+            # Current issue should follow the most recently created issue,
+            # even before its year/issue_no metadata is fully finalized.
+            return (
+                _safe_int(item.get('created_at')),
+                _safe_int(item.get('id')),
                 _safe_int(item.get('year')),
                 _safe_int(item.get('issue_no')),
-                _safe_int(item.get('id')),
-            ),
+            )
+
+        latest_issue_item = max(
+            issues,
+            key=_latest_issue_sort_key,
         )
         latest_issue_item = dict(latest_issue_item)
         latest_issue_item['title'] = _localized_field(latest_issue_item, 'title')

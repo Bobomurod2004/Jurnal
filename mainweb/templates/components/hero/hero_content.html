@@ -28,8 +28,14 @@
                 </h1>
 
                 <!-- Description -->
-                <p class="hero-animate-3 mt-4 max-w-2xl text-sm leading-7 text-gray-600 md:text-base">
-                    {{ t('about_journal_text') }}
+                {% set about_text = t('about_journal_text') %}
+                <p class="hero-animate-3 mt-4 max-w-2xl text-sm leading-7 text-gray-600 text-justify md:text-base" style="text-align: justify;">
+                    {{
+                        about_text
+                        | replace('FILOLOGIYA FANLARI', '<strong class="font-bold text-gray-1000">FILOLOGIYA FANLARI</strong>')
+                        | replace('PEDAGOGIKA FANLARI', '<strong class="font-bold text-gray-1000">PEDAGOGIKA FANLARI</strong>')
+                        | safe
+                    }}
                 </p>
 
                 <!-- CTA Buttons -->

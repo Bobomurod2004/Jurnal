@@ -247,6 +247,76 @@
     background: #dbeafe;
 }
 
+.article-license-details {
+    position: relative;
+}
+
+.article-license-summary {
+    list-style: none;
+    cursor: pointer;
+}
+
+.article-license-summary::-webkit-details-marker {
+    display: none;
+}
+
+.article-license-trigger-badge {
+    width: 42px;
+    height: auto;
+    border-radius: 3px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+}
+
+.article-license-chevron {
+    transition: transform 0.2s ease;
+}
+
+.article-license-details[open] .article-license-chevron {
+    transform: rotate(180deg);
+}
+
+.article-license-panel {
+    margin-top: 0.5rem;
+    max-width: 380px;
+    border: 1px solid #dbeafe;
+    border-radius: 0.85rem;
+    background: #ffffff;
+    padding: 0.75rem 0.85rem;
+    color: #334155;
+    box-shadow: 0 8px 22px -14px rgba(15, 23, 42, 0.35);
+}
+
+.article-license-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.55rem;
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.article-license-badge {
+    width: 88px;
+    height: auto;
+    border-radius: 3px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+}
+
+.article-license-copy {
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+.article-license-copy p {
+    margin: 0 0 0.35rem;
+}
+
+.article-license-copy p:last-child {
+    margin-bottom: 0;
+}
+
 .font-sserif {
     font-family: "IBM Plex Serif", serif;
 }
@@ -408,6 +478,25 @@
                                         <span>{{ t('doi_label') }}: {{ publication.doi }}</span>
                                     </span>
                                 {% endif %}
+                                {% set license_label = "Лицензия" if session.language == "ru" else ("License" if session.language == "en" else "Litsenziya") %}
+                                <details class="article-license-details">
+                                    <summary class="article-action-link article-license-summary">
+                                        <img src="https://licensebuttons.net/l/by/4.0/88x31.png" alt="CC BY 4.0" class="article-license-trigger-badge">
+                                        <span>{{ license_label }}</span>
+                                        <iconify-icon icon="tabler:chevron-down" class="article-license-chevron"></iconify-icon>
+                                    </summary>
+                                    <div class="article-license-panel">
+                                        <div class="article-license-header">
+                                            <img src="https://licensebuttons.net/l/by/4.0/88x31.png" alt="Creative Commons Attribution 4.0" class="article-license-badge">
+                                            <span>Creative Commons License</span>
+                                        </div>
+                                        <div class="article-license-copy">
+                                            <p>This work is licensed under a Creative Commons Attribution 4.0 International License.</p>
+                                            <p>Licensed under the Creative Commons Attribution International License (CC BY 4.0).</p>
+                                            <p>Copyright © by author(s).</p>
+                                        </div>
+                                    </div>
+                                </details>
                             </div>
                         </div>
                     </div>
@@ -781,8 +870,8 @@
                     </div>
                 </div>
                 <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                    <button type="button" id="copy_citation" class="inline-flex w-full justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:ml-3 sm:w-auto">{{ t('copy_citation') }}</button>
-                    <button type="button" id="close_citation_modal" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto">{{ t('close') }}</button>
+                    <button type="button" id="copy_citation" class="inline-flex w-full justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-blue-500 sm:ml-3 sm:w-auto">{{ t('copy_citation') }}</button>
+                    <button type="button" id="close_citation_modal" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-bold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto">{{ t('close') }}</button>
                 </div>
             </div>
         </div>
@@ -866,6 +955,8 @@
         "publication_title": {{ publication.title|tojson|safe }},
         "publication_doi": {{ (publication.doi or '')|tojson|safe }},
         "publication_year": {{ ((issue.year|string) if issue and issue.year else '')|tojson|safe }},
+        "publication_volume_no": {{ ((issue.vol_no|string) if issue and issue.vol_no is not none else '')|tojson|safe }},
+        "publication_issue_no": {{ ((issue.issue_no|string) if issue and issue.issue_no is not none else '')|tojson|safe }},
         "publication_page_range": {{ (publication.page_range or '')|tojson|safe }},
         "publication_published_at": {{ (publication.date_publish or 0)|tojson }},
         "journal_title": {{ t('website_title')|tojson|safe }},
@@ -921,6 +1012,8 @@
         const publicationTitle = templateData.publication_title || '';
         const publicationDoi = templateData.publication_doi || '';
         const publicationYear = templateData.publication_year || '';
+        const publicationVolumeNo = templateData.publication_volume_no || '';
+        const publicationIssueNo = templateData.publication_issue_no || '';
         const publicationPageRange = templateData.publication_page_range || '';
         const publicationPublishedAt = templateData.publication_published_at || 0;
         const journalTitle = templateData.journal_title || '';
@@ -969,6 +1062,26 @@
                 }
             }
             return '';
+        }
+
+        function normalizeVolumeOrIssue(value) {
+            return String(value || '').trim();
+        }
+
+        function formatVolumeIssue(styleName, volumeValue, issueValue) {
+            const volume = normalizeVolumeOrIssue(volumeValue);
+            const issue = normalizeVolumeOrIssue(issueValue);
+            if (!volume && !issue) {
+                return '';
+            }
+
+            if (volume && issue) {
+                return `, ${volume}(${issue})`;
+            }
+            if (volume) {
+                return `, ${volume}`;
+            }
+            return `, (${issue})`;
         }
 
         function publishedMonthName() {
@@ -1103,9 +1216,14 @@
             const pageUrl = window.location.href;
             const title = String(publicationTitle || '').trim();
             const journal = String(journalTitle || '').trim();
+            const volumeIssueAPA = formatVolumeIssue('apa', publicationVolumeNo, publicationIssueNo);
+            const volumeIssueMLA = formatVolumeIssue('mla', publicationVolumeNo, publicationIssueNo);
+            const volumeIssueChicago = formatVolumeIssue('chicago', publicationVolumeNo, publicationIssueNo);
+            const volumeIssueHarvard = formatVolumeIssue('harvard', publicationVolumeNo, publicationIssueNo);
 
             if (styleName === 'mla') {
-                return `${getArticleAuthorsRaw()}. "${title}." ${journal}${year ? ` (${year})` : ''}.${doi ? ` DOI: ${doi}` : ''} ${pageUrl}`;
+                const pagesPart = pages ? `, pp. ${pages}` : '';
+                return `${getArticleAuthorsRaw()}. "${title}." ${journal}${volumeIssueMLA}${year ? ` (${year})` : ''}${pagesPart}.${doi ? ` DOI: ${doi}` : ''} ${pageUrl}`;
             }
             if (styleName === 'chicago') {
                 const authors = joinAuthorsChicago(authorsList);
@@ -1113,27 +1231,27 @@
                 const monthPart = monthName ? `, ${monthName}` : '';
                 const pagesPart = pages ? `, ${pages}` : '';
                 if (doi) {
-                    return `${authors}. ${periodYear}“${title}.” ${journal}${monthPart}${pagesPart}. doi:${doi}.`;
+                    return `${authors}. ${periodYear}“${title}.” ${journal}${volumeIssueChicago}${monthPart}${pagesPart}. doi:${doi}.`;
                 }
-                return `${authors}. ${periodYear}“${title}.” ${journal}${monthPart}${pagesPart}. ${pageUrl}`;
+                return `${authors}. ${periodYear}“${title}.” ${journal}${volumeIssueChicago}${monthPart}${pagesPart}. ${pageUrl}`;
             }
             if (styleName === 'harvard') {
                 const authors = authorsHarvard(authorsList);
                 const yearPart = year ? ` (${year})` : '';
                 const pagesPart = pages ? `, pp. ${pages}` : '';
                 if (doi) {
-                    return `${authors}${yearPart} ‘${title}’, ${journal}${pagesPart}. doi: ${doi}.`;
+                    return `${authors}${yearPart} ‘${title}’, ${journal}${volumeIssueHarvard}${pagesPart}. doi: ${doi}.`;
                 }
-                return `${authors}${yearPart} ‘${title}’, ${journal}${pagesPart}. Available at: ${pageUrl}.`;
+                return `${authors}${yearPart} ‘${title}’, ${journal}${volumeIssueHarvard}${pagesPart}. Available at: ${pageUrl}.`;
             }
 
             const authors = joinAuthorsAPA(authorsList);
             const yearPart = year ? `(${year}). ` : '';
             const pagesPart = pages ? `, ${pages}` : '';
             if (doiUrl) {
-                return `${authors} ${yearPart}${title}. ${journal}${pagesPart}. ${doiUrl}`;
+                return `${authors} ${yearPart}${title}. ${journal}${volumeIssueAPA}${pagesPart}. ${doiUrl}`;
             }
-            return `${authors} ${yearPart}${title}. ${journal}${pagesPart}. ${pageUrl}`;
+            return `${authors} ${yearPart}${title}. ${journal}${volumeIssueAPA}${pagesPart}. ${pageUrl}`;
         }
 
         function openCitationModal() {
