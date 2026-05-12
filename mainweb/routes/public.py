@@ -8,7 +8,7 @@ import io
 import zipfile
 from functools import lru_cache
 from urllib.parse import urlparse, parse_qs, unquote
-from flask import current_app, render_template, session, request, jsonify, flash, redirect, url_for, send_file, send_from_directory, abort
+from flask import current_app, render_template, session, request, jsonify, flash, redirect, url_for, send_file, send_from_directory, abort, Response
 from extensions import dbc
 from modules.translate import t, translate, clear_translations_cache
 try:
@@ -360,6 +360,127 @@ def _clean_text(value):
     if value is None:
         return ''
     return str(value).strip()
+
+
+def _format_scholar_date_from_timestamp(timestamp_value):
+    ts = _parse_int(timestamp_value)
+    if ts is None or ts <= 0:
+        return ''
+    try:
+        dt = time.gmtime(ts)
+    except (OverflowError, ValueError, OSError):
+        return ''
+    return f"{dt.tm_year}/{dt.tm_mon}/{dt.tm_mday}"
+
+
+def _extract_page_range_bounds(page_range_value):
+    page_range_text = _clean_text(page_range_value)
+    if not page_range_text:
+        return '', ''
+
+    normalized = page_range_text.replace('–', '-').replace('—', '-')
+    range_match = re.search(r'([A-Za-z]?\d+)\s*-\s*([A-Za-z]?\d+)', normalized)
+    if range_match:
+        return range_match.group(1), range_match.group(2)
+
+    single_match = re.search(r'([A-Za-z]?\d+)', normalized)
+    if single_match:
+        single_page = single_match.group(1)
+        return single_page, single_page
+
+    return '', ''
+
+
+def _build_scholar_meta(publication, issue, author_names, article_id, current_lang):
+    publication_row = publication or {}
+    issue_row = issue or {}
+    unique_authors = []
+    for author_name in author_names or []:
+        cleaned = _clean_text(author_name)
+        if cleaned and cleaned not in unique_authors:
+            unique_authors.append(cleaned)
+
+    publication_date = _format_scholar_date_from_timestamp(publication_row.get('date_publish'))
+    if not publication_date:
+        publication_date = _format_scholar_date_from_timestamp(publication_row.get('created_at'))
+    if not publication_date:
+        publication_date = _format_scholar_date_from_timestamp(issue_row.get('created_at'))
+    if not publication_date:
+        issue_year = _parse_int(issue_row.get('year'))
+        publication_date = str(issue_year) if issue_year is not None else ''
+
+    first_page, last_page = _extract_page_range_bounds(publication_row.get('page_range'))
+
+    requires_access = bool(publication_row.get('is_paid') or publication_row.get('subscription_enable'))
+    is_world_readable = not requires_access
+    pdf_url = url_for('app__download_article', article_id=article_id, _external=True) if is_world_readable else ''
+
+    meta = {
+        'title': _clean_text(publication_row.get('title')),
+        'authors': unique_authors,
+        'publication_date': publication_date,
+        'journal_title': _clean_text(t('website_title')) or 'Philology Matters',
+        'volume': _clean_text(issue_row.get('vol_no')),
+        'issue': _clean_text(issue_row.get('issue_no')),
+        'first_page': first_page,
+        'last_page': last_page,
+        'doi': _clean_text(publication_row.get('doi')),
+        'abstract_url': url_for('app__article', article_id=article_id, _external=True),
+        'pdf_url': pdf_url,
+        'language': _clean_text(current_lang).lower(),
+        'is_world_readable': is_world_readable,
+    }
+    return meta
+
+
+def _format_iso_date_from_timestamp(timestamp_value):
+    ts = _parse_int(timestamp_value)
+    if ts is None or ts <= 0:
+        return ''
+    try:
+        return time.strftime('%Y-%m-%d', time.gmtime(ts))
+    except (OverflowError, ValueError, OSError):
+        return ''
+
+
+def _extract_timestamp_by_keys(record, keys):
+    row = record or {}
+    for key in keys:
+        ts = _parse_int(row.get(key))
+        if ts is not None and ts > 0:
+            return ts
+    return None
+
+
+def _timestamp_from_year(year_value):
+    year = _parse_int(year_value)
+    if year is None or year < 1970 or year > 2100:
+        return None
+    try:
+        return int(time.mktime(time.strptime(f'{year}-01-01', '%Y-%m-%d')))
+    except Exception:
+        return None
+
+
+def _add_sitemap_url(entries, seen_urls, endpoint, endpoint_kwargs=None, lastmod_ts=None, changefreq=None, priority=None):
+    kwargs = dict(endpoint_kwargs or {})
+    kwargs['_external'] = True
+    try:
+        loc = url_for(endpoint, **kwargs)
+    except Exception:
+        return
+
+    if not loc or loc in seen_urls:
+        return
+
+    payload = {
+        'loc': loc,
+        'lastmod': _format_iso_date_from_timestamp(lastmod_ts),
+        'changefreq': _clean_text(changefreq).lower(),
+        'priority': _clean_text(priority),
+    }
+    entries.append(payload)
+    seen_urls.add(loc)
 
 
 def _issue_sort_key(issue_row):
@@ -2818,6 +2939,8 @@ def app__issue(issue_id):
     next_issue = all_issues[current_index + 1] if current_index < len(all_issues) - 1 else None
 
     has_access = _resolve_issue_access(issue, session.get('user_id'))
+    issue_toc_file_path, _ = _resolve_issue_toc_download_file(issue)
+    issue_toc_download_url = url_for('app__download_issue_toc', issue_id=issue_id) if issue_toc_file_path else None
 
     publications = dbc.publications.get(issue_id=issue_id).exec()
     articles = []
@@ -2880,6 +3003,7 @@ def app__issue(issue_id):
                          prev_issue=prev_issue,
                          next_issue=next_issue,
                          articles=articles,
+                         issue_toc_download_url=issue_toc_download_url,
                          issue_shortinfo=issue_shortinfo,
                          issue_ui=issue_ui,
                          author_tooltip_ui=author_tooltip_ui)
@@ -3054,6 +3178,22 @@ def app__article(article_id):
         translated_issue = translate(dict(issue_row_for_visibility))
         issue = _apply_localized_content(translated_issue, ('title', 'shortinfo', 'price'), lang=current_lang)
 
+    scholar_author_names = []
+    for profile in [main_author] + list(co_authors):
+        if not profile:
+            continue
+        author_name = _clean_text(profile.get('name')) if isinstance(profile, dict) else _clean_text(profile)
+        if author_name:
+            scholar_author_names.append(author_name)
+
+    scholar_meta = _build_scholar_meta(
+        publication=publication,
+        issue=issue,
+        author_names=scholar_author_names,
+        article_id=article_id,
+        current_lang=current_lang
+    )
+
     parts = []
     figures = []
     references = []
@@ -3097,6 +3237,7 @@ def app__article(article_id):
                          co_authors=co_authors,
                          author_tooltip_ui=author_tooltip_ui,
                          issue=issue,
+                         scholar_meta=scholar_meta,
                          publication_parts=parts,
                          publication_figures=figures,
                          publication_refs=references,
@@ -3260,6 +3401,39 @@ def _resolve_publication_download_file(publication):
     return None, None
 
 
+def _resolve_issue_toc_download_file(issue):
+    issue_row = issue or {}
+    stored_filepath = _clean_text(issue_row.get('table_of_contents_file'))
+    if not stored_filepath:
+        return None, None
+
+    file_path = _resolve_public_upload_abspath(stored_filepath)
+    if not file_path:
+        current_app.logger.warning(
+            'Blocked issue TOC download for issue=%s due to invalid filepath=%r',
+            issue_row.get('id'),
+            stored_filepath,
+        )
+        return None, None
+    if not os.path.exists(file_path):
+        return None, None
+
+    ext = os.path.splitext(file_path)[1].lower()
+    if ext not in {'.pdf', '.doc', '.docx'}:
+        current_app.logger.warning(
+            'Blocked issue TOC download for issue=%s due to unsupported extension=%r',
+            issue_row.get('id'),
+            ext,
+        )
+        return None, None
+
+    volume_value = _clean_text(issue_row.get('vol_no')) or 'x'
+    issue_value = _clean_text(issue_row.get('issue_no')) or 'x'
+    download_base = f"volume-{volume_value}-issue-{issue_value}-table-of-contents"
+    download_base = re.sub(r'[^a-zA-Z0-9._-]+', '-', download_base).strip('-').lower() or f"issue-{issue_row.get('id') or 'x'}-table-of-contents"
+    return file_path, f"{download_base}{ext}"
+
+
 def app__download_article(article_id):
     publication = dbc.publications.get(id=article_id).exec()
     if not publication:
@@ -3408,6 +3582,179 @@ def app__download_issue(issue_id):
     )
 
 
+def app__download_issue_toc(issue_id):
+    issue_rows = dbc.issues.get(id=issue_id).exec()
+    if not issue_rows:
+        flash('Issue not found', 'error')
+        return redirect(url_for('app__issues'))
+
+    issue = issue_rows[0]
+    if _is_masters_issue(issue) and not _masters_series_mode_enabled():
+        return redirect(url_for('app__issues', category=_masters_issue_category_for_redirect(issue)))
+
+    file_path, download_name = _resolve_issue_toc_download_file(issue)
+    if not file_path:
+        flash('Table of contents file not found', 'error')
+        return redirect(url_for('app__issue', issue_id=issue_id))
+
+    mime_type = mimetypes.guess_type(file_path)[0] or 'application/octet-stream'
+    return send_file(
+        file_path,
+        as_attachment=True,
+        download_name=download_name,
+        mimetype=mime_type,
+    )
+
+
+def app__robots_txt():
+    response = render_template('robots.txt')
+    return Response(response, mimetype='text/plain')
+
+
+def app__sitemap_xml():
+    now_ts = int(time.time())
+    entries = []
+    seen_urls = set()
+
+    static_pages = [
+        ('app__index', {}, now_ts, 'daily', '1.0'),
+        ('app__articles', {}, now_ts, 'daily', '0.9'),
+        ('app__issues', {}, now_ts, 'weekly', '0.9'),
+        ('app__news', {}, now_ts, 'daily', '0.8'),
+        ('app__editorial', {}, now_ts, 'monthly', '0.6'),
+        ('app__contact', {}, now_ts, 'monthly', '0.5'),
+        ('app__payment_guide', {}, now_ts, 'monthly', '0.4'),
+    ]
+    for endpoint, endpoint_kwargs, lastmod_ts, changefreq, priority in static_pages:
+        _add_sitemap_url(
+            entries=entries,
+            seen_urls=seen_urls,
+            endpoint=endpoint,
+            endpoint_kwargs=endpoint_kwargs,
+            lastmod_ts=lastmod_ts,
+            changefreq=changefreq,
+            priority=priority,
+        )
+
+    # Include seed/static pages (except aliases that only redirect).
+    existing_aliases = set()
+    try:
+        page_rows = dbc.pages.get().exec()
+    except Exception:
+        page_rows = []
+    for page_row in page_rows:
+        alias_text = _clean_text((page_row or {}).get('alias')).lower()
+        if alias_text:
+            existing_aliases.add(alias_text)
+
+    for seed_alias in _seed_pages_data().keys():
+        alias_text = _clean_text(seed_alias).lower()
+        if alias_text:
+            existing_aliases.add(alias_text)
+
+    for page_alias in sorted(existing_aliases):
+        if page_alias in PAGE_ALIAS_REDIRECTS or page_alias == 'payment_guide':
+            continue
+        _add_sitemap_url(
+            entries=entries,
+            seen_urls=seen_urls,
+            endpoint='app__page_alias',
+            endpoint_kwargs={'alias': page_alias},
+            lastmod_ts=now_ts,
+            changefreq='monthly',
+            priority='0.5',
+        )
+
+    masters_mode_enabled = _masters_series_mode_enabled()
+    issue_cache = {}
+    try:
+        issue_rows = dbc.issues.get().exec()
+    except Exception:
+        issue_rows = []
+    for issue_row in issue_rows:
+        issue_id = _parse_int(issue_row.get('id'))
+        if issue_id is None:
+            continue
+        issue_cache[issue_id] = issue_row
+        if _is_masters_issue(issue_row) and not masters_mode_enabled:
+            continue
+        issue_lastmod_ts = _extract_timestamp_by_keys(issue_row, ('updated_at', 'created_at'))
+        if issue_lastmod_ts is None:
+            issue_lastmod_ts = _timestamp_from_year(issue_row.get('year'))
+        _add_sitemap_url(
+            entries=entries,
+            seen_urls=seen_urls,
+            endpoint='app__issue',
+            endpoint_kwargs={'issue_id': issue_id},
+            lastmod_ts=issue_lastmod_ts,
+            changefreq='weekly',
+            priority='0.8',
+        )
+
+    try:
+        publication_rows = dbc.publications.get().exec()
+    except Exception:
+        publication_rows = []
+    for publication_row in publication_rows:
+        article_id = _parse_int(publication_row.get('id'))
+        if article_id is None:
+            continue
+
+        if not masters_mode_enabled:
+            issue_id = _parse_int(publication_row.get('issue_id'))
+            issue_row = issue_cache.get(issue_id)
+            if issue_id is not None and issue_row is None:
+                cached_rows = dbc.issues.get(id=issue_id).exec()
+                issue_row = cached_rows[0] if cached_rows else None
+                issue_cache[issue_id] = issue_row
+            if _is_masters_publication(publication_row, issue_row=issue_row, issue_cache=issue_cache):
+                continue
+
+        publication_lastmod_ts = _extract_timestamp_by_keys(
+            publication_row,
+            ('updated_at', 'date_publish', 'published_at', 'created_at')
+        )
+        if publication_lastmod_ts is None:
+            issue_id = _parse_int(publication_row.get('issue_id'))
+            issue_row = issue_cache.get(issue_id)
+            if issue_row:
+                publication_lastmod_ts = _extract_timestamp_by_keys(issue_row, ('updated_at', 'created_at'))
+                if publication_lastmod_ts is None:
+                    publication_lastmod_ts = _timestamp_from_year(issue_row.get('year'))
+
+        _add_sitemap_url(
+            entries=entries,
+            seen_urls=seen_urls,
+            endpoint='app__article',
+            endpoint_kwargs={'article_id': article_id},
+            lastmod_ts=publication_lastmod_ts,
+            changefreq='weekly',
+            priority='0.9',
+        )
+
+    try:
+        news_rows = dbc.news.get(status='published').exec()
+    except Exception:
+        news_rows = []
+    for news_row in news_rows:
+        news_id = _parse_int(news_row.get('id'))
+        if news_id is None:
+            continue
+        news_lastmod_ts = _extract_timestamp_by_keys(news_row, ('updated_at', 'published_at', 'created_at'))
+        _add_sitemap_url(
+            entries=entries,
+            seen_urls=seen_urls,
+            endpoint='app__news_detail',
+            endpoint_kwargs={'news_id': news_id},
+            lastmod_ts=news_lastmod_ts,
+            changefreq='monthly',
+            priority='0.6',
+        )
+
+    response = render_template('sitemap.xml', urls=entries)
+    return Response(response, mimetype='application/xml')
+
+
 def serve_static_uploads(filename):
     if extract_private_upload_key(filename):
         abort(404)
@@ -3424,11 +3771,14 @@ def register(app):
     app.add_url_rule('/articles', view_func=app__articles)
     app.add_url_rule('/news', view_func=app__news)
     app.add_url_rule('/news/<int:news_id>', view_func=app__news_detail)
+    app.add_url_rule('/robots.txt', view_func=app__robots_txt)
+    app.add_url_rule('/sitemap.xml', view_func=app__sitemap_xml)
     app.add_url_rule('/change_language/<string:lang>', view_func=app__change_language, methods=['POST'])
     app.add_url_rule('/issues', view_func=app__issues)
     app.add_url_rule('/issue/<int:issue_id>', view_func=app__issue)
     app.add_url_rule('/issue/purchase/<int:issue_id>', view_func=login_required(app__purchase_issue))
     app.add_url_rule('/issue/download/<int:issue_id>', view_func=app__download_issue)
+    app.add_url_rule('/issue/toc/download/<int:issue_id>', view_func=app__download_issue_toc)
     app.add_url_rule('/article/<int:article_id>', view_func=app__article)
     app.add_url_rule('/article/download/<int:article_id>', view_func=app__download_article)
     app.add_url_rule('/static/uploads/<path:filename>', view_func=serve_static_uploads)

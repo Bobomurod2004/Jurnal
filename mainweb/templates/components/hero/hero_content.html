@@ -32,8 +32,14 @@
                 <p class="hero-animate-3 mt-4 max-w-2xl text-sm leading-7 text-gray-600 text-justify md:text-base" style="text-align: justify;">
                     {{
                         about_text
+                        | replace('10.00.00', '<strong class="font-bold text-gray-1000">10.00.00</strong>')
+                        | replace('13.00.00', '<strong class="font-bold text-gray-1000">13.00.00</strong>')
                         | replace('FILOLOGIYA FANLARI', '<strong class="font-bold text-gray-1000">FILOLOGIYA FANLARI</strong>')
                         | replace('PEDAGOGIKA FANLARI', '<strong class="font-bold text-gray-1000">PEDAGOGIKA FANLARI</strong>')
+                        | replace('Philological Sciences', '<strong class="font-bold text-gray-1000">Philological Sciences</strong>')
+                        | replace('Pedagogical Sciences', '<strong class="font-bold text-gray-1000">Pedagogical Sciences</strong>')
+                        | replace('Филологические науки', '<strong class="font-bold text-gray-1000">Филологические науки</strong>')
+                        | replace('Педагогические науки', '<strong class="font-bold text-gray-1000">Педагогические науки</strong>')
                         | safe
                     }}
                 </p>

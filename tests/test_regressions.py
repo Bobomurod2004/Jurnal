@@ -526,3 +526,114 @@ def test_api_document_type_label_follows_selected_language():
 
         session['language'] = 'ru'
         assert api_routes._document_type_label('employment_certificate') == 'Справка с места работы'
+
+
+def test_build_scholar_meta_for_open_article_includes_pdf_url(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = 'test'
+    public_routes.register(app)
+    monkeypatch.setattr(public_routes, 't', lambda key: 'Philology Matters' if key == 'website_title' else key)
+
+    publication = {
+        'title': 'Testing Google Scholar Metadata',
+        'date_publish': 1735689600,  # 2025-01-01 UTC
+        'page_range': '12-19',
+        'doi': '10.1000/example-doi',
+        'is_paid': False,
+        'subscription_enable': False,
+    }
+    issue = {'vol_no': '3', 'issue_no': '1', 'year': 2025}
+
+    with app.test_request_context('/article/15', base_url='https://journal.example'):
+        meta = public_routes._build_scholar_meta(
+            publication=publication,
+            issue=issue,
+            author_names=['Author One', 'Author Two'],
+            article_id=15,
+            current_lang='en',
+        )
+
+    assert meta['title'] == 'Testing Google Scholar Metadata'
+    assert meta['authors'] == ['Author One', 'Author Two']
+    assert meta['publication_date'] == '2025/1/1'
+    assert meta['volume'] == '3'
+    assert meta['issue'] == '1'
+    assert meta['first_page'] == '12'
+    assert meta['last_page'] == '19'
+    assert meta['doi'] == '10.1000/example-doi'
+    assert meta['is_world_readable'] is True
+    assert meta['pdf_url'] == 'https://journal.example/article/download/15'
+
+
+def test_build_scholar_meta_for_paid_article_hides_pdf_url(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = 'test'
+    public_routes.register(app)
+    monkeypatch.setattr(public_routes, 't', lambda key: 'Philology Matters' if key == 'website_title' else key)
+
+    publication = {
+        'title': 'Paid Article',
+        'date_publish': 1735689600,
+        'page_range': '55',
+        'doi': '',
+        'is_paid': True,
+        'subscription_enable': False,
+    }
+    issue = {'vol_no': '4', 'issue_no': '2', 'year': 2025}
+
+    with app.test_request_context('/article/99', base_url='https://journal.example'):
+        meta = public_routes._build_scholar_meta(
+            publication=publication,
+            issue=issue,
+            author_names=['Author A'],
+            article_id=99,
+            current_lang='uz',
+        )
+
+    assert meta['first_page'] == '55'
+    assert meta['last_page'] == '55'
+    assert meta['is_world_readable'] is False
+    assert meta['pdf_url'] == ''
+    assert meta['language'] == 'uz'
+
+
+def test_sitemap_excludes_masters_content_when_series_mode_disabled(monkeypatch):
+    class _SimpleFakeDBC:
+        def __init__(self):
+            self.issues = _FakeTable([
+                {'id': 1, 'year': 2025, 'category': 'phd', 'vol_no': '3', 'issue_no': '1', 'created_at': 1735689600},
+                {'id': 2, 'year': 2025, 'category': 'masters', 'vol_no': '3', 'issue_no': '2', 'created_at': 1735689600},
+            ])
+            self.publications = _FakeTable([
+                {'id': 101, 'issue_id': 1, 'title': 'Regular article', 'date_publish': 1735776000, 'is_paid': False, 'subscription_enable': False},
+                {'id': 102, 'issue_id': 2, 'title': 'Masters article', 'date_publish': 1735776000, 'is_paid': False, 'subscription_enable': False},
+            ])
+            self.news = _FakeTable([
+                {'id': 20, 'status': 'published', 'published_at': 1735862400},
+            ])
+            self.pages = _FakeTable([
+                {'alias': 'custom-page'},
+            ])
+            self.conn = _DummyConn()
+
+    app = Flask(__name__)
+    app.secret_key = 'test'
+    public_routes.register(app)
+
+    monkeypatch.setattr(public_routes, 'dbc', _SimpleFakeDBC())
+    monkeypatch.setattr(public_routes, '_seed_pages_data', lambda: {'submission_guidelines': {'title': 'Submission'}})
+    monkeypatch.setattr(
+        public_routes,
+        'render_template',
+        lambda _template, **context: '\n'.join(item['loc'] for item in context.get('urls', [])),
+    )
+
+    with app.test_request_context('/sitemap.xml', base_url='https://journal.example'):
+        response = public_routes.app__sitemap_xml()
+        body = response.get_data(as_text=True)
+
+    assert response.mimetype == 'application/xml'
+    assert 'https://journal.example/issue/1' in body
+    assert 'https://journal.example/article/101' in body
+    assert 'https://journal.example/issue/2' not in body
+    assert 'https://journal.example/article/102' not in body

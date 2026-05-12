@@ -50,6 +50,9 @@ STATIC_TRANSLATIONS = {
         'admin_pagination_showing': "Ko'rsatilmoqda",
         'admin_pagination_of': "dan",
         'admin_pagination_entries': "ta yozuv",
+        'admin_label_issue_toc_file': "Mundarija fayli",
+        'admin_btn_download_issue_toc': "Mundarijani yuklab olish",
+        'admin_hint_issue_toc_file': "Ruxsat etilgan formatlar: PDF, DOC, DOCX",
     },
     'ru': {
         'admin_authors_duplicate_warning': "Обнаружены дублирующиеся аккаунты",
@@ -90,6 +93,9 @@ STATIC_TRANSLATIONS = {
         'admin_pagination_showing': "Показано",
         'admin_pagination_of': "из",
         'admin_pagination_entries': "записей",
+        'admin_label_issue_toc_file': "Файл содержания выпуска",
+        'admin_btn_download_issue_toc': "Скачать содержание",
+        'admin_hint_issue_toc_file': "Разрешённые форматы: PDF, DOC, DOCX",
     },
     'en': {
         'admin_authors_duplicate_warning': "Duplicate accounts detected",
@@ -130,6 +136,9 @@ STATIC_TRANSLATIONS = {
         'admin_pagination_showing': "Showing",
         'admin_pagination_of': "of",
         'admin_pagination_entries': "entries",
+        'admin_label_issue_toc_file': "Issue table of contents file",
+        'admin_btn_download_issue_toc': "Download table of contents",
+        'admin_hint_issue_toc_file': "Allowed formats: PDF, DOC, DOCX",
     },
 }
 

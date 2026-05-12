@@ -495,6 +495,7 @@ UZ = {
     'issues': 'Sonlar',
     'toggle_issues': 'Sonlarni ochish/yopish',
     'journal_cover': 'Jurnal muqovasi',
+    'download_issue_toc': 'Mundarijani yuklab olish',
     'download_all_issue': 'Butun sonni yuklab olish',
     'previous_issue': 'Oldingi son',
     'next_issue': 'Keyingi son',
@@ -1048,6 +1049,7 @@ RU = {
     'issues': 'Выпуски',
     'toggle_issues': 'Показать/скрыть выпуски',
     'journal_cover': 'Обложка журнала',
+    'download_issue_toc': 'Скачать содержание выпуска',
     'download_all_issue': 'Скачать весь выпуск',
     'previous_issue': 'Предыдущий выпуск',
     'next_issue': 'Следующий выпуск',
@@ -1358,6 +1360,7 @@ EN = {
     'scopus': 'Scopus',
 
     # Issue page
+    'download_issue_toc': 'Download table of contents',
     'download_all_issue': 'Download all issue',
     'previous_issue': 'Previous issue',
     'next_issue': 'Next issue',

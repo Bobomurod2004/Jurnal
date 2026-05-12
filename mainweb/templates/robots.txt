@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+Disallow: /fmadmin/
+Disallow: /article/purchase/
+Disallow: /issue/purchase/
+
+Sitemap: {{ url_for('app__sitemap_xml', _external=True) }}

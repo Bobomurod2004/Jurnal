@@ -70,6 +70,21 @@ python scripts/translation_report.py
 - Выводит статистику по завершенности переводов
 - Показывает процент готовности переводов
 
+### 5. scholar_readiness_audit.py
+Проверяет, насколько опубликованные статьи готовы к индексации в Google Scholar
+(ключевые поля метаданных, авторы, том/номер, дата публикации, PDF для открытого доступа).
+
+**Использование:**
+```bash
+python mainweb/scripts/scholar_readiness_audit.py
+python mainweb/scripts/scholar_readiness_audit.py --limit 200 --json-out scholar_report.json
+```
+
+**Результат:**
+- Печатает сводку готовности в консоль
+- Показывает топ блокирующих проблем (`missing_title`, `missing_author`, и т.д.)
+- Опционально сохраняет полный JSON-отчет для массовой правки
+
 ## Полный рабочий процесс
 
 1. **Извлечение недостающих переводов:**

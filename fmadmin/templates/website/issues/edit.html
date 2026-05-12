@@ -125,6 +125,24 @@
                         <input type="hidden" name="cover_image" value="{{ issue.cover_image }}">
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">{{ t("admin_label_issue_toc_file") }}</label>
+                        {% if issue.table_of_contents_file %}
+                        <div class="mb-2">
+                            <a href="{{ issue.table_of_contents_file }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm">
+                                <i class="ti ti-download"></i>
+                                {{ t("admin_btn_download_issue_toc") }}
+                            </a>
+                        </div>
+                        {% endif %}
+                        <input
+                            type="file"
+                            class="form-control"
+                            name="table_of_contents_file"
+                            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                        <input type="hidden" name="table_of_contents_file" value="{{ issue.table_of_contents_file }}">
+                        <div class="form-hint">{{ t("admin_hint_issue_toc_file") }}</div>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_created_at") }}</label>
                         <input type="date" class="form-control" name="created_at"
                             value="{{ issue.created_at | date_to_form_full }}">

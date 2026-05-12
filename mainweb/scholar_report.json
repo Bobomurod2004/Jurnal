@@ -1,0 +1,70 @@
+{
+  "summary": {
+    "generated_at_utc": "2026-05-12T13:27:04Z",
+    "total_articles_checked": 4,
+    "ready_articles": 4,
+    "ready_percent": 100.0,
+    "open_access_articles": 2,
+    "open_access_ready_articles": 2,
+    "open_access_ready_percent": 100.0,
+    "top_blockers": [],
+    "top_warnings": []
+  },
+  "articles": [
+    {
+      "article_id": 122,
+      "issue_id": 15,
+      "title": "sfrgfdfdvdf",
+      "is_world_readable": true,
+      "author_names": [
+        "Solijon Azizov",
+        "Dilnoza Kurbanbayeva",
+        "Bobomurod Goibnazarov",
+        "Sardora Rakhmonova"
+      ],
+      "blockers": [],
+      "warnings": [],
+      "ready": true
+    },
+    {
+      "article_id": 121,
+      "issue_id": 14,
+      "title": "O‘zbekiston davlat jahon tillari universiteti tarixi",
+      "is_world_readable": false,
+      "author_names": [
+        "Bobomurod Goibnazarov",
+        "Bobomurod",
+        "efdgfdg"
+      ],
+      "blockers": [],
+      "warnings": [],
+      "ready": true
+    },
+    {
+      "article_id": 120,
+      "issue_id": 14,
+      "title": "fwefe",
+      "is_world_readable": true,
+      "author_names": [
+        "Bobomurod Goibnazarov",
+        "Alijon"
+      ],
+      "blockers": [],
+      "warnings": [],
+      "ready": true
+    },
+    {
+      "article_id": 119,
+      "issue_id": 13,
+      "title": "Lexical Units and Their Use as Phraseological Units in Economic Discourse (on the Example of the Field of Entrepreneurship)",
+      "is_world_readable": false,
+      "author_names": [
+        "Oybek Akhmedov",
+        "Sardora Rakhmonova"
+      ],
+      "blockers": [],
+      "warnings": [],
+      "ready": true
+    }
+  ]
+}

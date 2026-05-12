@@ -51,6 +51,12 @@
                             {% endif %}
                         </div>
 
+                        {% if issue_toc_download_url %}
+                        <a href="{{ issue_toc_download_url }}" class="mt-4 inline-flex items-center text-sm font-medium text-blue-700 hover:text-blue-900 transition-colors">
+                            <iconify-icon icon="tabler:file-text" class="me-1"></iconify-icon> {{ t('download_issue_toc') }}
+                        </a>
+                        {% endif %}
+
                         {% if has_access %}
                         <a href="{{ url_for('app__download_issue', issue_id=issue.id) }}" class="mt-4 inline-flex items-center text-sm font-medium text-blue-700 hover:text-blue-900 transition-colors">
                             <iconify-icon icon="tabler:arrow-bar-to-down" class="me-1"></iconify-icon> {{ t('download_all_issue') }}

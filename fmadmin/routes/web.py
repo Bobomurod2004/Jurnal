@@ -102,6 +102,9 @@ EDITOR_ASSIGNMENT_EXTRA_COLUMN_TYPES = {
 }
 PUBLICATION_EXTRA_COLUMN_TYPES = dict(PUBLICATION_METADATA_COLUMN_TYPES)
 PUBLICATION_EXTRA_COLUMN_TYPES['page_range'] = 'text'
+ISSUE_EXTRA_COLUMN_TYPES = {
+    'table_of_contents_file': 'text'
+}
 
 EDITOR_ASSIGNMENT_STATUS_VALUES = {'pending', 'in_review', 'reviewed', 'rejected'}
 EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES = {'pending', 'in_review'}
@@ -2647,6 +2650,34 @@ def _ensure_publication_metadata_columns():
         except Exception:
             pass
 
+
+def _ensure_issue_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
+    try:
+        existing_columns = set(db.columns.get('issues', []))
+        if not existing_columns:
+            return
+
+        missing_columns = [name for name in ISSUE_EXTRA_COLUMN_TYPES.keys() if name not in existing_columns]
+        if not missing_columns:
+            return
+
+        cursor = db.conn.cursor()
+        for column_name in missing_columns:
+            column_type = ISSUE_EXTRA_COLUMN_TYPES[column_name]
+            cursor.execute(f"ALTER TABLE issues ADD COLUMN IF NOT EXISTS {column_name} {column_type};")
+        db.conn.commit()
+        cursor.close()
+        db._init_tables()
+        db._init_columns()
+    except Exception as e:
+        logger.warning("Issues columns sync warning: %s", e)
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+
 def _ensure_role_notifications_table():
     if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
         return
@@ -2854,6 +2885,7 @@ def run_runtime_schema_syncs():
     _ensure_user_columns()
     _ensure_editor_assignment_columns()
     _ensure_publication_metadata_columns()
+    _ensure_issue_columns()
     _ensure_role_notifications_table()
     _ensure_editorial_members_table()
     _ensure_email_templates_table()
@@ -5583,9 +5615,14 @@ def parse_date(date_str, with_time=False):
 @is_superadmin_required
 def issue_edit(issue_id):
     if request.method == 'POST':
+        issue_columns = set(db.columns.get('issues', []) or [])
+        has_toc_column = 'table_of_contents_file' in issue_columns
         cover_image = None
         if 'cover_image' in request.files and request.files['cover_image'].filename:
             cover_image = save_file('issues', request.files['cover_image'], ['jpg', 'jpeg', 'png', 'gif', 'webp'])
+        table_of_contents_file = None
+        if has_toc_column and 'table_of_contents_file' in request.files and request.files['table_of_contents_file'].filename:
+            table_of_contents_file = save_file('issues', request.files['table_of_contents_file'], ['pdf', 'doc', 'docx'])
         if issue_id == 0:
             title = request.form.get('title')
             title_uz = request.form.get('title_uz')
@@ -5603,7 +5640,7 @@ def issue_edit(issue_id):
             subscription_enable = bool(request.form.get('subscription_enable'))
             is_paid = bool(request.form.get('is_paid'))
             created_at = parse_date(request.form.get('created_at'), with_time=False)
-            issue_id_new = db.issues.add(
+            create_data = dict(
                 title=title,
                 title_uz=title_uz,
                 title_ru=title_ru,
@@ -5621,7 +5658,10 @@ def issue_edit(issue_id):
                 is_paid=is_paid,
                 cover_image=cover_image,
                 created_at=created_at or int(datetime.datetime.now().timestamp())
-            ).exec()
+            )
+            if has_toc_column:
+                create_data['table_of_contents_file'] = table_of_contents_file
+            issue_id_new = db.issues.add(**create_data).exec()
             if issue_id_new:
                 issue_id_new = issue_id_new[0]['id']
                 new_alert(_msg_text("Nashr soni muvaffaqiyatli yaratildi", 'Выпуск успешно создан', 'Issue created successfully'), 'success')
@@ -5659,6 +5699,11 @@ def issue_edit(issue_id):
                 update_data['cover_image'] = cover_image
             else:
                 update_data['cover_image'] = data.get('cover_image')
+            if has_toc_column:
+                if table_of_contents_file:
+                    update_data['table_of_contents_file'] = table_of_contents_file
+                else:
+                    update_data['table_of_contents_file'] = data.get('table_of_contents_file')
             db.issues.all().equal(id=issue_id).update(**update_data).exec()
             new_alert(_msg_text("Nashr soni muvaffaqiyatli saqlandi", 'Выпуск успешно сохранён', 'Issue saved successfully'), 'success')
             return redirect(url_for('issue_edit', issue_id=issue_id))
@@ -5682,6 +5727,7 @@ def issue_edit(issue_id):
             'subscription_enable': False,
             'is_paid': False,
             'cover_image': '',
+            'table_of_contents_file': '',
             'created_at': None
         }
     else:
@@ -5708,6 +5754,7 @@ def articles():
     search_orcid = request.args.get('orcid', '').strip()
     search_orcid_by_name = request.args.get('search_orcid_by_name', '')
     search_issue = request.args.get('issue', '').strip()
+    search_missing_page_range = request.args.get('missing_page_range', '').strip()
 
     # Получаем всех авторов и строим карту id/ORCID/имя
     authors = db.author_profile.all().exec()
@@ -5759,6 +5806,11 @@ def articles():
             or title_query in _clean_text(article.get('title_uz')).lower()
             or title_query in _clean_text(article.get('title_ru')).lower()
         ]
+    if search_missing_page_range:
+        articles = [
+            article for article in articles
+            if not _clean_text(article.get('page_range'))
+        ]
 
     total_articles = len(articles)
     start = max(page - 1, 0) * per_page
@@ -5777,7 +5829,7 @@ def articles():
 
     return render_template('website/articles/articles.html', articles=articles, authors_map=authors_map, issues_map=issues_map,
                            page=page, total_articles=total_articles, total_pages=total_pages,
-                           search_title=search_title, search_author=search_author, search_orcid=search_orcid, search_orcid_by_name=search_orcid_by_name, search_issue=search_issue,
+                           search_title=search_title, search_author=search_author, search_orcid=search_orcid, search_orcid_by_name=search_orcid_by_name, search_issue=search_issue, search_missing_page_range=search_missing_page_range,
                            issues=issues, pagination_query_string=pagination_query_string)
 
 @bp.route('/fmadmin/website/articles/<int:article_id>', methods=['GET', 'POST'])
@@ -5823,6 +5875,27 @@ def article_edit(article_id):
         doi = request.form.get('doi')
         doi_link = request.form.get('doi_link')
         page_range = _normalize_article_page_range(request.form.get('page_range'))
+        title = _clean_text(title)
+        if not title:
+            new_alert(
+                _msg_text(
+                    "Inglizcha sarlavha majburiy",
+                    "Английский заголовок обязателен",
+                    "English title is required"
+                ),
+                'danger'
+            )
+            return redirect(url_for('article_edit', article_id=article_id))
+        if not page_range:
+            new_alert(
+                _msg_text(
+                    "Maqola betlari (page range) majburiy. Masalan: 7-26",
+                    "Диапазон страниц обязателен. Например: 7-26",
+                    "Page range is required. Example: 7-26"
+                ),
+                'danger'
+            )
+            return redirect(url_for('article_edit', article_id=article_id))
         author_position_key = normalize_publication_metadata_key('author_position_key', request.form.get('author_position_key'))
         academic_title_key = normalize_publication_metadata_key('academic_title_key', request.form.get('academic_title_key'))
         academic_degree_key = normalize_publication_metadata_key('academic_degree_key', request.form.get('academic_degree_key'))

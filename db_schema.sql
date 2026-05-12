@@ -441,6 +441,7 @@ CREATE TABLE public.issues (
     subscription_enable boolean DEFAULT false,
     is_paid boolean DEFAULT false,
     cover_image text,
+    table_of_contents_file text,
     created_at integer
 );
 
