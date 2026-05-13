@@ -82,7 +82,7 @@
                                 </div>
                                 <div class="flex-1">
                                     <a href="{{ url_for('app__issue', issue_id=issue.id) }}" class="text-blue-600 hover:text-blue-700 text-lg font-medium">
-                                        {{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }}
+                                        {{ format_issue_label(issue.vol_no, issue.issue_no) }}
                                     </a>
                                     {% if issue.title %}
                                     <div class="text-gray-600">{{ issue.title }}</div>
@@ -128,13 +128,13 @@
                                         <iconify-icon icon="tabler:crown" class="text-lg"></iconify-icon>
                                         {{ t('subscribe') }}
                                     </a>
-                                    <button data-issue-id="{{ issue.id }}" data-issue-title="{{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }}" data-issue-price="{{ issue.price }}" class="purchase-issue-btn text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 hover:cursor-pointer transition-colors">
+                                    <button data-issue-id="{{ issue.id }}" data-issue-title="{{ format_issue_label(issue.vol_no, issue.issue_no) }}" data-issue-price="{{ issue.price }}" class="purchase-issue-btn text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 hover:cursor-pointer transition-colors">
                                         <iconify-icon icon="tabler:shopping-cart" class="text-lg"></iconify-icon>
                                         {{ t('purchase') }} (${{ "%.2f"|format(issue.price) }})
                                     </button>
                                 {% elif issue.is_paid and not issue.subscription_enable %}
                                     <!-- Доступен только по покупке -->
-                                    <button data-issue-id="{{ issue.id }}" data-issue-title="{{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }}" data-issue-price="{{ issue.price }}" class="purchase-issue-btn text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 hover:cursor-pointer transition-colors">
+                                    <button data-issue-id="{{ issue.id }}" data-issue-title="{{ format_issue_label(issue.vol_no, issue.issue_no) }}" data-issue-price="{{ issue.price }}" class="purchase-issue-btn text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 hover:cursor-pointer transition-colors">
                                         <iconify-icon icon="tabler:shopping-cart" class="text-lg"></iconify-icon>
                                         {{ t('purchase_only') }} (${{ "%.2f"|format(issue.price) }})
                                     </button>

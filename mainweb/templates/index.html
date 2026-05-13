@@ -58,11 +58,7 @@
                             {% for iss in recent_issues %}
                             <li>
                                 <a href="{{ url_for('app__issue', issue_id=iss.id) }}" class="hover:text-fmmain">
-                                    {% if t('volume') == 'Jild' and t('issue') == 'Son' %}
-                                        {% set issue_meta = iss.vol_no ~ '-' ~ (t('volume')|upper) ~ ', ' ~ iss.issue_no ~ '-' ~ (t('issue')|upper) ~ ' (' ~ iss.year ~ ')' %}
-                                    {% else %}
-                                        {% set issue_meta = t('volume') ~ ' ' ~ iss.vol_no ~ ', ' ~ t('issue') ~ ' ' ~ iss.issue_no ~ ' (' ~ iss.year ~ ')' %}
-                                    {% endif %}
+                                    {% set issue_meta = format_issue_label(iss.vol_no, iss.issue_no, iss.year) %}
                                     {% if iss.title %}
                                         <span class="block font-bold">{{ iss.title }}</span>
                                         <span class="block text-[11px] text-gray-500">{{ issue_meta }}</span>

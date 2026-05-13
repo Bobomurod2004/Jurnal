@@ -16,6 +16,55 @@ def register_context_processors(app):
         except (TypeError, ValueError):
             return 0
 
+    def _clean_text(value):
+        if value is None:
+            return ''
+        return str(value).strip()
+
+    def _format_number_with_label(number_value, label_text):
+        value_text = _clean_text(number_value) or '-'
+        label = _clean_text(label_text)
+        if not label:
+            return value_text
+        normalized_label = label.lower()
+        if normalized_label in {'jild', 'son'}:
+            return f'{value_text}-{normalized_label}'
+        return f'{label} {value_text}'
+
+    def _format_issue_label(volume_no, issue_no, year=None):
+        volume_text = _format_number_with_label(volume_no, t('volume'))
+        issue_text = _format_number_with_label(issue_no, t('issue'))
+        meta = f'{volume_text}, {issue_text}'
+        year_text = _clean_text(year)
+        if year_text:
+            return f'{meta} ({year_text})'
+        return meta
+
+    def _format_volume_label(volume_no):
+        return _format_number_with_label(volume_no, t('volume'))
+
+    def _format_labeled_value(label_text, value_text):
+        value = _clean_text(value_text)
+        if not value:
+            return ''
+
+        label = _clean_text(label_text).rstrip(':').strip()
+        if not label:
+            return value
+
+        collapsed_value = value
+        for _ in range(5):
+            if ':' not in collapsed_value:
+                break
+            head, tail = collapsed_value.split(':', 1)
+            if head.strip().casefold() != label.casefold():
+                break
+            collapsed_value = tail.strip()
+
+        if not collapsed_value or collapsed_value.casefold() == label.casefold():
+            return label
+        return f'{label}: {collapsed_value}'
+
     def _current_lang_code():
         lang = str(session.get('language') or 'en').strip().lower()
         return lang if lang in {'uz', 'ru', 'en'} else 'en'
@@ -142,6 +191,14 @@ def register_context_processors(app):
     @app.context_processor
     def inject_translations():
         return dict(t=t)
+
+    @app.context_processor
+    def inject_formatters():
+        return {
+            'format_issue_label': _format_issue_label,
+            'format_volume_label': _format_volume_label,
+            'format_labeled_value': _format_labeled_value,
+        }
 
     @app.context_processor
     def inject_version():

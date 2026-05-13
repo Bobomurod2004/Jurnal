@@ -1,7 +1,7 @@
 {% extends 'basic.html' %}
 {% from 'components/author_tooltip_macros.html' import render_author_list %}
 
-{% block title %}{{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }} - {{ t('website_title') }}{% endblock %}
+{% block title %}{{ format_issue_label(issue.vol_no, issue.issue_no) }} - {{ t('website_title') }}{% endblock %}
 
 {% block content %}
 {% include 'components/headers/main_header.html' %}
@@ -18,7 +18,7 @@
                         </div>
                     </div>
                     <div class="flex-1">
-                        <h4 class="text-2xl font-semibold text-slate-900">{{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }}</h4>
+                        <h4 class="text-2xl font-semibold text-slate-900">{{ format_issue_label(issue.vol_no, issue.issue_no) }}</h4>
                         <div class="mt-2 text-sm text-slate-500">
                             {% if issue.created_at %}
                             {{ issue.created_at|timestamp_to_date }}
@@ -155,7 +155,7 @@
                                 <iconify-icon icon="tabler:crown" class="text-lg"></iconify-icon>
                                 {{ t('subscribe') }}
                             </a>
-                            <button data-issue-id="{{ issue.id }}" data-issue-title="{{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }}" data-issue-price="{{ issue.price }}" class="purchase-issue-btn text-nowrap inline-flex items-center justify-center gap-x-1.5 rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 hover:cursor-pointer transition-colors">
+                            <button data-issue-id="{{ issue.id }}" data-issue-title="{{ format_issue_label(issue.vol_no, issue.issue_no) }}" data-issue-price="{{ issue.price }}" class="purchase-issue-btn text-nowrap inline-flex items-center justify-center gap-x-1.5 rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 hover:cursor-pointer transition-colors">
                                 <iconify-icon icon="tabler:shopping-cart" class="text-lg"></iconify-icon>
                                 {{ t('purchase_issue') }} (${{ "%.2f"|format(issue.price) }})
                             </button>
@@ -163,7 +163,7 @@
                     {% elif issue.is_paid and not issue.subscription_enable %}
                         <p class="text-gray-600 mb-4">{{ t('purchase_this_issue_to_get_access') }}</p>
                         <div class="flex gap-3">
-                            <button data-issue-id="{{ issue.id }}" data-issue-title="{{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }}" data-issue-price="{{ issue.price }}" class="purchase-issue-btn text-nowrap inline-flex items-center justify-center gap-x-1.5 rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 hover:cursor-pointer transition-colors">
+                            <button data-issue-id="{{ issue.id }}" data-issue-title="{{ format_issue_label(issue.vol_no, issue.issue_no) }}" data-issue-price="{{ issue.price }}" class="purchase-issue-btn text-nowrap inline-flex items-center justify-center gap-x-1.5 rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 hover:cursor-pointer transition-colors">
                                 <iconify-icon icon="tabler:shopping-cart" class="text-lg"></iconify-icon>
                                 {{ t('purchase_issue') }} (${{ "%.2f"|format(issue.price) }})
                             </button>

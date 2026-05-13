@@ -113,7 +113,7 @@
                                     <div>
                                         <a href="/article/{{ article.id }}" class="text-blue-600 hover:text-blue-700 text-lg font-medium">{{ article.title }}</a>
                                         <div class="text-gray-600">{{ article.author }}</div>
-                                        <div class="text-sm text-gray-500">{{ t('volume') }} {{ article.volume }}, {{ t('issue') }} {{ article.issue }}, {{ article.year }}</div>
+                                        <div class="text-sm text-gray-500">{{ format_issue_label(article.volume, article.issue, article.year) }}</div>
                                     </div>
                                     <div>
                                         <a href="/article/{{ article.id }}/download" class="text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 hover:cursor-pointer transition-colors">
@@ -154,7 +154,7 @@
                             <div class="border border-blue-200 rounded-lg p-4 bg-blue-50/10">
                                 <div class="flex items-start justify-between">
                                     <div>
-                                        <a href="/issue/{{ issue.id }}" class="text-blue-600 hover:text-blue-700 text-lg font-medium">{{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }}</a>
+                                        <a href="/issue/{{ issue.id }}" class="text-blue-600 hover:text-blue-700 text-lg font-medium">{{ format_issue_label(issue.vol_no, issue.issue_no) }}</a>
                                         <div class="text-gray-600">{{ issue.title if issue.title else issue.year }}</div>
                                         <div class="text-sm text-gray-500">{{ issue.created_at|timestamp_to_date }}</div>
                                     </div>

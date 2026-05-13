@@ -157,7 +157,7 @@ AUTHOR_TOOLTIP_UI_TEXTS = {
         'email_label': 'Email',
         'organization_label': 'Organization',
         'country_label': 'Country',
-        'workplace_label': 'Workplace',
+        'workplace_label': 'Department',
         'orcid_label': 'ORCID',
         'not_specified': 'Not specified',
     },
@@ -165,7 +165,7 @@ AUTHOR_TOOLTIP_UI_TEXTS = {
         'email_label': 'Email',
         'organization_label': 'Tashkilot',
         'country_label': 'Mamlakat',
-        'workplace_label': 'Ishlash joyi',
+        'workplace_label': "Bo'limi",
         'orcid_label': 'ORCID',
         'not_specified': "Ko'rsatilmagan",
     },
@@ -173,7 +173,7 @@ AUTHOR_TOOLTIP_UI_TEXTS = {
         'email_label': 'Email',
         'organization_label': 'Организация',
         'country_label': 'Страна',
-        'workplace_label': 'Место работы',
+        'workplace_label': 'Отдел',
         'orcid_label': 'ORCID',
         'not_specified': 'Не указано',
     },
@@ -889,8 +889,6 @@ def _author_workplace(author_row):
     row = author_row or {}
     department = _clean_text(row.get('department'))
     position = _clean_text(row.get('position'))
-    if department and position and department.lower() != position.lower():
-        return f"{department}, {position}"
     return department or position
 
 

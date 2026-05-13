@@ -42,7 +42,7 @@
                             <option value="">{{ t('all_issues') }}</option>
                             {% for issue in all_issues %}
                                 <option value="{{ issue.id }}" {% if current_filters.issue == issue.id|string %}selected{% endif %}>
-                                    {{ t('volume') }} {{ issue.vol_no }}, {{ t('issue') }} {{ issue.issue_no }} ({{ issue.year }})
+                                    {{ format_issue_label(issue.vol_no, issue.issue_no, issue.year) }}
                                 </option>
                             {% endfor %}
                         </select>
@@ -55,7 +55,7 @@
                             <option value="">{{ t('all_volumes') }}</option>
                             {% for volume in all_volumes %}
                                 <option value="{{ volume }}" {% if current_filters.volume == volume %}selected{% endif %}>
-                                    {{ t('volume') }} {{ volume }}
+                                    {{ format_volume_label(volume) }}
                                 </option>
                             {% endfor %}
                         </select>
@@ -171,22 +171,22 @@
                                 <div class="flex flex-wrap gap-2 mb-2">
                                     {% if article.author_position_display %}
                                         <span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
-                                            {{ metadata_labels.author_position_key }}: {{ article.author_position_display }}
+                                            {{ format_labeled_value(metadata_labels.author_position_key, article.author_position_display) }}
                                         </span>
                                     {% endif %}
                                     {% if article.academic_title_display %}
                                         <span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
-                                            {{ metadata_labels.academic_title_key }}: {{ article.academic_title_display }}
+                                            {{ format_labeled_value(metadata_labels.academic_title_key, article.academic_title_display) }}
                                         </span>
                                     {% endif %}
                                     {% if article.academic_degree_display %}
                                         <span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
-                                            {{ metadata_labels.academic_degree_key }}: {{ article.academic_degree_display }}
+                                            {{ format_labeled_value(metadata_labels.academic_degree_key, article.academic_degree_display) }}
                                         </span>
                                     {% endif %}
                                     {% if article.series_display %}
                                         <span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
-                                            {{ metadata_labels.series_key }}: {{ article.series_display }}
+                                            {{ format_labeled_value(metadata_labels.series_key, article.series_display) }}
                                         </span>
                                     {% endif %}
                                 </div>
@@ -199,7 +199,7 @@
                                         {{ t('published_in') }} 
                                         <a href="{{ url_for('app__issue', issue_id=article.issue.id) }}" 
                                            class="text-blue-600 hover:text-blue-800">
-                                            {{ t('volume') }} {{ article.issue.vol_no }}, {{ t('issue') }} {{ article.issue.issue_no }} ({{ article.issue.year }})
+                                            {{ format_issue_label(article.issue.vol_no, article.issue.issue_no, article.issue.year) }}
                                         </a>
                                     </span>
                                 {% endif %}
@@ -234,7 +234,7 @@
                                             <button type="button" 
                                                     class="show-more-btn text-blue-600 hover:text-blue-800 text-sm ml-1"
                                                     onclick="toggleAbstract(this)">
-                                                {{ t('show_more') }}
+                                                {{ t('show_more')|decode_html }}
                                             </button>
                                         {% endif %}
                                     </div>
@@ -355,6 +355,9 @@
 
 {% block scripts %}
 <script>
+    const showMoreText = {{ t('show_more')|decode_html|tojson|safe }};
+    const showLessText = {{ t('show_less')|decode_html|tojson|safe }};
+
     function clearFilters() {
         // Clear all form inputs
         document.getElementById('search').value = '';
@@ -373,12 +376,12 @@
         const previewText = preview.querySelector('.preview-text');
         const fullText = preview.dataset.fullText;
         
-        if (button.textContent.trim() === '{{ t("show_more") }}') {
+        if (button.textContent.trim() === showMoreText) {
             previewText.textContent = fullText;
-            button.textContent = '{{ t("show_less") }}';
+            button.textContent = showLessText;
         } else {
             previewText.textContent = fullText.substring(0, 200) + (fullText.length > 200 ? '...' : '');
-            button.textContent = '{{ t("show_more") }}';
+            button.textContent = showMoreText;
         }
     }
 

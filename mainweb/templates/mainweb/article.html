@@ -157,8 +157,9 @@
 }
 
 .article-page-title {
-    font-size: clamp(1.5rem, 2.5vw, 2.2rem);
-    line-height: 1.3;
+    font-size: clamp(1.3rem, 2.1vw, 1.9rem);
+    line-height: 1.25;
+    font-weight: 700;
     color: #0f172a;
 }
 
@@ -406,11 +407,7 @@
                                     ·
                                 {% endif %}
                                 <a href="{{ url_for('app__issue', issue_id=issue.id) if issue else url_for('app__issues') }}" class="text-blue-700 hover:text-blue-900">
-                                    {% if t('volume') == 'Jild' and t('issue') == 'Son' %}
-                                        {{ issue.vol_no if issue else '-' }}-{{ t('volume') }}, {{ issue.issue_no if issue else '-' }}-{{ t('issue')|lower }}
-                                    {% else %}
-                                        {{ t('volume') }} {{ issue.vol_no if issue else '-' }}, {{ t('issue') }} {{ issue.issue_no if issue else '-' }}
-                                    {% endif %}
+                                    {{ format_issue_label(issue.vol_no, issue.issue_no) if issue else '-' }}
                                 </a>
                                 {% if issue and issue.year %}
                                     · {{ issue.year }}
@@ -458,13 +455,13 @@
                                     <span class="article-meta-pill">{{ t('pages') }}: {{ publication.page_range }}</span>
                                 {% endif %}
                                 {% if publication.author_position_display %}
-                                    <span class="article-meta-pill">{{ metadata_labels.author_position_key }}: {{ publication.author_position_display }}</span>
+                                    <span class="article-meta-pill">{{ format_labeled_value(metadata_labels.author_position_key, publication.author_position_display) }}</span>
                                 {% endif %}
                                 {% if publication.academic_title_display %}
-                                    <span class="article-meta-pill">{{ metadata_labels.academic_title_key }}: {{ publication.academic_title_display }}</span>
+                                    <span class="article-meta-pill">{{ format_labeled_value(metadata_labels.academic_title_key, publication.academic_title_display) }}</span>
                                 {% endif %}
                                 {% if publication.academic_degree_display %}
-                                    <span class="article-meta-pill">{{ metadata_labels.academic_degree_key }}: {{ publication.academic_degree_display }}</span>
+                                    <span class="article-meta-pill">{{ format_labeled_value(metadata_labels.academic_degree_key, publication.academic_degree_display) }}</span>
                                 {% endif %}
                                 {% if not publication.is_paid %}
                                     <span class="article-meta-pill article-meta-pill-status article-meta-pill-open">
