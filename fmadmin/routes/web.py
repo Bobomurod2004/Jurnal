@@ -2518,6 +2518,45 @@ def _infer_workflow_stage(submission):
     return 'waiting'
 
 
+def _normalize_match_text(value):
+    return re.sub(r'\s+', ' ', _clean_text(value)).strip().lower()
+
+
+def _has_publication_record_for_submission(submission):
+    if not submission:
+        return False
+
+    submission_title = _normalize_match_text(submission.get('title'))
+    if not submission_title:
+        return False
+
+    main_author_id = _parse_int(submission.get('main_author_id'))
+    try:
+        if main_author_id is not None:
+            candidates = db.publications.get(main_author_id=main_author_id).exec()
+        else:
+            candidates = db.publications.get().exec()
+    except Exception:
+        logger.exception("Failed to check publications for submission visibility")
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        return False
+
+    for publication in candidates or []:
+        publication_titles = [
+            publication.get('title'),
+            publication.get('title_uz'),
+            publication.get('title_ru'),
+        ]
+        for title in publication_titles:
+            if _normalize_match_text(title) == submission_title:
+                return True
+
+    return False
+
+
 def _ensure_submission_columns():
     if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
         return
@@ -7465,6 +7504,19 @@ def submission_edit():
             new_status = _clean_text(status).lower()
             new_stage = workflow_stage or old_stage
             new_notes = _clean_text(notes)
+            publication_missing_for_web = (
+                (new_status == 'published' or new_stage == 'published')
+                and not _has_publication_record_for_submission(submission)
+            )
+            if publication_missing_for_web:
+                new_alert(
+                    _msg_text(
+                        "Maqola submissions bo'limida nashr holatiga o'tdi, lekin mainwebda ko'rinishi uchun Website → Articles bo'limida alohida publication yozuvi yarating yoki mos yozuvni yangilang.",
+                        "Статус заявки изменён на опубликовано, но для отображения на mainweb нужно создать или обновить отдельную публикацию в разделе Website → Articles.",
+                        "Submission status is now published, but to display it on mainweb you need to create or update a publication record in Website → Articles."
+                    ),
+                    'warning'
+                )
             entered_anti_plagiarism_stage = old_stage != 'anti_plagiarism' and new_stage == 'anti_plagiarism'
             submission_title = _submission_title(submission)
             detail_url = url_for('submission_detail', submission_id=submission_id_int)
@@ -7637,7 +7689,10 @@ def submission_edit():
                     actor_user_id=actor_id,
                     exclude_user_ids=[actor_id]
                 )
-            return jsonify({'success': True})
+            return jsonify({
+                'success': True,
+                'publication_missing_for_web': publication_missing_for_web
+            })
         else:
             return jsonify({'success': False, 'error': 'Подача не найдена'})
             
@@ -7684,6 +7739,7 @@ def submissions_bulk_action():
             submissions_map[item_id] = item
 
     changed = 0
+    published_without_publication = 0
     update_payload = dict(allowed_actions[action])
     for submission_id in selected_ids:
         submission = submissions_map.get(submission_id)
@@ -7694,6 +7750,8 @@ def submissions_bulk_action():
         try:
             db.submissions.all().equal(id=submission_id).update(**update_payload).exec()
             changed += 1
+            if action == 'set_published' and not _has_publication_record_for_submission(submission):
+                published_without_publication += 1
         except Exception:
             logger.exception('Bulk submission update failed for submission_id=%s', submission_id)
 
@@ -7709,6 +7767,16 @@ def submissions_bulk_action():
             'Выбранные статьи не были обновлены',
             'Selected submissions were not updated'
         ), 'warning')
+
+    if action == 'set_published' and published_without_publication > 0:
+        new_alert(
+            _msg_text(
+                f"{published_without_publication} ta submission published holatiga o'tdi, lekin mainwebda chiqishi uchun Website → Articles bo'limida publication yozuvi yaratilishi/yangilanishi kerak.",
+                f"{published_without_publication} заявок переведены в published, но для mainweb нужно создать/обновить записи в Website → Articles.",
+                f"{published_without_publication} submissions were marked as published, but mainweb still requires publication records in Website → Articles."
+            ),
+            'warning'
+        )
 
     return redirect(url_for('submissions'))
 
