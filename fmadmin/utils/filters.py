@@ -1,6 +1,13 @@
 import time
 import datetime
 
+UI_TZ_OFFSET_SECONDS = 5 * 60 * 60
+
+
+def _ui_datetime_from_timestamp(value):
+    ts = int(value)
+    return datetime.datetime.fromtimestamp(ts + UI_TZ_OFFSET_SECONDS, datetime.UTC)
+
 
 def number_format(value):
     try:
@@ -12,16 +19,14 @@ def number_format(value):
 def timestamp_to_date(timestamp):
     if not timestamp:
         return ''
-    utc_plus_5_offset = 5 * 60 * 60
-    local_timestamp = timestamp + utc_plus_5_offset
+    local_timestamp = timestamp + UI_TZ_OFFSET_SECONDS
     return time.strftime('%d.%m.%Y', time.gmtime(local_timestamp))
 
 
 def timestamp_to_datetime(timestamp):
     if not timestamp:
         return ''
-    utc_plus_5_offset = 5 * 60 * 60
-    local_timestamp = timestamp + utc_plus_5_offset
+    local_timestamp = timestamp + UI_TZ_OFFSET_SECONDS
     return time.strftime('%d.%m.%Y %H:%M', time.gmtime(local_timestamp))
 
 
@@ -42,7 +47,7 @@ def date_to_form(value):
     if not value:
         return ''
     try:
-        return datetime.datetime.fromtimestamp(int(value), datetime.UTC).strftime('%Y-%m-%d')
+        return _ui_datetime_from_timestamp(value).strftime('%Y-%m-%d')
     except Exception:
         return ''
 
@@ -51,7 +56,7 @@ def date_to_form_full(value):
     if not value:
         return ''
     try:
-        return datetime.datetime.fromtimestamp(int(value), datetime.UTC).strftime('%Y-%m-%dT%H:%M')
+        return _ui_datetime_from_timestamp(value).strftime('%Y-%m-%dT%H:%M')
     except Exception:
         return ''
 

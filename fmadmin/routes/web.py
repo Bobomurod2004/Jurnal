@@ -5953,7 +5953,8 @@ def article_edit(article_id):
             metadata_payload['page_range'] = page_range
         date_sent = parse_date(request.form.get('date_sent'), with_time=True)
         date_accept = parse_date(request.form.get('date_accept'), with_time=True)
-        date_publish = parse_date(request.form.get('date_publish'), with_time=True)
+        # Publish date is date-only in UI; storing without time avoids timezone day-shift issues.
+        date_publish = parse_date(request.form.get('date_publish'), with_time=False)
         comments = request.form.get('comments')
         # Обработка загруженных PDF файлов
         file_ids = []
