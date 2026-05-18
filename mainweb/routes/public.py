@@ -119,7 +119,7 @@ COUNTRY_STATS_UI_TEXTS = {
         'views': 'Views',
         'downloads': 'Downloads',
         'close': 'Close',
-        'unknown_country': 'Unknown country',
+        'unknown_country': 'Other countries',
         'view_country_stats': 'View statistics',
     },
     'uz': {
@@ -134,7 +134,7 @@ COUNTRY_STATS_UI_TEXTS = {
         'views': "Ko'rishlar",
         'downloads': 'Yuklamalar',
         'close': 'Yopish',
-        'unknown_country': "Noma'lum davlat",
+        'unknown_country': 'Boshqa davlatlar',
         'view_country_stats': "Statistikani ko'rish",
     },
     'ru': {
@@ -149,7 +149,7 @@ COUNTRY_STATS_UI_TEXTS = {
         'views': 'Просмотры',
         'downloads': 'Загрузки',
         'close': 'Закрыть',
-        'unknown_country': 'Неизвестная страна',
+        'unknown_country': 'Другие страны',
         'view_country_stats': 'Показать статистику',
     },
 }
@@ -209,7 +209,8 @@ ALLOWED_TARIFF_FEATURE_PERMISSIONS = {
 }
 ACTIVITY_EVENT_TYPES = {'view', 'download'}
 UNKNOWN_COUNTRY_KEY = 'unknown'
-UNKNOWN_COUNTRY_NAME = 'Unknown country'
+OTHER_COUNTRY_KEY = 'other'
+OTHER_COUNTRY_NAME = 'Other countries'
 ACTIVITY_EVENTS_BOOTSTRAP_MIGRATION = 'bootstrap_legacy_stats_v1'
 ACTIVITY_EVENTS_BOOTSTRAP_LOCK_ID = 741920531
 
@@ -827,6 +828,15 @@ def _country_stat_bucket(country_name):
     return normalized_name.lower(), normalized_name, ''
 
 
+def _other_country_bucket():
+    return OTHER_COUNTRY_KEY, OTHER_COUNTRY_NAME
+
+
+def _is_other_country_bucket_key(value):
+    normalized = _clean_text(value).lower()
+    return normalized in {UNKNOWN_COUNTRY_KEY, OTHER_COUNTRY_KEY}
+
+
 @lru_cache(maxsize=1)
 def _country_localized_names_by_iso():
     localized = {}
@@ -1126,17 +1136,15 @@ def _bootstrap_activity_events_from_legacy():
             key_text = _clean_text(legacy_country_key).lower()
             name_text = _normalize_country_name(legacy_country_name)
 
-            if key_text == UNKNOWN_COUNTRY_KEY:
-                bucket_key = UNKNOWN_COUNTRY_KEY
-                bucket_name = UNKNOWN_COUNTRY_NAME
+            if _is_other_country_bucket_key(key_text):
+                bucket_key, bucket_name = _other_country_bucket()
             elif key_text and re.match(r'^[a-z]{2}$', key_text):
                 bucket_key = key_text
                 bucket_name = COUNTRY_DISPLAY_BY_ISO.get(key_text) or name_text or key_text.upper()
             else:
-                bucket_key, bucket_name, _bucket_iso = _country_stat_bucket(name_text)
-                if not bucket_key:
-                    bucket_key = UNKNOWN_COUNTRY_KEY
-                    bucket_name = UNKNOWN_COUNTRY_NAME
+                bucket_key, bucket_name, bucket_iso = _country_stat_bucket(name_text)
+                if not bucket_key or not bucket_iso:
+                    bucket_key, bucket_name = _other_country_bucket()
 
             views_int = max(0, _parse_int(views_count) or 0)
             downloads_int = max(0, _parse_int(downloads_count) or 0)
@@ -1165,20 +1173,22 @@ def _bootstrap_activity_events_from_legacy():
         remaining_downloads = max(0, publication_downloads - existing_downloads - legacy_downloads_total)
 
         if remaining_views > 0:
+            other_country_key, other_country_name = _other_country_bucket()
             _insert_activity_event_rows(
                 cursor,
                 metric_key='view',
-                country_key=UNKNOWN_COUNTRY_KEY,
-                country_name=UNKNOWN_COUNTRY_NAME,
+                country_key=other_country_key,
+                country_name=other_country_name,
                 amount=remaining_views,
                 created_at_ts=now_ts,
             )
         if remaining_downloads > 0:
+            other_country_key, other_country_name = _other_country_bucket()
             _insert_activity_event_rows(
                 cursor,
                 metric_key='download',
-                country_key=UNKNOWN_COUNTRY_KEY,
-                country_name=UNKNOWN_COUNTRY_NAME,
+                country_key=other_country_key,
+                country_name=other_country_name,
                 amount=remaining_downloads,
                 created_at_ts=now_ts,
             )
@@ -1290,11 +1300,11 @@ def _resolve_activity_country_bucket(user_id):
     if not country_name:
         country_name = _resolve_request_country_name()
     if not country_name:
-        return UNKNOWN_COUNTRY_KEY, UNKNOWN_COUNTRY_NAME
+        return _other_country_bucket()
 
-    bucket_key, display_name, _iso = _country_stat_bucket(country_name)
-    if not bucket_key or not display_name:
-        return UNKNOWN_COUNTRY_KEY, UNKNOWN_COUNTRY_NAME
+    bucket_key, display_name, iso = _country_stat_bucket(country_name)
+    if not bucket_key or not display_name or not iso:
+        return _other_country_bucket()
     return bucket_key, display_name
 
 
@@ -2088,6 +2098,10 @@ def app__index():
             finally:
                 if cursor is not None:
                     cursor.close()
+        else:
+            # Fallback: keep homepage totals usable if activity_events setup fails.
+            stat_total_views = sum(max(0, _parse_int(pub.get('stat_views')) or 0) for pub in (dbc.publications.get().exec() or []))
+            stat_total_downloads = sum(max(0, _parse_int(pub.get('stat_alt')) or 0) for pub in (dbc.publications.get().exec() or []))
     except Exception:
         stat_total_publications = 0
         stat_total_views = 0
@@ -2144,9 +2158,8 @@ def app__index():
             normalized_key = _clean_text(country_key).lower()
             normalized_country_name = _normalize_country_name(country_name)
 
-            if normalized_key == UNKNOWN_COUNTRY_KEY:
-                bucket_key = UNKNOWN_COUNTRY_KEY
-                display_name = UNKNOWN_COUNTRY_NAME
+            if _is_other_country_bucket_key(normalized_key):
+                bucket_key, display_name = _other_country_bucket()
                 iso = ''
             elif normalized_key:
                 if re.match(r'^[a-z]{2}$', normalized_key):
@@ -2154,19 +2167,29 @@ def app__index():
                     iso = normalized_key
                     display_name = COUNTRY_DISPLAY_BY_ISO.get(iso) or normalized_country_name or normalized_key.upper()
                 elif normalized_country_name:
-                    bucket_key, display_name, iso = _country_stat_bucket(normalized_country_name)
+                    resolved_key, resolved_name, resolved_iso = _country_stat_bucket(normalized_country_name)
+                    if resolved_iso:
+                        bucket_key, display_name, iso = resolved_key, resolved_name, resolved_iso
+                    else:
+                        bucket_key, display_name = _other_country_bucket()
+                        iso = ''
                 else:
-                    bucket_key = normalized_key
-                    display_name = normalized_key
+                    bucket_key, display_name = _other_country_bucket()
                     iso = ''
             else:
-                bucket_key, display_name, iso = _country_stat_bucket(normalized_country_name)
+                resolved_key, resolved_name, resolved_iso = _country_stat_bucket(normalized_country_name)
+                if resolved_iso:
+                    bucket_key, display_name, iso = resolved_key, resolved_name, resolved_iso
+                else:
+                    bucket_key, display_name = _other_country_bucket()
+                    iso = ''
 
             if not bucket_key:
                 return
 
             if bucket_key not in aggregated:
                 aggregated[bucket_key] = {
+                    'country_key': bucket_key,
                     'name': display_name,
                     'authors': 0,
                     'count': 0,
@@ -2201,16 +2224,23 @@ def app__index():
             item['authors'] = authors_value
             item['views'] = views_value
             item['downloads'] = downloads_value
-            # Top ro'yxatda nol ko'rsatmaslik uchun eng katta metrikani chiqaramiz.
-            item['count'] = max(authors_value, views_value, downloads_value)
+            # "Total" reflects both journal reach (views/downloads) and author presence.
+            item['count'] = authors_value + views_value + downloads_value
+
+        # Country activity widget should display only countries with real activity.
+        activity_items = [
+            item
+            for item in aggregated.values()
+            if (_parse_int(item.get('count')) or 0) > 0
+        ]
 
         sorted_stats = sorted(
-            aggregated.values(),
+            activity_items,
             key=lambda item: (
                 -(item.get('count') or 0),
-                -(item.get('authors') or 0),
                 -(item.get('views') or 0),
                 -(item.get('downloads') or 0),
+                -(item.get('authors') or 0),
                 (item.get('name') or '').lower(),
             )
         )
@@ -2225,8 +2255,8 @@ def app__index():
                     fallback_name=item.get('name'),
                     lang=current_lang,
                 )
-            elif item.get('name') == UNKNOWN_COUNTRY_NAME:
-                item['name'] = country_stats_ui.get('unknown_country') or UNKNOWN_COUNTRY_NAME
+            elif _is_other_country_bucket_key(item.get('country_key')):
+                item['name'] = country_stats_ui.get('unknown_country') or OTHER_COUNTRY_NAME
         country_stats = sorted_stats
         country_stats_top = sorted_stats[:10]
     except Exception:
@@ -2630,13 +2660,10 @@ def app__articles():
                 filtered_publications.append(pub)
         publications = filtered_publications
 
-    def publication_timestamp(pub):
-        return _parse_int(pub.get('date_publish')) or _parse_int(pub.get('created_at')) or 0
-
     if sort_by == 'newest':
-        publications = sorted(publications, key=publication_timestamp, reverse=True)
+        publications = sorted(publications, key=_publication_sort_key, reverse=True)
     elif sort_by == 'oldest':
-        publications = sorted(publications, key=publication_timestamp)
+        publications = sorted(publications, key=_publication_sort_key)
     elif sort_by == 'title_az':
         publications = sorted(publications, key=lambda x: (x.get('title') or '').lower())
     elif sort_by == 'title_za':
@@ -2975,6 +3002,15 @@ def _extract_content_timestamp(record, fallback_year_key=None):
     return None
 
 
+def _publication_sort_key(publication):
+    row = publication or {}
+    publish_ts = _parse_int(row.get('date_publish')) or 0
+    created_ts = _parse_int(row.get('created_at')) or 0
+    primary_ts = publish_ts or created_ts
+    publication_id = _parse_int(row.get('id')) or 0
+    return (primary_ts, created_ts, publication_id)
+
+
 def _record_age_days(timestamp):
     timestamp_int = _parse_int(timestamp)
     if timestamp_int is None:
@@ -3257,6 +3293,7 @@ def app__issue(issue_id):
     issue_toc_download_url = url_for('app__download_issue_toc', issue_id=issue_id) if issue_toc_file_path else None
 
     publications = dbc.publications.get(issue_id=issue_id).exec()
+    publications = sorted(publications, key=_publication_sort_key, reverse=True)
     articles = []
     author_profile_cache = {}
 

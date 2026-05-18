@@ -245,6 +245,12 @@ PUBLICATION_METADATA_CATALOG = {
             'en': 'PEDAGOGY',
         },
         {
+            'key': 'psychology_science',
+            'uz': 'PSIXOLOGIYA',
+            'ru': 'ПСИХОЛОГИЯ',
+            'en': 'PSYCHOLOGY',
+        },
+        {
             'key': 'world_literature_translation_masterpieces',
             'uz': 'JAHON ADABIYOTI TARJIMASI DURDONALARI',
             'ru': 'ОБРАЗЦЫ ПЕРЕВОДА ЗАРУБЕЖНОЙ ЛИТЕРАТУРЫ',

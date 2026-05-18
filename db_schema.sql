@@ -856,6 +856,7 @@ CREATE TABLE public.publications (
     academic_title_key text,
     academic_degree_key text,
     series_key text,
+    section_key text,
     keywords text[],
     additional text,
     stat_views integer,

@@ -6279,6 +6279,40 @@ def article_edit(article_id):
         series_key = normalize_publication_metadata_key('series_key', request.form.get('series_key'))
         section_key = normalize_publication_metadata_key('section_key', request.form.get('section_key'))
         publication_columns = set(db.columns.get('publications', []))
+        selected_metadata_values = {
+            'author_position_key': author_position_key,
+            'academic_title_key': academic_title_key,
+            'academic_degree_key': academic_degree_key,
+            'series_key': series_key,
+            'section_key': section_key,
+        }
+        required_columns = {
+            field_name: metadata_labels.get(field_name, field_name)
+            for field_name, field_value in selected_metadata_values.items()
+            if field_value
+        }
+        required_columns['page_range'] = _msg_text('Maqola betlari', 'Диапазон страниц', 'Page range')
+        missing_required_columns = [
+            field_name
+            for field_name in required_columns.keys()
+            if field_name not in publication_columns
+        ]
+        if missing_required_columns:
+            missing_field_labels = [required_columns.get(field_name, field_name) for field_name in missing_required_columns]
+            logger.error(
+                "Missing publications columns for article save (article_id=%s): %s",
+                article_id,
+                ','.join(missing_required_columns),
+            )
+            new_alert(
+                _msg_text(
+                    f"Bazadagi ustunlar yetishmayapti: {', '.join(missing_field_labels)}. Iltimos migratsiyani ishga tushiring.",
+                    f"В базе отсутствуют колонки: {', '.join(missing_field_labels)}. Запустите миграции.",
+                    f"Database columns are missing: {', '.join(missing_field_labels)}. Please run migrations.",
+                ),
+                'danger'
+            )
+            return redirect(url_for('article_edit', article_id=article_id))
         metadata_payload = {}
         if 'author_position_key' in publication_columns:
             metadata_payload['author_position_key'] = author_position_key
