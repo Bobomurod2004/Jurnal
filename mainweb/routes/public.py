@@ -2060,6 +2060,17 @@ def app__index():
             row for row in rows
             if not _is_masters_publication(row, issue_cache=issue_cache_for_masters)
         ]
+        if order_field == 'date_publish':
+            visible_rows = sorted(visible_rows, key=_publication_sort_key, reverse=True)
+        elif order_field in {'stat_alt', 'stat_views'}:
+            visible_rows = sorted(
+                visible_rows,
+                key=lambda row: (
+                    _parse_int(row.get(order_field)) or 0,
+                    (_publication_sort_key(row)),
+                ),
+                reverse=True,
+            )
         return visible_rows[:limit]
 
     latest_publications = _load_home_publications('date_publish')
@@ -2257,8 +2268,12 @@ def app__index():
                 )
             elif _is_other_country_bucket_key(item.get('country_key')):
                 item['name'] = country_stats_ui.get('unknown_country') or OTHER_COUNTRY_NAME
-        country_stats = sorted_stats
-        country_stats_top = sorted_stats[:10]
+        visible_country_stats = [
+            item for item in sorted_stats
+            if not _is_other_country_bucket_key(item.get('country_key'))
+        ]
+        country_stats = visible_country_stats
+        country_stats_top = visible_country_stats[:10]
     except Exception:
         try:
             dbc.conn.rollback()
@@ -2676,6 +2691,9 @@ def app__articles():
     total_results = len(publications)
     total_pages = max((total_results + per_page - 1) // per_page, 1)
     page = min(page, total_pages)
+    pagination_start = max(1, page - 2)
+    pagination_end = min(total_pages, page + 2)
+    pagination_pages = list(range(pagination_start, pagination_end + 1))
     start = (page - 1) * per_page
     end = start + per_page
     publications = publications[start:end]
@@ -2752,6 +2770,7 @@ def app__articles():
                          total_results=total_results,
                          total_pages=total_pages,
                          page=page,
+                         pagination_pages=pagination_pages,
                          per_page=per_page,
                          author_tooltip_ui=author_tooltip_ui)
 
