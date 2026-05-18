@@ -539,6 +539,101 @@
     });
   </script>
 
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const lang = '{{ session.language or "uz" }}';
+      const labels = {
+        current: lang === 'ru' ? 'Текущие файлы' : (lang === 'en' ? 'Current files' : "Joriy fayl(lar)"),
+        selected: lang === 'ru' ? 'Выбранные файлы' : (lang === 'en' ? 'Selected files' : "Tanlangan fayl(lar)"),
+      };
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function formatBytes(size) {
+        const bytes = Number(size) || 0;
+        if (bytes <= 0) {
+          return '';
+        }
+        if (bytes < 1024) {
+          return bytes + ' B';
+        }
+        if (bytes < 1024 * 1024) {
+          return (bytes / 1024).toFixed(1).replace(/\.0$/, '') + ' KB';
+        }
+        return (bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, '') + ' MB';
+      }
+
+      function ensureSummaryNode(input) {
+        const parent = input.parentElement;
+        if (!parent) {
+          return null;
+        }
+
+        let key = input.getAttribute('data-fm-summary-key');
+        if (!key) {
+          key = input.id || input.name || ('file-input-' + Math.random().toString(36).slice(2, 9));
+          input.setAttribute('data-fm-summary-key', key);
+        }
+
+        let summary = parent.querySelector('.fm-file-input-summary[data-fm-summary-for="' + key + '"]');
+        if (!summary) {
+          summary = document.createElement('div');
+          summary.className = 'form-text text-muted mt-1 fm-file-input-summary';
+          summary.setAttribute('data-fm-summary-for', key);
+          input.insertAdjacentElement('afterend', summary);
+        }
+        return summary;
+      }
+
+      function renderFileSummary(input) {
+        const summary = ensureSummaryNode(input);
+        if (!summary) {
+          return;
+        }
+
+        const currentFilesText = String(input.getAttribute('data-current-files-text') || '').trim();
+        const selectedFiles = Array.from(input.files || []);
+
+        if (selectedFiles.length > 0) {
+          const selectedNames = selectedFiles.map(function (file) {
+            const sizeText = formatBytes(file.size);
+            return sizeText ? (file.name + ' (' + sizeText + ')') : file.name;
+          });
+          summary.innerHTML = '<span class="fw-semibold text-primary">' + labels.selected + ':</span> ' + escapeHtml(selectedNames.join(', '));
+          summary.style.display = '';
+          return;
+        }
+
+        if (currentFilesText) {
+          summary.innerHTML = '<span class="fw-semibold text-success">' + labels.current + ':</span> ' + escapeHtml(currentFilesText);
+          summary.style.display = '';
+          return;
+        }
+
+        summary.textContent = '';
+        summary.style.display = 'none';
+      }
+
+      document.querySelectorAll('input[type="file"]').forEach(function (input) {
+        if (input.dataset.fmSummaryBound === '1') {
+          return;
+        }
+        input.dataset.fmSummaryBound = '1';
+        input.addEventListener('change', function () {
+          renderFileSummary(input);
+        });
+        renderFileSummary(input);
+      });
+    });
+  </script>
+
   <script src="/dist/js/tom-select/dist/js/tom-select.base.min.js"></script>
 
   <div class="modal modal-blur fade" id="globalSearchModal" tabindex="-1" aria-hidden="true">

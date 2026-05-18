@@ -11,7 +11,6 @@ from html import escape as html_escape
 from html.parser import HTMLParser
 from urllib.parse import urlencode, urlparse
 from flask import Blueprint, send_from_directory, render_template, request, jsonify, flash, redirect, url_for, session, send_file, abort
-from werkzeug.utils import secure_filename
 from modules.translate import t, translate
 from extensions import db
 try:
@@ -45,6 +44,7 @@ from services.stats import get_dashboard_snapshot
 from shared.publication_metadata import (
     PUBLICATION_METADATA_COLUMN_TYPES,
     normalize_publication_metadata_key,
+    publication_metadata_label,
     publication_metadata_field_labels,
     publication_metadata_options,
 )
@@ -390,6 +390,16 @@ def _clean_text(value):
     if value is None:
         return ''
     return str(value).strip()
+
+
+def _extract_file_display_name(value):
+    raw_value = _clean_text(value)
+    if not raw_value:
+        return ''
+    normalized = raw_value.replace('\\', '/').split('?', 1)[0].split('#', 1)[0].rstrip('/')
+    if not normalized:
+        return ''
+    return os.path.basename(normalized)
 
 
 def _split_author_full_name(value):
@@ -5507,9 +5517,11 @@ def issues():
 def save_file(category, file, allow_exts):
     if not file or not file.filename:
         raise ValueError('Файл не выбран')
-    safe_name = secure_filename(file.filename)
-    ext = safe_name.rsplit('.', 1)[-1].lower() if '.' in safe_name else ''
-    if not ext or ext not in allow_exts:
+    raw_name = _clean_text(file.filename)
+    basename = raw_name.replace('\\', '/').rsplit('/', 1)[-1]
+    ext = basename.rsplit('.', 1)[-1].strip().lower() if '.' in basename else ''
+    allowed_exts = {str(item).strip().lower().lstrip('.') for item in (allow_exts or []) if str(item).strip()}
+    if not ext or ext not in allowed_exts:
         raise ValueError('Недопустимое расширение файла')
     now = datetime.datetime.now()
     rel_dir = f'static/uploads/{category}/{now.year}/{now.month:02d}'
@@ -5524,8 +5536,9 @@ def save_file_to_db(file, category='articles', comment=''):
     """Сохраняет файл и записывает его в таблицу files, возвращает ID файла"""
     if not file or not file.filename:
         raise ValueError('Файл не выбран')
-    safe_name = secure_filename(file.filename)
-    ext = safe_name.rsplit('.', 1)[-1].lower() if '.' in safe_name else ''
+    raw_name = _clean_text(file.filename)
+    basename = raw_name.replace('\\', '/').rsplit('/', 1)[-1]
+    ext = basename.rsplit('.', 1)[-1].strip().lower() if '.' in basename else ''
     if not ext:
         raise ValueError('Недопустимое расширение файла')
     now = datetime.datetime.now()
@@ -5657,11 +5670,33 @@ def issue_edit(issue_id):
         issue_columns = set(db.columns.get('issues', []) or [])
         has_toc_column = 'table_of_contents_file' in issue_columns
         cover_image = None
-        if 'cover_image' in request.files and request.files['cover_image'].filename:
-            cover_image = save_file('issues', request.files['cover_image'], ['jpg', 'jpeg', 'png', 'gif', 'webp'])
         table_of_contents_file = None
-        if has_toc_column and 'table_of_contents_file' in request.files and request.files['table_of_contents_file'].filename:
-            table_of_contents_file = save_file('issues', request.files['table_of_contents_file'], ['pdf', 'doc', 'docx'])
+        try:
+            if 'cover_image' in request.files and request.files['cover_image'].filename:
+                cover_image = save_file('issues', request.files['cover_image'], ['jpg', 'jpeg', 'png', 'gif', 'webp'])
+            if has_toc_column and 'table_of_contents_file' in request.files and request.files['table_of_contents_file'].filename:
+                table_of_contents_file = save_file('issues', request.files['table_of_contents_file'], ['pdf', 'doc', 'docx'])
+        except ValueError as exc:
+            error_text = _clean_text(str(exc))
+            if error_text == 'Недопустимое расширение файла':
+                new_alert(
+                    _msg_text(
+                        "Fayl kengaytmasi noto'g'ri. Muqova uchun: JPG/PNG/GIF/WEBP, mundarija uchun: PDF/DOC/DOCX.",
+                        'Недопустимое расширение файла. Для обложки: JPG/PNG/GIF/WEBP, для оглавления: PDF/DOC/DOCX.',
+                        'Invalid file extension. Cover: JPG/PNG/GIF/WEBP, table of contents: PDF/DOC/DOCX.',
+                    ),
+                    'danger',
+                )
+            else:
+                new_alert(
+                    _msg_text(
+                        "Faylni yuklashda xatolik yuz berdi.",
+                        'Ошибка при загрузке файла.',
+                        'File upload error.',
+                    ),
+                    'danger',
+                )
+            return redirect(url_for('issue_edit', issue_id=issue_id))
         if issue_id == 0:
             title = request.form.get('title')
             title_uz = request.form.get('title_uz')
@@ -5780,6 +5815,307 @@ def issue_edit(issue_id):
     return render_template('website/issues/edit.html', issue=issue, issue_categories = issue_categories)
 
 
+def _parse_int_list(value):
+    result = []
+    seen = set()
+    for item in _parse_text_list(value):
+        item_id = _parse_int(item)
+        if item_id is None or item_id in seen:
+            continue
+        seen.add(item_id)
+        result.append(item_id)
+    return result
+
+
+def _load_files_by_ids(file_ids):
+    normalized_ids = []
+    seen = set()
+    for raw_id in file_ids or []:
+        file_id = _parse_int(raw_id)
+        if file_id is None or file_id in seen:
+            continue
+        seen.add(file_id)
+        normalized_ids.append(file_id)
+
+    if not normalized_ids:
+        return []
+
+    try:
+        rows = db.files.all().any(id=normalized_ids).exec() or []
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        logger.exception("Failed to load files metadata by ids: %s", normalized_ids)
+        return []
+
+    by_id = {}
+    for row in rows:
+        row_id = _parse_int((row or {}).get('id'))
+        if row_id is not None:
+            by_id[row_id] = row or {}
+
+    files = []
+    for file_id in normalized_ids:
+        row = by_id.get(file_id) or {}
+        file_name = _clean_text(row.get('name')) or _extract_file_display_name(row.get('filepath')) or f'file-{file_id}'
+        file_path = _clean_text(row.get('filepath'))
+        file_size = max(0, _parse_int(row.get('filesize')) or 0)
+        files.append({
+            'id': file_id,
+            'name': file_name,
+            'filepath': file_path,
+            'filesize': file_size,
+        })
+    return files
+
+
+def _cleanup_unused_file_records(file_ids):
+    candidate_ids = _parse_int_list(file_ids)
+    if not candidate_ids:
+        return 0
+
+    try:
+        publications = db.publications.all().exec() or []
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        logger.exception("Failed to load publications for file cleanup")
+        return 0
+
+    referenced_ids = set()
+    for publication in publications:
+        referenced_ids.update(_parse_int_list((publication or {}).get('file_ids')))
+
+    removable_ids = [file_id for file_id in candidate_ids if file_id not in referenced_ids]
+    if not removable_ids:
+        return 0
+
+    paths_to_remove = []
+    try:
+        file_rows = db.files.all().any(id=removable_ids).exec() or []
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        logger.exception("Failed to load files rows for cleanup: %s", removable_ids)
+        file_rows = []
+
+    for row in file_rows:
+        row_id = _parse_int((row or {}).get('id'))
+        if row_id in removable_ids:
+            file_path = _clean_text((row or {}).get('filepath'))
+            if file_path:
+                paths_to_remove.append(file_path)
+
+    try:
+        db.files.all().any(id=removable_ids).delete().exec()
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        logger.exception("Failed to delete file rows from DB: %s", removable_ids)
+        return 0
+
+    for file_path in paths_to_remove:
+        _remove_public_upload_file(file_path)
+
+    return len(removable_ids)
+
+
+def _queue_public_upload_path(file_paths_to_remove, raw_path):
+    if file_paths_to_remove is None:
+        return
+    path = _clean_text(raw_path)
+    if not path:
+        return
+    file_paths_to_remove.add(path)
+
+
+def _remove_public_upload_file(raw_path):
+    path = _clean_text(raw_path)
+    if not path:
+        return
+
+    normalized = path.split('?', 1)[0].split('#', 1)[0].strip()
+    if not normalized:
+        return
+    if normalized.startswith('http://') or normalized.startswith('https://'):
+        return
+
+    normalized = normalized.replace('\\', '/')
+    if normalized.startswith('/'):
+        normalized = normalized[1:]
+    if normalized.startswith('uploads/'):
+        normalized = f"static/{normalized}"
+    if not normalized.startswith('static/uploads/'):
+        return
+
+    uploads_root = os.path.abspath(os.path.join(settings.SAVE_PATH, 'static', 'uploads'))
+    file_path = os.path.abspath(os.path.join(settings.SAVE_PATH, normalized))
+    if file_path != uploads_root and not file_path.startswith(uploads_root + os.sep):
+        return
+    if not os.path.isfile(file_path):
+        return
+
+    try:
+        os.remove(file_path)
+    except Exception:
+        logger.exception("Failed to remove uploaded file: %s", file_path)
+
+
+def _delete_publication_with_related_data(cursor, column_cache, publication_row, file_paths_to_remove=None):
+    publication_id = _parse_int((publication_row or {}).get('id'))
+    if publication_id is None:
+        return False
+
+    if _table_column_exists(cursor, column_cache, 'publication_figures', 'publication_id'):
+        if _table_column_exists(cursor, column_cache, 'publication_figures', 'filepath'):
+            cursor.execute(
+                "SELECT filepath FROM publication_figures WHERE publication_id = %s",
+                (publication_id,),
+            )
+            for row in cursor.fetchall():
+                _queue_public_upload_path(file_paths_to_remove, row[0] if row else '')
+
+    related_tables = (
+        'publication_parts',
+        'publication_figures',
+        'publication_refs',
+        'publication_citations',
+        'publication_refs_backup',
+    )
+    for table_name in related_tables:
+        if _table_column_exists(cursor, column_cache, table_name, 'publication_id'):
+            cursor.execute(f"DELETE FROM {table_name} WHERE publication_id = %s", (publication_id,))
+
+    file_ids = _parse_int_list((publication_row or {}).get('file_ids'))
+    if file_ids and _table_column_exists(cursor, column_cache, 'files', 'id'):
+        placeholders = ', '.join(['%s'] * len(file_ids))
+        params = tuple(file_ids)
+        if _table_column_exists(cursor, column_cache, 'files', 'filepath'):
+            cursor.execute(f"SELECT filepath FROM files WHERE id IN ({placeholders})", params)
+            for row in cursor.fetchall():
+                _queue_public_upload_path(file_paths_to_remove, row[0] if row else '')
+        cursor.execute(f"DELETE FROM files WHERE id IN ({placeholders})", params)
+
+    cursor.execute("DELETE FROM publications WHERE id = %s", (publication_id,))
+    return True
+
+
+@bp.route('/fmadmin/website/issues/<int:issue_id>/delete', methods=['POST'])
+@is_superadmin_required
+def issue_delete(issue_id):
+    redirect_target = _safe_internal_redirect(request.form.get('next') or request.referrer, 'issues')
+    column_cache = {}
+    file_paths_to_remove = set()
+    deleted_articles_count = 0
+
+    with db._lock:
+        cursor = db.conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM issues WHERE id = %s", (issue_id,))
+            issue_row = cursor.fetchone()
+            if not issue_row:
+                db.conn.rollback()
+                new_alert(_msg_text('Nashr soni topilmadi', 'Выпуск не найден', 'Issue not found'), 'danger')
+                return redirect(redirect_target)
+
+            issue_columns = [desc[0] for desc in cursor.description]
+            issue = dict(zip(issue_columns, issue_row))
+            _queue_public_upload_path(file_paths_to_remove, issue.get('cover_image'))
+            _queue_public_upload_path(file_paths_to_remove, issue.get('table_of_contents_file'))
+
+            publication_rows = []
+            if _table_column_exists(cursor, column_cache, 'publications', 'issue_id'):
+                cursor.execute("SELECT * FROM publications WHERE issue_id = %s", (issue_id,))
+                publication_data = cursor.fetchall()
+                publication_columns = [desc[0] for desc in cursor.description]
+                publication_rows = [dict(zip(publication_columns, row)) for row in publication_data]
+
+            for publication in publication_rows:
+                if _delete_publication_with_related_data(cursor, column_cache, publication, file_paths_to_remove):
+                    deleted_articles_count += 1
+
+            cursor.execute("DELETE FROM issues WHERE id = %s", (issue_id,))
+            db.conn.commit()
+        except Exception:
+            db.conn.rollback()
+            logger.exception("Failed to delete issue %s", issue_id)
+            new_alert(
+                _msg_text(
+                    "Nashr sonini o'chirishda xatolik yuz berdi",
+                    'Ошибка при удалении выпуска',
+                    'Failed to delete issue',
+                ),
+                'danger',
+            )
+            return redirect(redirect_target)
+        finally:
+            cursor.close()
+
+    for path in file_paths_to_remove:
+        _remove_public_upload_file(path)
+
+    new_alert(
+        _msg_text(
+            f"Nashr soni va unga bog'liq {deleted_articles_count} ta maqola o'chirildi",
+            f'Выпуск и связанные статьи ({deleted_articles_count}) удалены',
+            f'Issue and related articles ({deleted_articles_count}) were deleted',
+        ),
+        'success',
+    )
+    return redirect(redirect_target)
+
+
+@bp.route('/fmadmin/website/articles/<int:article_id>/delete', methods=['POST'])
+@is_superadmin_required
+def article_delete(article_id):
+    redirect_target = _safe_internal_redirect(request.form.get('next') or request.referrer, 'articles')
+    column_cache = {}
+    file_paths_to_remove = set()
+
+    with db._lock:
+        cursor = db.conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM publications WHERE id = %s", (article_id,))
+            article_row = cursor.fetchone()
+            if not article_row:
+                db.conn.rollback()
+                new_alert(_msg_text('Maqola topilmadi', 'Статья не найдена', 'Article not found'), 'danger')
+                return redirect(redirect_target)
+
+            article_columns = [desc[0] for desc in cursor.description]
+            article = dict(zip(article_columns, article_row))
+            _delete_publication_with_related_data(cursor, column_cache, article, file_paths_to_remove)
+            db.conn.commit()
+        except Exception:
+            db.conn.rollback()
+            logger.exception("Failed to delete article %s", article_id)
+            new_alert(
+                _msg_text(
+                    "Maqolani o'chirishda xatolik yuz berdi",
+                    'Ошибка при удалении статьи',
+                    'Failed to delete article',
+                ),
+                'danger',
+            )
+            return redirect(redirect_target)
+        finally:
+            cursor.close()
+
+    for path in file_paths_to_remove:
+        _remove_public_upload_file(path)
+
+    new_alert(_msg_text("Maqola muvaffaqiyatli o'chirildi", 'Статья удалена', 'Article deleted'), 'success')
+    return redirect(redirect_target)
+
+
 
 @bp.route('/fmadmin/website/articles')
 @is_superadmin_required
@@ -5859,6 +6195,7 @@ def articles():
 
     for article in articles:
         article['title_display'] = _localized_content_field(article, 'title', admin_lang, strict=True)
+        article['section_display'] = publication_metadata_label('section_key', article.get('section_key'), admin_lang)
 
     # Формируем query_string для пагинации (без page)
     args_for_pagination = {k: v for k, v in request.args.items() if k != 'page' and v}
@@ -5881,6 +6218,7 @@ def article_edit(article_id):
     academic_title_options = publication_metadata_options('academic_title_key', admin_lang)
     academic_degree_options = publication_metadata_options('academic_degree_key', admin_lang)
     series_options = publication_metadata_options('series_key', admin_lang)
+    section_options = publication_metadata_options('section_key', admin_lang)
 
     if request.method == 'POST':        
         title = request.form.get('title')
@@ -5939,6 +6277,7 @@ def article_edit(article_id):
         academic_title_key = normalize_publication_metadata_key('academic_title_key', request.form.get('academic_title_key'))
         academic_degree_key = normalize_publication_metadata_key('academic_degree_key', request.form.get('academic_degree_key'))
         series_key = normalize_publication_metadata_key('series_key', request.form.get('series_key'))
+        section_key = normalize_publication_metadata_key('section_key', request.form.get('section_key'))
         publication_columns = set(db.columns.get('publications', []))
         metadata_payload = {}
         if 'author_position_key' in publication_columns:
@@ -5949,6 +6288,8 @@ def article_edit(article_id):
             metadata_payload['academic_degree_key'] = academic_degree_key
         if 'series_key' in publication_columns:
             metadata_payload['series_key'] = series_key
+        if 'section_key' in publication_columns:
+            metadata_payload['section_key'] = section_key
         if 'page_range' in publication_columns:
             metadata_payload['page_range'] = page_range
         date_sent = parse_date(request.form.get('date_sent'), with_time=True)
@@ -5956,13 +6297,30 @@ def article_edit(article_id):
         # Publish date is date-only in UI; storing without time avoids timezone day-shift issues.
         date_publish = parse_date(request.form.get('date_publish'), with_time=False)
         comments = request.form.get('comments')
-        # Обработка загруженных PDF файлов
-        file_ids = []
+        current_file_ids = []
+        if article_id != 0:
+            current_article_rows = db.publications.all().equal(id=article_id).exec()
+            if not current_article_rows:
+                new_alert(
+                    _msg_text('Maqola topilmadi', 'Статья не найдена', 'Article not found'),
+                    'danger'
+                )
+                return redirect(url_for('articles'))
+            current_file_ids = _parse_int_list(current_article_rows[0].get('file_ids'))
 
-        # Получаем существующие file_ids если они есть
-        existing_file_ids = request.form.get('file_ids')
-        if existing_file_ids:
-            file_ids = [int(f.strip()) for f in existing_file_ids.split(',') if f.strip().isdigit()]
+        keep_file_ids = _parse_int_list(request.form.getlist('keep_file_ids'))
+        keep_ids_lookup = set(keep_file_ids)
+        keep_ids_present = _clean_text(request.form.get('keep_file_ids_present')) == '1'
+        if current_file_ids:
+            if keep_ids_present:
+                kept_existing_file_ids = [file_id for file_id in current_file_ids if file_id in keep_ids_lookup]
+            else:
+                kept_existing_file_ids = list(current_file_ids)
+        else:
+            kept_existing_file_ids = []
+
+        # Обработка загруженных PDF файлов
+        file_ids = list(kept_existing_file_ids)
 
         # Обрабатываем новые загруженные файлы
         uploaded_files = request.files.getlist('pdf_files')
@@ -5988,6 +6346,7 @@ def article_edit(article_id):
         price_ru = request.form.get('price_ru', 0, float)
         subscription_enable = bool(request.form.get('subscription_enable'))
         created_at = parse_date(request.form.get('created_at'), with_time=True)
+        removed_file_ids = [file_id for file_id in current_file_ids if file_id not in set(kept_existing_file_ids)]
         
         if article_id == 0:
             article_id_new = db.publications.add(
@@ -6052,7 +6411,17 @@ def article_edit(article_id):
                 subscription_enable=subscription_enable,
                 created_at=created_at
             ).exec()
+            removed_total = _cleanup_unused_file_records(removed_file_ids)
             new_alert(_msg_text('Maqola muvaffaqiyatli saqlandi', 'Статья успешно сохранена', 'Article saved successfully'), 'success')
+            if removed_total > 0:
+                new_alert(
+                    _msg_text(
+                        f"Keraksiz {removed_total} ta fayl bazadan olib tashlandi",
+                        f"Удалено лишних файлов из базы: {removed_total}",
+                        f"Removed unnecessary files from DB: {removed_total}",
+                    ),
+                    'info'
+                )
             return redirect(url_for('article_edit', article_id=article_id))
 
     if article_id == 0:
@@ -6078,6 +6447,7 @@ def article_edit(article_id):
             'academic_title_key': '',
             'academic_degree_key': '',
             'series_key': '',
+            'section_key': '',
             'date_sent': None,
             'date_accept': None,
             'date_publish': None,
@@ -6095,11 +6465,20 @@ def article_edit(article_id):
         if not article:
             return 'Статья не найдена', 404
         article = article[0]
+
+    article_file_items = _load_files_by_ids(_parse_int_list(article.get('file_ids')))
+    article_current_files_text = ', '.join(
+        item.get('name') or f"ID {item.get('id')}"
+        for item in article_file_items
+    )
+
     authors = db.author_profile.all().exec()
     issues = db.issues.all().exec()
     return render_template(
         'website/articles/edit.html',
         article=article,
+        article_file_items=article_file_items,
+        article_current_files_text=article_current_files_text,
         authors=authors,
         issues=issues,
         metadata_labels=metadata_labels,
@@ -6107,6 +6486,7 @@ def article_edit(article_id):
         academic_title_options=academic_title_options,
         academic_degree_options=academic_degree_options,
         series_options=series_options,
+        section_options=section_options,
     )
 
 @bp.route('/fmadmin/website/articles/<int:article_id>/content', methods=['GET', 'POST'])

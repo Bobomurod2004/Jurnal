@@ -119,15 +119,28 @@
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_cover") }}</label>
                         {% if issue.cover_image %}
-                        <div class="mb-2"><img src="{{ issue.cover_image }}" alt="cover" style="max-width:200px;"></div>
+                        <div class="mb-2">
+                            <img src="{{ issue.cover_image }}" alt="cover" style="max-width:200px;">
+                            <div class="small text-muted mt-1">
+                                {{ (issue.cover_image or '').split('?')[0].split('#')[0].split('/')[-1] }}
+                            </div>
+                        </div>
                         {% endif %}
-                        <input type="file" class="form-control" name="cover_image" accept="image/*">
+                        <input
+                            type="file"
+                            class="form-control"
+                            name="cover_image"
+                            accept="image/*"
+                            data-current-files-text="{{ (issue.cover_image or '').split('?')[0].split('#')[0].split('/')[-1] }}">
                         <input type="hidden" name="cover_image" value="{{ issue.cover_image }}">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_issue_toc_file") }}</label>
                         {% if issue.table_of_contents_file %}
                         <div class="mb-2">
+                            <div class="small text-muted mb-1">
+                                {{ (issue.table_of_contents_file or '').split('?')[0].split('#')[0].split('/')[-1] }}
+                            </div>
                             <a href="{{ issue.table_of_contents_file }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm">
                                 <i class="ti ti-download"></i>
                                 {{ t("admin_btn_download_issue_toc") }}
@@ -138,7 +151,8 @@
                             type="file"
                             class="form-control"
                             name="table_of_contents_file"
-                            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                            data-current-files-text="{{ (issue.table_of_contents_file or '').split('?')[0].split('#')[0].split('/')[-1] }}">
                         <input type="hidden" name="table_of_contents_file" value="{{ issue.table_of_contents_file }}">
                         <div class="form-hint">{{ t("admin_hint_issue_toc_file") }}</div>
                     </div>

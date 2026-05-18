@@ -207,6 +207,56 @@ PUBLICATION_METADATA_CATALOG = {
             'en': 'Special Issue (Academic Staff)',
         },
     ),
+    'section_key': (
+        {
+            'key': 'linguistics',
+            'uz': 'TILSHUNOSLIK',
+            'ru': 'ЯЗЫКОЗНАНИЕ',
+            'en': 'LINGUISTICS',
+        },
+        {
+            'key': 'literature',
+            'uz': 'ADABIYOTSHUNOSLIK',
+            'ru': 'ЛИТЕРАТУРОВЕДЕНИЕ',
+            'en': 'LITERARY STUDIES',
+        },
+        {
+            'key': 'translation',
+            'uz': 'TARJIMASHUNOSLIK',
+            'ru': 'ТЕОРИЯ И ПРАКТИКА ПЕРЕВОДА',
+            'en': 'THEORY AND PRACTICE OF TRANSLATION',
+        },
+        {
+            'key': 'methodology',
+            'uz': 'METODIKA',
+            'ru': 'МЕТОДИКА',
+            'en': 'METHODOLOGY',
+        },
+        {
+            'key': 'journalism',
+            'uz': 'JURNALISTIKA',
+            'ru': 'ЖУРНАЛИСТИКА',
+            'en': 'JOURNALISM',
+        },
+        {
+            'key': 'pedagogy',
+            'uz': 'PEDAGOGIKA',
+            'ru': 'ПЕДАГОГИКА',
+            'en': 'PEDAGOGY',
+        },
+        {
+            'key': 'world_literature_translation_masterpieces',
+            'uz': 'JAHON ADABIYOTI TARJIMASI DURDONALARI',
+            'ru': 'ОБРАЗЦЫ ПЕРЕВОДА ЗАРУБЕЖНОЙ ЛИТЕРАТУРЫ',
+            'en': 'SAMPLES OF FOREIGN FICTION TRANSLATIONS',
+        },
+        {
+            'key': 'psychology',
+            'uz': "TARIX QAYTA SO'ZLAGANDA",
+            'ru': 'КОГДА ИСТОРИЯ ПЕРЕСКАЗЫВАЕТ',
+            'en': 'THROUGH THE LENS OF HISTORY',
+        },
+    ),
 }
 
 PUBLICATION_METADATA_FIELD_LABELS = {
@@ -229,6 +279,11 @@ PUBLICATION_METADATA_FIELD_LABELS = {
         'uz': 'Seriya',
         'ru': 'Серия',
         'en': 'Series',
+    },
+    'section_key': {
+        'uz': 'Rukn',
+        'ru': 'Рубрика',
+        'en': 'Section',
     },
 }
 

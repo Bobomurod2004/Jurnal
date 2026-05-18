@@ -182,7 +182,12 @@
             <div class="col-md-6">
               <div class="mb-3">
                 <label class="form-label">{{ editorial_ui['field_image'] }}</label>
-                <input type="file" class="form-control" name="image" accept=".jpg,.jpeg,.png,.webp,image/*">
+                <input
+                  type="file"
+                  class="form-control"
+                  name="image"
+                  accept=".jpg,.jpeg,.png,.webp,image/*"
+                  data-current-files-text="{{ (member.image or '').split('?')[0].split('#')[0].split('/')[-1] }}">
                 {% if member.image %}
                 <div class="mt-3 d-flex align-items-center gap-3">
                   {% if member.image.startswith('/') %}
@@ -192,6 +197,9 @@
                   <img src="{{ url_for('static', filename=member.image) }}" alt="{{ member.full_name or member.full_name_uz or member.full_name_ru or 'Member' }}"
                        style="width: 84px; height: 84px; object-fit: cover; border-radius: 10px;">
                   {% endif %}
+                  <div class="small text-muted">
+                    {{ (member.image or '').split('?')[0].split('#')[0].split('/')[-1] }}
+                  </div>
                   <label class="form-check m-0">
                     <input class="form-check-input" type="checkbox" name="remove_image" value="1">
                     <span class="form-check-label">{{ editorial_ui['remove_image'] }}</span>

@@ -73,11 +73,20 @@
       </div>
       <div class="mb-3">
         <label for="cover_image" class="form-label">{{ t("admin_label_upload_cover") }}</label>
-        <input type="file" class="form-control" id="cover_image" name="cover_image" accept="image/*">
+        <input
+          type="file"
+          class="form-control"
+          id="cover_image"
+          name="cover_image"
+          accept="image/*"
+          data-current-files-text="{{ (news.cover_image or '').split('?')[0].split('#')[0].split('/')[-1] }}">
         {% if news.cover_image %}
         <div class="mt-2">
           <img src="{{ news.cover_image }}" alt="{{ t('admin_label_cover') }}"
             style="max-width: 200px; max-height: 200px; border: 1px solid #ccc;" />
+          <div class="small text-muted mt-1">
+            {{ (news.cover_image or '').split('?')[0].split('#')[0].split('/')[-1] }}
+          </div>
         </div>
         {% endif %}
       </div>

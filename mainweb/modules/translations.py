@@ -515,7 +515,7 @@ UZ = {
     'article': 'Maqola',
     'article_id': 'Maqola ID',
     'published_online': 'Onlayn chop etilgan',
-    'received': 'Qabul qilingan sana',
+    'received': 'Kelib tushgan',
     'share': 'Ulashish',
     'cite': 'Iqtibos',
     'metrics': 'Ko\'rsatkichlar',

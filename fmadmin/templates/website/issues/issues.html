@@ -93,9 +93,17 @@
                 {{ t("admin_btn_edit") }}
               </a>
               <a href="{{ url_for('articles', issue=issue.id) }}"
-                class="btn btn-icon btn-outline-info bg-info-lt btn-sm px-2 py-1">
+                class="btn btn-icon btn-outline-info bg-info-lt btn-sm px-2 py-1 me-2">
                 {{ t("admin_btn_show_all_articles") }}
               </a>
+              <button type="button" class="btn btn-icon btn-outline-danger bg-danger-lt btn-sm px-2 py-1"
+                data-bs-toggle="modal"
+                data-bs-target="#modal-delete-issue"
+                data-delete-url="{{ url_for('issue_delete', issue_id=issue.id) }}"
+                data-issue-label="{{ issue.vol_no }}-{{ issue.issue_no }}{% if issue.year %} ({{ issue.year }}){% endif %}"
+                data-issue-articles-count="{{ issue_article_count[issue.id] }}">
+                <i class="ti ti-trash me-1"></i>{{ t("admin_btn_delete") }}
+              </button>
             </div>
           </td>
         </tr>
@@ -131,9 +139,51 @@
   </div>
 </div>
 
+<div class="modal modal-blur fade" id="modal-delete-issue" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <form method="post" id="delete-issue-form" class="modal-content">
+      {% set current_page_url = request.full_path if request.query_string else request.path %}
+      <input type="hidden" name="next" value="{{ current_page_url }}">
+      <div class="modal-header">
+        <h5 class="modal-title">Nashr sonini o'chirish</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning mb-3">
+          <h4 class="alert-title mb-1">Diqqat</h4>
+          <div class="text-muted">Bu amal qaytarilmaydi.</div>
+        </div>
+        <p class="m-0"><strong id="delete-issue-label"></strong> sonini va unga bog'liq
+          <strong id="delete-issue-articles-count">0</strong> ta maqolani chindan ham o'chirmoqchimisiz?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Yo'q</button>
+        <button type="submit" class="btn btn-danger ms-auto">Ha</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 
 {% endblock %}
 
 {% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var modal = document.getElementById('modal-delete-issue');
+    if (!modal) return;
 
+    var form = document.getElementById('delete-issue-form');
+    var labelNode = document.getElementById('delete-issue-label');
+    var countNode = document.getElementById('delete-issue-articles-count');
+
+    modal.addEventListener('show.bs.modal', function (event) {
+      var trigger = event.relatedTarget;
+      if (!trigger) return;
+      form.action = trigger.getAttribute('data-delete-url') || '';
+      labelNode.textContent = trigger.getAttribute('data-issue-label') || '';
+      countNode.textContent = trigger.getAttribute('data-issue-articles-count') || '0';
+    });
+  });
+</script>
 {% endblock %}

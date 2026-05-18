@@ -189,64 +189,73 @@
         <div>
             {% if articles %}
                 {% if has_access %}
-                    {% for article in articles %}
-                    <div class="mb-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm last:mb-0">
-                        <div class="flex text-xs mb-1">
-                            <div class="me-2">{{ t('research_article') }}</div>
-                            {% if issue.is_paid %}
-                            <div class="badge {% if has_access %}badge-success{% else %}badge-warning{% endif %}">
-                                <iconify-icon icon="{% if has_access %}tabler:lock-open{% else %}tabler:lock{% endif %}" class="text-xs"></iconify-icon>
-                                {% if has_access %}{{ t('open_access') }}{% else %}{{ t('closed_access') }}{% endif %}
+                    {% for section in article_sections %}
+                        {% if section.label %}
+                        <div class="mb-3 mt-5">
+                            <div class="flex items-center gap-3">
+                                <span class="h-px flex-1 bg-slate-200"></span>
+                                <h5 class="text-base font-extrabold uppercase tracking-wide text-slate-900">{{ section.label }}</h5>
+                                <span class="h-px flex-1 bg-slate-200"></span>
                             </div>
-                            {% else %}
-                            <div class="badge badge-success">
-                                <iconify-icon icon="tabler:lock-open" class="text-xs"></iconify-icon>
-                                    {{ t('open_access') }}
-                            </div>
-                            {% endif %}
-                        </div>
-                        <div class="">
-                            <a href="{{ url_for('app__article', article_id=article.id) }}" class="hover:underline text-xl font-medium underline-offset-4 decoration-green-600/0 hover:decoration-green-600 transition-all break-words leading-relaxed">
-                                {{ article.title }}
-                            </a>
-                        </div>
-                        <div class="mt-2">
-                            <div class="text-sm break-words">
-                                {% if article.author_profiles %}
-                                    {{ render_author_list(article.author_profiles, author_tooltip_ui) }}
-                                {% else %}
-                                    {{ article.authors }}
-                                {% endif %}
-                            </div>
-                            <div class="text-sm italic text-gray-600">{{ t('article') }} {{ article.id }}</div>
-                            {% if article.page_range %}
-                            <div class="text-sm text-gray-600">{{ t('pages') }}: {{ article.page_range }}</div>
-                            {% endif %}
-                            {% if article.doi %}
-                            <div class="text-sm text-gray-600 mt-1">
-                                {% if article.doi_link %}
-                                <a href="{{ article.doi_link }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-blue-700 hover:text-blue-900">
-                                    <img src="{{ url_for('static', filename='doi-logo.png') }}" alt="DOI" style="width:14px;height:14px;border-radius:3px;">
-                                    <span>{{ article.doi }}</span>
-                                </a>
-                                {% else %}
-                                <span class="inline-flex items-center gap-1">
-                                    <img src="{{ url_for('static', filename='doi-logo.png') }}" alt="DOI" style="width:14px;height:14px;border-radius:3px;">
-                                    <span>{{ article.doi }}</span>
-                                </span>
-                                {% endif %}
-                            </div>
-                            {% endif %}
-                        </div>
-                        {% if has_access %}
-                        <div class="mt-3">
-                            <a href="{{ url_for('app__download_article', article_id=article.id) }}" target="_blank" rel="noopener noreferrer" class="text-blue-800 text-xs flex items-center">
-                                <iconify-icon icon="tabler:file-type-pdf" class="text-lg"></iconify-icon>
-                                <span class="text-xs text-blue-800 hover:text-blue-900 transition-colors border-green-400/0 border-b-1 hover:border-green-600">{{ t('download_pdf') }}</span>
-                            </a>
                         </div>
                         {% endif %}
-                    </div>
+                        {% for article in section.articles %}
+                        <div class="mb-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm last:mb-0">
+                            <div class="flex text-xs mb-1">
+                                <div class="me-2">{{ t('research_article') }}</div>
+                                {% if issue.is_paid %}
+                                <div class="badge {% if has_access %}badge-success{% else %}badge-warning{% endif %}">
+                                    <iconify-icon icon="{% if has_access %}tabler:lock-open{% else %}tabler:lock{% endif %}" class="text-xs"></iconify-icon>
+                                    {% if has_access %}{{ t('open_access') }}{% else %}{{ t('closed_access') }}{% endif %}
+                                </div>
+                                {% else %}
+                                <div class="badge badge-success">
+                                    <iconify-icon icon="tabler:lock-open" class="text-xs"></iconify-icon>
+                                        {{ t('open_access') }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="">
+                                <a href="{{ url_for('app__article', article_id=article.id) }}" class="hover:underline text-xl font-medium underline-offset-4 decoration-green-600/0 hover:decoration-green-600 transition-all break-words leading-relaxed">
+                                    {{ article.title }}
+                                </a>
+                            </div>
+                            <div class="mt-2">
+                                <div class="text-sm break-words">
+                                    {% if article.author_profiles %}
+                                        {{ render_author_list(article.author_profiles, author_tooltip_ui) }}
+                                    {% else %}
+                                        {{ article.authors }}
+                                    {% endif %}
+                                </div>
+                                <div class="text-sm italic text-gray-600">{{ t('article') }} {{ article.id }}</div>
+                                {% if article.page_range %}
+                                <div class="text-sm text-gray-600">{{ t('pages') }}: {{ article.page_range }}</div>
+                                {% endif %}
+                                {% if article.doi %}
+                                <div class="text-sm text-gray-600 mt-1">
+                                    {% if article.doi_link %}
+                                    <a href="{{ article.doi_link }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-blue-700 hover:text-blue-900">
+                                        <img src="{{ url_for('static', filename='doi-logo.png') }}" alt="DOI" style="width:14px;height:14px;border-radius:3px;">
+                                        <span>{{ article.doi }}</span>
+                                    </a>
+                                    {% else %}
+                                    <span class="inline-flex items-center gap-1">
+                                        <img src="{{ url_for('static', filename='doi-logo.png') }}" alt="DOI" style="width:14px;height:14px;border-radius:3px;">
+                                        <span>{{ article.doi }}</span>
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="mt-3">
+                                <a href="{{ url_for('app__download_article', article_id=article.id) }}" target="_blank" rel="noopener noreferrer" class="text-blue-800 text-xs flex items-center">
+                                    <iconify-icon icon="tabler:file-type-pdf" class="text-lg"></iconify-icon>
+                                    <span class="text-xs text-blue-800 hover:text-blue-900 transition-colors border-green-400/0 border-b-1 hover:border-green-600">{{ t('download_pdf') }}</span>
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
                     {% endfor %}
                 {% else %}
                     <div class="text-center py-8 text-gray-500">

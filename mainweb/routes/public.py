@@ -22,6 +22,7 @@ from utils.roles import hydrate_user_roles, user_has_role
 from shared.publication_metadata import (
     publication_metadata_field_labels,
     publication_metadata_label,
+    publication_metadata_options,
 )
 
 EDITORIAL_MEMBER_TYPE_LABELS = {
@@ -206,6 +207,11 @@ ALLOWED_TARIFF_FEATURE_PERMISSIONS = {
     'article_discount',
     'issue_discount',
 }
+ACTIVITY_EVENT_TYPES = {'view', 'download'}
+UNKNOWN_COUNTRY_KEY = 'unknown'
+UNKNOWN_COUNTRY_NAME = 'Unknown country'
+ACTIVITY_EVENTS_BOOTSTRAP_MIGRATION = 'bootstrap_legacy_stats_v1'
+ACTIVITY_EVENTS_BOOTSTRAP_LOCK_ID = 741920531
 
 COUNTRY_ISO_BY_NAME = {
     # Central Asia
@@ -937,8 +943,8 @@ def _author_tooltip_payload(author_row, lang=None):
     }
 
 
-def _ensure_country_activity_stats_table():
-    if getattr(_ensure_country_activity_stats_table, '_ready', False):
+def _ensure_activity_events_table():
+    if getattr(_ensure_activity_events_table, '_ready', False):
         return True
 
     cursor = None
@@ -946,33 +952,263 @@ def _ensure_country_activity_stats_table():
         cursor = dbc.conn.cursor()
         cursor.execute(
             """
-            CREATE TABLE IF NOT EXISTS country_activity_stats (
-                country_key TEXT PRIMARY KEY,
+            CREATE TABLE IF NOT EXISTS activity_events (
+                id BIGSERIAL PRIMARY KEY,
+                event_type TEXT NOT NULL,
+                publication_id BIGINT NULL,
+                issue_id BIGINT NULL,
+                user_id BIGINT NULL,
+                country_key TEXT NOT NULL,
                 country_name TEXT NOT NULL,
-                views_count BIGINT NOT NULL DEFAULT 0,
-                downloads_count BIGINT NOT NULL DEFAULT 0,
-                created_at BIGINT NOT NULL,
-                updated_at BIGINT NOT NULL
+                created_at BIGINT NOT NULL
             );
             """
         )
         cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_country_activity_stats_updated_at "
-            "ON country_activity_stats(updated_at);"
+            "CREATE INDEX IF NOT EXISTS idx_activity_events_type_created "
+            "ON activity_events(event_type, created_at DESC);"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_activity_events_country_key "
+            "ON activity_events(country_key);"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_activity_events_publication_id "
+            "ON activity_events(publication_id);"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_activity_events_issue_id "
+            "ON activity_events(issue_id);"
         )
         dbc.conn.commit()
-        _ensure_country_activity_stats_table._ready = True
+        _ensure_activity_events_table._ready = True
         return True
     except Exception:
         try:
             dbc.conn.rollback()
         except Exception:
             pass
-        logger.exception("Failed to ensure country_activity_stats table")
+        logger.exception("Failed to ensure activity_events table")
         return False
     finally:
         if cursor is not None:
             cursor.close()
+
+
+def _insert_activity_event_rows(cursor, metric_key, country_key, country_name, amount, created_at_ts):
+    amount_int = max(0, _parse_int(amount) or 0)
+    if amount_int <= 0:
+        return 0
+
+    inserted_total = 0
+    batch_size = 1000
+    while inserted_total < amount_int:
+        remaining = amount_int - inserted_total
+        chunk_size = min(batch_size, remaining)
+        params = [
+            (
+                metric_key,
+                None,
+                None,
+                None,
+                country_key,
+                country_name,
+                created_at_ts,
+            )
+            for _ in range(chunk_size)
+        ]
+        cursor.executemany(
+            """
+            INSERT INTO activity_events (
+                event_type,
+                publication_id,
+                issue_id,
+                user_id,
+                country_key,
+                country_name,
+                created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            params
+        )
+        inserted_total += chunk_size
+    return inserted_total
+
+
+def _bootstrap_activity_events_from_legacy():
+    if getattr(_bootstrap_activity_events_from_legacy, '_done', False):
+        return
+
+    cursor = None
+    try:
+        cursor = dbc.conn.cursor()
+        cursor.execute("SELECT pg_advisory_xact_lock(%s);", (ACTIVITY_EVENTS_BOOTSTRAP_LOCK_ID,))
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS activity_event_migrations (
+                migration_name TEXT PRIMARY KEY,
+                applied_at BIGINT NOT NULL DEFAULT 0
+            );
+            """
+        )
+        cursor.execute(
+            """
+            SELECT applied_at
+            FROM activity_event_migrations
+            WHERE migration_name = %s
+            LIMIT 1
+            """,
+            (ACTIVITY_EVENTS_BOOTSTRAP_MIGRATION,)
+        )
+        migration_row = cursor.fetchone()
+        if migration_row and (_parse_int(migration_row[0]) or 0) > 0:
+            dbc.conn.commit()
+            _bootstrap_activity_events_from_legacy._done = True
+            return
+
+        if not migration_row:
+            cursor.execute(
+                """
+                INSERT INTO activity_event_migrations (migration_name, applied_at)
+                VALUES (%s, 0)
+                ON CONFLICT (migration_name) DO NOTHING
+                """,
+                (ACTIVITY_EVENTS_BOOTSTRAP_MIGRATION,)
+            )
+
+        cursor.execute(
+            """
+            SELECT
+                COALESCE(SUM(CASE WHEN event_type = 'view' THEN 1 ELSE 0 END), 0) AS views_count,
+                COALESCE(SUM(CASE WHEN event_type = 'download' THEN 1 ELSE 0 END), 0) AS downloads_count
+            FROM activity_events
+            """
+        )
+        existing_totals = cursor.fetchone() or (0, 0)
+        existing_views = max(0, _parse_int(existing_totals[0]) or 0)
+        existing_downloads = max(0, _parse_int(existing_totals[1]) or 0)
+
+        cursor.execute(
+            """
+            SELECT
+                COALESCE(SUM(stat_views), 0) AS views_count,
+                COALESCE(SUM(stat_alt), 0) AS downloads_count
+            FROM publications
+            """
+        )
+        publication_totals = cursor.fetchone() or (0, 0)
+        publication_views = max(0, _parse_int(publication_totals[0]) or 0)
+        publication_downloads = max(0, _parse_int(publication_totals[1]) or 0)
+
+        legacy_rows = []
+        cursor.execute("SELECT to_regclass('public.country_activity_stats');")
+        legacy_table_row = cursor.fetchone()
+        legacy_table_exists = bool(legacy_table_row and legacy_table_row[0])
+        if legacy_table_exists:
+            cursor.execute(
+                """
+                SELECT
+                    COALESCE(NULLIF(TRIM(country_key), ''), ''),
+                    COALESCE(NULLIF(TRIM(country_name), ''), ''),
+                    COALESCE(views_count, 0),
+                    COALESCE(downloads_count, 0)
+                FROM country_activity_stats
+                """
+            )
+            legacy_rows = cursor.fetchall() or []
+
+        now_ts = int(time.time())
+        legacy_views_total = 0
+        legacy_downloads_total = 0
+
+        for legacy_country_key, legacy_country_name, views_count, downloads_count in legacy_rows:
+            key_text = _clean_text(legacy_country_key).lower()
+            name_text = _normalize_country_name(legacy_country_name)
+
+            if key_text == UNKNOWN_COUNTRY_KEY:
+                bucket_key = UNKNOWN_COUNTRY_KEY
+                bucket_name = UNKNOWN_COUNTRY_NAME
+            elif key_text and re.match(r'^[a-z]{2}$', key_text):
+                bucket_key = key_text
+                bucket_name = COUNTRY_DISPLAY_BY_ISO.get(key_text) or name_text or key_text.upper()
+            else:
+                bucket_key, bucket_name, _bucket_iso = _country_stat_bucket(name_text)
+                if not bucket_key:
+                    bucket_key = UNKNOWN_COUNTRY_KEY
+                    bucket_name = UNKNOWN_COUNTRY_NAME
+
+            views_int = max(0, _parse_int(views_count) or 0)
+            downloads_int = max(0, _parse_int(downloads_count) or 0)
+            if views_int > 0:
+                _insert_activity_event_rows(
+                    cursor,
+                    metric_key='view',
+                    country_key=bucket_key,
+                    country_name=bucket_name,
+                    amount=views_int,
+                    created_at_ts=now_ts,
+                )
+                legacy_views_total += views_int
+            if downloads_int > 0:
+                _insert_activity_event_rows(
+                    cursor,
+                    metric_key='download',
+                    country_key=bucket_key,
+                    country_name=bucket_name,
+                    amount=downloads_int,
+                    created_at_ts=now_ts,
+                )
+                legacy_downloads_total += downloads_int
+
+        remaining_views = max(0, publication_views - existing_views - legacy_views_total)
+        remaining_downloads = max(0, publication_downloads - existing_downloads - legacy_downloads_total)
+
+        if remaining_views > 0:
+            _insert_activity_event_rows(
+                cursor,
+                metric_key='view',
+                country_key=UNKNOWN_COUNTRY_KEY,
+                country_name=UNKNOWN_COUNTRY_NAME,
+                amount=remaining_views,
+                created_at_ts=now_ts,
+            )
+        if remaining_downloads > 0:
+            _insert_activity_event_rows(
+                cursor,
+                metric_key='download',
+                country_key=UNKNOWN_COUNTRY_KEY,
+                country_name=UNKNOWN_COUNTRY_NAME,
+                amount=remaining_downloads,
+                created_at_ts=now_ts,
+            )
+
+        cursor.execute(
+            """
+            UPDATE activity_event_migrations
+            SET applied_at = %s
+            WHERE migration_name = %s
+            """,
+            (now_ts, ACTIVITY_EVENTS_BOOTSTRAP_MIGRATION)
+        )
+        dbc.conn.commit()
+        _bootstrap_activity_events_from_legacy._done = True
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+        logger.exception("Failed to bootstrap activity_events from legacy stats")
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+
+def _ensure_activity_events_ready():
+    if not _ensure_activity_events_table():
+        return False
+    _bootstrap_activity_events_from_legacy()
+    return True
 
 
 def _resolve_user_country_name(user_id):
@@ -1049,52 +1285,64 @@ def _resolve_request_country_name():
     return ''
 
 
-def _record_country_activity(user_id, metric, amount=1):
+def _resolve_activity_country_bucket(user_id):
+    country_name = _resolve_user_country_name(user_id)
+    if not country_name:
+        country_name = _resolve_request_country_name()
+    if not country_name:
+        return UNKNOWN_COUNTRY_KEY, UNKNOWN_COUNTRY_NAME
+
+    bucket_key, display_name, _iso = _country_stat_bucket(country_name)
+    if not bucket_key or not display_name:
+        return UNKNOWN_COUNTRY_KEY, UNKNOWN_COUNTRY_NAME
+    return bucket_key, display_name
+
+
+def _record_activity_event(user_id, metric, publication_id=None, issue_id=None, amount=1):
     metric_key = _clean_text(metric).lower()
-    if metric_key not in {'view', 'download'}:
+    if metric_key not in ACTIVITY_EVENT_TYPES:
         return
     amount_int = _parse_int(amount) or 0
     if amount_int <= 0:
         return
 
-    country_name = _resolve_user_country_name(user_id)
-    if not country_name:
-        country_name = _resolve_request_country_name()
-    if not country_name:
+    if not _ensure_activity_events_ready():
         return
 
-    bucket_key, display_name, _iso = _country_stat_bucket(country_name)
-    if not bucket_key or not display_name:
-        return
-
-    if not _ensure_country_activity_stats_table():
-        return
-
-    views_inc = amount_int if metric_key == 'view' else 0
-    downloads_inc = amount_int if metric_key == 'download' else 0
+    publication_id_int = _parse_int(publication_id)
+    issue_id_int = _parse_int(issue_id)
+    user_id_int = _parse_int(user_id)
+    country_key, country_name = _resolve_activity_country_bucket(user_id)
     now_ts = int(time.time())
     cursor = None
     try:
         cursor = dbc.conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO country_activity_stats (
+        params = [
+            (
+                metric_key,
+                publication_id_int,
+                issue_id_int,
+                user_id_int,
                 country_key,
                 country_name,
-                views_count,
-                downloads_count,
-                created_at,
-                updated_at
+                now_ts,
             )
-            VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (country_key) DO UPDATE
-            SET
-                country_name = EXCLUDED.country_name,
-                views_count = country_activity_stats.views_count + EXCLUDED.views_count,
-                downloads_count = country_activity_stats.downloads_count + EXCLUDED.downloads_count,
-                updated_at = EXCLUDED.updated_at;
+            for _ in range(amount_int)
+        ]
+        cursor.executemany(
+            """
+            INSERT INTO activity_events (
+                event_type,
+                publication_id,
+                issue_id,
+                user_id,
+                country_key,
+                country_name,
+                created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
-            (bucket_key, display_name, views_inc, downloads_inc, now_ts, now_ts)
+            params
         )
         dbc.conn.commit()
     except Exception:
@@ -1102,7 +1350,14 @@ def _record_country_activity(user_id, metric, amount=1):
             dbc.conn.rollback()
         except Exception:
             pass
-        logger.exception("Failed to record country activity: user_id=%s metric=%s", user_id, metric_key)
+        logger.exception(
+            "Failed to record activity event: user_id=%s metric=%s publication_id=%s issue_id=%s amount=%s",
+            user_id,
+            metric_key,
+            publication_id_int,
+            issue_id_int,
+            amount_int,
+        )
     finally:
         if cursor is not None:
             cursor.close()
@@ -1810,10 +2065,29 @@ def app__index():
 
     try:
         stat_total_publications = dbc.publications.count().exec() or 0
-        stat_total_views = dbc.publications.summ('stat_views', is_overall=True).exec() or 0
-        stat_total_downloads = dbc.publications.summ('stat_alt', is_overall=True).exec() or 0
         stat_total_authors = dbc.author_profile.count().exec() or 0
         stat_total_issues = dbc.issues.count().exec() or 0
+
+        stat_total_views = 0
+        stat_total_downloads = 0
+        if _ensure_activity_events_ready():
+            cursor = None
+            try:
+                cursor = dbc.conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT
+                        COALESCE(SUM(CASE WHEN event_type = 'view' THEN 1 ELSE 0 END), 0) AS views_count,
+                        COALESCE(SUM(CASE WHEN event_type = 'download' THEN 1 ELSE 0 END), 0) AS downloads_count
+                    FROM activity_events
+                    """
+                )
+                totals_row = cursor.fetchone() or (0, 0)
+                stat_total_views = _parse_int(totals_row[0]) or 0
+                stat_total_downloads = _parse_int(totals_row[1]) or 0
+            finally:
+                if cursor is not None:
+                    cursor.close()
     except Exception:
         stat_total_publications = 0
         stat_total_views = 0
@@ -1849,11 +2123,16 @@ def app__index():
         author_rows = cursor.fetchall() or []
 
         activity_rows = []
-        if _ensure_country_activity_stats_table():
+        if _ensure_activity_events_ready():
             cursor.execute(
                 """
-                SELECT country_name, views_count, downloads_count
-                FROM country_activity_stats
+                SELECT
+                    country_key,
+                    country_name,
+                    COALESCE(SUM(CASE WHEN event_type = 'view' THEN 1 ELSE 0 END), 0) AS views_count,
+                    COALESCE(SUM(CASE WHEN event_type = 'download' THEN 1 ELSE 0 END), 0) AS downloads_count
+                FROM activity_events
+                GROUP BY country_key, country_name
                 """
             )
             activity_rows = cursor.fetchall() or []
@@ -1861,8 +2140,28 @@ def app__index():
 
         aggregated = {}
 
-        def _merge_country_row(country_name, authors=0, views=0, downloads=0):
-            bucket_key, display_name, iso = _country_stat_bucket(country_name)
+        def _merge_country_row(country_name='', country_key='', authors=0, views=0, downloads=0):
+            normalized_key = _clean_text(country_key).lower()
+            normalized_country_name = _normalize_country_name(country_name)
+
+            if normalized_key == UNKNOWN_COUNTRY_KEY:
+                bucket_key = UNKNOWN_COUNTRY_KEY
+                display_name = UNKNOWN_COUNTRY_NAME
+                iso = ''
+            elif normalized_key:
+                if re.match(r'^[a-z]{2}$', normalized_key):
+                    bucket_key = normalized_key
+                    iso = normalized_key
+                    display_name = COUNTRY_DISPLAY_BY_ISO.get(iso) or normalized_country_name or normalized_key.upper()
+                elif normalized_country_name:
+                    bucket_key, display_name, iso = _country_stat_bucket(normalized_country_name)
+                else:
+                    bucket_key = normalized_key
+                    display_name = normalized_key
+                    iso = ''
+            else:
+                bucket_key, display_name, iso = _country_stat_bucket(normalized_country_name)
+
             if not bucket_key:
                 return
 
@@ -1885,10 +2184,15 @@ def app__index():
                 item['name'] = COUNTRY_DISPLAY_BY_ISO.get(iso) or display_name
 
         for country_name, authors_cnt in author_rows:
-            _merge_country_row(country_name, authors=authors_cnt)
+            _merge_country_row(country_name=country_name, authors=authors_cnt)
 
-        for country_name, views_cnt, downloads_cnt in activity_rows:
-            _merge_country_row(country_name, views=views_cnt, downloads=downloads_cnt)
+        for country_key, country_name, views_cnt, downloads_cnt in activity_rows:
+            _merge_country_row(
+                country_name=country_name,
+                country_key=country_key,
+                views=views_cnt,
+                downloads=downloads_cnt,
+            )
 
         for item in aggregated.values():
             authors_value = max(0, _parse_int(item.get('authors')) or 0)
@@ -1897,7 +2201,8 @@ def app__index():
             item['authors'] = authors_value
             item['views'] = views_value
             item['downloads'] = downloads_value
-            item['count'] = authors_value + views_value + downloads_value
+            # Top ro'yxatda nol ko'rsatmaslik uchun eng katta metrikani chiqaramiz.
+            item['count'] = max(authors_value, views_value, downloads_value)
 
         sorted_stats = sorted(
             aggregated.values(),
@@ -1914,11 +2219,14 @@ def app__index():
         for item in sorted_stats:
             count_value = _parse_int(item.get('count')) or 0
             item['pct'] = round(count_value / max_cnt * 100) if count_value > 0 else 0
-            item['name'] = _localized_country_display_name(
-                item.get('iso'),
-                fallback_name=item.get('name'),
-                lang=current_lang,
-            )
+            if item.get('iso'):
+                item['name'] = _localized_country_display_name(
+                    item.get('iso'),
+                    fallback_name=item.get('name'),
+                    lang=current_lang,
+                )
+            elif item.get('name') == UNKNOWN_COUNTRY_NAME:
+                item['name'] = country_stats_ui.get('unknown_country') or UNKNOWN_COUNTRY_NAME
         country_stats = sorted_stats
         country_stats_top = sorted_stats[:10]
     except Exception:
@@ -2389,6 +2697,7 @@ def app__articles():
             'academic_title_display': publication_metadata_label('academic_title_key', pub.get('academic_title_key'), current_lang),
             'academic_degree_display': publication_metadata_label('academic_degree_key', pub.get('academic_degree_key'), current_lang),
             'series_display': publication_metadata_label('series_key', pub.get('series_key'), current_lang),
+            'section_display': publication_metadata_label('section_key', pub.get('section_key'), current_lang),
         })
 
     all_issues = dbc.issues.get().order_by('year').exec()
@@ -2908,6 +3217,13 @@ def _resolve_article_access(publication, user_id=None):
 def app__issue(issue_id):
     current_lang = _current_lang_code()
     author_tooltip_ui = _author_tooltip_ui_texts()
+    section_options = publication_metadata_options('section_key', current_lang)
+    section_order = [item.get('key') for item in section_options if item.get('key')]
+    section_label_map = {
+        item.get('key'): item.get('label')
+        for item in section_options
+        if item.get('key')
+    }
     issue = dbc.issues.get(id=issue_id).exec()
     if not issue:
         flash('Issue not found', 'error')
@@ -2986,7 +3302,38 @@ def app__issue(issue_id):
                 'doi': doi_value,
                 'doi_link': doi_link,
                 'page_range': _clean_text(pub.get('page_range')),
+                'section_key': _clean_text(pub.get('section_key')),
+                'section_display': publication_metadata_label('section_key', pub.get('section_key'), current_lang),
             })
+
+    article_sections = []
+    for section_key in section_order:
+        items = [item for item in articles if item.get('section_key') == section_key]
+        if not items:
+            continue
+        article_sections.append({
+            'key': section_key,
+            'label': section_label_map.get(section_key) or '',
+            'articles': items,
+        })
+
+    remaining_articles = [
+        item for item in articles
+        if not item.get('section_key') or item.get('section_key') not in section_label_map
+    ]
+    if remaining_articles:
+        article_sections.append({
+            'key': '__unassigned__',
+            'label': '',
+            'articles': remaining_articles,
+        })
+
+    if not article_sections and articles:
+        article_sections = [{
+            'key': '__all__',
+            'label': '',
+            'articles': articles,
+        }]
     issue = translate(issue)
     _apply_localized_content(issue, ('title', 'shortinfo', 'price'), lang=current_lang)
     if prev_issue:
@@ -3001,6 +3348,7 @@ def app__issue(issue_id):
                          prev_issue=prev_issue,
                          next_issue=next_issue,
                          articles=articles,
+                         article_sections=article_sections,
                          issue_toc_download_url=issue_toc_download_url,
                          issue_shortinfo=issue_shortinfo,
                          issue_ui=issue_ui,
@@ -3132,6 +3480,11 @@ def app__article(article_id):
         publication.get('series_key'),
         current_lang
     )
+    publication['section_display'] = publication_metadata_label(
+        'section_key',
+        publication.get('section_key'),
+        current_lang
+    )
     references_count = len(dbc.publication_refs.get(publication_id=article_id).exec())
     citations_count = len(dbc.publication_citations.get(publication_id=article_id).exec())
     publication['references_count'] = references_count
@@ -3143,7 +3496,13 @@ def app__article(article_id):
             publication['stat_views'] = new_views
         except Exception:
             current_app.logger.exception('Failed to update view count for article %s', article_id)
-        _record_country_activity(viewer_user_id, metric='view', amount=1)
+        _record_activity_event(
+            viewer_user_id,
+            metric='view',
+            publication_id=article_id,
+            issue_id=issue_id,
+            amount=1,
+        )
     access_context = _resolve_article_access_context(publication, session.get('user_id'))
     has_access = bool(access_context.get('has_access'))
     purchase_currency = _default_currency_for_language()
@@ -3487,7 +3846,13 @@ def app__download_article(article_id):
         dbc.publications.get(id=article_id).update(stat_alt=new_downloads).exec()
     except Exception:
         current_app.logger.exception('Failed to update download count for article %s', article_id)
-    _record_country_activity(session.get('user_id'), metric='download', amount=1)
+    _record_activity_event(
+        session.get('user_id'),
+        metric='download',
+        publication_id=article_id,
+        issue_id=publication.get('issue_id'),
+        amount=1,
+    )
 
     mime_type = mimetypes.guess_type(selected_file_path)[0] or 'application/pdf'
     return send_file(
@@ -3567,7 +3932,12 @@ def app__download_issue(issue_id):
                 dbc.publications.get(id=publication.get('id')).update(stat_alt=new_downloads).exec()
             except Exception:
                 current_app.logger.exception('Failed to update download count for article %s', publication.get('id'))
-    _record_country_activity(session.get('user_id'), metric='download', amount=len(downloadable_files))
+    _record_activity_event(
+        session.get('user_id'),
+        metric='download',
+        issue_id=issue_id,
+        amount=len(downloadable_files),
+    )
 
     archive_buffer.seek(0)
     issue_filename = f"volume-{_clean_text(issue.get('vol_no')) or 'x'}-issue-{_clean_text(issue.get('issue_no')) or 'x'}"

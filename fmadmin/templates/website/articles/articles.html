@@ -96,6 +96,9 @@
               {% if not article.title_display and not article.title %}
               <div class="text-danger small">Sarlavha to'ldirilmagan</div>
               {% endif %}
+              {% if article.section_display %}
+              <div class="text-muted small">Rukn: {{ article.section_display }}</div>
+              {% endif %}
               <div class="text-muted small">
                 {% set author_links = [] %}
                 {% if article.main_author_id and article.main_author_id in authors_map %}
@@ -135,9 +138,16 @@
                 {{ t("admin_btn_edit") }}
               </a>
               <a href="{{ url_for('article_content', article_id=article.id) }}"
-                class="btn btn-icon btn-outline-info bg-info-lt btn-sm px-2 py-1">
+                class="btn btn-icon btn-outline-info bg-info-lt btn-sm px-2 py-1 me-2">
                 {{ t("admin_btn_content") }}
               </a>
+              <button type="button" class="btn btn-icon btn-outline-danger bg-danger-lt btn-sm px-2 py-1"
+                data-bs-toggle="modal"
+                data-bs-target="#modal-delete-article"
+                data-delete-url="{{ url_for('article_delete', article_id=article.id) }}"
+                data-article-title="{{ article.title_display or article.title or ('ID ' ~ article.id) }}">
+                <i class="ti ti-trash me-1"></i>{{ t("admin_btn_delete") }}
+              </button>
             </div>
           </td>
         </tr>
@@ -173,9 +183,47 @@
   </div>
 </div>
 
+<div class="modal modal-blur fade" id="modal-delete-article" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <form method="post" id="delete-article-form" class="modal-content">
+      {% set current_page_url = request.full_path if request.query_string else request.path %}
+      <input type="hidden" name="next" value="{{ current_page_url }}">
+      <div class="modal-header">
+        <h5 class="modal-title">Maqolani o'chirish</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning mb-3">
+          <h4 class="alert-title mb-1">Diqqat</h4>
+          <div class="text-muted">Bu amal qaytarilmaydi.</div>
+        </div>
+        <p class="m-0"><strong id="delete-article-title"></strong> maqolasini chindan ham o'chirmoqchimisiz?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Yo'q</button>
+        <button type="submit" class="btn btn-danger ms-auto">Ha</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 {% endblock %}
 
 {% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var modal = document.getElementById('modal-delete-article');
+    if (!modal) return;
 
+    var form = document.getElementById('delete-article-form');
+    var titleNode = document.getElementById('delete-article-title');
+
+    modal.addEventListener('show.bs.modal', function (event) {
+      var trigger = event.relatedTarget;
+      if (!trigger) return;
+      form.action = trigger.getAttribute('data-delete-url') || '';
+      titleNode.textContent = trigger.getAttribute('data-article-title') || '';
+    });
+  });
+</script>
 {% endblock %}

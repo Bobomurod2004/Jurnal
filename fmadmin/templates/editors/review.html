@@ -150,10 +150,18 @@
 
               <div class="mb-3">
                 <label class="form-label">Ilova fayl</label>
-                <input type="file" class="form-control" name="editor_file" accept=".pdf,.doc,.docx,.txt">
+                <input
+                  type="file"
+                  class="form-control"
+                  name="editor_file"
+                  accept=".pdf,.doc,.docx,.txt"
+                  data-current-files-text="{{ (assignment.editor_file or '').split('?')[0].split('#')[0].split('/')[-1] }}">
                 <small class="form-hint">Annotatsiya varaqasi yoki to'liq review fayli yuklashingiz mumkin.</small>
                 {% if assignment.editor_file %}
                 <div class="mt-2">
+                  <div class="small text-muted mb-1">
+                    {{ (assignment.editor_file or '').split('?')[0].split('#')[0].split('/')[-1] }}
+                  </div>
                   <a href="{{ assignment.editor_file }}" target="_blank" class="btn btn-sm btn-outline-primary">
                     <i class="ti ti-file"></i>
                     Joriy faylni ochish

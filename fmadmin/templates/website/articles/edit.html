@@ -188,6 +188,15 @@
                         </select>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">{{ metadata_labels.section_key }}</label>
+                        <select class="form-select" name="section_key">
+                            <option value="">{{ t("admin_label_not_selected") }}</option>
+                            {% for option in section_options %}
+                            <option value="{{ option.key }}" {% if article.section_key==option.key %}selected{% endif %}>{{ option.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_additional_info") }}</label>
                         <textarea class="form-control ckeditor-word" name="additional"
                             rows="3" data-editor-height="180">{{ article.additional or '' }}</textarea>
@@ -215,12 +224,44 @@
                         <label class="form-label">{{ t("admin_label_pdf_files") }}</label>
                         {% if article.file_ids %}
                         <div class="mb-2">
-                            <small class="text-muted">{{ t("admin_label_current_files") }} (ID: {{
+                            <small class="text-muted d-block">{{ t("admin_label_current_files") }} (ID: {{
                                 article.file_ids|join(', ') }})</small>
-                            <input type="hidden" name="file_ids" value="{{ article.file_ids|join(', ') }}">
+                            {% if article_file_items %}
+                            <input type="hidden" name="keep_file_ids_present" value="1">
+                            <ul class="mb-0 mt-1 ps-3 small">
+                                {% for file_item in article_file_items %}
+                                <li>
+                                    <label class="form-check m-0 d-flex align-items-center gap-2">
+                                        <input
+                                            class="form-check-input"
+                                            type="checkbox"
+                                            name="keep_file_ids"
+                                            value="{{ file_item.id }}"
+                                            checked>
+                                        <span class="form-check-label">
+                                            {% if file_item.filepath %}
+                                            <a href="{{ file_item.filepath }}" target="_blank" rel="noopener noreferrer">
+                                                {{ file_item.name }}
+                                            </a>
+                                            {% else %}
+                                            {{ file_item.name }}
+                                            {% endif %}
+                                        </span>
+                                    </label>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            <small class="form-hint d-block mt-1">Keraksiz fayllardan belgi olib tashlang va saqlang — ular bazadan ham o'chiriladi.</small>
+                            {% endif %}
                         </div>
                         {% endif %}
-                        <input type="file" class="form-control" name="pdf_files" accept=".pdf" multiple>
+                        <input
+                            type="file"
+                            class="form-control"
+                            name="pdf_files"
+                            accept=".pdf"
+                            multiple
+                            data-current-files-text="{{ article_current_files_text }}">
                         <small class="form-hint">{{ t("admin_hint_pdf_upload") }}</small>
                     </div>
                     <div class="mb-3">
