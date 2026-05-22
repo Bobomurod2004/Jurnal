@@ -8,6 +8,18 @@ from mainweb.routes import dashboard as dashboard_routes
 from mainweb.routes import public as public_routes
 
 
+def test_publication_recent_sort_key_prefers_publish_date_then_id():
+    publications = [
+        {'id': 18, 'date_publish': 1765584000},  # 2025-12-12
+        {'id': 17, 'date_publish': 1797033600},  # 2026-12-12
+        {'id': 21, 'date_publish': 1797033600},  # Same date as id=17, higher id should win
+    ]
+
+    ordered = sorted(publications, key=public_routes._publication_recent_sort_key, reverse=True)
+
+    assert [row['id'] for row in ordered] == [21, 17, 18]
+
+
 class _FakeQuery:
     def __init__(self, rows):
         self._rows = [dict(row) for row in rows]
@@ -358,6 +370,62 @@ def test_article_html_sanitizer_formats_plain_text_as_paragraphs():
     cleaned = fm_web._sanitize_article_block_html(raw)
 
     assert cleaned == '<p>Birinchi satr<br>Ikkinchi satr</p><p>Uchinchi satr</p>'
+
+
+def test_ensure_issue_columns_force_syncs_toc_column_when_runtime_sync_disabled(monkeypatch):
+    from fmadmin.routes import web as fm_web
+
+    class _IssueSchemaCursor:
+        def __init__(self, fake_db):
+            self._db = fake_db
+
+        def execute(self, query, _args=None):
+            self._db.executed_queries.append(str(query))
+            if 'ALTER TABLE issues ADD COLUMN IF NOT EXISTS table_of_contents_file text;' in str(query):
+                self._db.alter_issues_called = True
+
+        def close(self):
+            return None
+
+    class _IssueSchemaConn:
+        def __init__(self, fake_db):
+            self._db = fake_db
+            self.commit_calls = 0
+            self.rollback_calls = 0
+
+        def cursor(self):
+            return _IssueSchemaCursor(self._db)
+
+        def commit(self):
+            self.commit_calls += 1
+
+        def rollback(self):
+            self.rollback_calls += 1
+
+    class _IssueSchemaDB:
+        def __init__(self):
+            self.columns = {'issues': ['id', 'title']}
+            self.executed_queries = []
+            self.alter_issues_called = False
+            self.conn = _IssueSchemaConn(self)
+
+        def _init_tables(self):
+            return None
+
+        def _init_columns(self):
+            if self.alter_issues_called:
+                self.columns['issues'] = ['id', 'title', 'table_of_contents_file']
+
+    fake_db = _IssueSchemaDB()
+    monkeypatch.setattr(fm_web.settings, 'RUNTIME_SCHEMA_SYNC_ENABLED', False)
+    monkeypatch.setattr(fm_web, 'db', fake_db)
+
+    assert fm_web._ensure_issue_columns(force=False) is False
+    assert fake_db.executed_queries == []
+
+    assert fm_web._ensure_issue_columns(force=True) is True
+    assert any('ALTER TABLE issues ADD COLUMN IF NOT EXISTS table_of_contents_file text;' in query for query in fake_db.executed_queries)
+    assert fake_db.conn.commit_calls == 1
 
 
 def test_ensure_seed_page_backfills_localized_fields_from_seed(monkeypatch):

@@ -1,32 +1,98 @@
 <!doctype html>
 <html lang="en">
-  <body style="margin:0;padding:0;background:#f5f7fb;font-family:Arial,sans-serif;color:#1f2937;">
-    <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
-      <div style="background:#ffffff;border:1px solid #dbe3f0;border-radius:16px;padding:32px;">
-        <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;margin-bottom:12px;">Philology Matters</div>
-        <h1 style="margin:0 0 16px;font-size:28px;line-height:1.2;color:#0f172a;">{{ subject }}</h1>
-        <p style="margin:0 0 20px;font-size:16px;line-height:1.6;">{{ intro }}</p>
-        {% if details %}
-        <div style="margin:0 0 20px;padding:16px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0;">
-          {% for item in details %}
-          <p style="margin:0 0 8px;font-size:14px;line-height:1.5;">
-            <strong>{{ item.label }}:</strong> {{ item.value }}
+  <body style="margin:0;padding:0;background:#edf2f7;font-family:'Segoe UI',Tahoma,Arial,sans-serif;color:#0f172a;">
+    <div style="max-width:720px;margin:0 auto;padding:28px 14px;">
+      <div style="background:#ffffff;border:1px solid #d7e2ee;border-radius:20px;overflow:hidden;box-shadow:0 8px 26px rgba(15,23,42,0.08);">
+        <div style="padding:18px 26px;background:linear-gradient(135deg,#0f766e 0%,#155e75 100%);color:#e6fffb;">
+          <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;opacity:0.95;">Philology Matters</div>
+          <div style="margin-top:8px;font-size:13px;opacity:0.9;">Automated notification</div>
+        </div>
+
+        <div style="padding:28px 26px 26px;">
+          <h1 style="margin:0;font-size:30px;line-height:1.2;color:#0f172a;">{{ headline_subject or subject }}</h1>
+
+          {% if is_multilingual %}
+          <p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:#475569;">
+            This message is provided in Uzbek, Russian, and English.
           </p>
-          {% endfor %}
+          {% endif %}
+
+          {% if language_sections %}
+            {% for section in language_sections %}
+            <div style="margin-top:{% if loop.first %}18{% else %}14{% endif %}px;padding:18px;border:1px solid #d8e3ee;border-radius:14px;background:#f8fbff;">
+              <div style="margin-bottom:12px;">
+                <span style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.03em;{% if section.code == 'uz' %}background:#dcfce7;color:#166534;{% elif section.code == 'ru' %}background:#dbeafe;color:#1d4ed8;{% else %}background:#e2e8f0;color:#0f172a;{% endif %}">
+                  {{ section.label }}
+                </span>
+              </div>
+
+              {% if section.subject and section.subject != (headline_subject or subject) %}
+              <p style="margin:0 0 10px;font-size:18px;line-height:1.35;font-weight:700;color:#0f172a;">{{ section.subject }}</p>
+              {% endif %}
+
+              {% if section.intro %}
+              <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:#1f2937;">{{ section.intro }}</p>
+              {% endif %}
+
+              {% if section.details %}
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;margin:0 0 12px;">
+                {% for item in section.details %}
+                <tr>
+                  <td style="padding:7px 0;font-size:13px;line-height:1.55;color:#475569;vertical-align:top;font-weight:600;white-space:nowrap;">{{ item.label }}:</td>
+                  <td style="padding:7px 0 7px 12px;font-size:14px;line-height:1.55;color:#0f172a;vertical-align:top;">{{ item.value }}</td>
+                </tr>
+                {% endfor %}
+              </table>
+              {% endif %}
+
+              {% if section.body_lines %}
+                {% for line in section.body_lines %}
+                <p style="margin:0 0 11px;font-size:14px;line-height:1.7;color:#334155;">{{ line }}</p>
+                {% endfor %}
+              {% endif %}
+
+              {% if cta_url %}
+              <div style="margin-top:16px;">
+                <a href="{{ cta_url }}" style="display:inline-block;padding:11px 18px;border-radius:10px;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;line-height:1.2;">
+                  {{ section.cta_label or cta_label }}
+                </a>
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          {% else %}
+            {% if intro %}
+            <p style="margin:16px 0 0;font-size:16px;line-height:1.65;color:#1f2937;">{{ intro }}</p>
+            {% endif %}
+
+            {% if details %}
+            <div style="margin-top:16px;padding:16px;border:1px solid #d8e3ee;border-radius:12px;background:#f8fbff;">
+              {% for item in details %}
+              <p style="margin:0 0 9px;font-size:14px;line-height:1.55;color:#334155;">
+                <strong style="color:#0f172a;">{{ item.label }}:</strong> {{ item.value }}
+              </p>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if body_lines %}
+              {% for line in body_lines %}
+              <p style="margin:12px 0 0;font-size:14px;line-height:1.7;color:#334155;">{{ line }}</p>
+              {% endfor %}
+            {% endif %}
+
+            {% if cta_url %}
+            <div style="margin-top:20px;">
+              <a href="{{ cta_url }}" style="display:inline-block;padding:11px 18px;border-radius:10px;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;line-height:1.2;">
+                {{ cta_label }}
+              </a>
+            </div>
+            {% endif %}
+          {% endif %}
         </div>
-        {% endif %}
-        {% if body_lines %}
-          {% for line in body_lines %}
-          <p style="margin:0 0 14px;font-size:15px;line-height:1.7;">{{ line }}</p>
-          {% endfor %}
-        {% endif %}
-        {% if cta_url %}
-        <div style="margin-top:24px;">
-          <a href="{{ cta_url }}" style="display:inline-block;padding:12px 20px;border-radius:10px;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:600;">{{ cta_label }}</a>
-        </div>
-        {% endif %}
       </div>
-      <p style="margin:16px 0 0;font-size:12px;line-height:1.6;color:#64748b;">
+
+      <p style="margin:14px 2px 0;font-size:12px;line-height:1.65;color:#64748b;">
         {{ signature_name }}<br>
         <a href="{{ app_base_url }}" style="color:#0f766e;text-decoration:none;">{{ app_base_url }}</a>
       </p>

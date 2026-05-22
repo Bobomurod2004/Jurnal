@@ -167,13 +167,8 @@
                                     {{ article.authors }}
                                 {% endif %}
                             </div>
-                            {% if article.section_display or article.author_position_display or article.academic_title_display or article.academic_degree_display or article.series_display %}
+                            {% if article.author_position_display or article.academic_title_display or article.academic_degree_display or article.series_display %}
                                 <div class="flex flex-wrap gap-2 mb-2">
-                                    {% if article.section_display %}
-                                        <span class="inline-block bg-gray-100 text-gray-900 text-xs font-bold px-2 py-1 rounded">
-                                            {{ format_labeled_value(metadata_labels.section_key, article.section_display) }}
-                                        </span>
-                                    {% endif %}
                                     {% if article.author_position_display %}
                                         <span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
                                             {{ format_labeled_value(metadata_labels.author_position_key, article.author_position_display) }}

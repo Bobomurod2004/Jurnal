@@ -193,6 +193,60 @@ EMAIL_TEMPLATE_DEFAULTS = [
         'cta_label_ru': 'Открыть детали',
         'cta_label_en': 'Open details',
     },
+    {
+        'alias': 'submission_status_author',
+        'name': 'Submission status update (author)',
+        'description': 'Muallifga maqola holati o\'zgargani haqida xabar',
+        'variables': ['name', 'title', 'status_label', 'action_url'],
+        'subject_uz': 'Maqolangiz holati yangilandi: {{title}}',
+        'subject_ru': 'Статус вашей статьи обновлён: {{title}}',
+        'subject_en': 'Your submission status was updated: {{title}}',
+        'intro_uz': 'Salom {{name}}, "{{title}}" maqolangiz holati yangilandi.',
+        'intro_ru': 'Здравствуйте, {{name}}! Статус вашей статьи "{{title}}" обновлён.',
+        'intro_en': 'Hello {{name}}, your submission "{{title}}" status has been updated.',
+        'body_uz': 'Joriy holat: {{status_label}}.\nBatafsil: {{action_url}}',
+        'body_ru': 'Текущий статус: {{status_label}}.\nПодробнее: {{action_url}}',
+        'body_en': 'Current status: {{status_label}}.\nDetails: {{action_url}}',
+        'cta_label_uz': 'Maqola holatini ochish',
+        'cta_label_ru': 'Открыть статус статьи',
+        'cta_label_en': 'Open submission status',
+    },
+    {
+        'alias': 'payment_status_user',
+        'name': 'Payment status update (user)',
+        'description': 'Foydalanuvchiga to\'lov holati bo\'yicha xabar',
+        'variables': ['name', 'payment_type', 'payment_status', 'amount', 'action_url'],
+        'subject_uz': 'To\'lov holati yangilandi: {{payment_type}}',
+        'subject_ru': 'Статус платежа обновлён: {{payment_type}}',
+        'subject_en': 'Payment status updated: {{payment_type}}',
+        'intro_uz': 'Salom {{name}}, sizning to\'lovingiz bo\'yicha yangi holat mavjud.',
+        'intro_ru': 'Здравствуйте, {{name}}! По вашему платежу есть новое обновление.',
+        'intro_en': 'Hello {{name}}, there is a new update regarding your payment.',
+        'body_uz': 'To\'lov turi: {{payment_type}}.\nHolat: {{payment_status}}.\nSumma: {{amount}}.\nBatafsil: {{action_url}}',
+        'body_ru': 'Тип платежа: {{payment_type}}.\nСтатус: {{payment_status}}.\nСумма: {{amount}}.\nПодробнее: {{action_url}}',
+        'body_en': 'Payment type: {{payment_type}}.\nStatus: {{payment_status}}.\nAmount: {{amount}}.\nDetails: {{action_url}}',
+        'cta_label_uz': 'To\'lovlarni ochish',
+        'cta_label_ru': 'Открыть платежи',
+        'cta_label_en': 'Open payments',
+    },
+    {
+        'alias': 'verification_code_universal',
+        'name': 'Verification code (universal)',
+        'description': 'Ro\'yxatdan o\'tish / parol tiklash uchun tasdiqlash kodi xabari',
+        'variables': ['name', 'code', 'ttl_text', 'action_url'],
+        'subject_uz': 'Tasdiqlash kodi',
+        'subject_ru': 'Код подтверждения',
+        'subject_en': 'Verification code',
+        'intro_uz': 'Salom {{name}}, quyidagi tasdiqlash kodidan foydalaning.',
+        'intro_ru': 'Здравствуйте, {{name}}! Используйте следующий код подтверждения.',
+        'intro_en': 'Hello {{name}}, please use the verification code below.',
+        'body_uz': 'Kod: {{code}}.\nAmal qilish muddati: {{ttl_text}}.\nTasdiqlash havolasi: {{action_url}}',
+        'body_ru': 'Код: {{code}}.\nСрок действия: {{ttl_text}}.\nСсылка для подтверждения: {{action_url}}',
+        'body_en': 'Code: {{code}}.\nValid for: {{ttl_text}}.\nVerification link: {{action_url}}',
+        'cta_label_uz': 'Tasdiqlash sahifasini ochish',
+        'cta_label_ru': 'Открыть страницу подтверждения',
+        'cta_label_en': 'Open verification page',
+    },
 ]
 
 ADMIN_TRACK_CHOICES = [
@@ -2700,17 +2754,18 @@ def _ensure_publication_metadata_columns():
             pass
 
 
-def _ensure_issue_columns():
-    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
-        return
+def _ensure_issue_columns(force=False):
+    if not force and not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        existing_columns = set(db.columns.get('issues', []))
+        return 'table_of_contents_file' in existing_columns
     try:
         existing_columns = set(db.columns.get('issues', []))
         if not existing_columns:
-            return
+            return False
 
         missing_columns = [name for name in ISSUE_EXTRA_COLUMN_TYPES.keys() if name not in existing_columns]
         if not missing_columns:
-            return
+            return True
 
         cursor = db.conn.cursor()
         for column_name in missing_columns:
@@ -2720,12 +2775,16 @@ def _ensure_issue_columns():
         cursor.close()
         db._init_tables()
         db._init_columns()
+        existing_columns = set(db.columns.get('issues', []))
+        return 'table_of_contents_file' in existing_columns
     except Exception as e:
         logger.warning("Issues columns sync warning: %s", e)
         try:
             db.conn.rollback()
         except Exception:
             pass
+    existing_columns = set(db.columns.get('issues', []))
+    return 'table_of_contents_file' in existing_columns
 
 def _ensure_role_notifications_table():
     if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
@@ -2922,6 +2981,54 @@ def _ensure_email_templates_ready(force_schema_sync=False):
     return bool(_ensure_email_templates_table(force=force_schema_sync))
 
 
+def _ensure_email_delivery_logs_table(force=False):
+    if not force and not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        existing_tables = set(getattr(db, 'tables', []) or [])
+        return 'email_delivery_logs' in existing_tables
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS email_delivery_logs (
+                id SERIAL PRIMARY KEY,
+                app TEXT NOT NULL,
+                recipient_email TEXT,
+                subject TEXT,
+                status TEXT NOT NULL,
+                template_alias TEXT,
+                error_text TEXT,
+                created_at BIGINT NOT NULL DEFAULT EXTRACT(epoch FROM now())
+            );
+            """
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_email_delivery_logs_created_at "
+            "ON email_delivery_logs(created_at DESC, id DESC);"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_email_delivery_logs_status "
+            "ON email_delivery_logs(status);"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_email_delivery_logs_recipient "
+            "ON email_delivery_logs(recipient_email);"
+        )
+        db.conn.commit()
+        cursor.close()
+        db._init_tables()
+        db._init_columns()
+        existing_tables = set(getattr(db, 'tables', []) or [])
+        return 'email_delivery_logs' in existing_tables
+    except Exception as e:
+        logger.warning("Email delivery logs table sync warning: %s", e)
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        existing_tables = set(getattr(db, 'tables', []) or [])
+        return 'email_delivery_logs' in existing_tables
+
+
 def run_runtime_schema_syncs():
     if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
         return
@@ -2938,6 +3045,7 @@ def run_runtime_schema_syncs():
     _ensure_role_notifications_table()
     _ensure_editorial_members_table()
     _ensure_email_templates_table()
+    _ensure_email_delivery_logs_table()
 
 
 def _normalize_notification_level(level):
@@ -3276,21 +3384,88 @@ def _resolve_localized_text(value, user_row=None):
     return _clean_text(value)
 
 
-def _normalize_localized_details(details, user_row=None):
+def _localized_map_for_email(value, user_row=None):
+    if isinstance(value, dict):
+        localized = {}
+        for language in ('uz', 'ru', 'en'):
+            text = _clean_text(value.get(language))
+            if text:
+                localized[language] = text
+        if localized:
+            return localized
+        fallback_text = _resolve_localized_text(value, user_row=user_row)
+        if fallback_text:
+            return {'uz': fallback_text}
+        return {}
+
+    resolved = _clean_text(value)
+    if not resolved:
+        return {}
+    return {'uz': resolved}
+
+
+def _format_multilingual_text(value, user_row=None, separator=' | ', include_labels=False):
+    localized_map = _localized_map_for_email(value, user_row=user_row)
+    if not localized_map:
+        return ''
+
+    parts = []
+    for language in ('uz', 'ru', 'en'):
+        text = _clean_text(localized_map.get(language))
+        if not text:
+            continue
+        if include_labels:
+            parts.append(f'[{language.upper()}] {text}')
+        else:
+            parts.append(text)
+
+    if not parts:
+        for text in localized_map.values():
+            resolved = _clean_text(text)
+            if resolved:
+                return resolved
+        return ''
+
+    return separator.join(parts)
+
+
+def _normalize_localized_details(details, user_row=None, multilingual=False):
     normalized = []
     for label, value in details or []:
-        label_text = _resolve_localized_text(label, user_row=user_row)
-        value_text = _resolve_localized_text(value, user_row=user_row)
+        if multilingual:
+            label_text = _format_multilingual_text(
+                label,
+                user_row=user_row,
+                separator=' / ',
+                include_labels=False,
+            )
+            value_text = _format_multilingual_text(
+                value,
+                user_row=user_row,
+                separator=' / ',
+                include_labels=False,
+            )
+        else:
+            label_text = _resolve_localized_text(label, user_row=user_row)
+            value_text = _resolve_localized_text(value, user_row=user_row)
         if not label_text or not value_text:
             continue
         normalized.append((label_text, value_text))
     return normalized
 
 
-def _normalize_localized_body_lines(body_lines, user_row=None):
+def _normalize_localized_body_lines(body_lines, user_row=None, multilingual=False):
     normalized = []
     for line in body_lines or []:
-        line_text = _resolve_localized_text(line, user_row=user_row)
+        if multilingual:
+            line_text = _format_multilingual_text(
+                line,
+                user_row=user_row,
+                separator=' | ',
+                include_labels=True,
+            )
+        else:
+            line_text = _resolve_localized_text(line, user_row=user_row)
         if line_text:
             normalized.append(line_text)
     return normalized
@@ -3315,14 +3490,44 @@ def _send_user_email(
         (user_row or {}).get('ui_language'),
         default=current_notification_language()
     )
-    subject_text, intro_text, _ = prepare_notification_content(
-        title=subject,
-        message=intro,
-        default_language=preferred_language
+    subject_text = _format_multilingual_text(
+        subject,
+        user_row=user_row,
+        separator=' | ',
+        include_labels=False,
     )
-    details_rows = _normalize_localized_details(details, user_row=user_row)
-    body_rows = _normalize_localized_body_lines(body_lines, user_row=user_row)
-    cta_label_text = _resolve_localized_text(cta_label, user_row=user_row) or 'Open'
+    intro_text = _format_multilingual_text(
+        intro,
+        user_row=user_row,
+        separator=' | ',
+        include_labels=True,
+    )
+
+    if not subject_text or not intro_text:
+        fallback_subject, fallback_intro, _ = prepare_notification_content(
+            title=subject,
+            message=intro,
+            default_language=preferred_language
+        )
+        subject_text = subject_text or fallback_subject
+        intro_text = intro_text or fallback_intro
+
+    details_rows = _normalize_localized_details(
+        details,
+        user_row=user_row,
+        multilingual=True,
+    )
+    body_rows = _normalize_localized_body_lines(
+        body_lines,
+        user_row=user_row,
+        multilingual=True,
+    )
+    cta_label_text = _format_multilingual_text(
+        cta_label,
+        user_row=user_row,
+        separator=' / ',
+        include_labels=False,
+    ) or 'Open'
     return send_notification_email(
         recipients=[email],
         subject=subject_text,
@@ -5667,8 +5872,21 @@ def parse_date(date_str, with_time=False):
 @is_superadmin_required
 def issue_edit(issue_id):
     if request.method == 'POST':
-        issue_columns = set(db.columns.get('issues', []) or [])
-        has_toc_column = 'table_of_contents_file' in issue_columns
+        toc_upload_requested = bool(
+            request.files.get('table_of_contents_file')
+            and request.files['table_of_contents_file'].filename
+        )
+        has_toc_column = _ensure_issue_columns(force=toc_upload_requested)
+        if toc_upload_requested and not has_toc_column:
+            new_alert(
+                _msg_text(
+                    "Mundarija faylini saqlash uchun DB sxemasi yangilanmadi. Iltimos migratsiyani ishga tushiring va qayta urinib ko'ring.",
+                    'Не удалось обновить схему БД для сохранения файла оглавления. Запустите миграции и повторите попытку.',
+                    'Could not update DB schema to save the table of contents file. Run migrations and try again.',
+                ),
+                'danger',
+            )
+            return redirect(url_for('issue_edit', issue_id=issue_id))
         cover_image = None
         table_of_contents_file = None
         try:
@@ -6947,6 +7165,138 @@ def email_template_delete(template_id):
     db.email_templates.all().equal(id=template_id).delete().exec()
     flash('Email shabloni o\'chirildi.', 'success')
     return redirect(url_for('email_templates'))
+
+
+@bp.route('/fmadmin/website/email-logs')
+@is_superadmin_required
+def email_logs():
+    if not _ensure_email_delivery_logs_table(force=True):
+        flash('Email loglar jadvali tayyor emas. Iltimos, administratorga murojaat qiling.', 'danger')
+        return redirect(url_for('index'))
+
+    page = max(request.args.get('page', 1, type=int) or 1, 1)
+    per_page = 30
+    search = _clean_text(request.args.get('search')).lower()
+    status_filter = _clean_text(request.args.get('status')).lower()
+    app_filter = _clean_text(request.args.get('app')).lower()
+    scope_filter = _clean_text(request.args.get('scope')).lower()
+
+    where_clauses = []
+    where_args = []
+
+    if search:
+        search_pattern = f"%{search}%"
+        where_clauses.append(
+            "(LOWER(COALESCE(l.recipient_email, '')) LIKE %s "
+            "OR LOWER(COALESCE(l.subject, '')) LIKE %s "
+            "OR LOWER(COALESCE(l.error_text, '')) LIKE %s)"
+        )
+        where_args.extend([search_pattern, search_pattern, search_pattern])
+
+    if status_filter:
+        where_clauses.append("LOWER(COALESCE(l.status, '')) = %s")
+        where_args.append(status_filter)
+
+    if app_filter in {'mainweb', 'fmadmin'}:
+        where_clauses.append("LOWER(COALESCE(l.app, '')) = %s")
+        where_args.append(app_filter)
+
+    if scope_filter == 'staff':
+        where_clauses.append("LOWER(COALESCE(u.rolename, '')) IN ('superadmin', 'admin', 'editor')")
+    elif scope_filter == 'user':
+        where_clauses.append("LOWER(COALESCE(u.rolename, '')) = 'user'")
+    elif scope_filter == 'external':
+        where_clauses.append("u.id IS NULL")
+
+    base_from = (
+        " FROM email_delivery_logs l "
+        "LEFT JOIN users u ON LOWER(COALESCE(u.email, '')) = LOWER(COALESCE(l.recipient_email, '')) "
+    )
+    where_sql = f" WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+    count_rows = _query_rows_dicts(
+        "SELECT COUNT(*)::int AS total" + base_from + where_sql,
+        tuple(where_args),
+    )
+    total_logs = _parse_int((count_rows[0] or {}).get('total')) if count_rows else 0
+    total_logs = total_logs or 0
+    total_pages = max((total_logs + per_page - 1) // per_page, 1)
+    page = min(page, total_pages)
+    offset = (page - 1) * per_page
+
+    logs_rows = _query_rows_dicts(
+        (
+            "SELECT "
+            "l.id, l.app, l.recipient_email, l.subject, l.status, l.template_alias, l.error_text, l.created_at, "
+            "u.id AS user_id, u.rolename AS user_role, u.name AS user_name "
+            + base_from
+            + where_sql
+            + " ORDER BY l.id DESC LIMIT %s OFFSET %s"
+        ),
+        tuple(where_args + [per_page, offset]),
+    )
+
+    summary_rows = _query_rows_dicts(
+        (
+            "SELECT "
+            "SUM(CASE WHEN LOWER(COALESCE(u.rolename, '')) = 'user' THEN 1 ELSE 0 END)::int AS user_count, "
+            "SUM(CASE WHEN LOWER(COALESCE(u.rolename, '')) IN ('superadmin', 'admin', 'editor') THEN 1 ELSE 0 END)::int AS staff_count, "
+            "SUM(CASE WHEN u.id IS NULL THEN 1 ELSE 0 END)::int AS external_count, "
+            "SUM(CASE WHEN LOWER(COALESCE(l.status, '')) = 'sent' THEN 1 ELSE 0 END)::int AS sent_count, "
+            "SUM(CASE WHEN LOWER(COALESCE(l.status, '')) = 'failed' THEN 1 ELSE 0 END)::int AS failed_count "
+            + base_from
+            + where_sql
+        ),
+        tuple(where_args),
+    )
+    summary = summary_rows[0] if summary_rows else {}
+
+    for item in logs_rows:
+        status_value = _clean_text(item.get('status')).lower()
+        if status_value == 'sent':
+            item['status_tone'] = 'success'
+        elif status_value == 'failed':
+            item['status_tone'] = 'danger'
+        elif status_value.startswith('skipped'):
+            item['status_tone'] = 'warning'
+        else:
+            item['status_tone'] = 'secondary'
+
+        role_name = _clean_text(item.get('user_role')).lower()
+        if role_name in {'superadmin', 'admin', 'editor'}:
+            item['recipient_scope'] = 'Staff'
+        elif role_name == 'user':
+            item['recipient_scope'] = 'User'
+        else:
+            item['recipient_scope'] = 'External'
+
+    args_for_pagination = {
+        k: v for k, v in request.args.items()
+        if k != 'page' and v
+    }
+    pagination_query_string = ''
+    if args_for_pagination:
+        pagination_query_string = '&' + urlencode(args_for_pagination)
+
+    return render_template(
+        'website/email_logs/list.html',
+        logs=logs_rows,
+        page=page,
+        total_logs=total_logs,
+        total_pages=total_pages,
+        pagination_query_string=pagination_query_string,
+        search=search,
+        status_filter=status_filter,
+        app_filter=app_filter,
+        scope_filter=scope_filter,
+        summary={
+            'user_count': _parse_int(summary.get('user_count')) or 0,
+            'staff_count': _parse_int(summary.get('staff_count')) or 0,
+            'external_count': _parse_int(summary.get('external_count')) or 0,
+            'sent_count': _parse_int(summary.get('sent_count')) or 0,
+            'failed_count': _parse_int(summary.get('failed_count')) or 0,
+        },
+    )
 
 
 @bp.route('/fmadmin/website/home-videos', methods=['GET', 'POST'])

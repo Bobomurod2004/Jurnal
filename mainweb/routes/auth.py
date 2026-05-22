@@ -228,6 +228,23 @@ def _email_text(lang, uz_text, ru_text, en_text):
     return en_text
 
 
+def _email_multilingual_text(uz_text, ru_text, en_text, separator=' | ', include_labels=False):
+    items = (
+        ('UZ', str(uz_text or '').strip()),
+        ('RU', str(ru_text or '').strip()),
+        ('EN', str(en_text or '').strip()),
+    )
+    parts = []
+    for label, text in items:
+        if not text:
+            continue
+        if include_labels:
+            parts.append(f'[{label}] {text}')
+        else:
+            parts.append(text)
+    return separator.join(parts)
+
+
 def _send_registration_welcome_email(user_row, is_google=False):
     email = (user_row or {}).get('email')
     if not email or not user_allows_email_notifications(user_row):
@@ -236,35 +253,45 @@ def _send_registration_welcome_email(user_row, is_google=False):
     lang = _email_language((user_row or {}).get('ui_language'))
     first_name = (user_row or {}).get('name') or _email_text(lang, 'Muallif', 'Автор', 'Author')
     body_lines = [
-        _email_text(
-            lang,
+        _email_multilingual_text(
             "Endi profilingizni to'ldirib, yangi maqolalar yuborishingiz mumkin.",
             'Теперь вы можете заполнить профиль и отправлять новые статьи.',
             'You can now complete your profile and submit new articles.',
+            include_labels=True,
         )
     ]
     if is_google:
         body_lines.append(
-            _email_text(
-                lang,
+            _email_multilingual_text(
                 'Google orqali kirish jurnaldagi akkauntingizga bog‘landi.',
                 'Вход через Google был привязан к вашему аккаунту журнала.',
                 'Google sign-in has been linked to your journal account.',
+                include_labels=True,
             )
         )
 
     return send_notification_email(
         recipients=[email],
-        subject=_email_text(lang, 'Philology Matters platformasiga xush kelibsiz', 'Добро пожаловать в Philology Matters', 'Welcome to Philology Matters'),
-        intro=_email_text(
-            lang,
+        subject=_email_multilingual_text(
+            'Philology Matters platformasiga xush kelibsiz',
+            'Добро пожаловать в Philology Matters',
+            'Welcome to Philology Matters',
+            separator=' | ',
+        ),
+        intro=_email_multilingual_text(
             f"Salom {first_name}, akkauntingiz muvaffaqiyatli faollashtirildi.",
             f"Здравствуйте, {first_name}! Ваш аккаунт успешно активирован.",
             f'Hello {first_name}, your account is now active.',
+            include_labels=True,
         ),
         body_lines=body_lines,
         cta_url=url_for('app__dashboard_profile'),
-        cta_label=_email_text(lang, 'Dashboardni ochish', 'Открыть кабинет', 'Open dashboard'),
+        cta_label=_email_multilingual_text(
+            'Dashboardni ochish',
+            'Открыть кабинет',
+            'Open dashboard',
+            separator=' / ',
+        ),
         fail_silently=True,
     )
 
@@ -696,33 +723,63 @@ def _send_registration_code_email(email, first_name, code, language=None):
     intro_name = (first_name or '').strip() or _email_text(lang, "foydalanuvchi", "пользователь", "there")
     return send_notification_email(
         recipients=[email],
-        subject=_email_text(lang, 'Email manzilingizni tasdiqlang', 'Подтвердите адрес электронной почты', 'Verify your email address'),
-        intro=_email_text(
-            lang,
+        subject=_email_multilingual_text(
+            'Email manzilingizni tasdiqlang',
+            'Подтвердите адрес электронной почты',
+            'Verify your email address',
+        ),
+        intro=_email_multilingual_text(
             f"Salom {intro_name}, Philology Matters akkauntini yakunlash uchun ushbu koddan foydalaning.",
             f"Здравствуйте, {intro_name}! Используйте этот код, чтобы завершить создание аккаунта Philology Matters.",
             f'Hello {intro_name}, use this code to finish creating your Philology Matters account.',
+            include_labels=True,
         ),
         details=[
-            (_email_text(lang, 'Tasdiqlash kodi', 'Код подтверждения', 'Verification code'), code),
-            (_email_text(lang, 'Amal qilish muddati', 'Срок действия', 'Valid for'), _email_text(lang, f'{ttl_minutes} daqiqa', f'{ttl_minutes} минут', f'{ttl_minutes} minute(s)')),
+            (
+                _email_multilingual_text(
+                    'Tasdiqlash kodi',
+                    'Код подтверждения',
+                    'Verification code',
+                    separator=' / ',
+                ),
+                code,
+            ),
+            (
+                _email_multilingual_text(
+                    'Amal qilish muddati',
+                    'Срок действия',
+                    'Valid for',
+                    separator=' / ',
+                ),
+                _email_multilingual_text(
+                    f'{ttl_minutes} daqiqa',
+                    f'{ttl_minutes} минут',
+                    f'{ttl_minutes} minute(s)',
+                    separator=' / ',
+                ),
+            ),
         ],
         body_lines=[
-            _email_text(
-                lang,
+            _email_multilingual_text(
                 "Akkauntingizni faollashtirish uchun ushbu bir martalik kodni tasdiqlash sahifasiga kiriting.",
                 'Введите этот одноразовый код на странице подтверждения, чтобы активировать аккаунт.',
                 'Enter this one-time code on the verification page to activate your account.',
+                include_labels=True,
             ),
-            _email_text(
-                lang,
+            _email_multilingual_text(
                 "Agar bu kodni siz so'ramagan bo'lsangiz, ushbu xatni e'tiborsiz qoldirishingiz mumkin.",
                 'Если вы не запрашивали этот код, просто проигнорируйте это письмо.',
                 'If you did not request this code, you can safely ignore this email.',
+                include_labels=True,
             ),
         ],
         cta_url=_registration_verify_url(email=email),
-        cta_label=_email_text(lang, 'Tasdiqlash sahifasini ochish', 'Открыть страницу подтверждения', 'Open verification page'),
+        cta_label=_email_multilingual_text(
+            'Tasdiqlash sahifasini ochish',
+            'Открыть страницу подтверждения',
+            'Open verification page',
+            separator=' / ',
+        ),
         fail_silently=True,
     )
 
@@ -733,33 +790,63 @@ def _send_password_reset_code_email(email, first_name, code, language=None):
     intro_name = (first_name or '').strip() or _email_text(lang, "foydalanuvchi", "пользователь", "there")
     return send_notification_email(
         recipients=[email],
-        subject=_email_text(lang, 'Parolingizni tiklang', 'Сбросьте пароль', 'Reset your password'),
-        intro=_email_text(
-            lang,
+        subject=_email_multilingual_text(
+            'Parolingizni tiklang',
+            'Сбросьте пароль',
+            'Reset your password',
+        ),
+        intro=_email_multilingual_text(
             f"Salom {intro_name}, Philology Matters parolingizni tiklash uchun ushbu koddan foydalaning.",
             f"Здравствуйте, {intro_name}! Используйте этот код для сброса пароля Philology Matters.",
             f'Hello {intro_name}, use this code to reset your Philology Matters password.',
+            include_labels=True,
         ),
         details=[
-            (_email_text(lang, 'Tasdiqlash kodi', 'Код подтверждения', 'Verification code'), code),
-            (_email_text(lang, 'Amal qilish muddati', 'Срок действия', 'Valid for'), _email_text(lang, f'{ttl_minutes} daqiqa', f'{ttl_minutes} минут', f'{ttl_minutes} minute(s)')),
+            (
+                _email_multilingual_text(
+                    'Tasdiqlash kodi',
+                    'Код подтверждения',
+                    'Verification code',
+                    separator=' / ',
+                ),
+                code,
+            ),
+            (
+                _email_multilingual_text(
+                    'Amal qilish muddati',
+                    'Срок действия',
+                    'Valid for',
+                    separator=' / ',
+                ),
+                _email_multilingual_text(
+                    f'{ttl_minutes} daqiqa',
+                    f'{ttl_minutes} минут',
+                    f'{ttl_minutes} minute(s)',
+                    separator=' / ',
+                ),
+            ),
         ],
         body_lines=[
-            _email_text(
-                lang,
+            _email_multilingual_text(
                 'Yangi parol o‘rnatish uchun ushbu bir martalik kodni parolni tiklash sahifasiga kiriting.',
                 'Введите этот одноразовый код на странице сброса пароля, чтобы задать новый пароль.',
                 'Enter this one-time code on the password reset page to set a new password.',
+                include_labels=True,
             ),
-            _email_text(
-                lang,
+            _email_multilingual_text(
                 "Agar bu so'rovni siz yubormagan bo'lsangiz, ushbu xatni e'tiborsiz qoldirishingiz mumkin.",
                 'Если вы не запрашивали сброс пароля, просто проигнорируйте это письмо.',
                 'If you did not request this code, you can safely ignore this email.',
+                include_labels=True,
             ),
         ],
         cta_url=_password_reset_verify_url(email=email),
-        cta_label=_email_text(lang, 'Parolni tiklash sahifasini ochish', 'Открыть страницу сброса пароля', 'Open password reset page'),
+        cta_label=_email_multilingual_text(
+            'Parolni tiklash sahifasini ochish',
+            'Открыть страницу сброса пароля',
+            'Open password reset page',
+            separator=' / ',
+        ),
         fail_silently=True,
     )
 

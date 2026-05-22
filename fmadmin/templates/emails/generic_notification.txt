@@ -1,22 +1,47 @@
-{{ subject }}
+{{ headline_subject or subject }}
+{% if is_multilingual %}
+This message is provided in Uzbek, Russian, and English.
+{% endif %}
 
+{% if language_sections %}
+{% for section in language_sections %}
+[{{ section.label }}]
+{% if section.subject and section.subject != (headline_subject or subject) %}
+{{ section.subject }}
+{% endif %}
+{% if section.intro %}
+{{ section.intro }}
+{% endif %}
+{% if section.details %}
+{% for item in section.details %}
+{{ item.label }}: {{ item.value }}
+{% endfor %}
+{% endif %}
+{% if section.body_lines %}
+{% for line in section.body_lines %}
+{{ line }}
+{% endfor %}
+{% endif %}
+{% if cta_url %}
+{{ section.cta_label or cta_label }}: {{ cta_url }}
+{% endif %}
+
+{% endfor %}
+{% else %}
 {{ intro }}
 {% if details %}
-
 {% for item in details %}
 {{ item.label }}: {{ item.value }}
 {% endfor %}
 {% endif %}
 {% if body_lines %}
-
 {% for line in body_lines %}
 {{ line }}
-
 {% endfor %}
 {% endif %}
 {% if cta_url %}
 {{ cta_label }}: {{ cta_url }}
-
+{% endif %}
 {% endif %}
 {{ signature_name }}
 {{ app_base_url }}

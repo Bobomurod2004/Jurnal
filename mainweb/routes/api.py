@@ -1603,21 +1603,88 @@ def _resolve_localized_text(value, user_row=None):
     return _clean_text(value)
 
 
-def _normalize_localized_details(details, user_row=None):
+def _localized_map_for_email(value, user_row=None):
+    if isinstance(value, dict):
+        localized = {}
+        for language in ('uz', 'ru', 'en'):
+            text = _clean_text(value.get(language))
+            if text:
+                localized[language] = text
+        if localized:
+            return localized
+        fallback_text = _resolve_localized_text(value, user_row=user_row)
+        if fallback_text:
+            return {'uz': fallback_text}
+        return {}
+
+    resolved = _clean_text(value)
+    if not resolved:
+        return {}
+    return {'uz': resolved}
+
+
+def _format_multilingual_text(value, user_row=None, separator=' | ', include_labels=False):
+    localized_map = _localized_map_for_email(value, user_row=user_row)
+    if not localized_map:
+        return ''
+
+    parts = []
+    for language in ('uz', 'ru', 'en'):
+        text = _clean_text(localized_map.get(language))
+        if not text:
+            continue
+        if include_labels:
+            parts.append(f'[{language.upper()}] {text}')
+        else:
+            parts.append(text)
+
+    if not parts:
+        for text in localized_map.values():
+            resolved = _clean_text(text)
+            if resolved:
+                return resolved
+        return ''
+
+    return separator.join(parts)
+
+
+def _normalize_localized_details(details, user_row=None, multilingual=False):
     normalized = []
     for label, value in details or []:
-        label_text = _resolve_localized_text(label, user_row=user_row)
-        value_text = _resolve_localized_text(value, user_row=user_row)
+        if multilingual:
+            label_text = _format_multilingual_text(
+                label,
+                user_row=user_row,
+                separator=' / ',
+                include_labels=False,
+            )
+            value_text = _format_multilingual_text(
+                value,
+                user_row=user_row,
+                separator=' / ',
+                include_labels=False,
+            )
+        else:
+            label_text = _resolve_localized_text(label, user_row=user_row)
+            value_text = _resolve_localized_text(value, user_row=user_row)
         if not label_text or not value_text:
             continue
         normalized.append((label_text, value_text))
     return normalized
 
 
-def _normalize_localized_body_lines(body_lines, user_row=None):
+def _normalize_localized_body_lines(body_lines, user_row=None, multilingual=False):
     normalized = []
     for line in body_lines or []:
-        line_text = _resolve_localized_text(line, user_row=user_row)
+        if multilingual:
+            line_text = _format_multilingual_text(
+                line,
+                user_row=user_row,
+                separator=' | ',
+                include_labels=True,
+            )
+        else:
+            line_text = _resolve_localized_text(line, user_row=user_row)
         if line_text:
             normalized.append(line_text)
     return normalized
@@ -1631,14 +1698,44 @@ def _send_user_email(user_row, subject, intro, details=None, body_lines=None, ct
         (user_row or {}).get('ui_language'),
         default=current_notification_language()
     )
-    subject_text, intro_text, _ = prepare_notification_content(
-        title=subject,
-        message=intro,
-        default_language=preferred_language
+    subject_text = _format_multilingual_text(
+        subject,
+        user_row=user_row,
+        separator=' | ',
+        include_labels=False,
     )
-    details_rows = _normalize_localized_details(details, user_row=user_row)
-    body_rows = _normalize_localized_body_lines(body_lines, user_row=user_row)
-    cta_label_text = _resolve_localized_text(cta_label, user_row=user_row) or 'Open'
+    intro_text = _format_multilingual_text(
+        intro,
+        user_row=user_row,
+        separator=' | ',
+        include_labels=True,
+    )
+
+    if not subject_text or not intro_text:
+        fallback_subject, fallback_intro, _ = prepare_notification_content(
+            title=subject,
+            message=intro,
+            default_language=preferred_language
+        )
+        subject_text = subject_text or fallback_subject
+        intro_text = intro_text or fallback_intro
+
+    details_rows = _normalize_localized_details(
+        details,
+        user_row=user_row,
+        multilingual=True,
+    )
+    body_rows = _normalize_localized_body_lines(
+        body_lines,
+        user_row=user_row,
+        multilingual=True,
+    )
+    cta_label_text = _format_multilingual_text(
+        cta_label,
+        user_row=user_row,
+        separator=' / ',
+        include_labels=False,
+    ) or 'Open'
     return send_notification_email(
         recipients=[email],
         subject=subject_text,

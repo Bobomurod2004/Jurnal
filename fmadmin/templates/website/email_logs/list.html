@@ -1,0 +1,167 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+<div class="page-header d-print-none mb-4">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">Email xabarlar</h2>
+      <div class="text-secondary">Tizimdan yuborilgan email xabarlar tarixi (har ikki tomonga).</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-2">
+    <div class="card">
+      <div class="card-body p-3">
+        <div class="text-secondary small">Jami</div>
+        <div class="fs-2 fw-bold">{{ total_logs }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card">
+      <div class="card-body p-3">
+        <div class="text-secondary small">User tomoni</div>
+        <div class="fs-2 fw-bold">{{ summary.user_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card">
+      <div class="card-body p-3">
+        <div class="text-secondary small">Staff tomoni</div>
+        <div class="fs-2 fw-bold">{{ summary.staff_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card">
+      <div class="card-body p-3">
+        <div class="text-secondary small">External</div>
+        <div class="fs-2 fw-bold">{{ summary.external_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card">
+      <div class="card-body p-3">
+        <div class="text-secondary small">Sent</div>
+        <div class="fs-2 fw-bold text-success">{{ summary.sent_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card">
+      <div class="card-body p-3">
+        <div class="text-secondary small">Failed</div>
+        <div class="fs-2 fw-bold text-danger">{{ summary.failed_count }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<form method="get" action="{{ url_for('email_logs') }}" class="mb-3">
+  <div class="row g-2">
+    <div class="col-md-5">
+      <input type="text" class="form-control" name="search" placeholder="Email, subject yoki error bo'yicha qidiruv" value="{{ search or '' }}">
+    </div>
+    <div class="col-md-2">
+      <select name="status" class="form-select">
+        <option value="">Barcha statuslar</option>
+        <option value="sent" {% if status_filter == 'sent' %}selected{% endif %}>sent</option>
+        <option value="failed" {% if status_filter == 'failed' %}selected{% endif %}>failed</option>
+        <option value="skipped_mail_disabled" {% if status_filter == 'skipped_mail_disabled' %}selected{% endif %}>skipped_mail_disabled</option>
+        <option value="skipped_suppressed" {% if status_filter == 'skipped_suppressed' %}selected{% endif %}>skipped_suppressed</option>
+        <option value="skipped_no_recipient" {% if status_filter == 'skipped_no_recipient' %}selected{% endif %}>skipped_no_recipient</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select name="app" class="form-select">
+        <option value="">Barcha app</option>
+        <option value="mainweb" {% if app_filter == 'mainweb' %}selected{% endif %}>mainweb</option>
+        <option value="fmadmin" {% if app_filter == 'fmadmin' %}selected{% endif %}>fmadmin</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select name="scope" class="form-select">
+        <option value="">Barcha tomon</option>
+        <option value="user" {% if scope_filter == 'user' %}selected{% endif %}>User</option>
+        <option value="staff" {% if scope_filter == 'staff' %}selected{% endif %}>Staff</option>
+        <option value="external" {% if scope_filter == 'external' %}selected{% endif %}>External</option>
+      </select>
+    </div>
+    <div class="col-md-1 d-grid">
+      <button class="btn btn-primary" type="submit"><i class="ti ti-search"></i></button>
+    </div>
+  </div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table card-table table-hover">
+      <thead>
+        <tr>
+          <th style="width: 140px;">Sana</th>
+          <th>App</th>
+          <th>Qabul qiluvchi</th>
+          <th>Tomon</th>
+          <th>Subject</th>
+          <th>Status</th>
+          <th>Template</th>
+          <th>Error</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in logs %}
+        <tr>
+          <td class="align-middle">{{ item.created_at | timestamp_to_datetime if item.created_at else '-' }}</td>
+          <td class="align-middle"><code>{{ item.app or '-' }}</code></td>
+          <td class="align-middle">
+            <div class="fw-semibold">{{ item.recipient_email or '-' }}</div>
+            {% if item.user_name %}
+            <div class="text-secondary small">{{ item.user_name }}</div>
+            {% endif %}
+          </td>
+          <td class="align-middle">
+            <span class="badge bg-secondary-lt text-secondary">{{ item.recipient_scope }}</span>
+          </td>
+          <td class="align-middle">
+            <div class="text-wrap" style="max-width: 320px;">{{ item.subject or '-' }}</div>
+          </td>
+          <td class="align-middle">
+            <span class="badge bg-{{ item.status_tone }}-lt text-{{ item.status_tone }}">{{ item.status or '-' }}</span>
+          </td>
+          <td class="align-middle"><code>{{ item.template_alias or '-' }}</code></td>
+          <td class="align-middle">
+            <div class="text-wrap text-danger small" style="max-width: 220px;">{{ item.error_text or '-' }}</div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" class="text-center text-secondary py-4">Email loglar topilmadi</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if total_pages > 1 %}
+<div class="mt-3 d-flex justify-content-center">
+  <ul class="pagination mb-0">
+    <li class="page-item {% if page == 1 %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('email_logs', page=page-1) }}{{ pagination_query_string }}"><i class="ti ti-chevron-left"></i></a>
+    </li>
+    {% for p in range(1, total_pages + 1) %}
+    <li class="page-item {% if p == page %}active{% endif %}">
+      <a class="page-link" href="{{ url_for('email_logs', page=p) }}{{ pagination_query_string }}">{{ p }}</a>
+    </li>
+    {% endfor %}
+    <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('email_logs', page=page+1) }}{{ pagination_query_string }}"><i class="ti ti-chevron-right"></i></a>
+    </li>
+  </ul>
+</div>
+{% endif %}
+{% endblock %}

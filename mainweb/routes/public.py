@@ -369,6 +369,23 @@ def _clean_text(value):
     return str(value).strip()
 
 
+def _multilingual_email_text(uz_text, ru_text=None, en_text=None, separator=' | ', include_labels=False):
+    items = (
+        ('UZ', _clean_text(uz_text)),
+        ('RU', _clean_text(ru_text if ru_text is not None else uz_text)),
+        ('EN', _clean_text(en_text if en_text is not None else uz_text)),
+    )
+    parts = []
+    for label, text in items:
+        if not text:
+            continue
+        if include_labels:
+            parts.append(f'[{label}] {text}')
+        else:
+            parts.append(text)
+    return separator.join(parts)
+
+
 def _format_scholar_date_from_timestamp(timestamp_value):
     ts = _parse_int(timestamp_value)
     if ts is None or ts <= 0:
@@ -2055,19 +2072,25 @@ def app__index():
     issue_cache_for_masters = {}
 
     def _load_home_publications(order_field, limit=8, sample_size=80):
-        rows = dbc.publications.get().order_by(order_field).per_page(sample_size).page(1).exec()
+        if order_field == 'date_publish':
+            # Pull all rows so latest-by-date ordering remains correct
+            # even for legacy records inserted later with older/newer ids.
+            rows = dbc.publications.get().exec()
+        else:
+            rows = dbc.publications.get().order_by(order_field).per_page(sample_size).page(1).exec()
         visible_rows = [
             row for row in rows
             if not _is_masters_publication(row, issue_cache=issue_cache_for_masters)
         ]
         if order_field == 'date_publish':
-            visible_rows = sorted(visible_rows, key=_publication_sort_key, reverse=True)
+            # Latest publications: first by publish date, and by id when dates are equal.
+            visible_rows = sorted(visible_rows, key=_publication_recent_sort_key, reverse=True)
         elif order_field in {'stat_alt', 'stat_views'}:
             visible_rows = sorted(
                 visible_rows,
                 key=lambda row: (
                     _parse_int(row.get(order_field)) or 0,
-                    (_publication_sort_key(row)),
+                    (_publication_recent_sort_key(row)),
                 ),
                 reverse=True,
             )
@@ -2444,21 +2467,17 @@ def app__contact():
             return redirect(url_for('app__contact'))
 
         if name and email and subject and message:
-            lang = _current_lang_code()
             admin_subject = subject if len(subject) <= 120 else f"{subject[:117]}..."
-            admin_title = (
-                f'Yangi murojaat: {admin_subject}'
-                if lang == 'uz'
-                else f'Новое обращение: {admin_subject}'
-                if lang == 'ru'
-                else f'New contact request: {admin_subject}'
+            admin_title = _multilingual_email_text(
+                f'Yangi murojaat: {admin_subject}',
+                f'Новое обращение: {admin_subject}',
+                f'New contact request: {admin_subject}',
             )
-            admin_intro = (
-                'Saytdagi contact form orqali yangi xabar yuborildi.'
-                if lang == 'uz'
-                else 'Через контактную форму сайта было отправлено новое сообщение.'
-                if lang == 'ru'
-                else 'A new message was sent through the website contact form.'
+            admin_intro = _multilingual_email_text(
+                'Saytdagi contact form orqali yangi xabar yuborildi.',
+                'Через контактную форму сайта было отправлено новое сообщение.',
+                'A new message was sent through the website contact form.',
+                include_labels=True,
             )
             try:
                 send_notification_email(
@@ -2466,11 +2485,20 @@ def app__contact():
                     subject=admin_title,
                     intro=admin_intro,
                     details=[
-                        ('Name', name),
-                        ('Email', email),
-                        ('Subject', subject),
+                        (
+                            _multilingual_email_text('Ism', 'Имя', 'Name', separator=' / '),
+                            name,
+                        ),
+                        (
+                            _multilingual_email_text('Email', 'Email', 'Email', separator=' / '),
+                            email,
+                        ),
+                        (
+                            _multilingual_email_text('Mavzu', 'Тема', 'Subject', separator=' / '),
+                            subject,
+                        ),
                     ],
-                    body_lines=[message],
+                    body_lines=[_multilingual_email_text(message, message, message, include_labels=True)],
                     reply_to=email,
                     fail_silently=False,
                 )
@@ -2479,35 +2507,41 @@ def app__contact():
                 flash('Message could not be delivered right now. Please try again later.', 'error')
                 return redirect(url_for('app__contact'))
 
-            user_subject = (
-                "Murojaatingiz qabul qilindi"
-                if lang == 'uz'
-                else 'Ваше сообщение получено'
-                if lang == 'ru'
-                else 'We received your message'
+            user_subject = _multilingual_email_text(
+                "Murojaatingiz qabul qilindi",
+                'Ваше сообщение получено',
+                'We received your message',
             )
-            user_intro = (
-                "Murojaatingiz Philology Matters jamoasiga yuborildi."
-                if lang == 'uz'
-                else 'Ваше сообщение было отправлено команде Philology Matters.'
-                if lang == 'ru'
-                else 'Your message has been delivered to the Philology Matters team.'
+            user_intro = _multilingual_email_text(
+                "Murojaatingiz Philology Matters jamoasiga yuborildi.",
+                'Ваше сообщение было отправлено команде Philology Matters.',
+                'Your message has been delivered to the Philology Matters team.',
+                include_labels=True,
             )
-            user_body = (
-                "Jamoamiz tez orada siz bilan bog'lanadi."
-                if lang == 'uz'
-                else 'Наша команда скоро свяжется с вами.'
-                if lang == 'ru'
-                else 'Our team will get back to you soon.'
+            user_body = _multilingual_email_text(
+                "Jamoamiz tez orada siz bilan bog'lanadi.",
+                'Наша команда скоро свяжется с вами.',
+                'Our team will get back to you soon.',
+                include_labels=True,
             )
             send_notification_email(
                 recipients=[email],
                 subject=user_subject,
                 intro=user_intro,
-                details=[('Subject', subject)],
+                details=[
+                    (
+                        _multilingual_email_text('Mavzu', 'Тема', 'Subject', separator=' / '),
+                        subject,
+                    ),
+                ],
                 body_lines=[user_body],
                 cta_url=url_for('app__contact'),
-                cta_label='Open website',
+                cta_label=_multilingual_email_text(
+                    "Saytni ochish",
+                    'Открыть сайт',
+                    'Open website',
+                    separator=' / ',
+                ),
                 fail_silently=True,
             )
             flash('Message sent successfully', 'success')
@@ -2676,9 +2710,9 @@ def app__articles():
         publications = filtered_publications
 
     if sort_by == 'newest':
-        publications = sorted(publications, key=_publication_sort_key, reverse=True)
+        publications = sorted(publications, key=_publication_recent_sort_key, reverse=True)
     elif sort_by == 'oldest':
-        publications = sorted(publications, key=_publication_sort_key)
+        publications = sorted(publications, key=_publication_recent_sort_key)
     elif sort_by == 'title_az':
         publications = sorted(publications, key=lambda x: (x.get('title') or '').lower())
     elif sort_by == 'title_za':
@@ -2910,7 +2944,7 @@ def app__issues():
                          available_years=available_years,
                          current_filters={
                              'year': year_filter,
-                             'category': category_filter_raw,
+                             'category': category_filter,
                              'access': access_filter
                          })
 
@@ -3028,6 +3062,13 @@ def _publication_sort_key(publication):
     primary_ts = publish_ts or created_ts
     publication_id = _parse_int(row.get('id')) or 0
     return (primary_ts, created_ts, publication_id)
+
+
+def _publication_recent_sort_key(publication):
+    row = publication or {}
+    publish_ts = _parse_int(row.get('date_publish')) or 0
+    publication_id = _parse_int(row.get('id')) or 0
+    return (publish_ts, publication_id)
 
 
 def _record_age_days(timestamp):
@@ -3308,8 +3349,12 @@ def app__issue(issue_id):
     next_issue = all_issues[current_index + 1] if current_index < len(all_issues) - 1 else None
 
     has_access = _resolve_issue_access(issue, session.get('user_id'))
+    issue_toc_public_url = _issue_toc_public_url(issue)
     issue_toc_file_path, _ = _resolve_issue_toc_download_file(issue)
-    issue_toc_download_url = url_for('app__download_issue_toc', issue_id=issue_id) if issue_toc_file_path else None
+    if issue_toc_file_path:
+        issue_toc_download_url = url_for('app__download_issue_toc', issue_id=issue_id)
+    else:
+        issue_toc_download_url = issue_toc_public_url
 
     publications = dbc.publications.get(issue_id=issue_id).exec()
     publications = sorted(publications, key=_publication_sort_key, reverse=True)
@@ -3760,18 +3805,10 @@ def _consume_subscription_download_slot(user_id, monthly_limit):
 
 
 def _resolve_public_upload_abspath(stored_filepath):
-    normalized_path = str(stored_filepath or '').strip().replace('\\', '/')
-    if not normalized_path or normalized_path.startswith('private://'):
+    public_url = _normalize_public_upload_url(stored_filepath)
+    if not public_url:
         return None
-
-    relative_path = None
-    for prefix in ('/static/uploads/', 'static/uploads/'):
-        if normalized_path.startswith(prefix):
-            relative_path = normalized_path[len(prefix):].lstrip('/')
-            break
-
-    if relative_path is None:
-        return None
+    relative_path = public_url[len('/static/uploads/'):].lstrip('/')
 
     base_dir = os.path.abspath(os.path.join(settings.SAVE_PATH, 'static', 'uploads'))
     candidate_path = os.path.abspath(os.path.join(base_dir, relative_path))
@@ -3814,13 +3851,78 @@ def _resolve_publication_download_file(publication):
     return None, None
 
 
+def _normalize_public_upload_url(stored_filepath):
+    normalized_path = str(stored_filepath or '').strip()
+    if not normalized_path or normalized_path.startswith('private://'):
+        return None
+
+    parsed = urlparse(normalized_path)
+    candidate_path = parsed.path if parsed.scheme and parsed.netloc else normalized_path
+    if not candidate_path:
+        return None
+
+    candidate_path = unquote(candidate_path).replace('\\', '/').strip()
+    if not candidate_path:
+        return None
+
+    if candidate_path.startswith('/uploads/'):
+        candidate_path = f"/static{candidate_path}"
+    elif candidate_path.startswith('uploads/'):
+        candidate_path = f"/static/{candidate_path}"
+    elif candidate_path.startswith('static/uploads/'):
+        candidate_path = f"/{candidate_path}"
+
+    if not candidate_path.startswith('/static/uploads/'):
+        return None
+
+    relative_path = candidate_path[len('/static/uploads/'):].lstrip('/')
+    if not relative_path:
+        return None
+
+    parts = [part for part in relative_path.split('/') if part]
+    if not parts or any(part in {'.', '..'} for part in parts):
+        return None
+
+    return f"/static/uploads/{'/'.join(parts)}"
+
+
+def _issue_toc_stored_filepath(issue):
+    issue_row = issue or {}
+    for field_name in ('table_of_contents_file', 'issue_toc_file', 'toc_file'):
+        raw_value = _clean_text(issue_row.get(field_name))
+        if raw_value:
+            return raw_value
+    return ''
+
+
+def _issue_toc_public_url(issue):
+    stored_filepath = _issue_toc_stored_filepath(issue)
+    if not stored_filepath:
+        return None
+
+    public_url = _normalize_public_upload_url(stored_filepath)
+    if not public_url:
+        return None
+
+    ext = os.path.splitext(public_url)[1].lower()
+    if ext not in {'.pdf', '.doc', '.docx'}:
+        logger.warning(
+            'Blocked issue TOC link for issue=%s due to unsupported extension=%r',
+            (issue or {}).get('id'),
+            ext,
+        )
+        return None
+    return public_url
+
+
 def _resolve_issue_toc_download_file(issue):
     issue_row = issue or {}
-    stored_filepath = _clean_text(issue_row.get('table_of_contents_file'))
-    if not stored_filepath:
+    stored_filepath = _issue_toc_stored_filepath(issue_row)
+    public_url = _issue_toc_public_url(issue_row)
+    if not stored_filepath or not public_url:
         return None, None
 
-    file_path = _resolve_public_upload_abspath(stored_filepath)
+    file_path = _resolve_public_upload_abspath(public_url)
     if not file_path:
         current_app.logger.warning(
             'Blocked issue TOC download for issue=%s due to invalid filepath=%r',
@@ -3829,17 +3931,14 @@ def _resolve_issue_toc_download_file(issue):
         )
         return None, None
     if not os.path.exists(file_path):
-        return None, None
-
-    ext = os.path.splitext(file_path)[1].lower()
-    if ext not in {'.pdf', '.doc', '.docx'}:
         current_app.logger.warning(
-            'Blocked issue TOC download for issue=%s due to unsupported extension=%r',
+            'Issue TOC file is not present on local filesystem for issue=%s path=%r',
             issue_row.get('id'),
-            ext,
+            file_path,
         )
         return None, None
 
+    ext = os.path.splitext(file_path)[1].lower()
     volume_value = _clean_text(issue_row.get('vol_no')) or 'x'
     issue_value = _clean_text(issue_row.get('issue_no')) or 'x'
     download_base = f"volume-{volume_value}-issue-{issue_value}-table-of-contents"
@@ -4018,6 +4117,9 @@ def app__download_issue_toc(issue_id):
 
     file_path, download_name = _resolve_issue_toc_download_file(issue)
     if not file_path:
+        fallback_public_url = _issue_toc_public_url(issue)
+        if fallback_public_url:
+            return redirect(fallback_public_url)
         flash('Table of contents file not found', 'error')
         return redirect(url_for('app__issue', issue_id=issue_id))
 

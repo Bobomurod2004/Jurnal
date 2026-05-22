@@ -163,6 +163,12 @@ PUBLICATION_METADATA_CATALOG = {
             'en': 'Doctor of Philosophy (PhD) in Political Sciences',
         },
         {
+            'key': 'dsc_philosophy',
+            'uz': 'Falsafa fanlari doktori (DSc)',
+            'ru': 'Доктор наук (DSc) по философии',
+            'en': 'Doctor of Sciences (DSc) in Philosophy',
+        },
+        {
             'key': 'dsc_agriculture',
             'uz': "Qishloq xo'jalik fanlari doktori (DSc)",
             'ru': 'Доктор наук (DSc) по сельскому хозяйству',

@@ -402,10 +402,6 @@
                             <div class="text-sm text-gray-600 mb-2">
                                 <span class="font-medium">{{ t('website_title') }}</span>
                                 ·
-                                {% if publication.section_display %}
-                                    <span class="font-bold text-gray-900">{{ publication.section_display }}</span>
-                                    ·
-                                {% endif %}
                                 {% if publication.series_display %}
                                     <span class="font-medium text-gray-700">{{ publication.series_display }}</span>
                                     ·
@@ -466,9 +462,6 @@
                                 {% endif %}
                                 {% if publication.academic_degree_display %}
                                     <span class="article-meta-pill">{{ format_labeled_value(metadata_labels.academic_degree_key, publication.academic_degree_display) }}</span>
-                                {% endif %}
-                                {% if publication.section_display %}
-                                    <span class="article-meta-pill font-semibold text-slate-800">{{ format_labeled_value(metadata_labels.section_key, publication.section_display) }}</span>
                                 {% endif %}
                                 {% if not publication.is_paid %}
                                     <span class="article-meta-pill article-meta-pill-status article-meta-pill-open">
