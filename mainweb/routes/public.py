@@ -3065,10 +3065,11 @@ def _publication_sort_key(publication):
 
 
 def _publication_recent_sort_key(publication):
-    row = publication or {}
-    publish_ts = _parse_int(row.get('date_publish')) or 0
-    publication_id = _parse_int(row.get('id')) or 0
-    return (publish_ts, publication_id)
+    # Keep "latest" ordering stable across environments:
+    # 1) publish date (if present),
+    # 2) creation timestamp for same publish date or missing publish date,
+    # 3) id as last tie-breaker.
+    return _publication_sort_key(publication)
 
 
 def _record_age_days(timestamp):

@@ -20,6 +20,17 @@ def test_publication_recent_sort_key_prefers_publish_date_then_id():
     assert [row['id'] for row in ordered] == [21, 17, 18]
 
 
+def test_publication_recent_sort_key_uses_created_at_for_same_publish_date():
+    publications = [
+        {'id': 200, 'date_publish': 1797033600, 'created_at': 1700000000},
+        {'id': 150, 'date_publish': 1797033600, 'created_at': 1800000000},
+    ]
+
+    ordered = sorted(publications, key=public_routes._publication_recent_sort_key, reverse=True)
+
+    assert [row['id'] for row in ordered] == [150, 200]
+
+
 class _FakeQuery:
     def __init__(self, rows):
         self._rows = [dict(row) for row in rows]

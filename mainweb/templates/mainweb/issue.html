@@ -190,6 +190,15 @@
             {% if articles %}
                 {% if has_access %}
                     {% for section in article_sections %}
+                        {% if section.label %}
+                        <div class="mb-3 mt-5">
+                            <div class="flex items-center gap-3">
+                                <span class="h-px flex-1 bg-slate-200"></span>
+                                <h5 class="text-base font-extrabold uppercase tracking-wide text-slate-900">{{ section.label }}</h5>
+                                <span class="h-px flex-1 bg-slate-200"></span>
+                            </div>
+                        </div>
+                        {% endif %}
                         {% for article in section.articles %}
                         <div class="mb-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm last:mb-0">
                             <div class="flex text-xs mb-1">
