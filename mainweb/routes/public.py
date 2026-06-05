@@ -2070,28 +2070,102 @@ def app__index():
 
     current_lang = _current_lang_code()
     issue_cache_for_masters = {}
+    _home_publications_cache = None
+    _home_visible_publications_cache = None
+    _home_issues_cache = None
+    _home_visible_issues_cache = None
+    _author_profiles_by_id_cache = None
+    _visible_author_ids_cache = None
+
+    def _coerce_int_list(value):
+        if value in (None, '', [], (), set()):
+            return []
+        if isinstance(value, (list, tuple, set)):
+            raw_values = list(value)
+        else:
+            raw_text = _clean_text(value)
+            if not raw_text:
+                return []
+            raw_text = raw_text.strip('{}[]')
+            raw_values = [item.strip().strip('"') for item in raw_text.split(',')] if raw_text else []
+        parsed_values = []
+        for item in raw_values:
+            parsed_item = _parse_int(item)
+            if parsed_item is not None and parsed_item > 0:
+                parsed_values.append(parsed_item)
+        return parsed_values
+
+    def _home_publications():
+        nonlocal _home_publications_cache
+        if _home_publications_cache is None:
+            _home_publications_cache = dbc.publications.get().exec() or []
+        return _home_publications_cache
+
+    def _home_visible_publications():
+        nonlocal _home_visible_publications_cache
+        if _home_visible_publications_cache is None:
+            _home_visible_publications_cache = [
+                row for row in _home_publications()
+                if not _is_masters_publication(row, issue_cache=issue_cache_for_masters)
+            ]
+        return _home_visible_publications_cache
+
+    def _home_issues():
+        nonlocal _home_issues_cache
+        if _home_issues_cache is None:
+            _home_issues_cache = dbc.issues.get().exec() or []
+        return _home_issues_cache
+
+    def _home_visible_issues():
+        nonlocal _home_visible_issues_cache
+        if _home_visible_issues_cache is None:
+            _home_visible_issues_cache = [
+                issue for issue in _home_issues()
+                if not _is_masters_issue(issue)
+            ]
+        return _home_visible_issues_cache
+
+    def _author_profiles_by_id():
+        nonlocal _author_profiles_by_id_cache
+        if _author_profiles_by_id_cache is None:
+            rows = dbc.author_profile.get().exec() or []
+            _author_profiles_by_id_cache = {
+                _parse_int(row.get('id')): row
+                for row in rows
+                if _parse_int(row.get('id')) is not None
+            }
+        return _author_profiles_by_id_cache
+
+    def _visible_author_ids():
+        nonlocal _visible_author_ids_cache
+        if _visible_author_ids_cache is None:
+            collected = set()
+            for publication in _home_visible_publications():
+                main_author_id = _parse_int(publication.get('main_author_id'))
+                if main_author_id is not None and main_author_id > 0:
+                    collected.add(main_author_id)
+                for subauthor_id in _coerce_int_list(publication.get('subauthor_ids')):
+                    collected.add(subauthor_id)
+            _visible_author_ids_cache = collected
+        return _visible_author_ids_cache
 
     def _load_home_publications(order_field, limit=8, sample_size=80):
+        visible_rows = list(_home_visible_publications())
         if order_field == 'date_publish':
-            # Pull all rows so latest-by-date ordering remains correct
-            # even for legacy records inserted later with older/newer ids.
-            rows = dbc.publications.get().exec()
-        else:
-            rows = dbc.publications.get().order_by(order_field).per_page(sample_size).page(1).exec()
-        visible_rows = [
-            row for row in rows
-            if not _is_masters_publication(row, issue_cache=issue_cache_for_masters)
-        ]
-        if order_field == 'date_publish':
-            # Latest publications: first by publish date, and by id when dates are equal.
             visible_rows = sorted(visible_rows, key=_publication_recent_sort_key, reverse=True)
         elif order_field in {'stat_alt', 'stat_views'}:
             visible_rows = sorted(
                 visible_rows,
                 key=lambda row: (
                     _parse_int(row.get(order_field)) or 0,
-                    (_publication_recent_sort_key(row)),
+                    _publication_recent_sort_key(row),
                 ),
+                reverse=True,
+            )
+        elif order_field:
+            visible_rows = sorted(
+                visible_rows,
+                key=lambda row: (_parse_int(row.get(order_field)) or 0, _publication_recent_sort_key(row)),
                 reverse=True,
             )
         return visible_rows[:limit]
@@ -2108,9 +2182,12 @@ def app__index():
     home_video_submission_embed = _youtube_embed_url(home_video_submission_url)
 
     try:
-        stat_total_publications = dbc.publications.count().exec() or 0
-        stat_total_authors = dbc.author_profile.count().exec() or 0
-        stat_total_issues = dbc.issues.count().exec() or 0
+        visible_publications = _home_visible_publications()
+        visible_author_ids = _visible_author_ids()
+        author_profiles_by_id = _author_profiles_by_id()
+        stat_total_publications = len(visible_publications)
+        stat_total_authors = sum(1 for author_id in visible_author_ids if author_id in author_profiles_by_id)
+        stat_total_issues = len(_home_visible_issues())
 
         stat_total_views = 0
         stat_total_downloads = 0
@@ -2133,9 +2210,8 @@ def app__index():
                 if cursor is not None:
                     cursor.close()
         else:
-            # Fallback: keep homepage totals usable if activity_events setup fails.
-            stat_total_views = sum(max(0, _parse_int(pub.get('stat_views')) or 0) for pub in (dbc.publications.get().exec() or []))
-            stat_total_downloads = sum(max(0, _parse_int(pub.get('stat_alt')) or 0) for pub in (dbc.publications.get().exec() or []))
+            stat_total_views = sum(max(0, _parse_int(pub.get('stat_views')) or 0) for pub in visible_publications)
+            stat_total_downloads = sum(max(0, _parse_int(pub.get('stat_alt')) or 0) for pub in visible_publications)
     except Exception:
         stat_total_publications = 0
         stat_total_views = 0
@@ -2156,35 +2232,33 @@ def app__index():
     country_stats_ui = _country_stats_ui_texts()
     author_tooltip_ui = _author_tooltip_ui_texts()
     try:
-        cursor = dbc.conn.cursor()
-        cursor.execute(
-            """
-            SELECT
-                TRIM(ap.address_country) AS country,
-                COUNT(DISTINCT ap.id) AS authors_cnt
-            FROM author_profile ap
-            WHERE ap.address_country IS NOT NULL AND TRIM(ap.address_country) != ''
-            GROUP BY TRIM(ap.address_country)
-            ORDER BY authors_cnt DESC
-            """
-        )
-        author_rows = cursor.fetchall() or []
+        author_rows_map = {}
+        for author_id in _visible_author_ids():
+            profile = _author_profiles_by_id().get(author_id) or {}
+            country_name = _normalize_country_name(profile.get('address_country'))
+            if not country_name:
+                continue
+            author_rows_map[country_name] = author_rows_map.get(country_name, 0) + 1
+        author_rows = list(author_rows_map.items())
 
         activity_rows = []
         if _ensure_activity_events_ready():
-            cursor.execute(
-                """
-                SELECT
-                    country_key,
-                    country_name,
-                    COALESCE(SUM(CASE WHEN event_type = 'view' THEN 1 ELSE 0 END), 0) AS views_count,
-                    COALESCE(SUM(CASE WHEN event_type = 'download' THEN 1 ELSE 0 END), 0) AS downloads_count
-                FROM activity_events
-                GROUP BY country_key, country_name
-                """
-            )
-            activity_rows = cursor.fetchall() or []
-        cursor.close()
+            cursor = dbc.conn.cursor()
+            try:
+                cursor.execute(
+                    """
+                    SELECT
+                        country_key,
+                        country_name,
+                        COALESCE(SUM(CASE WHEN event_type = 'view' THEN 1 ELSE 0 END), 0) AS views_count,
+                        COALESCE(SUM(CASE WHEN event_type = 'download' THEN 1 ELSE 0 END), 0) AS downloads_count
+                    FROM activity_events
+                    GROUP BY country_key, country_name
+                    """
+                )
+                activity_rows = cursor.fetchall() or []
+            finally:
+                cursor.close()
 
         aggregated = {}
 
@@ -2258,10 +2332,8 @@ def app__index():
             item['authors'] = authors_value
             item['views'] = views_value
             item['downloads'] = downloads_value
-            # "Total" reflects both journal reach (views/downloads) and author presence.
             item['count'] = authors_value + views_value + downloads_value
 
-        # Country activity widget should display only countries with real activity.
         activity_items = [
             item
             for item in aggregated.values()
@@ -2291,12 +2363,8 @@ def app__index():
                 )
             elif _is_other_country_bucket_key(item.get('country_key')):
                 item['name'] = country_stats_ui.get('unknown_country') or OTHER_COUNTRY_NAME
-        visible_country_stats = [
-            item for item in sorted_stats
-            if not _is_other_country_bucket_key(item.get('country_key'))
-        ]
-        country_stats = visible_country_stats
-        country_stats_top = visible_country_stats[:10]
+        country_stats = sorted_stats
+        country_stats_top = sorted_stats[:10]
     except Exception:
         try:
             dbc.conn.rollback()
@@ -2304,7 +2372,6 @@ def app__index():
             pass
         country_stats = []
         country_stats_top = []
-
     author_profile_cache = {}
 
     def get_author_profile(author_id):
