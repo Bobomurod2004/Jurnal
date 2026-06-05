@@ -3055,9 +3055,31 @@ def _extract_content_timestamp(record, fallback_year_key=None):
     return None
 
 
+def _normalize_timestamp_to_local_day_start(timestamp):
+    timestamp_int = _parse_int(timestamp)
+    if not timestamp_int or timestamp_int <= 0:
+        return 0
+    try:
+        local_date = time.localtime(timestamp_int)
+        midnight = time.struct_time((
+            local_date.tm_year,
+            local_date.tm_mon,
+            local_date.tm_mday,
+            0,
+            0,
+            0,
+            local_date.tm_wday,
+            local_date.tm_yday,
+            local_date.tm_isdst,
+        ))
+        return int(time.mktime(midnight))
+    except Exception:
+        return timestamp_int
+
+
 def _publication_sort_key(publication):
     row = publication or {}
-    publish_ts = _parse_int(row.get('date_publish')) or 0
+    publish_ts = _normalize_timestamp_to_local_day_start(row.get('date_publish'))
     created_ts = _parse_int(row.get('created_at')) or 0
     primary_ts = publish_ts or created_ts
     publication_id = _parse_int(row.get('id')) or 0

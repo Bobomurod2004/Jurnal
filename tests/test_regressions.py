@@ -31,6 +31,17 @@ def test_publication_recent_sort_key_uses_created_at_for_same_publish_date():
     assert [row['id'] for row in ordered] == [150, 200]
 
 
+def test_publication_recent_sort_key_ignores_legacy_publish_time_within_same_day():
+    publications = [
+        {'id': 121, 'date_publish': 1773852960, 'created_at': 1772970840},
+        {'id': 122, 'date_publish': 1773792000, 'created_at': 1773889200},
+    ]
+
+    ordered = sorted(publications, key=public_routes._publication_recent_sort_key, reverse=True)
+
+    assert [row['id'] for row in ordered] == [122, 121]
+
+
 class _FakeQuery:
     def __init__(self, rows):
         self._rows = [dict(row) for row in rows]
