@@ -263,6 +263,12 @@ PUBLICATION_METADATA_CATALOG = {
             'en': 'SAMPLES OF FOREIGN FICTION TRANSLATIONS',
         },
         {
+            'key': 'foreign_experience',
+            'uz': 'XORIJ TAJRIBASI',
+            'ru': 'ЗАРУБЕЖНЫЙ ОПЫТ',
+            'en': 'FOREIGN EXPERIENCE',
+        },
+        {
             'key': 'psychology',
             'uz': "TARIX QAYTA SO'ZLAGANDA",
             'ru': 'КОГДА ИСТОРИЯ ПЕРЕСКАЗЫВАЕТ',

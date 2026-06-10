@@ -2338,6 +2338,7 @@ def app__index():
             item
             for item in aggregated.values()
             if (_parse_int(item.get('count')) or 0) > 0
+            and not _is_other_country_bucket_key(item.get('country_key'))
         ]
 
         sorted_stats = sorted(
