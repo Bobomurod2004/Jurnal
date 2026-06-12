@@ -468,6 +468,109 @@ def _clean_text(value):
     return str(value).strip()
 
 
+def _stored_upload_value_to_list(value):
+    if value is None:
+        return []
+
+    raw_items = None
+    if isinstance(value, (list, tuple)):
+        raw_items = list(value)
+    else:
+        raw_text = _clean_text(value)
+        if not raw_text:
+            return []
+        if raw_text.startswith('['):
+            try:
+                parsed = json.loads(raw_text)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                parsed = None
+            if isinstance(parsed, list):
+                raw_items = parsed
+        if raw_items is None:
+            raw_items = [raw_text]
+
+    items = []
+    seen = set()
+    for item in raw_items:
+        cleaned = _clean_text(item)
+        if cleaned and cleaned not in seen:
+            items.append(cleaned)
+            seen.add(cleaned)
+    return items
+
+
+def _serialize_upload_value_list(value):
+    items = _stored_upload_value_to_list(value)
+    if not items:
+        return None
+    if len(items) == 1:
+        return items[0]
+    return json.dumps(items, ensure_ascii=True)
+
+
+def _upload_value_display_name(stored_value):
+    normalized = _clean_text(stored_value).replace('\\', '/')
+    if not normalized:
+        return ''
+    return normalized.split('?', 1)[0].split('#', 1)[0].rsplit('/', 1)[-1]
+
+
+def _upload_value_summary(value):
+    display_names = []
+    for item in _stored_upload_value_to_list(value):
+        display_name = _upload_value_display_name(item)
+        if display_name:
+            display_names.append(display_name)
+    return ', '.join(display_names)
+
+
+def _refresh_connector_schema_cache(connector):
+    try:
+        if hasattr(connector, '_init_tables'):
+            connector._init_tables()
+        if hasattr(connector, '_init_columns'):
+            connector._init_columns()
+    except Exception:
+        try:
+            connector.conn.rollback()
+        except Exception:
+            pass
+
+
+def _connector_table_columns(connector, table_name):
+    _refresh_connector_schema_cache(connector)
+    connector_columns = getattr(connector, 'columns', {}) or {}
+    return set(connector_columns.get(table_name, []) or [])
+
+
+def _filter_supported_payload_fields(payload, available_columns):
+    allowed_columns = set(available_columns or [])
+    return {
+        field_name: field_value
+        for field_name, field_value in (payload or {}).items()
+        if field_name in allowed_columns
+    }
+
+
+def _missing_nonempty_payload_fields(payload, available_columns):
+    allowed_columns = set(available_columns or [])
+    missing_fields = []
+    for field_name, field_value in (payload or {}).items():
+        if field_name in allowed_columns:
+            continue
+        if isinstance(field_value, bool):
+            if field_value:
+                missing_fields.append(field_name)
+            continue
+        if isinstance(field_value, (list, tuple, set)):
+            if any(_clean_text(item) for item in field_value):
+                missing_fields.append(field_name)
+            continue
+        if _clean_text(field_value):
+            missing_fields.append(field_name)
+    return missing_fields
+
+
 def _extract_file_display_name(value):
     raw_value = _clean_text(value)
     if not raw_value:
@@ -1731,6 +1834,37 @@ def _editorial_member_country_id(member, countries):
             return item_id
 
     return None
+
+
+def _editorial_member_schema_field_labels(editorial_ui):
+    return {
+        'image': editorial_ui['field_image'],
+        'country': editorial_ui['field_country'],
+        'country_uz': f"{editorial_ui['field_country']} ({editorial_ui['lang_uz']})",
+        'country_ru': f"{editorial_ui['field_country']} ({editorial_ui['lang_ru']})",
+        'country_code': editorial_ui['field_country'],
+        'research_interests': editorial_ui['field_research_interests'],
+        'research_interests_uz': f"{editorial_ui['field_research_interests']} ({editorial_ui['lang_uz']})",
+        'research_interests_ru': f"{editorial_ui['field_research_interests']} ({editorial_ui['lang_ru']})",
+        'google_scholar_url': editorial_ui['field_google_scholar'],
+        'scopus_author_id': editorial_ui['field_scopus_id'],
+        'scopus_author_url': editorial_ui['field_scopus_url'],
+        'researcherid': editorial_ui['field_researcherid'],
+        'researcherid_url': editorial_ui['field_researcherid_url'],
+        'cv_file': f"{editorial_ui['field_cv_files']} ({editorial_ui['lang_default']})",
+        'cv_file_uz': f"{editorial_ui['field_cv_files']} ({editorial_ui['lang_uz']})",
+        'cv_file_ru': f"{editorial_ui['field_cv_files']} ({editorial_ui['lang_ru']})",
+    }
+
+
+def _prepare_editorial_member_form_files(member):
+    member_row = dict(member or {})
+    for field_name in ('cv_file', 'cv_file_uz', 'cv_file_ru'):
+        stored_value = member_row.get(field_name)
+        member_row[field_name] = _clean_text(stored_value)
+        member_row[f'{field_name}_list'] = _stored_upload_value_to_list(stored_value)
+        member_row[f'{field_name}_summary'] = _upload_value_summary(stored_value)
+    return member_row
 
 
 def _parse_date_to_timestamp(value, end_of_day=False):
@@ -9194,12 +9328,50 @@ def editorial_member_edit(member_id):
             'is_active': request.form.get('is_active') in {'1', 'on', 'true', 'yes'}
         }
 
+        editorial_member_columns = _connector_table_columns(db, 'editorial_members')
+        schema_field_labels = _editorial_member_schema_field_labels(editorial_ui)
+        missing_schema_fields = _missing_nonempty_payload_fields(payload, editorial_member_columns)
+
         image_value = _clean_text(request.form.get('current_image'))
-        if request.form.get('remove_image') in {'1', 'on', 'true', 'yes'}:
+        remove_image_requested = request.form.get('remove_image') in {'1', 'on', 'true', 'yes'}
+        image_file = request.files.get('image')
+        image_upload_requested = bool(image_file and image_file.filename)
+        if 'image' not in editorial_member_columns and (remove_image_requested or image_upload_requested):
+            missing_schema_fields.append('image')
+
+        cv_fields = ('cv_file', 'cv_file_uz', 'cv_file_ru')
+        cv_uploads = {}
+        for field_name in cv_fields:
+            uploaded_files = [item for item in request.files.getlist(field_name) if item and item.filename]
+            cv_uploads[field_name] = uploaded_files
+            if field_name in editorial_member_columns:
+                continue
+            if uploaded_files or request.form.get(f'remove_{field_name}') in {'1', 'on', 'true', 'yes'}:
+                missing_schema_fields.append(field_name)
+
+        if missing_schema_fields:
+            missing_labels = []
+            seen_labels = set()
+            for field_name in missing_schema_fields:
+                label = schema_field_labels.get(field_name, field_name)
+                if label and label not in seen_labels:
+                    missing_labels.append(label)
+                    seen_labels.add(label)
+            new_alert(
+                _msg_text(
+                    f"Bazadagi ustunlar yetishmayapti: {', '.join(missing_labels)}. Iltimos migratsiyani ishga tushiring.",
+                    f"В базе отсутствуют колонки: {', '.join(missing_labels)}. Запустите миграции.",
+                    f"Database columns are missing: {', '.join(missing_labels)}. Please run migrations.",
+                ),
+                'danger'
+            )
+            return redirect(url_for('editorial_member_edit', member_id=member_id))
+
+        image_value = _clean_text(request.form.get('current_image'))
+        if remove_image_requested:
             image_value = ''
 
-        image_file = request.files.get('image')
-        if image_file and image_file.filename:
+        if 'image' in editorial_member_columns and image_file and image_file.filename:
             try:
                 image_value = save_file('editorial_members', image_file, ['jpg', 'jpeg', 'png', 'webp'])
             except Exception as e:
@@ -9213,18 +9385,19 @@ def editorial_member_edit(member_id):
                 )
                 return redirect(url_for('editorial_member_edit', member_id=member_id))
 
-        payload['image'] = image_value or None
+        if 'image' in editorial_member_columns:
+            payload['image'] = image_value or None
 
-        cv_fields = ('cv_file', 'cv_file_uz', 'cv_file_ru')
         for field_name in cv_fields:
-            file_value = _clean_text(request.form.get(f'current_{field_name}'))
+            if field_name not in editorial_member_columns:
+                continue
+            file_values = _stored_upload_value_to_list(request.form.get(f'current_{field_name}'))
             if request.form.get(f'remove_{field_name}') in {'1', 'on', 'true', 'yes'}:
-                file_value = ''
+                file_values = []
 
-            uploaded_file = request.files.get(field_name)
-            if uploaded_file and uploaded_file.filename:
+            for uploaded_file in cv_uploads.get(field_name, []):
                 try:
-                    file_value = save_file('editorial_members', uploaded_file, ['pdf', 'doc', 'docx'])
+                    file_values.append(save_file('editorial_members', uploaded_file, ['pdf', 'doc', 'docx']))
                 except Exception as e:
                     new_alert(
                         _msg_text(
@@ -9236,7 +9409,7 @@ def editorial_member_edit(member_id):
                     )
                     return redirect(url_for('editorial_member_edit', member_id=member_id))
 
-            payload[field_name] = file_value or None
+            payload[field_name] = _serialize_upload_value_list(file_values)
         now_ts = int(datetime.datetime.now().timestamp())
 
         if member_id == 0:
@@ -9244,6 +9417,7 @@ def editorial_member_edit(member_id):
             payload['updated_at'] = now_ts
             payload['created_by'] = current_user_id
             payload['updated_by'] = current_user_id
+            payload = _filter_supported_payload_fields(payload, editorial_member_columns)
             created = db.editorial_members.add(**payload).exec()
             created_id = _extract_inserted_id(created)
             new_alert(
@@ -9270,6 +9444,7 @@ def editorial_member_edit(member_id):
 
         payload['updated_at'] = now_ts
         payload['updated_by'] = current_user_id
+        payload = _filter_supported_payload_fields(payload, editorial_member_columns)
         db.editorial_members.all().equal(id=member_id).update(**payload).exec()
         new_alert(
             _msg_text(
@@ -9319,6 +9494,7 @@ def editorial_member_edit(member_id):
             'sort_order': 0,
             'is_active': True
         }
+        member = _prepare_editorial_member_form_files(member)
     else:
         rows = db.editorial_members.all().equal(id=member_id).exec()
         if not rows:
@@ -9365,6 +9541,7 @@ def editorial_member_edit(member_id):
         member['sort_order'] = _parse_int(member.get('sort_order')) or 0
         member['is_active'] = True if member.get('is_active') is None else bool(member.get('is_active'))
         member['selected_country_id'] = _editorial_member_country_id(member, countries)
+        member = _prepare_editorial_member_form_files(member)
 
     return render_template(
         'website/editorial/member_edit.html',

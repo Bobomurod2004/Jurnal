@@ -59,6 +59,25 @@ def test_publication_recent_sort_key_ignores_legacy_publish_time_within_same_day
     assert [row['id'] for row in ordered] == [122, 121]
 
 
+def test_load_public_editorial_members_does_not_fallback_to_editor_users(monkeypatch):
+    monkeypatch.setattr(public_routes, '_load_editorial_members', lambda: [])
+
+    fake_dbc = type('FakeDBC', (), {
+        'users': _FakeTable([
+            {
+                'id': 7,
+                'email': 'editor@example.com',
+                'roles': ['editor'],
+            }
+        ]),
+    })()
+    monkeypatch.setattr(public_routes, 'dbc', fake_dbc)
+    monkeypatch.setattr(public_routes, 'hydrate_user_roles', lambda user: user)
+    monkeypatch.setattr(public_routes, 'user_has_role', lambda user, role: role in (user.get('roles') or []))
+
+    assert public_routes._load_public_editorial_members() == []
+
+
 class _FakeQuery:
     def __init__(self, rows):
         self._rows = [dict(row) for row in rows]

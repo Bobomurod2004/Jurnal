@@ -1,4 +1,5 @@
 # flake8: noqa
+import json
 import logging
 import mimetypes
 import os
@@ -507,6 +508,37 @@ def _clean_text(value):
     if value is None:
         return ''
     return str(value).strip()
+
+
+def _stored_upload_value_to_list(value):
+    if value is None:
+        return []
+
+    raw_items = None
+    if isinstance(value, (list, tuple)):
+        raw_items = list(value)
+    else:
+        raw_text = _clean_text(value)
+        if not raw_text:
+            return []
+        if raw_text.startswith('['):
+            try:
+                parsed = json.loads(raw_text)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                parsed = None
+            if isinstance(parsed, list):
+                raw_items = parsed
+        if raw_items is None:
+            raw_items = [raw_text]
+
+    items = []
+    seen = set()
+    for item in raw_items:
+        cleaned = _clean_text(item)
+        if cleaned and cleaned not in seen:
+            items.append(cleaned)
+            seen.add(cleaned)
+    return items
 
 
 def _multilingual_email_text(uz_text, ru_text=None, en_text=None, separator=' | ', include_labels=False):
@@ -1046,6 +1078,28 @@ def _country_stat_bucket(country_name):
     return normalized_name.lower(), normalized_name, ''
 
 
+def _resolved_country_bucket(country_name='', country_key=''):
+    normalized_key = _clean_text(country_key).lower()
+    normalized_country_name = _normalize_country_name(country_name)
+
+    if _is_other_country_bucket_key(normalized_key):
+        bucket_key, display_name = _other_country_bucket()
+        return bucket_key, display_name, ''
+
+    if normalized_country_name:
+        resolved_key, resolved_name, resolved_iso = _country_stat_bucket(normalized_country_name)
+        if resolved_key:
+            return resolved_key, resolved_name, resolved_iso
+
+    if normalized_key:
+        if re.match(r'^[a-z]{2}$', normalized_key):
+            display_name = COUNTRY_DISPLAY_BY_ISO.get(normalized_key) or normalized_key.upper()
+            return normalized_key, display_name, normalized_key
+        return normalized_key, normalized_country_name or _clean_text(country_key), ''
+
+    return '', '', ''
+
+
 def _other_country_bucket():
     return OTHER_COUNTRY_KEY, OTHER_COUNTRY_NAME
 
@@ -1387,15 +1441,12 @@ def _bootstrap_activity_events_from_legacy():
             key_text = _clean_text(legacy_country_key).lower()
             name_text = _normalize_country_name(legacy_country_name)
 
-            if _is_other_country_bucket_key(key_text):
+            bucket_key, bucket_name, _bucket_iso = _resolved_country_bucket(
+                country_name=name_text,
+                country_key=key_text,
+            )
+            if not bucket_key or not bucket_name:
                 bucket_key, bucket_name = _other_country_bucket()
-            elif key_text and re.match(r'^[a-z]{2}$', key_text):
-                bucket_key = key_text
-                bucket_name = COUNTRY_DISPLAY_BY_ISO.get(key_text) or name_text or key_text.upper()
-            else:
-                bucket_key, bucket_name, bucket_iso = _country_stat_bucket(name_text)
-                if not bucket_key or not bucket_iso:
-                    bucket_key, bucket_name = _other_country_bucket()
 
             views_int = max(0, _parse_int(views_count) or 0)
             downloads_int = max(0, _parse_int(downloads_count) or 0)
@@ -1603,8 +1654,8 @@ def _resolve_activity_country_bucket(user_id):
     if not country_name:
         return _other_country_bucket()
 
-    bucket_key, display_name, iso = _country_stat_bucket(country_name)
-    if not bucket_key or not display_name or not iso:
+    bucket_key, display_name, _iso = _resolved_country_bucket(country_name=country_name)
+    if not bucket_key or not display_name:
         return _other_country_bucket()
     return bucket_key, display_name
 
@@ -2313,7 +2364,8 @@ def _load_editorial_members():
             or _clean_text(member.get('research_interests_uz'))
             or _clean_text(member.get('research_interests_ru'))
         )
-        cv_url = _normalize_public_upload_url(_localized_content_field(member, 'cv_file'))
+        cv_urls = _normalize_public_upload_urls(_localized_content_field(member, 'cv_file'))
+        cv_url = cv_urls[0] if cv_urls else None
         google_scholar_url = _normalize_external_profile_url(member.get('google_scholar_url'))
         orcid_value, orcid_url = _normalize_orcid_profile(member.get('orcid'))
         scopus_value, scopus_url = _normalize_scopus_profile(
@@ -2355,6 +2407,7 @@ def _load_editorial_members():
         prepared_member['researcherid'] = researcherid_value
         prepared_member['researcherid_url'] = researcherid_url
         prepared_member['email'] = email_value
+        prepared_member['cv_urls'] = cv_urls
         prepared_member['cv_url'] = cv_url
         prepared_member['google_scholar_url'] = google_scholar_url
         prepared_member['modal_id'] = f"editorial-member-{_parse_int(member.get('id')) or len(members) + 1}"
@@ -2374,63 +2427,7 @@ def _load_editorial_members():
 
 def _load_public_editorial_members():
     editorial_members = _load_editorial_members()
-    if editorial_members:
-        return editorial_members
-
-    try:
-        raw_users = dbc.users.all().exec()
-    except Exception:
-        raw_users = []
-
-    editors = [
-        hydrate_user_roles(user)
-        for user in raw_users
-        if user_has_role(user, 'editor')
-    ]
-
-    prepared_editors = []
-    for editor in editors:
-        if editor.get('is_hidden') or editor.get('is_blocked'):
-            continue
-        translate(editor)
-        full_name_parts = [
-            (editor.get('name') or '').strip(),
-            (editor.get('second_name') or '').strip(),
-            (editor.get('father_name') or '').strip()
-        ]
-        full_name = ' '.join([part for part in full_name_parts if part]).strip()
-        editor['full_name'] = full_name or editor.get('email') or 'Editor'
-        editor['member_type'] = 'editorial_board'
-        editor['member_type_label'] = _editorial_member_type_label('editorial_board')
-        editor['title'] = (editor.get('position') or '').strip() or (editor.get('title') or '').strip()
-        orcid_value, orcid_url = _normalize_orcid_profile(editor.get('orcid'))
-        editor['orcid'] = orcid_value
-        editor['orcid_url'] = orcid_url
-        editor['email'] = _clean_text(editor.get('email'))
-        country_value = _author_country_display_name(editor.get('address_country'), lang=_current_lang_code())
-        _, _, country_iso = _country_stat_bucket(editor.get('address_country'))
-        editor['country'] = country_value
-        editor['country_code'] = country_iso
-        editor['country_flag'] = _country_code_to_flag(country_iso)
-        editor['research_interests'] = ''
-        editor['research_interests_list'] = []
-        editor['scopus'] = ''
-        editor['scopus_url'] = ''
-        editor['researcherid'] = ''
-        editor['researcherid_url'] = ''
-        editor['cv_url'] = ''
-        editor['google_scholar_url'] = ''
-        editor['modal_id'] = f"editorial-member-fallback-{editor.get('id') or len(prepared_editors) + 1}"
-        editor['sort_order'] = _parse_int(editor.get('sort_order')) or 0
-        prepared_editors.append(editor)
-
-    return sorted(
-        prepared_editors,
-        key=lambda item: (
-            _parse_int(item.get('sort_order')) or 0,
-            (item.get('full_name') or '').lower()
-        )
-    )
+    return editorial_members or []
 
 
 def _select_featured_editorial_member(editors):
@@ -2657,34 +2654,10 @@ def app__index():
         aggregated = {}
 
         def _merge_country_row(country_name='', country_key='', authors=0, views=0, downloads=0):
-            normalized_key = _clean_text(country_key).lower()
-            normalized_country_name = _normalize_country_name(country_name)
-
-            if _is_other_country_bucket_key(normalized_key):
-                bucket_key, display_name = _other_country_bucket()
-                iso = ''
-            elif normalized_key:
-                if re.match(r'^[a-z]{2}$', normalized_key):
-                    bucket_key = normalized_key
-                    iso = normalized_key
-                    display_name = COUNTRY_DISPLAY_BY_ISO.get(iso) or normalized_country_name or normalized_key.upper()
-                elif normalized_country_name:
-                    resolved_key, resolved_name, resolved_iso = _country_stat_bucket(normalized_country_name)
-                    if resolved_iso:
-                        bucket_key, display_name, iso = resolved_key, resolved_name, resolved_iso
-                    else:
-                        bucket_key, display_name = _other_country_bucket()
-                        iso = ''
-                else:
-                    bucket_key, display_name = _other_country_bucket()
-                    iso = ''
-            else:
-                resolved_key, resolved_name, resolved_iso = _country_stat_bucket(normalized_country_name)
-                if resolved_iso:
-                    bucket_key, display_name, iso = resolved_key, resolved_name, resolved_iso
-                else:
-                    bucket_key, display_name = _other_country_bucket()
-                    iso = ''
+            bucket_key, display_name, iso = _resolved_country_bucket(
+                country_name=country_name,
+                country_key=country_key,
+            )
 
             if not bucket_key:
                 return
@@ -2742,13 +2715,6 @@ def app__index():
             if _has_any_activity(item)
             and not _is_other_country_bucket_key(item.get('country_key'))
         ]
-        other_items = [
-            item
-            for item in aggregated.values()
-            if _has_any_activity(item)
-            and _is_other_country_bucket_key(item.get('country_key'))
-        ]
-
         sorted_stats = sorted(
             activity_items,
             key=lambda item: (
@@ -2762,22 +2728,6 @@ def app__index():
         max_cnt = max((item.get('count') or 0 for item in sorted_stats), default=0)
         max_cnt = max(max_cnt, 1)
 
-        # Merge the unattributed buckets into a single trailing "Other" row so
-        # the per-country list still adds up to the journal-wide totals.
-        merged_other = None
-        if other_items:
-            merged_other = {
-                'country_key': OTHER_COUNTRY_KEY,
-                'name': country_stats_ui.get('unknown_country') or OTHER_COUNTRY_NAME,
-                'authors': sum(_parse_int(item.get('authors')) or 0 for item in other_items),
-                'views': sum(_parse_int(item.get('views')) or 0 for item in other_items),
-                'downloads': sum(_parse_int(item.get('downloads')) or 0 for item in other_items),
-                'iso': '',
-            }
-            merged_other['count'] = merged_other['views'] + merged_other['downloads']
-            if merged_other['count'] <= 0 and merged_other['authors'] <= 0:
-                merged_other = None
-
         for item in sorted_stats:
             count_value = _parse_int(item.get('count')) or 0
             item['pct'] = round(count_value / max_cnt * 100) if count_value > 0 else 0
@@ -2787,14 +2737,8 @@ def app__index():
                     fallback_name=item.get('name'),
                     lang=current_lang,
                 )
-
-        if merged_other:
-            merged_other['pct'] = min(100, round(merged_other['count'] / max_cnt * 100)) if merged_other['count'] > 0 else 0
-
-        country_stats = sorted_stats + ([merged_other] if merged_other else [])
+        country_stats = sorted_stats
         country_stats_top = sorted_stats[:10]
-        if merged_other:
-            country_stats_top = sorted_stats[:9] + [merged_other]
     except Exception:
         try:
             dbc.conn.rollback()
@@ -4432,6 +4376,15 @@ def _normalize_public_upload_url(stored_filepath):
         return None
 
     return f"/static/uploads/{'/'.join(parts)}"
+
+
+def _normalize_public_upload_urls(stored_filepath):
+    urls = []
+    for item in _stored_upload_value_to_list(stored_filepath):
+        normalized = _normalize_public_upload_url(item)
+        if normalized and normalized not in urls:
+            urls.append(normalized)
+    return urls
 
 
 def _issue_toc_stored_filepath(issue):

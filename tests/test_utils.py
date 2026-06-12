@@ -1,6 +1,17 @@
-from fmadmin.routes.web import _parse_amount
+from fmadmin.routes.web import (
+    _missing_nonempty_payload_fields,
+    _parse_amount,
+    _serialize_upload_value_list,
+    _stored_upload_value_to_list as _admin_upload_value_to_list,
+)
 from fmadmin.services.emailer import _build_context, _build_multilingual_template_payload
-from mainweb.routes.public import _youtube_embed_url, _normalize_public_upload_url, _issue_toc_public_url
+from mainweb.routes.public import (
+    _issue_toc_public_url,
+    _normalize_public_upload_url,
+    _normalize_public_upload_urls,
+    _resolved_country_bucket,
+    _youtube_embed_url,
+)
 
 
 def test_parse_amount_handles_common_formats():
@@ -28,6 +39,47 @@ def test_normalize_public_upload_url_accepts_multiple_input_formats():
 def test_issue_toc_public_url_allows_only_supported_extensions():
     assert _issue_toc_public_url({'table_of_contents_file': '/static/uploads/issues/2026/05/toc.docx'}) == '/static/uploads/issues/2026/05/toc.docx'
     assert _issue_toc_public_url({'table_of_contents_file': '/static/uploads/issues/2026/05/toc.exe'}) is None
+
+
+def test_editorial_upload_value_helpers_support_legacy_and_multi_file_formats():
+    assert _admin_upload_value_to_list('/static/uploads/editorial_members/2026/06/cv.pdf') == [
+        '/static/uploads/editorial_members/2026/06/cv.pdf'
+    ]
+    assert _admin_upload_value_to_list(
+        '["/static/uploads/editorial_members/2026/06/cv-1.pdf", "/static/uploads/editorial_members/2026/06/cv-2.docx"]'
+    ) == [
+        '/static/uploads/editorial_members/2026/06/cv-1.pdf',
+        '/static/uploads/editorial_members/2026/06/cv-2.docx',
+    ]
+    assert _serialize_upload_value_list(['/static/uploads/editorial_members/2026/06/cv.pdf']) == '/static/uploads/editorial_members/2026/06/cv.pdf'
+    assert _serialize_upload_value_list(
+        ['/static/uploads/editorial_members/2026/06/cv-1.pdf', '/static/uploads/editorial_members/2026/06/cv-2.docx']
+    ) == '["/static/uploads/editorial_members/2026/06/cv-1.pdf", "/static/uploads/editorial_members/2026/06/cv-2.docx"]'
+
+
+def test_missing_nonempty_payload_fields_ignores_blank_unsupported_values():
+    payload = {
+        'full_name': 'Alice Example',
+        'google_scholar_url': '',
+        'research_interests': '',
+        'cv_file': None,
+    }
+
+    assert _missing_nonempty_payload_fields(payload, {'full_name'}) == []
+
+
+def test_normalize_public_upload_urls_supports_multi_file_values():
+    assert _normalize_public_upload_urls(
+        '["/uploads/editorial_members/2026/06/cv-1.pdf", "https://journal.example/static/uploads/editorial_members/2026/06/cv-2.docx", "/etc/passwd"]'
+    ) == [
+        '/static/uploads/editorial_members/2026/06/cv-1.pdf',
+        '/static/uploads/editorial_members/2026/06/cv-2.docx',
+    ]
+
+
+def test_resolved_country_bucket_preserves_explicit_country_name_without_iso():
+    assert _resolved_country_bucket(country_name='Atlantis') == ('atlantis', 'Atlantis', '')
+    assert _resolved_country_bucket(country_name='Uzbekistan') == ('uz', 'Uzbekistan', 'uz')
 
 
 def test_build_multilingual_template_payload_keeps_three_languages():
