@@ -1,456 +1,217 @@
 {% extends 'basic.html' %}
 
-{% block title %}{{ t('website_title') }}{% endblock %}
+{% block title %}{{ t('website_title') }} - {{ t('editorial_team') }}{% endblock %}
 
 {% block content %}
 {% include 'components/headers/main_header.html' %}
 {% include 'components/hero/main_hero.html' %}
-{% from "components/items/editorial.html" import editor with context %}
+{% from "components/items/editorial.html" import featured_card, member_card, member_modal with context %}
 
-<div class="editorial-page">
-    <div class="container mx-auto editorial-container">
-        <div class="editorial-layout">
-            <section class="editorial-main">
-                <header class="editorial-hero">
-                    <div class="editorial-hero-text">
-                        <h1>{{ t('editorial_board') }}</h1>
-                        <p>{{ t('editorial_board_description') }}</p>
-                    </div>
-                    <div class="editorial-stats">
-                        <div class="editorial-stat">
-                            <span class="editorial-stat-value">{{ total_editors or 0 }}</span>
-                            <span class="editorial-stat-label">{{ editorial_ui.total_members }}</span>
-                        </div>
-                        <div class="editorial-stat">
-                            <span class="editorial-stat-value">{{ total_groups or 0 }}</span>
-                            <span class="editorial-stat-label">{{ editorial_ui.sections }}</span>
-                        </div>
-                    </div>
-                </header>
+<div class="bg-gray-50/50 py-10 md:py-16">
+    <div class="container mx-auto px-4 max-w-[1200px]">
+        <!-- Page Header -->
+        <header class="text-center max-w-2xl mx-auto mb-10 md:mb-14">
+            <h1 class="font-serif font-bold text-gray-900 text-3xl md:text-4xl lg:text-5xl leading-tight tracking-tight mb-3">
+                {{ t('editorial_team') }}
+            </h1>
+            <p class="text-sm md:text-base text-gray-500 leading-relaxed">
+                {{ t('editorial_team_description') }}
+            </p>
+        </header>
 
-                {% if editor_groups %}
-                    {% for group in editor_groups %}
-                    <section class="editorial-group" id="group-{{ group.key }}">
-                        <div class="editorial-group-head">
-                            <h2>{{ group.label }}</h2>
-                            <span>{{ group.count }} {{ editorial_ui.members_suffix }}</span>
+        <!-- Leadership (static featured cards) -->
+        {% if leadership_groups %}
+        {% set leadership_members = [] %}
+        {% for group in leadership_groups %}
+            {% for editor_data in group.members %}
+                {% set _ = leadership_members.append((editor_data, group)) %}
+            {% endfor %}
+        {% endfor %}
+        <section class="mb-12" id="editorial-leadership">
+            <div class="grid grid-cols-1 md:grid-cols-2 {% if leadership_members|length >= 3 %}lg:grid-cols-3{% endif %} gap-5 md:gap-6 items-stretch">
+                {% for editor_data, group in leadership_members %}
+                    {{ featured_card(editor_data, group) }}
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- Board groups (auto-scrolling streams) -->
+        {% if board_groups %}
+        <div id="editorial-groups" class="scroll-mt-24">
+            {% for group in board_groups %}
+            <section class="rounded-2xl border bg-white shadow-xs overflow-hidden mb-7" id="group-{{ group.key }}" style="border-color: {{ group.theme.border }};">
+                <!-- Group header band -->
+                {% set other_labels = [] %}
+                {% for lang_key in ('uz', 'en', 'ru') %}
+                    {% set lang_label = group.labels.get(lang_key) %}
+                    {% if lang_label and lang_label != group.label and lang_label not in other_labels %}
+                        {% set _ = other_labels.append(lang_label) %}
+                    {% endif %}
+                {% endfor %}
+                <div class="px-5 py-3.5 flex items-center justify-between gap-3 text-white" style="background: linear-gradient(135deg, {{ group.theme.accent }} 0%, {{ group.theme.accent_dark }} 100%);">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center flex-shrink-0">
+                            <iconify-icon icon="tabler:users-group" class="text-lg"></iconify-icon>
+                        </span>
+                        <div class="min-w-0">
+                            <h2 class="font-serif font-bold text-base md:text-lg leading-tight truncate">{{ group.label }}</h2>
+                            {% if other_labels %}
+                            <div class="text-[10px] font-semibold uppercase tracking-wider opacity-75 truncate">{{ other_labels|join(' • ') }}</div>
+                            {% endif %}
                         </div>
-                        <div class="editorial-members-stack">
-                            {% for editor_data in group.members %}
-                            {{ editor(editor_data) }}
+                    </div>
+                    <span class="px-2.5 py-1 bg-white/20 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0">
+                        {{ group.count }} {{ editorial_ui.members_suffix }}
+                    </span>
+                </div>
+
+                <!-- Stream viewport -->
+                <div class="relative overflow-hidden p-4 md:p-5" style="background-color: {{ group.theme.soft }};">
+                    <div class="absolute inset-y-0 left-0 w-10 md:w-16 z-10 pointer-events-none" style="background: linear-gradient(to right, {{ group.theme.soft }}, transparent);"></div>
+                    <div class="absolute inset-y-0 right-0 w-10 md:w-16 z-10 pointer-events-none" style="background: linear-gradient(to left, {{ group.theme.soft }}, transparent);"></div>
+
+                    {% set set_repeats = 1 %}
+                    {% if group.count == 1 %}
+                        {% set set_repeats = 4 %}
+                    {% elif group.count == 2 %}
+                        {% set set_repeats = 2 %}
+                    {% elif group.count == 3 %}
+                        {% set set_repeats = 2 %}
+                    {% endif %}
+                    {% set stream_seconds = [group.count * set_repeats * 7, 28]|max %}
+
+                    <div class="editorial-stream__track" style="--stream-duration: {{ stream_seconds }}s;">
+                        {% for copy_index in range(2) %}
+                        <div class="editorial-stream__half" {% if copy_index > 0 %}aria-hidden="true"{% endif %}>
+                            {% for _ in range(set_repeats) %}
+                                {% for editor_data in group.members %}
+                                <div class="flex-shrink-0 w-[290px] md:w-[330px] h-[136px]">
+                                    {{ member_card(editor_data, group) }}
+                                </div>
+                                {% endfor %}
                             {% endfor %}
                         </div>
-                    </section>
-                    {% endfor %}
-                {% else %}
-                    <div class="editorial-empty">
-                        {{ editorial_ui.empty }}
-                    </div>
-                {% endif %}
-            </section>
-
-            <aside class="editorial-sidebar">
-                {% if editor_groups %}
-                <div class="editorial-side-card">
-                    <h3>{{ editorial_ui.sections_title }}</h3>
-                    <div class="editorial-side-list">
-                        {% for group in editor_groups %}
-                        <a href="#group-{{ group.key }}">
-                            <span>{{ group.label }}</span>
-                            <b>{{ group.count }}</b>
-                        </a>
                         {% endfor %}
                     </div>
                 </div>
-                {% endif %}
-
-                <div class="editorial-side-card">
-                    <h3>{{ t('pages') }}</h3>
-                    <div class="editorial-side-list">
-                        <a href="{{ url_for('app__page_alias', alias='aims_scope') }}">
-                            <span>{{ t('menu_aims_scope') }}</span>
-                            <iconify-icon icon="tabler:arrow-right"></iconify-icon>
-                        </a>
-                        <a href="{{ url_for('app__page_alias', alias='journal_info') }}">
-                            <span>{{ t('menu_journal_info') }}</span>
-                            <iconify-icon icon="tabler:arrow-right"></iconify-icon>
-                        </a>
-                        <a href="{{ url_for('app__page_alias', alias='editorial_policy') }}">
-                            <span>{{ t('menu_editorial_policy') }}</span>
-                            <iconify-icon icon="tabler:arrow-right"></iconify-icon>
-                        </a>
-                        <a href="{{ url_for('app__contact') }}">
-                            <span>{{ t('footer_contact') }}</span>
-                            <iconify-icon icon="tabler:arrow-right"></iconify-icon>
-                        </a>
-                    </div>
-                </div>
-            </aside>
+            </section>
+            {% endfor %}
         </div>
+        {% endif %}
+
+        <!-- Empty state -->
+        {% if not leadership_groups and not board_groups %}
+        <div class="bg-white border border-gray-200 rounded-2xl p-12 text-center text-gray-500 shadow-xs font-medium">
+            <iconify-icon icon="tabler:users" class="text-4xl text-gray-300 mb-3"></iconify-icon>
+            <p>{{ editorial_ui.empty }}</p>
+        </div>
+        {% endif %}
     </div>
 </div>
+
+<!-- Member detail modals (rendered once per member) -->
+{% for group in editor_groups %}
+    {% for editor_data in group.members %}
+        {{ member_modal(editor_data, group) }}
+    {% endfor %}
+{% endfor %}
 {% endblock %}
 
 {% block scripts %}
 <style>
-    .editorial-page {
-        background: linear-gradient(180deg, #f7fbf9 0%, #f4f6f8 55%, #ffffff 100%);
-        padding: 2rem 0 3rem;
-    }
-
-    .editorial-container {
-        max-width: 1220px;
-    }
-
-    .editorial-layout {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 320px;
-        gap: 1.4rem;
-    }
-
-    .editorial-main {
-        min-width: 0;
-    }
-
-    .editorial-hero {
+    .editorial-stream__track {
         display: flex;
-        justify-content: space-between;
         gap: 1rem;
-        padding: 1.5rem;
-        border: 1px solid #dce8e1;
-        border-radius: 18px;
-        background: linear-gradient(145deg, #ffffff 0%, #eef8f2 90%);
-        margin-bottom: 1rem;
+        width: max-content;
+        animation: editorial-marquee var(--stream-duration, 32s) linear infinite;
+        will-change: transform;
     }
 
-    .editorial-hero-text h1 {
-        margin: 0 0 0.65rem;
-        font-size: 1.8rem;
-        line-height: 1.2;
-        letter-spacing: -0.015em;
-        color: #101828;
-    }
-
-    .editorial-hero-text p {
-        margin: 0;
-        color: #475467;
-        font-size: 1rem;
-        max-width: 680px;
-    }
-
-    .editorial-stats {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 0.55rem;
-        min-width: 170px;
-    }
-
-    .editorial-stat {
-        border-radius: 12px;
-        border: 1px solid #d2e8db;
-        background: #ffffff;
-        padding: 0.7rem 0.85rem;
-        text-align: center;
-    }
-
-    .editorial-stat-value {
-        display: block;
-        font-weight: 800;
-        font-size: 1.25rem;
-        color: #0f5132;
-    }
-
-    .editorial-stat-label {
-        display: block;
-        margin-top: 0.15rem;
-        color: #527266;
-        font-size: 0.78rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .editorial-group {
-        margin-bottom: 0.85rem;
-        padding: 1rem;
-        border-radius: 18px;
-        border: 1px solid #e2e8f0;
-        background: #ffffff;
-        scroll-margin-top: 6.5rem;
-    }
-
-    .editorial-group-head {
+    .editorial-stream__half {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.75rem;
-        margin-bottom: 0.95rem;
-        padding-bottom: 0.7rem;
-        border-bottom: 1px solid #edf2f7;
+        gap: 1rem;
+        padding-right: 1rem;
     }
 
-    .editorial-group-head h2 {
-        margin: 0;
-        font-size: 1.2rem;
-        color: #111827;
-        letter-spacing: -0.01em;
+    .editorial-stream__track:hover,
+    .editorial-stream__track:focus-within {
+        animation-play-state: paused;
     }
 
-    .editorial-group-head span {
-        padding: 0.22rem 0.58rem;
-        font-size: 0.8rem;
-        border-radius: 999px;
-        border: 1px solid #cae5d7;
-        background: #eef9f2;
-        color: #14532d;
-        white-space: nowrap;
+    @keyframes editorial-marquee {
+        from { transform: translateX(0); }
+        to { transform: translateX(-50%); }
     }
 
-    .editorial-members-stack {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 0.72rem;
+    @media (prefers-reduced-motion: reduce) {
+        .editorial-stream__track {
+            animation: none;
+            width: auto;
+            overflow-x: auto;
+        }
+        .editorial-stream__half[aria-hidden="true"] {
+            display: none;
+        }
     }
 
-    .editorial-member-card {
-        border: 1px solid #e3e8ee;
-        border-radius: 14px;
-        padding: 0.95rem;
-        background: #ffffff;
-        transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    /* Modal display */
+    .editorial-modal {
+        display: none;
     }
-
-    .editorial-member-card:hover {
-        border-color: #c8d7cf;
-        box-shadow: 0 10px 24px rgba(17, 24, 39, 0.07);
-        transform: translateY(-1px);
-    }
-
-    .editorial-member-layout {
+    .editorial-modal.is-open {
         display: flex;
-        align-items: flex-start;
-        gap: 0.9rem;
     }
-
-    .editorial-avatar-wrap {
-        flex-shrink: 0;
+    body.editorial-modal-open {
+        overflow: hidden;
     }
-
-    .editorial-avatar {
-        width: 84px;
-        height: 96px;
-        border-radius: 12px;
-        object-fit: cover;
-        border: 1px solid #e3e8ee;
-        background: #f8fafc;
+    .animate-fade-in {
+        animation: fadeIn 0.22s ease-out forwards;
     }
-
-    .editorial-member-content {
-        min-width: 0;
-        width: 100%;
-    }
-
-    .editorial-badges {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.35rem;
-        margin-bottom: 0.45rem;
-    }
-
-    .editorial-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.2rem 0.5rem;
-        border-radius: 999px;
-        font-size: 0.75rem;
-        border: 1px solid #d4dde6;
-        background: #f8fafc;
-        color: #334155;
-    }
-
-    .editorial-badge-main {
-        border-color: #c5dfd2;
-        background: #eef9f3;
-        color: #14532d;
-        font-weight: 700;
-    }
-
-    .editorial-member-name {
-        margin: 0;
-        font-size: 1.32rem;
-        line-height: 1.25;
-        color: #0f172a;
-        letter-spacing: -0.015em;
-    }
-
-    .editorial-member-meta {
-        margin-top: 0.58rem;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-
-    .editorial-meta-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        border-radius: 999px;
-        border: 1px solid #d8e1eb;
-        background: #f8fafc;
-        color: #1f2937;
-        font-size: 0.82rem;
-        padding: 0.26rem 0.64rem;
-        text-decoration: none;
-        word-break: break-word;
-    }
-
-    .editorial-meta-chip:hover {
-        border-color: #b9cbbe;
-        background: #edf9f2;
-        color: #14532d;
-    }
-
-    .editorial-chip-icon {
-        font-size: 0.93rem;
-    }
-
-    .editorial-member-facts {
-        margin-top: 0.62rem;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 0.55rem;
-    }
-
-    .editorial-fact {
-        padding: 0.72rem 0.8rem;
-        border: 1px solid #e5ebf2;
-        border-radius: 12px;
-        background: #f9fbfc;
-    }
-
-    .editorial-fact-label {
-        display: block;
-        margin-bottom: 0.28rem;
-        color: #64748b;
-        font-size: 0.74rem;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-    }
-
-    .editorial-fact strong {
-        display: block;
-        color: #0f172a;
-        font-size: 0.9rem;
-        line-height: 1.45;
-    }
-
-    .editorial-empty {
-        border-radius: 14px;
-        border: 1px dashed #cdd5df;
-        background: #ffffff;
-        padding: 1rem;
-        color: #64748b;
-        text-align: center;
-    }
-
-    .editorial-sidebar {
-        display: flex;
-        flex-direction: column;
-        gap: 0.85rem;
-        position: sticky;
-        top: 84px;
-        align-self: start;
-    }
-
-    .editorial-side-card {
-        border: 1px solid #dbe3ec;
-        border-radius: 16px;
-        background: #ffffff;
-        padding: 1rem;
-    }
-
-    .editorial-side-card h3 {
-        margin: 0 0 0.8rem;
-        font-size: 1.02rem;
-        color: #111827;
-    }
-
-    .editorial-side-list {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 0.38rem;
-    }
-
-    .editorial-side-list a {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.65rem;
-        border: 1px solid #e5eaf0;
-        border-radius: 10px;
-        padding: 0.52rem 0.64rem;
-        background: #f8fafc;
-        color: #1e293b;
-        text-decoration: none;
-        font-size: 0.9rem;
-        transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
-    }
-
-    .editorial-side-list a:hover {
-        border-color: #bfd8ca;
-        background: #eef9f2;
-        color: #14532d;
-    }
-
-    .editorial-side-list a b {
-        display: inline-flex;
-        min-width: 1.45rem;
-        height: 1.45rem;
-        border-radius: 999px;
-        align-items: center;
-        justify-content: center;
-        background: #0f5132;
-        color: #ffffff;
-        font-size: 0.73rem;
-        font-weight: 700;
-    }
-
-    .editorial-side-list a iconify-icon {
-        font-size: 1rem;
-    }
-
-    @media (max-width: 1100px) {
-        .editorial-layout {
-            grid-template-columns: minmax(0, 1fr);
-        }
-
-        .editorial-sidebar {
-            position: static;
-        }
-    }
-
-    @media (max-width: 760px) {
-        .editorial-page {
-            padding: 1.4rem 0 2rem;
-        }
-
-        .editorial-hero {
-            flex-direction: column;
-        }
-
-        .editorial-stats {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        .editorial-member-layout {
-            flex-direction: column;
-            gap: 0.7rem;
-        }
-
-        .editorial-avatar {
-            width: 76px;
-            height: 90px;
-        }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: scale(0.96); }
+        to { opacity: 1; transform: scale(1); }
     }
 </style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var body = document.body;
+
+        function closeModal(modal) {
+            if (!modal) return;
+            modal.classList.remove('is-open');
+            modal.classList.add('hidden');
+            modal.setAttribute('aria-hidden', 'true');
+            body.classList.remove('editorial-modal-open');
+        }
+
+        function openModal(modal) {
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.classList.add('is-open');
+            modal.setAttribute('aria-hidden', 'false');
+            body.classList.add('editorial-modal-open');
+        }
+
+        document.addEventListener('click', function (event) {
+            var openButton = event.target.closest('[data-editorial-open]');
+            if (openButton) {
+                openModal(document.getElementById(openButton.getAttribute('data-editorial-open')));
+                return;
+            }
+            var closeButton = event.target.closest('[data-editorial-close]');
+            if (closeButton) {
+                closeModal(closeButton.closest('.editorial-modal'));
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                var openModalEl = document.querySelector('.editorial-modal.is-open');
+                if (openModalEl) closeModal(openModalEl);
+            }
+        });
+    });
+</script>
 {% endblock %}

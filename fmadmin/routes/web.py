@@ -117,42 +117,64 @@ _LAST_EDITOR_ASSIGNMENT_AUTOMATION_TS = 0
 
 EDITORIAL_MEMBER_TYPE_ORDER = [
     'editor_in_chief',
-    'deputy_editor',
-    'editor',
-    'reviewer',
-    'advisory_member',
-    'technical_editor',
-    'translator'
+    'deputy_editor_in_chief',
+    'executive_secretary',
+    'editorial_board',
+    'international_editorial_board',
+    'editorial_council',
+    'international_editorial_council',
 ]
 EDITORIAL_MEMBER_TYPE_LABELS = {
     'uz': {
         'editor_in_chief': "Bosh muharrir",
-        'deputy_editor': "Mas'ul kotib",
-        'editor': "Muharrir",
-        'reviewer': "Ilmiy muharrir",
-        'advisory_member': "Sahifalovchi",
-        'technical_editor': "Musahhih",
-        'translator': "Tarjimon"
+        'deputy_editor_in_chief': "Bosh muharrir o'rinbosari",
+        'executive_secretary': "Mas'ul kotib",
+        'editorial_board': "Tahrir hay'ati",
+        'international_editorial_board': "Xalqaro tahrir hay'ati",
+        'editorial_council': "Tahrir kengashi",
+        'international_editorial_council': "Xalqaro tahrir kengashi",
     },
     'ru': {
         'editor_in_chief': "Главный редактор",
-        'deputy_editor': "Ответственный секретарь",
-        'editor': "Редактор",
-        'reviewer': "Научный редактор",
-        'advisory_member': "Редактор верстки",
-        'technical_editor': "Корректор",
-        'translator': "Переводчик"
+        'deputy_editor_in_chief': "Заместитель главного редактора",
+        'executive_secretary': "Ответственный секретарь",
+        'editorial_board': "Редакционная коллегия",
+        'international_editorial_board': "Международная редакционная коллегия",
+        'editorial_council': "Редакционный совет",
+        'international_editorial_council': "Международный редакционный совет",
     },
     'en': {
         'editor_in_chief': "Editor-in-Chief",
-        'deputy_editor': "Responsible Secretary",
-        'editor': "Editor",
-        'reviewer': "Scientific Editor",
-        'advisory_member': "Layout Editor",
-        'technical_editor': "Proofreader",
-        'translator': "Translator"
+        'deputy_editor_in_chief': "Deputy Editor-in-Chief",
+        'executive_secretary': "Executive Secretary",
+        'editorial_board': "Editorial Board",
+        'international_editorial_board': "International Editorial Board",
+        'editorial_council': "Editorial Council",
+        'international_editorial_council': "International Editorial Council",
     }
 }
+EDITORIAL_MEMBER_TYPE_LEGACY_ALIASES = {
+    'deputy_editor': 'executive_secretary',
+    'editor': 'editorial_board',
+    'reviewer': 'editorial_board',
+    'advisory_member': 'editorial_board',
+    'technical_editor': 'editorial_board',
+    'translator': 'editorial_board',
+}
+
+
+def _build_editorial_member_type_aliases():
+    aliases = {}
+    for key in EDITORIAL_MEMBER_TYPE_ORDER:
+        aliases[key] = key
+    for labels in EDITORIAL_MEMBER_TYPE_LABELS.values():
+        for key, label in labels.items():
+            aliases[(str(label or '')).strip().lower()] = key
+    aliases.update(EDITORIAL_MEMBER_TYPE_LEGACY_ALIASES)
+    return aliases
+
+
+EDITORIAL_MEMBER_TYPE_ALIASES = _build_editorial_member_type_aliases()
 EDITORIAL_MEMBER_TYPE_KEYS = set(EDITORIAL_MEMBER_TYPE_ORDER)
 
 EMAIL_TEMPLATE_VAR_PATTERN = re.compile(r'{{\s*([a-zA-Z0-9_]+)\s*}}')
@@ -1312,16 +1334,14 @@ def _set_site_setting(key, value):
 
 def _normalize_editorial_member_type(value):
     normalized = _clean_text(value).lower()
-    if normalized in EDITORIAL_MEMBER_TYPE_KEYS:
-        return normalized
-    return 'editor'
+    return EDITORIAL_MEMBER_TYPE_ALIASES.get(normalized, 'editorial_board')
 
 
 def _editorial_member_type_label(value, lang=None):
     normalized = _normalize_editorial_member_type(value)
     language = _clean_text(lang or _ui_language()).lower()
     labels = EDITORIAL_MEMBER_TYPE_LABELS.get(language) or EDITORIAL_MEMBER_TYPE_LABELS['uz']
-    return labels.get(normalized, labels.get('editor', 'Editor'))
+    return labels.get(normalized, labels.get('editorial_board', 'Editorial Board'))
 
 
 def _editorial_member_type_options(lang=None):
@@ -1362,8 +1382,8 @@ def _editorial_admin_ui_texts(lang=None):
     language = _clean_text(lang or _ui_language()).lower()
     texts = {
         'uz': {
-            'page_title': "Tahrir hay'ati",
-            'page_subtitle': "Saytda ko'rinadigan tahrir hay'ati va tahrizchilar ro'yxati",
+            'page_title': "Tahririyat jamoasi",
+            'page_subtitle': "Saytda ko'rinadigan tahririyat jamoasi a'zolari ro'yxati",
             'add_member': "A'zo qo'shish",
             'label_name': "F.I.Sh.",
             'label_type': "Turi",
@@ -1383,21 +1403,45 @@ def _editorial_admin_ui_texts(lang=None):
             'back_to_list': "Ro'yxatga qaytish",
             'save': "Saqlash",
             'delete': "O'chirish",
-            'add_title': "Tahrir hay'ati a'zosini qo'shish",
+            'add_title': "Tahririyat jamoasi a'zosini qo'shish",
             'edit_subtitle': "Superadmin ushbu bo'limda EN/UZ/RU tillarda ma'lumot kiritadi",
             'section_main': "Asosiy ma'lumotlar (3 til)",
+            'section_setup': "1. Asosiy sozlamalar",
+            'section_identity': "2. Ism va lavozimlar",
+            'section_affiliation': "3. Tashkilot va mamlakat",
+            'section_content': "4. Biografiya va ilmiy qiziqishlar",
+            'section_profiles': "5. Ilmiy profillar va aloqa",
+            'section_assets': "6. Rasm va fayllar",
             'fill_note': "Kamida bitta tilda F.I.Sh. to'ldirilishi shart. EN maydon asosiy (default) til sifatida ishlatiladi.",
+            'fill_note_short': "Faqat mavjud ma'lumotlarni kiriting. Bo'sh qoldirilgan maydonlar saytda chiqmaydi.",
+            'lang_default': "EN / Default",
+            'lang_uz': "UZ",
+            'lang_ru': "RU",
+            'helper_setup': "Avval a'zo turi, tartibi va holatini belgilang.",
+            'helper_content': "Biografiya va ilmiy qiziqishlarda har bir bandni alohida va tushunarli yozing.",
+            'helper_profiles': "Link bo'lmasa bo'sh qoldiring. ID bo'lsa, lekin link bo'lmasa ham sayt kerakli havolani yasab oladi.",
+            'helper_assets': "Rasm va CV fayllari ixtiyoriy. Faqat kerakli tillar uchun yuklang.",
             'field_full_name': "F.I.Sh.",
             'field_position': "Lavozim",
             'field_organization': "Tashkilot",
             'field_bio': "Biografiya",
+            'field_country': "Mamlakat",
+            'field_country_code': "Mamlakat kodi",
+            'field_research_interests': "Ilmiy qiziqishlar",
             'field_type': "Turi",
             'field_email': "Email",
             'field_orcid': "ORCID",
+            'field_google_scholar': "Google Scholar",
+            'field_scopus_id': "Scopus Author ID",
+            'field_scopus_url': "Scopus havolasi",
+            'field_researcherid': "ResearcherID / Web of Science",
+            'field_researcherid_url': "ResearcherID havolasi",
+            'field_cv_files': "CV fayllari",
             'field_image': "Rasm",
             'field_sort': "Tartib",
             'field_state': "Holati",
             'remove_image': "Rasmni o'chirish",
+            'remove_file': "Faylni o'chirish",
             'ph_full_name_en': "Masalan: John Smith",
             'ph_full_name_uz': "Masalan: Jo'n Smit",
             'ph_full_name_ru': "Masalan: Джон Смит",
@@ -1410,10 +1454,22 @@ def _editorial_admin_ui_texts(lang=None):
             'ph_bio_en': "Qisqacha biografiya...",
             'ph_bio_uz': "Qisqacha biografiya...",
             'ph_bio_ru': "Qisqacha biografiya...",
+            'ph_country_code': "Masalan: UZ, GB, TR",
+            'ph_country_en': "Masalan: United Kingdom",
+            'ph_country_uz': "Masalan: Buyuk Britaniya",
+            'ph_country_ru': "Masalan: Великобритания",
+            'ph_research_interests_en': "Har bir yo'nalishni yangi qatordan yozing",
+            'ph_research_interests_uz': "Har bir yo'nalishni yangi qatordan yozing",
+            'ph_research_interests_ru': "Каждое направление с новой строки",
+            'ph_google_scholar': "Masalan: scholar.google.com/citations?user=...",
+            'ph_scopus_author_id': "Masalan: 57205678900",
+            'ph_scopus_author_url': "Masalan: scopus.com/authid/detail.uri?authorId=...",
+            'ph_researcherid': "Masalan: ABC-1234-2025",
+            'ph_researcherid_url': "Masalan: www.researcherid.com/rid/...",
         },
         'ru': {
-            'page_title': "Редакционная коллегия",
-            'page_subtitle': "Список участников редакционной коллегии и рецензентов, отображаемый на сайте",
+            'page_title': "Редакционная команда",
+            'page_subtitle': "Список участников редакционной команды, отображаемый на сайте",
             'add_member': "Добавить участника",
             'label_name': "Ф.И.О.",
             'label_type': "Тип",
@@ -1433,21 +1489,45 @@ def _editorial_admin_ui_texts(lang=None):
             'back_to_list': "Вернуться к списку",
             'save': "Сохранить",
             'delete': "Удалить",
-            'add_title': "Добавление участника редакционной коллегии",
+            'add_title': "Добавление участника редакционной команды",
             'edit_subtitle': "В этом разделе superadmin заполняет данные на EN/UZ/RU языках",
             'section_main': "Основная информация (3 языка)",
+            'section_setup': "1. Основные настройки",
+            'section_identity': "2. Имя и должность",
+            'section_affiliation': "3. Организация и страна",
+            'section_content': "4. Биография и научные интересы",
+            'section_profiles': "5. Научные профили и контакты",
+            'section_assets': "6. Фото и файлы",
             'fill_note': "Заполните Ф.И.О. минимум на одном языке. Поле EN используется как основное (default).",
+            'fill_note_short': "Заполняйте только существующие данные. Пустые поля на сайте не отображаются.",
+            'lang_default': "EN / Default",
+            'lang_uz': "UZ",
+            'lang_ru': "RU",
+            'helper_setup': "Сначала укажите тип участника, порядок и статус.",
+            'helper_content': "Биографию и научные интересы лучше писать кратко и по пунктам.",
+            'helper_profiles': "Если ссылки нет, оставьте поле пустым. Если есть только ID, сайт сам соберет ссылку.",
+            'helper_assets': "Фото и файлы CV необязательны. Загружайте только нужные языковые версии.",
             'field_full_name': "Ф.И.О.",
             'field_position': "Должность",
             'field_organization': "Организация",
             'field_bio': "Биография",
+            'field_country': "Страна",
+            'field_country_code': "Код страны",
+            'field_research_interests': "Научные интересы",
             'field_type': "Тип",
             'field_email': "Email",
             'field_orcid': "ORCID",
+            'field_google_scholar': "Google Scholar",
+            'field_scopus_id': "Scopus Author ID",
+            'field_scopus_url': "Ссылка Scopus",
+            'field_researcherid': "ResearcherID / Web of Science",
+            'field_researcherid_url': "Ссылка ResearcherID",
+            'field_cv_files': "Файлы CV",
             'field_image': "Фото",
             'field_sort': "Порядок",
             'field_state': "Статус",
             'remove_image': "Удалить фото",
+            'remove_file': "Удалить файл",
             'ph_full_name_en': "Например: John Smith",
             'ph_full_name_uz': "Например: Джон Смит (узб.)",
             'ph_full_name_ru': "Например: Джон Смит",
@@ -1460,10 +1540,22 @@ def _editorial_admin_ui_texts(lang=None):
             'ph_bio_en': "Краткая биография...",
             'ph_bio_uz': "Краткая биография (узб.)...",
             'ph_bio_ru': "Краткая биография...",
+            'ph_country_code': "Например: UZ, GB, TR",
+            'ph_country_en': "Например: United Kingdom",
+            'ph_country_uz': "Например: Buyuk Britaniya",
+            'ph_country_ru': "Например: Великобритания",
+            'ph_research_interests_en': "Каждое направление с новой строки",
+            'ph_research_interests_uz': "Каждое направление с новой строки (узб.)",
+            'ph_research_interests_ru': "Каждое направление с новой строки",
+            'ph_google_scholar': "Например: scholar.google.com/citations?user=...",
+            'ph_scopus_author_id': "Например: 57205678900",
+            'ph_scopus_author_url': "Например: scopus.com/authid/detail.uri?authorId=...",
+            'ph_researcherid': "Например: ABC-1234-2025",
+            'ph_researcherid_url': "Например: www.researcherid.com/rid/...",
         },
         'en': {
-            'page_title': "Editorial Board",
-            'page_subtitle': "List of editorial board members and reviewers displayed on the site",
+            'page_title': "Editorial Team",
+            'page_subtitle': "List of editorial team members displayed on the site",
             'add_member': "Add member",
             'label_name': "Full name",
             'label_type': "Type",
@@ -1483,21 +1575,45 @@ def _editorial_admin_ui_texts(lang=None):
             'back_to_list': "Back to list",
             'save': "Save",
             'delete': "Delete",
-            'add_title': "Add editorial board member",
+            'add_title': "Add editorial team member",
             'edit_subtitle': "In this section, superadmin fills data in EN/UZ/RU languages",
             'section_main': "Main information (3 languages)",
+            'section_setup': "1. Basic setup",
+            'section_identity': "2. Name and position",
+            'section_affiliation': "3. Organization and country",
+            'section_content': "4. Biography and research interests",
+            'section_profiles': "5. Academic profiles and contacts",
+            'section_assets': "6. Image and files",
             'fill_note': "Fill full name in at least one language. EN field is used as default.",
+            'fill_note_short': "Only fill what really exists. Empty fields will stay hidden on the website.",
+            'lang_default': "EN / Default",
+            'lang_uz': "UZ",
+            'lang_ru': "RU",
+            'helper_setup': "Start with member type, order, and status.",
+            'helper_content': "Keep biography and research interests short, clear, and structured.",
+            'helper_profiles': "Leave links empty if unavailable. If only an ID exists, the site can build the public link.",
+            'helper_assets': "Image and CV files are optional. Upload only the language versions you need.",
             'field_full_name': "Full name",
             'field_position': "Position",
             'field_organization': "Organization",
             'field_bio': "Biography",
+            'field_country': "Country",
+            'field_country_code': "Country code",
+            'field_research_interests': "Research interests",
             'field_type': "Type",
             'field_email': "Email",
             'field_orcid': "ORCID",
+            'field_google_scholar': "Google Scholar",
+            'field_scopus_id': "Scopus Author ID",
+            'field_scopus_url': "Scopus URL",
+            'field_researcherid': "ResearcherID / Web of Science",
+            'field_researcherid_url': "ResearcherID URL",
+            'field_cv_files': "CV files",
             'field_image': "Image",
             'field_sort': "Order",
             'field_state': "Status",
             'remove_image': "Remove image",
+            'remove_file': "Remove file",
             'ph_full_name_en': "Example: John Smith",
             'ph_full_name_uz': "Example: Jo'n Smit",
             'ph_full_name_ru': "Example: Джон Смит",
@@ -1510,9 +1626,111 @@ def _editorial_admin_ui_texts(lang=None):
             'ph_bio_en': "Short biography...",
             'ph_bio_uz': "Short biography (UZ)...",
             'ph_bio_ru': "Short biography (RU)...",
+            'ph_country_code': "Example: UZ, GB, TR",
+            'ph_country_en': "Example: United Kingdom",
+            'ph_country_uz': "Example: Buyuk Britaniya",
+            'ph_country_ru': "Example: Великобритания",
+            'ph_research_interests_en': "Write each item on a new line",
+            'ph_research_interests_uz': "Write each item on a new line (UZ)",
+            'ph_research_interests_ru': "Write each item on a new line (RU)",
+            'ph_google_scholar': "Example: scholar.google.com/citations?user=...",
+            'ph_scopus_author_id': "Example: 57205678900",
+            'ph_scopus_author_url': "Example: scopus.com/authid/detail.uri?authorId=...",
+            'ph_researcherid': "Example: ABC-1234-2025",
+            'ph_researcherid_url': "Example: www.researcherid.com/rid/...",
         }
     }
     return texts.get(language, texts['uz'])
+
+
+def _editorial_country_option_label(item, lang=None):
+    language = _clean_text(lang or _ui_language()).lower()
+    if language not in {'uz', 'ru', 'en'}:
+        language = 'uz'
+
+    flag = _clean_text((item or {}).get('country_flag')) or '🏳'
+    name_en = _clean_text((item or {}).get('name'))
+    name_uz = _clean_text((item or {}).get('name_uz'))
+    name_ru = _clean_text((item or {}).get('name_ru'))
+
+    primary = name_uz or name_en or name_ru
+    if language == 'ru':
+        primary = name_ru or name_en or name_uz
+    elif language == 'en':
+        primary = name_en or name_uz or name_ru
+
+    alternatives = []
+    for value in (name_en, name_uz, name_ru):
+        cleaned = _clean_text(value)
+        if cleaned and cleaned != primary and cleaned not in alternatives:
+            alternatives.append(cleaned)
+
+    suffix = f" / {' / '.join(alternatives[:2])}" if alternatives else ''
+    return f"{flag} {primary}{suffix}".strip()
+
+
+def _editorial_country_payload(selected_country_id, countries):
+    selected_id = _parse_int(selected_country_id)
+    if selected_id is None:
+        return {
+            'country': '',
+            'country_uz': '',
+            'country_ru': '',
+            'country_code': '',
+            'country_id': None,
+        }
+
+    selected = None
+    for item in countries or []:
+        if _parse_int(item.get('id')) == selected_id:
+            selected = item
+            break
+
+    if not selected:
+        return {
+            'country': '',
+            'country_uz': '',
+            'country_ru': '',
+            'country_code': '',
+            'country_id': None,
+        }
+
+    return {
+        'country': _clean_text(selected.get('name')),
+        'country_uz': _clean_text(selected.get('name_uz')),
+        'country_ru': _clean_text(selected.get('name_ru')),
+        'country_code': _clean_text(selected.get('country_code')).upper(),
+        'country_id': selected_id,
+    }
+
+
+def _editorial_member_country_id(member, countries):
+    member_row = member or {}
+    target_code = _clean_text(member_row.get('country_code')).lower()
+    target_names = {
+        _clean_text(member_row.get('country')).lower(),
+        _clean_text(member_row.get('country_uz')).lower(),
+        _clean_text(member_row.get('country_ru')).lower(),
+    }
+    target_names.discard('')
+
+    for item in countries or []:
+        item_id = _parse_int(item.get('id'))
+        if item_id is None:
+            continue
+        item_code = _clean_text(item.get('country_code')).lower()
+        if target_code and item_code == target_code:
+            return item_id
+
+        item_names = {
+            _clean_text(item.get('name')).lower(),
+            _clean_text(item.get('name_uz')).lower(),
+            _clean_text(item.get('name_ru')).lower(),
+        }
+        if target_names.intersection(item_names):
+            return item_id
+
+    return None
 
 
 def _parse_date_to_timestamp(value, end_of_day=False):
@@ -2839,10 +3057,19 @@ def _ensure_editorial_members_table():
                 position TEXT,
                 organization TEXT,
                 biography TEXT,
+                country TEXT,
+                country_code TEXT,
+                research_interests TEXT,
                 image TEXT,
-                member_type TEXT DEFAULT 'editor',
+                member_type TEXT DEFAULT 'editorial_board',
                 email TEXT,
                 orcid TEXT,
+                google_scholar_url TEXT,
+                scopus_author_id TEXT,
+                scopus_author_url TEXT,
+                researcherid TEXT,
+                researcherid_url TEXT,
+                cv_file TEXT,
                 sort_order INTEGER DEFAULT 0,
                 is_active BOOLEAN DEFAULT TRUE,
                 created_at BIGINT DEFAULT EXTRACT(epoch FROM now()),
@@ -2861,10 +3088,26 @@ def _ensure_editorial_members_table():
             'organization_ru': 'TEXT',
             'biography_uz': 'TEXT',
             'biography_ru': 'TEXT',
+            'country_uz': 'TEXT',
+            'country_ru': 'TEXT',
+            'research_interests_uz': 'TEXT',
+            'research_interests_ru': 'TEXT',
+            'cv_file_uz': 'TEXT',
+            'cv_file_ru': 'TEXT',
         }
         for col_name, col_type in multilingual_columns.items():
             cursor.execute(f"ALTER TABLE editorial_members ADD COLUMN IF NOT EXISTS {col_name} {col_type};")
+        cursor.execute("ALTER TABLE editorial_members ADD COLUMN IF NOT EXISTS google_scholar_url TEXT;")
+        cursor.execute("ALTER TABLE editorial_members ADD COLUMN IF NOT EXISTS country TEXT;")
+        cursor.execute("ALTER TABLE editorial_members ADD COLUMN IF NOT EXISTS country_code TEXT;")
+        cursor.execute("ALTER TABLE editorial_members ADD COLUMN IF NOT EXISTS research_interests TEXT;")
+        cursor.execute("ALTER TABLE editorial_members ADD COLUMN IF NOT EXISTS scopus_author_id TEXT;")
+        cursor.execute("ALTER TABLE editorial_members ADD COLUMN IF NOT EXISTS scopus_author_url TEXT;")
+        cursor.execute("ALTER TABLE editorial_members ADD COLUMN IF NOT EXISTS researcherid TEXT;")
+        cursor.execute("ALTER TABLE editorial_members ADD COLUMN IF NOT EXISTS researcherid_url TEXT;")
+        cursor.execute("ALTER TABLE editorial_members ADD COLUMN IF NOT EXISTS cv_file TEXT;")
 
+        cursor.execute("ALTER TABLE editorial_members ALTER COLUMN member_type SET DEFAULT 'editorial_board';")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_editorial_members_active ON editorial_members(is_active);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_editorial_members_sort ON editorial_members(sort_order, id DESC);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_editorial_members_type ON editorial_members(member_type);")
@@ -2874,6 +3117,23 @@ def _ensure_editorial_members_table():
         db._init_columns()
     except Exception as e:
         logger.warning("Editorial members table sync warning: %s", e)
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+
+
+def _ensure_fix_country_columns():
+    if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
+        return
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute("ALTER TABLE fix_country ADD COLUMN IF NOT EXISTS country_code TEXT;")
+        cursor.execute("ALTER TABLE fix_country ADD COLUMN IF NOT EXISTS country_flag TEXT;")
+        db.conn.commit()
+        cursor.close()
+    except Exception as e:
+        logger.warning("fix_country column sync warning: %s", e)
         try:
             db.conn.rollback()
         except Exception:
@@ -3044,6 +3304,7 @@ def run_runtime_schema_syncs():
     _ensure_issue_columns()
     _ensure_role_notifications_table()
     _ensure_editorial_members_table()
+    _ensure_fix_country_columns()
     _ensure_email_templates_table()
     _ensure_email_delivery_logs_table()
 
@@ -6598,6 +6859,10 @@ def article_edit(article_id):
         price_ru = request.form.get('price_ru', 0, float)
         subscription_enable = bool(request.form.get('subscription_enable'))
         created_at = parse_date(request.form.get('created_at'), with_time=True)
+        if article_id != 0 and not created_at:
+            # Never wipe the original creation timestamp on edit — public
+            # "latest articles" ordering depends on it staying intact.
+            created_at = _parse_int(current_article_rows[0].get('created_at'))
         removed_file_ids = [file_id for file_id in current_file_ids if file_id not in set(kept_existing_file_ids)]
         
         if article_id == 0:
@@ -8849,6 +9114,23 @@ def editorial_member_edit(member_id):
     editorial_ui = _editorial_admin_ui_texts(ui_lang)
     current_user = session.get('fmadmin_user') or {}
     current_user_id = _parse_int(current_user.get('id'))
+    try:
+        countries = db.fix_country.all().exec() or []
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        countries = []
+    country_options = []
+    for item in countries:
+        option_id = _parse_int(item.get('id'))
+        if option_id is None:
+            continue
+        country_options.append({
+            'id': option_id,
+            'label': _editorial_country_option_label(item, ui_lang),
+        })
 
     if request.method == 'POST':
         full_name_en = _clean_text(request.form.get('full_name'))
@@ -8875,6 +9157,10 @@ def editorial_member_edit(member_id):
         biography_en = _clean_text(request.form.get('biography'))
         biography_uz = _clean_text(request.form.get('biography_uz'))
         biography_ru = _clean_text(request.form.get('biography_ru'))
+        country_payload = _editorial_country_payload(request.form.get('country_id'), countries)
+        research_interests_en = _clean_text(request.form.get('research_interests'))
+        research_interests_uz = _clean_text(request.form.get('research_interests_uz'))
+        research_interests_ru = _clean_text(request.form.get('research_interests_ru'))
 
         payload = {
             'full_name': full_name,
@@ -8889,9 +9175,21 @@ def editorial_member_edit(member_id):
             'biography': biography_en or biography_uz or biography_ru,
             'biography_uz': biography_uz,
             'biography_ru': biography_ru,
+            'country': country_payload['country'] or country_payload['country_uz'] or country_payload['country_ru'],
+            'country_uz': country_payload['country_uz'] or country_payload['country'] or country_payload['country_ru'],
+            'country_ru': country_payload['country_ru'] or country_payload['country'] or country_payload['country_uz'],
+            'country_code': country_payload['country_code'],
+            'research_interests': research_interests_en or research_interests_uz or research_interests_ru,
+            'research_interests_uz': research_interests_uz,
+            'research_interests_ru': research_interests_ru,
             'member_type': _normalize_editorial_member_type(request.form.get('member_type')),
             'email': _clean_text(request.form.get('email')),
             'orcid': _clean_text(request.form.get('orcid')),
+            'google_scholar_url': _clean_text(request.form.get('google_scholar_url')),
+            'scopus_author_id': _clean_text(request.form.get('scopus_author_id')),
+            'scopus_author_url': _clean_text(request.form.get('scopus_author_url')),
+            'researcherid': _clean_text(request.form.get('researcherid')),
+            'researcherid_url': _clean_text(request.form.get('researcherid_url')),
             'sort_order': _parse_int(request.form.get('sort_order')) or 0,
             'is_active': request.form.get('is_active') in {'1', 'on', 'true', 'yes'}
         }
@@ -8916,6 +9214,29 @@ def editorial_member_edit(member_id):
                 return redirect(url_for('editorial_member_edit', member_id=member_id))
 
         payload['image'] = image_value or None
+
+        cv_fields = ('cv_file', 'cv_file_uz', 'cv_file_ru')
+        for field_name in cv_fields:
+            file_value = _clean_text(request.form.get(f'current_{field_name}'))
+            if request.form.get(f'remove_{field_name}') in {'1', 'on', 'true', 'yes'}:
+                file_value = ''
+
+            uploaded_file = request.files.get(field_name)
+            if uploaded_file and uploaded_file.filename:
+                try:
+                    file_value = save_file('editorial_members', uploaded_file, ['pdf', 'doc', 'docx'])
+                except Exception as e:
+                    new_alert(
+                        _msg_text(
+                            f"CV yuklashda xatolik: {e}",
+                            f"Ошибка загрузки CV: {e}",
+                            f"CV upload error: {e}"
+                        ),
+                        'danger'
+                    )
+                    return redirect(url_for('editorial_member_edit', member_id=member_id))
+
+            payload[field_name] = file_value or None
         now_ts = int(datetime.datetime.now().timestamp())
 
         if member_id == 0:
@@ -8927,9 +9248,9 @@ def editorial_member_edit(member_id):
             created_id = _extract_inserted_id(created)
             new_alert(
                 _msg_text(
-                    "Tahrir hay'ati a'zosi qo'shildi",
-                    "Участник редакционной коллегии добавлен",
-                    "Editorial member added"
+                    "Tahririyat jamoasi a'zosi qo'shildi",
+                    "Участник редакционной команды добавлен",
+                    "Editorial team member added"
                 ),
                 'success'
             )
@@ -8939,9 +9260,9 @@ def editorial_member_edit(member_id):
         if not existing:
             new_alert(
                 _msg_text(
-                    "Tahrir hay'ati a'zosi topilmadi",
-                    "Участник редакционной коллегии не найден",
-                    "Editorial member not found"
+                    "Tahririyat jamoasi a'zosi topilmadi",
+                    "Участник редакционной команды не найден",
+                    "Editorial team member not found"
                 ),
                 'danger'
             )
@@ -8952,9 +9273,9 @@ def editorial_member_edit(member_id):
         db.editorial_members.all().equal(id=member_id).update(**payload).exec()
         new_alert(
             _msg_text(
-                "Tahrir hay'ati a'zosi saqlandi",
-                "Участник редакционной коллегии сохранён",
-                "Editorial member saved"
+                "Tahririyat jamoasi a'zosi saqlandi",
+                "Участник редакционной команды сохранён",
+                "Editorial team member saved"
             ),
             'success'
         )
@@ -8975,10 +9296,26 @@ def editorial_member_edit(member_id):
             'biography': '',
             'biography_uz': '',
             'biography_ru': '',
+            'country': '',
+            'country_uz': '',
+            'country_ru': '',
+            'country_code': '',
+            'selected_country_id': None,
+            'research_interests': '',
+            'research_interests_uz': '',
+            'research_interests_ru': '',
             'image': '',
-            'member_type': 'editor',
+            'member_type': 'editorial_board',
             'email': '',
             'orcid': '',
+            'google_scholar_url': '',
+            'scopus_author_id': '',
+            'scopus_author_url': '',
+            'researcherid': '',
+            'researcherid_url': '',
+            'cv_file': '',
+            'cv_file_uz': '',
+            'cv_file_ru': '',
             'sort_order': 0,
             'is_active': True
         }
@@ -8987,9 +9324,9 @@ def editorial_member_edit(member_id):
         if not rows:
             new_alert(
                 _msg_text(
-                    "Tahrir hay'ati a'zosi topilmadi",
-                    "Участник редакционной коллегии не найден",
-                    "Editorial member not found"
+                    "Tahririyat jamoasi a'zosi topilmadi",
+                    "Участник редакционной команды не найден",
+                    "Editorial team member not found"
                 ),
                 'danger'
             )
@@ -9007,13 +9344,32 @@ def editorial_member_edit(member_id):
         member['biography'] = _clean_text(member.get('biography'))
         member['biography_uz'] = _clean_text(member.get('biography_uz'))
         member['biography_ru'] = _clean_text(member.get('biography_ru'))
+        member['country'] = _clean_text(member.get('country'))
+        member['country_uz'] = _clean_text(member.get('country_uz'))
+        member['country_ru'] = _clean_text(member.get('country_ru'))
+        member['country_code'] = _clean_text(member.get('country_code')).upper()
+        member['research_interests'] = _clean_text(member.get('research_interests'))
+        member['research_interests_uz'] = _clean_text(member.get('research_interests_uz'))
+        member['research_interests_ru'] = _clean_text(member.get('research_interests_ru'))
         member['member_type'] = _normalize_editorial_member_type(member.get('member_type'))
+        member['email'] = _clean_text(member.get('email'))
+        member['orcid'] = _clean_text(member.get('orcid'))
+        member['google_scholar_url'] = _clean_text(member.get('google_scholar_url'))
+        member['scopus_author_id'] = _clean_text(member.get('scopus_author_id'))
+        member['scopus_author_url'] = _clean_text(member.get('scopus_author_url'))
+        member['researcherid'] = _clean_text(member.get('researcherid'))
+        member['researcherid_url'] = _clean_text(member.get('researcherid_url'))
+        member['cv_file'] = _clean_text(member.get('cv_file'))
+        member['cv_file_uz'] = _clean_text(member.get('cv_file_uz'))
+        member['cv_file_ru'] = _clean_text(member.get('cv_file_ru'))
         member['sort_order'] = _parse_int(member.get('sort_order')) or 0
         member['is_active'] = True if member.get('is_active') is None else bool(member.get('is_active'))
+        member['selected_country_id'] = _editorial_member_country_id(member, countries)
 
     return render_template(
         'website/editorial/member_edit.html',
         member=member,
+        country_options=country_options,
         member_type_options=_editorial_member_type_options(ui_lang),
         editorial_ui=editorial_ui
     )
@@ -9027,9 +9383,9 @@ def editorial_member_delete(member_id):
     if not rows:
         new_alert(
             _msg_text(
-                "Tahrir hay'ati a'zosi topilmadi",
-                "Участник редакционной коллегии не найден",
-                "Editorial member not found"
+                "Tahririyat jamoasi a'zosi topilmadi",
+                "Участник редакционной команды не найден",
+                "Editorial team member not found"
             ),
             'danger'
         )
@@ -9038,9 +9394,9 @@ def editorial_member_delete(member_id):
     db.editorial_members.all().equal(id=member_id).delete().exec()
     new_alert(
         _msg_text(
-            "Tahrir hay'ati a'zosi o'chirildi",
-            "Участник редакционной коллегии удалён",
-            "Editorial member deleted"
+            "Tahririyat jamoasi a'zosi o'chirildi",
+            "Участник редакционной команды удалён",
+            "Editorial team member deleted"
         ),
         'success'
     )

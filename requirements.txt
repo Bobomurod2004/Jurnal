@@ -6,6 +6,7 @@ tabulate>=0.9.0
 requests>=2.28.0
 gunicorn>=21.0.0
 flasgger==0.9.7.1
+maxminddb>=2.0.0
 
 # Database migrations and ORM
 flask-sqlalchemy>=3.0.0

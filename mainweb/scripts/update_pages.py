@@ -115,36 +115,35 @@ PAGES_DATA = {
         '''
     },
     'author_instructions': {
-        'title': 'Instructions for Authors',
+        'title': 'Guidelines for Authors',
         'title_uz': 'Mualliflar uchun ko\'rsatmalar',
         'title_ru': 'Инструкции для авторов',
         'content': '''
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Instructions for Authors</h4>
-          <p class="mb-4">Thank you for choosing the electronic scientific-methodological journal <strong>Philology Matters</strong> for publishing your manuscript. These instructions are essential to ensure an efficient workflow for double-blinded peer review, editorial processing, and publication.</p>
-          <p class="mb-0">Please review this guidance carefully so that your manuscript fully complies with the journal requirements.</p>
+          <h4 class="text-lg font-semibold mb-3">Guidelines for Authors</h4>
+          <p class="mb-0">Thank you for choosing to submit your paper to the electronic scientific-methodological journal <strong>Philology Matters</strong>. These instructions will ensure we have everything required so your paper can move through double-blinded peer review, production and publication smoothly. Please take the time to read and follow them as closely as possible, as doing so will ensure your paper matches the journal's requirements.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Table of Contents</h4>
+          <h4 class="text-lg font-semibold mb-3">Contents</h4>
           <ul class="list-disc list-inside space-y-1">
             <li>About the Journal</li>
             <li>Open Access</li>
             <li>Peer Review and Ethics</li>
-            <li>Preparing Your Manuscript</li>
-            <li>Article Types</li>
-            <li>Format-Free Submission</li>
-            <li>Editing Services</li>
-            <li>Submission Checklist</li>
-            <li>Using Third-Party Materials</li>
-            <li>Submitting Your Manuscript</li>
-            <li>Publication Fee</li>
+            <li>Preparing Your Paper</li>
+            <li>Types of Articles</li>
+            <li>Submission without Formatting</li>
+            <li>Checklist: What to Include</li>
+            <li>Using Third-Party Material</li>
+            <li>Submitting Your Paper</li>
+            <li>Publication Charges</li>
             <li>Copyright Options</li>
           </ul>
         </section>
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">About the Journal</h4>
-          <p class="mb-4"><strong>Philology Matters</strong> is an electronic scientific-methodological journal publishing high-quality and original research outputs.</p>
-          <p class="mb-4">Articles are accepted in all languages. The journal accepts the following manuscript categories:</p>
+          <p class="mb-4"><strong>Philology Matters</strong> is an electronic scientific-methodological journal publishing high-quality, original research. Please see the journal's <a href="/page/aims_scope" class="text-fmmain hover:underline">Aims &amp; Scope</a> for information about its focus and peer-review policy.</p>
+          <p class="mb-4">Please note that this journal publishes manuscripts in different languages.</p>
+          <p class="mb-2"><strong>Philology Matters</strong> is an electronic scientific-methodological journal that accepts the following types of articles:</p>
           <ul class="list-disc list-inside space-y-1">
             <li>Original Research Article</li>
             <li>Review Article</li>
@@ -152,99 +151,193 @@ PAGES_DATA = {
         </section>
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Open Access</h4>
-          <p class="mb-4">Through the journal's Open Select model, authors can publish their work under open access conditions. This policy enables immediate online availability after publication and supports wider visibility, readership growth, and increased scholarly impact.</p>
-          <p class="mb-0">To select open access publication, an Article Publishing Charge applies. In many cases, this cost may be covered by your institution or funder.</p>
+          <p class="mb-4">You have the option to publish open access in this journal via our Open Select publishing program. Publishing open access means that your article will be free to access online immediately on publication, increasing the visibility, readership and impact of your research.</p>
+          <p class="mb-0">You will be asked to pay an article publishing charge to make your article open access, and this cost can often be covered by your institution or funder.</p>
         </section>
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Peer Review and Ethics</h4>
-          <p class="mb-4">The publisher of <strong>Philology Matters</strong> is committed to the integrity of expert evaluation and follows high editorial standards in manuscript assessment.</p>
-          <p class="mb-0">After editorial suitability screening, each manuscript undergoes <strong>double-blinded peer review</strong> by two independent anonymous reviewers. Authors are required to follow publication ethics throughout submission, review, and publication stages.</p>
+          <p class="mb-0">The editorial board of the electronic scientific and methodological journal <strong>Philology Matters</strong> is committed to maintaining the integrity of the peer review process and upholding the highest standards of manuscript evaluation. Following an initial assessment of the manuscript's suitability by the editor, the submission undergoes a <strong>double-blind peer review</strong> conducted by two independent anonymous reviewers. Find out more about what to expect during peer review and read our guidance on <a href="/page/editorial_policy" class="text-fmmain hover:underline">publishing ethics</a>.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Preparing Your Manuscript</h4>
-          <p class="mb-4">The manuscript should follow a clear and consistent structure. Required elements are listed below:</p>
-          <ul class="list-disc list-inside space-y-1 mb-4">
-            <li>Title in 3 languages: Uzbek, Russian, and English.</li>
-            <li>Abstract and keywords in 3 languages: Uzbek, Russian, and English.</li>
-            <li>Main text in IMRAD order: <strong>INTRODUCTION</strong>, <strong>METHODS</strong>, <strong>RESULTS</strong>, and <strong>DISCUSSION</strong>.</li>
-            <li>Optional sections: acknowledgements, conflict-of-interest statement, recommendations.</li>
-            <li>Appendices.</li>
-            <li>Tables with titles (on separate pages if needed).</li>
-            <li>Figures and, where applicable, a separate list of figure captions.</li>
-          </ul>
-          <ul class="list-disc list-inside space-y-1">
-            <li>Abstract length: 250-300 words in each language, including research purpose, novelty, methods, major findings, and key conclusions.</li>
-            <li>Keywords: up to 8-10 terms in each language.</li>
-            <li>Main text length (from introduction to conclusion): 4,000-7,000 words (excluding abstract and keywords).</li>
-            <li>References: 30-60 entries in Latin script, with English translation where required for non-English manuscripts.</li>
+          <h4 class="text-lg font-semibold mb-3">Preparing Your Paper</h4>
+          <h5 class="font-semibold mb-2">General Guidelines</h5>
+          <ul class="list-disc list-inside space-y-2">
+            <li>manuscripts must be structured in the following strict sequence: the title in three languages (Uzbek, Russian, and English); abstract and keywords in three languages (Uzbek, Russian, and English); the main text organized according to the IMRAD structure: Introduction, Methods, Results and Discussion (Acknowledgements, Declaration of Interests, and Recommendations &ndash; optional); appendices; tables with titles (submitted on separate pages); figures; and, where necessary, figure captions presented in list form;</li>
+            <li>the abstract must be provided in three languages (Uzbek, Russian, and English) and contain 250&ndash;300 words, clearly reflecting the purpose of the study, its novelty, research methods, main findings, and principal conclusions;</li>
+            <li>keywords must be provided in three languages (Uzbek, Russian, and English) and should not exceed 8&ndash;10 entries;</li>
+            <li>the main body of the manuscript, from the introduction to the conclusion, must contain between 4,000 and 7,000 words (excluding the abstract and keywords);</li>
+            <li>the list of references must include 30&ndash;60 sources presented in the Latin alphabet, accompanied by English translations where the manuscript is not written in English.</li>
           </ul>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Article Types</h4>
-          <div class="space-y-4">
+          <h4 class="text-lg font-semibold mb-3">Types of Articles</h4>
+          <div class="space-y-6">
             <div>
               <h5 class="font-semibold mb-2">1. Original Research Article</h5>
-              <p class="mb-3">An empirical study conducted by the author, based on independently collected and analyzed data. IMRAD section headings must be written in <strong>FULL CAPITAL LETTERS</strong>.</p>
-              <ul class="list-disc list-inside space-y-2">
-                <li><strong>INTRODUCTION:</strong> relevance of the topic, statement of the scientific problem, short literature overview, research gap, objectives, tasks, and hypothesis (if applicable).</li>
-                <li><strong>METHODS:</strong> research design, object and subject, data-collection tools (survey, interview, observation, text/corpus analysis), sample description (size and parameters), analysis methods (SPSS, R, linguistic/cognitive), reliability and validity.</li>
-                <li><strong>RESULTS:</strong> factual findings only, including tables/graphs/diagrams (if available), statistical indicators, and identified patterns.</li>
-                <li><strong>DISCUSSION:</strong> interpretation of findings, comparison with prior studies, hypothesis confirmation/refutation, theoretical significance, practical significance, limitations, and future research directions.</li>
-                <li><strong>CONCLUSION</strong> (mandatory, outside IMRAD): final conclusions, scholarly novelty, concise synthesis, no citations.</li>
-              </ul>
+              <p class="mb-3">An <strong>Original Research Article</strong> presents the results of an original empirical study conducted by the author(s). In other words, the author independently collects data, analyzes them, and formulates conclusions. The manuscript should include the following sections, with the titles of the IMRAD sections indicated in UPPERCASE LETTERS:</p>
+              <div class="space-y-4">
+                <div>
+                  <h6 class="font-semibold mb-1">INTRODUCTION</h6>
+                  <p class="mb-2">This section should provide the rationale for the study and establish the research context. It should include:</p>
+                  <ul class="list-disc list-inside space-y-1 mb-2">
+                    <li>the relevance of the research topic;</li>
+                    <li>formulation of the research question;</li>
+                    <li>a brief review of existing studies;</li>
+                    <li>identification of the research gap;</li>
+                    <li>the aim and objectives of the study;</li>
+                    <li>the hypothesis (if applicable).</li>
+                  </ul>
+                  <p class="mb-0">This section should justify the necessity and scholarly significance of the study.</p>
+                </div>
+                <div>
+                  <h6 class="font-semibold mb-1">METHODS</h6>
+                  <p class="mb-2">This section should provide a detailed description of the research procedure sufficient to ensure the transparency and replicability of the study. The section should include:</p>
+                  <ul class="list-disc list-inside space-y-1 mb-2">
+                    <li>the research design (experimental, correlational, corpus-based analysis, etc.);</li>
+                    <li>the object and subject of the research;</li>
+                    <li>data collection methods: questionnaires; interviews; observation; text or corpus analysis;</li>
+                    <li>sample characteristics: sample size; sample parameters;</li>
+                    <li>methods of analysis: statistical methods (SPSS, R, etc.); linguistic or cognitive methods;</li>
+                    <li>issues of research reliability and validity.</li>
+                  </ul>
+                  <p class="mb-0">This section should provide sufficient detail to enable replication of the study.</p>
+                </div>
+                <div>
+                  <h6 class="font-semibold mb-1">RESULTS</h6>
+                  <p class="mb-2">This section presents only factual findings without interpretation. The section should include:</p>
+                  <ul class="list-disc list-inside space-y-1 mb-2">
+                    <li>the main empirical findings;</li>
+                    <li>tables, graphs, and charts (if applicable);</li>
+                    <li>statistical indicators;</li>
+                    <li>identified patterns and trends.</li>
+                  </ul>
+                  <p class="mb-0">This section should answer the question: &ldquo;What results were obtained?&rdquo;</p>
+                </div>
+                <div>
+                  <h6 class="font-semibold mb-1">DISCUSSION</h6>
+                  <p class="mb-2">This section is devoted to the interpretation of the findings and explanation of their scholarly significance. The section should include:</p>
+                  <ul class="list-disc list-inside space-y-1 mb-2">
+                    <li>interpretation of the findings;</li>
+                    <li>comparison with previous studies;</li>
+                    <li>confirmation or refutation of the hypothesis;</li>
+                    <li>theoretical significance of the study;</li>
+                    <li>practical significance of the study;</li>
+                    <li>limitations of the study;</li>
+                    <li>directions for further research.</li>
+                  </ul>
+                  <p class="mb-0">This section reveals the scientific significance of the study.</p>
+                </div>
+                <div>
+                  <h6 class="font-semibold mb-1">CONCLUSION</h6>
+                  <p class="mb-2">(not included in the IMRAD format but considered a mandatory section) The section should include:</p>
+                  <ul class="list-disc list-inside space-y-1 mb-2">
+                    <li>the conclusions of the study;</li>
+                    <li>the scientific novelty of the study;</li>
+                    <li>a concise summary of the findings.</li>
+                  </ul>
+                  <p class="mb-0">Citations should not be included in this section.</p>
+                </div>
+              </div>
             </div>
             <div>
               <h5 class="font-semibold mb-2">2. Review Article</h5>
-              <p class="mb-3">A systematic analysis, comparison, and synthesis of previously published studies in a defined scientific field. New empirical data collection is not required.</p>
-              <ul class="list-disc list-inside space-y-2">
-                <li><strong>INTRODUCTION:</strong> relevance of the field, justification of review necessity, problem statement, review objective, and clear identification of scientific gap.</li>
-                <li><strong>METHODS:</strong> source-selection criteria, time range, databases (Scopus, Web of Science, etc.), search strategy (keywords), inclusion/exclusion criteria, analysis methods (thematic review, meta-analysis where applicable).</li>
-                <li><strong>RESULTS:</strong> major approaches in the literature, theoretical schools, contradictions, current trends, and comparative tables.</li>
-                <li><strong>DISCUSSION:</strong> synthesized conclusions from literature, evaluation of existing approaches, identification of gaps, problematic aspects, and future research perspectives.</li>
-                <li><strong>CONCLUSION</strong> (mandatory, outside IMRAD): final synthesis, theoretical conclusions, recommendations, no citations.</li>
-              </ul>
+              <p class="mb-3">A <strong>Review Article</strong> (review research article or analytical article) presents a systematic analysis, comparison, and synthesis of previously published studies within a particular research field. Unlike an Original Research Article, a Review Article does not involve the collection of new empirical data; instead, it develops theoretical and methodological conclusions based on existing scholarly literature. The manuscript should include the following sections, with the titles of the structural sections indicated in UPPERCASE LETTERS:</p>
+              <div class="space-y-4">
+                <div>
+                  <h6 class="font-semibold mb-1">INTRODUCTION</h6>
+                  <p class="mb-2">The section should include:</p>
+                  <ul class="list-disc list-inside space-y-1 mb-2">
+                    <li>the relevance of the research field;</li>
+                    <li>justification for conducting the review study;</li>
+                    <li>formulation of the research problem;</li>
+                    <li>the aim of the review.</li>
+                  </ul>
+                  <p class="mb-0">Identification of research gaps related to the problem is mandatory.</p>
+                </div>
+                <div>
+                  <h6 class="font-semibold mb-1">METHODS</h6>
+                  <p class="mb-2">The section should include:</p>
+                  <ul class="list-disc list-inside space-y-1 mb-2">
+                    <li>criteria for source selection: time period; databases used (Scopus, Web of Science, etc.);</li>
+                    <li>the search strategy and keywords used;</li>
+                    <li>inclusion and exclusion criteria for sources;</li>
+                    <li>methods of analysis: thematic analysis; meta-analysis (if applicable).</li>
+                  </ul>
+                  <p class="mb-0">This section should ensure the scientific validity and methodological transparency of the review.</p>
+                </div>
+                <div>
+                  <h6 class="font-semibold mb-1">RESULTS</h6>
+                  <p class="mb-2">This section presents the results of the analysis of scholarly literature, not empirical data. The section should include:</p>
+                  <ul class="list-disc list-inside space-y-1 mb-2">
+                    <li>the main scientific approaches;</li>
+                    <li>major theoretical schools;</li>
+                    <li>contradictions and inconsistencies in previous studies;</li>
+                    <li>current research trends;</li>
+                    <li>comparative tables.</li>
+                  </ul>
+                  <p class="mb-0">This section should provide a comprehensive scholarly overview of the research topic under consideration.</p>
+                </div>
+                <div>
+                  <h6 class="font-semibold mb-1">DISCUSSION</h6>
+                  <p class="mb-2">This section is the main analytical section of the review manuscript. The section should include:</p>
+                  <ul class="list-disc list-inside space-y-1 mb-2">
+                    <li>generalized conclusions based on the analysis of the literature;</li>
+                    <li>critical evaluation of existing approaches;</li>
+                    <li>identification of research gaps;</li>
+                    <li>unresolved or problematic issues within the research field;</li>
+                    <li>directions for further research.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h6 class="font-semibold mb-1">CONCLUSION</h6>
+                  <p class="mb-2">(not included in the IMRAD format but considered a mandatory section) The section should include:</p>
+                  <ul class="list-disc list-inside space-y-1 mb-2">
+                    <li>final generalizations;</li>
+                    <li>theoretical conclusions;</li>
+                    <li>recommendations based on the review findings.</li>
+                  </ul>
+                  <p class="mb-0">Citations should not be included in this section.</p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Format-Free Submission</h4>
-          <p class="mb-4">Authors may submit manuscripts in any scientific style or arrangement at the initial stage. Submissions can be provided as one or multiple files, typically in Word format (DOC or DOCX). Tables and figures may be embedded in the text or uploaded as separate files.</p>
-          <p class="mb-4">Although strict formatting is not required at first submission, each manuscript must include core elements for initial editorial evaluation: abstract, primary author information (full name, position, academic degree, email, phone number in 3 languages), figures, tables, and appendices.</p>
-          <p class="mb-0">References must be prepared in <strong>APA (American Psychological Association)</strong> style. Regardless of initial file format, an editable manuscript version must be provided at the revision stage.</p>
+          <h4 class="text-lg font-semibold mb-3">Submission without Formatting</h4>
+          <p class="mb-4">Authors may submit their manuscripts in any scholarly format or arrangement. Manuscripts may be uploaded as single or multiple files in Word format (DOC or DOCX). Figures and tables may be embedded within the text or submitted as separate documents. All images must be of sufficient resolution to ensure clarity and readability.</p>
+          <ul class="list-disc list-inside space-y-2 mb-4">
+            <li>there are no strict formatting requirements; however, all manuscripts must contain the essential elements necessary for the initial evaluation process, including an abstract, basic author information (full name, position, academic degree, email address, and phone number in three languages: Uzbek, Russian, and English), as well as figures, tables, and appendices where applicable. Additional information may be requested following the acceptance of the manuscript;</li>
+            <li>the list of references must be prepared in accordance with the <strong>APA (American Psychological Association)</strong> citation style.</li>
+          </ul>
+          <p class="mb-0">Please note that, regardless of the original file format of the submission, an editable version of the manuscript must be provided at the revision stage.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Editing Services</h4>
-          <p class="mb-4">The publisher of <strong>Philology Matters</strong> offers editorial support services to help improve your manuscript before submission.</p>
-          <p class="mb-0">Available options may include language editing (including English), grammar and spelling correction, and technical formatting support. For service scope and fees, please contact the editorial office.</p>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Submission Checklist</h4>
+          <h4 class="text-lg font-semibold mb-3">Checklist: What to Include</h4>
           <ol class="list-decimal list-inside space-y-3">
-            <li><strong>Author details:</strong> ensure all listed authors meet the journal authorship criteria. The cover page must include full name, position, academic degree, email, and phone number for each author. Include ORCID, Google Scholar, and Scopus links when available. Note: author details cannot be changed after publication.</li>
-            <li><strong>Figures:</strong> supply high-quality files (1200 dpi for line art, 600 dpi for grayscale, 300 dpi for color) in accepted formats: EPS, PS, JPEG, TIFF, or Word (DOC/DOCX for Word-drawn figures).</li>
-            <li><strong>Tables:</strong> tables should provide additional value rather than duplicate text and should be understandable independently. Submit editable table files.</li>
-            <li><strong>Equations:</strong> when submitting in Word format, equations must remain editable.</li>
+            <li><strong>Author details.</strong> Please ensure everyone meets the authorship criteria established by the electronic scientific-methodological journal <strong>Philology Matters</strong>. All authors of a manuscript should include their full names, position, academic degree, email address, and phone number on the cover page of the manuscript. Where available, please also include ORCID, Google Scholar, and Scopus profile links. If any changes in authorship occur during the peer review process, newly added contributors may be indicated with an explanatory note. Please note that no changes to authorship details will be permitted after the article has been published.</li>
+            <li><strong>Figures.</strong> Figures should be high quality (1200 dpi for line art, 600 dpi for grayscale and 300 dpi for colour, at the correct size). Figures should be supplied in one of the file formats accepted by the editorial office: PS, JPEG, TIFF, or Microsoft Word (DOC or DOCX) files are acceptable for figures that have been drawn in Word.</li>
+            <li><strong>Tables.</strong> Tables should be cited and referred to in the main text of the manuscript. Please supply editable files.</li>
+            <li><strong>Equations.</strong> If you are submitting your manuscript as a Word document, please ensure that equations are editable.</li>
           </ol>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Using Third-Party Materials</h4>
-          <p class="mb-4">Authors must obtain necessary permissions to reuse third-party materials in their manuscripts. Limited use of short text excerpts for critical discussion may be permitted without formal permission in some cases.</p>
-          <p class="mb-0">If your manuscript contains any material for which you do not hold copyright and that is not covered by fair use or similar provisions, written permission from the copyright holder must be obtained before submission.</p>
+          <h4 class="text-lg font-semibold mb-3">Using Third-Party Material</h4>
+          <p class="mb-0">You must obtain the necessary permission to reuse third-party material in your article. The use of short extracts of text and some other types of material is usually permitted, on a limited basis, for the purposes of criticism and review without securing formal permission. If you wish to include any material in your paper for which you do not hold copyright, and which is not covered by this informal agreement, you will need to obtain written permission from the copyright owner prior to submission.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Submitting Your Manuscript</h4>
-          <p class="mb-4">This journal uses a dedicated submission portal to manage manuscript workflow. The portal allows you to track all your submissions within the <strong>Philology Matters</strong> portfolio in one place.</p>
-          <p class="mb-4">After technical pre-screening, manuscripts that meet basic requirements are checked with <strong>antiplagiat.ru</strong> for originality. By submitting your manuscript, you consent to originality checks during peer review and editorial processing.</p>
-          <p class="mb-0">After acceptance, we recommend keeping a copy of the accepted manuscript version in your records.</p>
+          <h4 class="text-lg font-semibold mb-3">Submitting Your Paper</h4>
+          <p class="mb-4">To submit your manuscript, please <a href="/dashboard/new_article" class="text-fmmain hover:underline font-semibold">click here</a>.</p>
+          <p class="mb-4">Please note that the editorial office of the electronic scientific-methodological journal <strong>Philology Matters</strong> uses <strong>Antiplagiat.ru</strong> and <strong>Turnitin</strong> to screen manuscripts that meet the initial technical requirements for unoriginal material. By submitting your manuscript to the editorial office of <strong>Philology Matters</strong>, you consent to originality screening as part of the peer-review and production processes.</p>
+          <p class="mb-0">On acceptance, we recommend that you keep a copy of your Accepted Manuscript.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Publication Fee</h4>
-          <p class="mb-0">The annual publication fee for one article in <strong>Philology Matters</strong> is <strong>600,000 UZS</strong> for citizens of the Republic of Uzbekistan and <strong>100 USD</strong> for other authors.</p>
+          <h4 class="text-lg font-semibold mb-3">Publication Charges</h4>
+          <p class="mb-0">The publication fee for one article per year in the electronic scientific-methodological journal <strong>Philology Matters</strong> is <strong>600,000 (six hundred thousand) Uzbek soums</strong> for citizens of the Republic of Uzbekistan. For international authors, the publication fee is <strong>100 (one hundred) US dollars</strong>.</p>
         </section>
         <section>
           <h4 class="text-lg font-semibold mb-3">Copyright Options</h4>
-          <p class="mb-4">Copyright protects your original work and helps prevent unauthorized use of your article. The journal offers several licensing and reuse models, including <strong>Creative Commons</strong> options for open access publication.</p>
-          <p class="mb-0">For questions, please contact: <a href="mailto:philologymatters@uzswlu.uz" class="text-fmmain hover:underline">philologymatters@uzswlu.uz</a>.</p>
+          <p class="mb-4">Copyright allows you to protect your original work and prevents unauthorised use of your work without your permission. The electronic scientific-methodological journal <strong>Philology Matters</strong> offers a number of different license and reuse options, including <strong>Creative Commons</strong> licenses when publishing open access. Read more on publishing agreements.</p>
+          <p class="mb-0">If you have any questions, please contact us at: <a href="mailto:philologymatters@uzswlu.uz" class="text-fmmain hover:underline">philologymatters@uzswlu.uz</a>.</p>
         </section>
         ''',
         'content_uz': '''

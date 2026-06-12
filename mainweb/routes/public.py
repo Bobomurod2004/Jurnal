@@ -25,68 +25,194 @@ from shared.publication_metadata import (
     publication_metadata_options,
 )
 
+try:
+    import maxminddb
+except ImportError:
+    maxminddb = None
+
+GEOIP_DB_PATH = os.getenv(
+    'GEOIP_DB_PATH',
+    os.path.join(os.path.dirname(__file__), '..', '..', 'shared', 'geoip', 'GeoLite2-Country.mmdb')
+)
+
 EDITORIAL_MEMBER_TYPE_LABELS = {
     'en': {
         'editor_in_chief': "Editor-in-Chief",
-        'deputy_editor': "Responsible Secretary",
-        'editor': "Editor",
-        'reviewer': "Scientific Editor",
-        'advisory_member': "Layout Editor",
-        'technical_editor': "Proofreader",
-        'translator': "Translator",
+        'deputy_editor_in_chief': "Deputy Editor-in-Chief",
+        'executive_secretary': "Executive Secretary",
+        'editorial_board': "Editorial Board",
+        'international_editorial_board': "International Editorial Board",
+        'editorial_council': "Editorial Council",
+        'international_editorial_council': "International Editorial Council",
     },
     'uz': {
         'editor_in_chief': "Bosh muharrir",
-        'deputy_editor': "Mas'ul kotib",
-        'editor': "Muharrir",
-        'reviewer': "Ilmiy muharrir",
-        'advisory_member': "Sahifalovchi",
-        'technical_editor': "Musahhih",
-        'translator': "Tarjimon",
+        'deputy_editor_in_chief': "Bosh muharrir o'rinbosari",
+        'executive_secretary': "Mas'ul kotib",
+        'editorial_board': "Tahrir hay'ati",
+        'international_editorial_board': "Xalqaro tahrir hay'ati",
+        'editorial_council': "Tahrir kengashi",
+        'international_editorial_council': "Xalqaro tahrir kengashi",
     },
     'ru': {
         'editor_in_chief': "Главный редактор",
-        'deputy_editor': "Ответственный секретарь",
-        'editor': "Редактор",
-        'reviewer': "Научный редактор",
-        'advisory_member': "Редактор верстки",
-        'technical_editor': "Корректор",
-        'translator': "Переводчик",
+        'deputy_editor_in_chief': "Заместитель главного редактора",
+        'executive_secretary': "Ответственный секретарь",
+        'editorial_board': "Редакционная коллегия",
+        'international_editorial_board': "Международная редакционная коллегия",
+        'editorial_council': "Редакционный совет",
+        'international_editorial_council': "Международный редакционный совет",
     }
+}
+EDITORIAL_MEMBER_TYPE_LEGACY_ALIASES = {
+    'deputy_editor': 'executive_secretary',
+    'editor': 'editorial_board',
+    'reviewer': 'editorial_board',
+    'advisory_member': 'editorial_board',
+    'technical_editor': 'editorial_board',
+    'translator': 'editorial_board',
 }
 EDITORIAL_MEMBER_TYPE_ORDER = [
     'editor_in_chief',
-    'deputy_editor',
-    'editor',
-    'reviewer',
-    'advisory_member',
-    'technical_editor',
-    'translator',
+    'deputy_editor_in_chief',
+    'executive_secretary',
+    'editorial_board',
+    'international_editorial_board',
+    'editorial_council',
+    'international_editorial_council',
 ]
+FEATURED_EDITORIAL_GROUP_KEYS = (
+    'editor_in_chief',
+    'deputy_editor_in_chief',
+    'executive_secretary',
+)
+EDITORIAL_GROUP_THEMES = {
+    'editor_in_chief': {
+        'accent': '#d62828',
+        'accent_dark': '#a61e1e',
+        'soft': '#fff2f2',
+        'border': '#f4b9b9',
+    },
+    'deputy_editor_in_chief': {
+        'accent': '#f4b400',
+        'accent_dark': '#d39a00',
+        'soft': '#fff9e7',
+        'border': '#f5d97b',
+    },
+    'executive_secretary': {
+        'accent': '#3a9c23',
+        'accent_dark': '#2f7e1d',
+        'soft': '#eefbe8',
+        'border': '#b9e3ab',
+    },
+    'editorial_board': {
+        'accent': '#1666d3',
+        'accent_dark': '#104ea3',
+        'soft': '#edf5ff',
+        'border': '#bfd8fb',
+    },
+    'international_editorial_board': {
+        'accent': '#8c3fd1',
+        'accent_dark': '#6d2fa4',
+        'soft': '#f7efff',
+        'border': '#dbc1f6',
+    },
+    'editorial_council': {
+        'accent': '#b06a2a',
+        'accent_dark': '#8a5120',
+        'soft': '#fff5ec',
+        'border': '#efd0b0',
+    },
+    'international_editorial_council': {
+        'accent': '#0f8b9d',
+        'accent_dark': '#0c6e7d',
+        'soft': '#ebfbfd',
+        'border': '#b7e7ee',
+    },
+}
+
+
+def _build_editorial_member_type_aliases():
+    aliases = {}
+    for group_key in EDITORIAL_MEMBER_TYPE_ORDER:
+        aliases[group_key] = group_key
+    for labels in EDITORIAL_MEMBER_TYPE_LABELS.values():
+        for group_key, label in labels.items():
+            aliases[(label or '').strip().lower()] = group_key
+    aliases.update(EDITORIAL_MEMBER_TYPE_LEGACY_ALIASES)
+    return aliases
+
+
+EDITORIAL_MEMBER_TYPE_ALIASES = _build_editorial_member_type_aliases()
 EDITORIAL_UI_TEXTS = {
     'en': {
         'total_members': 'Total Members',
         'sections': 'Sections',
         'sections_title': 'Sections',
         'members_suffix': 'members',
-        'empty': 'No editorial board members have been added yet.',
-        'editor_fallback': 'Editor'
+        'empty': 'No editorial team members have been added yet.',
+        'editor_fallback': 'Editor',
+        'profile_button': 'Profile',
+        'cv_button': 'CV',
+        'orcid_button': 'ORCID',
+        'scopus_button': 'Scopus',
+        'researcherid_button': 'ResearcherID',
+        'google_scholar_button': 'Scholar',
+        'google_scholar_full': 'Google Scholar',
+        'biography_title': 'Short Biography',
+        'research_interests_title': 'Research Interests',
+        'contact_title': 'Academic Profiles',
+        'close_button': 'Close',
+        'note': 'Click on Profile to view detailed information about each member.',
+        'team_heading_uz': 'TAHRIRIY JAMOA',
+        'team_heading_ru': 'РЕДАКЦИОННАЯ КОМАНДА',
+        'leadership_label': 'Leadership',
     },
     'uz': {
         'total_members': "Umumiy a'zolar",
         'sections': "Yo'nalishlar",
         'sections_title': "Bo'limlar",
         'members_suffix': "a'zo",
-        'empty': "Hozircha tahrir hay'ati a'zolari qo'shilmagan.",
-        'editor_fallback': "Tahrirchi"
+        'empty': "Hozircha tahririyat jamoasi a'zolari qo'shilmagan.",
+        'editor_fallback': "Tahrirchi",
+        'profile_button': 'Profil',
+        'cv_button': 'CV',
+        'orcid_button': 'ORCID',
+        'scopus_button': 'Scopus',
+        'researcherid_button': 'ResearcherID',
+        'google_scholar_button': 'Scholar',
+        'google_scholar_full': 'Google Scholar',
+        'biography_title': 'Qisqacha biografiya',
+        'research_interests_title': 'Ilmiy qiziqishlar',
+        'contact_title': 'Ilmiy profillar',
+        'close_button': 'Yopish',
+        'note': "Har bir a'zo haqida batafsil ma'lumotni Profil tugmasi orqali ko'rishingiz mumkin.",
+        'team_heading_uz': 'TAHRIRIY JAMOA',
+        'team_heading_ru': 'РЕДАКЦИОННАЯ КОМАНДА',
+        'leadership_label': 'Rahbariyat',
     },
     'ru': {
         'total_members': 'Всего участников',
         'sections': 'Разделы',
         'sections_title': 'Разделы',
         'members_suffix': 'участников',
-        'empty': 'Пока участники редакционной коллегии не добавлены.',
-        'editor_fallback': 'Редактор'
+        'empty': 'Пока участники редакционной команды не добавлены.',
+        'editor_fallback': 'Редактор',
+        'profile_button': 'Профиль',
+        'cv_button': 'CV',
+        'orcid_button': 'ORCID',
+        'scopus_button': 'Scopus',
+        'researcherid_button': 'ResearcherID',
+        'google_scholar_button': 'Scholar',
+        'google_scholar_full': 'Google Scholar',
+        'biography_title': 'Краткая биография',
+        'research_interests_title': 'Научные интересы',
+        'contact_title': 'Научные профили',
+        'close_button': 'Закрыть',
+        'note': 'Нажмите Profile, чтобы открыть подробную информацию о каждом участнике.',
+        'team_heading_uz': 'TAHRIRIY JAMOA',
+        'team_heading_ru': 'РЕДАКЦИОННАЯ КОМАНДА',
+        'leadership_label': 'Руководство',
     }
 }
 ISSUE_UI_TEXTS = {
@@ -216,12 +342,12 @@ ACTIVITY_EVENTS_BOOTSTRAP_LOCK_ID = 741920531
 
 COUNTRY_ISO_BY_NAME = {
     # Central Asia
-    'Uzbekistan': 'uz', "O'zbekiston": 'uz', 'Ozbekiston': 'uz', 'Uzbekiston': 'uz', 'Ўзбекистон': 'uz',
+    'Uzbekistan': 'uz', "O'zbekiston": 'uz', 'Ozbekiston': 'uz', 'Uzbekiston': 'uz', 'Ўзбекистон': 'uz', 'Узбекистан': 'uz',
     'Russia': 'ru', 'Россия': 'ru', 'Rossiya': 'ru', 'Russian Federation': 'ru',
     'Kazakhstan': 'kz', "Qozog'iston": 'kz', 'Казахстан': 'kz',
     'Kyrgyzstan': 'kg', 'Qirgʻiziston': 'kg', 'Кыргызстан': 'kg',
     'Tajikistan': 'tj', 'Tojikiston': 'tj', 'Таджикистан': 'tj',
-    'Turkmenistan': 'tm', 'Турменистан': 'tm',
+    'Turkmenistan': 'tm', 'Туркменистан': 'tm', 'Турменистан': 'tm', 'Turkmaniston': 'tm',
     'Azerbaijan': 'az', 'Озарбайжон': 'az', 'Азербайджан': 'az',
     'Georgia': 'ge', 'Грузия': 'ge',
     'Armenia': 'am', 'Armaniston': 'am', 'Армения': 'am',
@@ -323,8 +449,22 @@ COUNTRY_ISO_BY_NAME = {
     'New Zealand': 'nz', 'Yangi Zelandiya': 'nz',
 }
 
+APOSTROPHE_FOLD_TABLE = str.maketrans({
+    'ʻ': "'",  # U+02BB modifier letter turned comma (official Uzbek Latin)
+    'ʼ': "'",  # U+02BC modifier letter apostrophe
+    '’': "'",  # U+2019 right single quotation mark
+    '‘': "'",  # U+2018 left single quotation mark
+    '`': "'",
+    '´': "'",
+})
+
+
+def _fold_apostrophes(value):
+    return str(value or '').translate(APOSTROPHE_FOLD_TABLE)
+
+
 COUNTRY_ISO_LOOKUP = {
-    re.sub(r'\s+', ' ', str(name or '')).strip().lower(): str(iso or '').strip().lower()
+    re.sub(r'\s+', ' ', _fold_apostrophes(name)).strip().lower(): str(iso or '').strip().lower()
     for name, iso in COUNTRY_ISO_BY_NAME.items()
     if str(name or '').strip() and str(iso or '').strip()
 }
@@ -796,25 +936,79 @@ def _safe_internal_redirect(target, fallback_endpoint):
     return target_text
 
 
-def _should_increment_article_view(article_id, user_id=None, ttl_seconds=6 * 60 * 60):
-    if not article_id:
+BOT_USER_AGENT_PATTERN = re.compile(
+    r'bot|crawl|spider|slurp|bingpreview|facebookexternalhit|embedly|quora link preview|'
+    r'pinterest|vkshare|whatsapp|telegrambot|curl|wget|python-requests|python-urllib|aiohttp|'
+    r'httpx|go-http-client|java/|libwww|okhttp|scrapy|headlesschrome|phantomjs|lighthouse|'
+    r'pingdom|uptimerobot|statuscake|site24x7|newspaper|feedfetcher|ahrefssiteaudit|semrush',
+    re.IGNORECASE,
+)
+
+ACTIVITY_SESSION_MARKS_KEY = 'activity_marks'
+ACTIVITY_SESSION_MARKS_LIMIT = 80
+
+
+def _is_bot_request():
+    user_agent = _clean_text(request.headers.get('User-Agent'))
+    if not user_agent:
+        return True
+    return bool(BOT_USER_AGENT_PATTERN.search(user_agent))
+
+
+def _should_count_activity(kind, object_id, user_id=None, ttl_seconds=6 * 60 * 60):
+    """Session-based dedup for view/download counters.
+
+    Returns True at most once per (kind, object, visitor) within ttl_seconds.
+    Expired entries are pruned and the mark list is capped so the cookie-backed
+    session cannot grow without bound.
+    """
+    if not object_id:
         return False
-    viewed = session.get('article_views')
-    if not isinstance(viewed, dict):
-        viewed = {}
+
+    marks = session.get(ACTIVITY_SESSION_MARKS_KEY)
+    if not isinstance(marks, dict):
+        marks = {}
+        # Migrate pre-existing view marks from the legacy session key
+        legacy_views = session.get('article_views')
+        if isinstance(legacy_views, dict):
+            for legacy_key, legacy_ts in legacy_views.items():
+                marks[f"view:{legacy_key}"] = legacy_ts
+            session.pop('article_views', None)
+
     now_ts = int(time.time())
+    marks = {
+        mark_key: mark_ts
+        for mark_key, mark_ts in marks.items()
+        if (_parse_int(mark_ts) or 0) > now_ts - ttl_seconds
+    }
+
     user_id_int = _parse_int(user_id)
-    if user_id_int is not None:
-        key = f"{article_id}:user:{user_id_int}"
-    else:
-        key = f"{article_id}:guest"
-    last_seen = _parse_int(viewed.get(key))
-    if last_seen and (now_ts - last_seen) < ttl_seconds:
-        return False
-    viewed[key] = now_ts
-    session['article_views'] = viewed
+    visitor = f"user:{user_id_int}" if user_id_int is not None else 'guest'
+    key = f"{kind}:{object_id}:{visitor}"
+
+    should_count = key not in marks
+    if should_count:
+        marks[key] = now_ts
+
+    if len(marks) > ACTIVITY_SESSION_MARKS_LIMIT:
+        oldest_first = sorted(marks.items(), key=lambda item: _parse_int(item[1]) or 0)
+        marks = dict(oldest_first[-ACTIVITY_SESSION_MARKS_LIMIT:])
+
+    session[ACTIVITY_SESSION_MARKS_KEY] = marks
     session.modified = True
-    return True
+    return should_count
+
+
+def _should_increment_article_view(article_id, user_id=None, ttl_seconds=6 * 60 * 60):
+    if _is_bot_request():
+        return False
+    return _should_count_activity('view', article_id, user_id=user_id, ttl_seconds=ttl_seconds)
+
+
+def _should_increment_download(kind, object_id, user_id=None, ttl_seconds=6 * 60 * 60):
+    if _is_bot_request():
+        return False
+    return _should_count_activity(kind, object_id, user_id=user_id, ttl_seconds=ttl_seconds)
 
 
 def _normalize_country_name(value):
@@ -822,10 +1016,17 @@ def _normalize_country_name(value):
 
 
 def _country_iso_for_name(country_name):
-    normalized_name = _normalize_country_name(country_name).lower()
+    normalized_name = _fold_apostrophes(_normalize_country_name(country_name)).lower()
     if not normalized_name:
         return ''
     return COUNTRY_ISO_LOOKUP.get(normalized_name, '')
+
+
+def _country_code_to_flag(country_code):
+    code = _clean_text(country_code).upper()
+    if len(code) != 2 or not code.isalpha():
+        return ''
+    return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
 
 
 def _country_stat_bucket(country_name):
@@ -951,6 +1152,39 @@ def _normalize_orcid_profile(orcid_value):
         return orcid_id, f"https://orcid.org/{orcid_id}"
 
     return text, ''
+
+
+def _normalize_scopus_profile(scopus_value, raw_url=None):
+    author_id = _clean_text(scopus_value)
+    profile_url = _normalize_external_profile_url(raw_url)
+    digits_only = re.sub(r'[^0-9]', '', author_id)
+    if digits_only:
+        author_id = digits_only
+        if not profile_url:
+            profile_url = f"https://www.scopus.com/authid/detail.uri?authorId={author_id}"
+    return author_id, profile_url
+
+
+def _normalize_researcherid_profile(researcherid_value, raw_url=None):
+    researcherid = _clean_text(researcherid_value).upper()
+    profile_url = _normalize_external_profile_url(raw_url)
+    if researcherid and not profile_url:
+        profile_url = f"https://www.researcherid.com/rid/{researcherid}"
+    return researcherid, profile_url
+
+
+def _editorial_research_interest_items(raw_value):
+    text = _clean_text(raw_value)
+    if not text:
+        return []
+
+    normalized = re.sub(r'\r\n?', '\n', text)
+    if '\n' in normalized:
+        candidates = [item.strip(" \t-•,;") for item in normalized.split('\n')]
+    else:
+        candidates = [item.strip(" \t-•") for item in re.split(r'[;,]+', normalized)]
+
+    return [item for item in candidates if item]
 
 
 def _author_tooltip_payload(author_row, lang=None):
@@ -1291,6 +1525,50 @@ def _resolve_user_country_name(user_id):
             cursor.close()
 
 
+_geoip_reader_cache = {'reader': None, 'failed': False}
+
+
+def _get_geoip_reader():
+    if _geoip_reader_cache['reader'] is not None:
+        return _geoip_reader_cache['reader']
+    if _geoip_reader_cache['failed'] or maxminddb is None:
+        return None
+    try:
+        _geoip_reader_cache['reader'] = maxminddb.open_database(GEOIP_DB_PATH)
+        return _geoip_reader_cache['reader']
+    except Exception:
+        _geoip_reader_cache['failed'] = True
+        logger.warning('GeoIP database is not available at %s — falling back to CDN headers', GEOIP_DB_PATH)
+        return None
+
+
+def _client_ip_address():
+    # ProxyFix already rewrites remote_addr from X-Forwarded-For
+    candidate = _clean_text(request.remote_addr)
+    if candidate:
+        return candidate
+    forwarded_for = _clean_text(request.headers.get('X-Forwarded-For'))
+    if forwarded_for:
+        return forwarded_for.split(',')[0].strip()
+    return ''
+
+
+def _geoip_country_iso(ip_address):
+    if not ip_address:
+        return ''
+    reader = _get_geoip_reader()
+    if reader is None:
+        return ''
+    try:
+        record = reader.get(ip_address) or {}
+        iso_code = ((record.get('country') or {}).get('iso_code') or '').strip().lower()
+        if re.match(r'^[a-z]{2}$', iso_code):
+            return iso_code
+    except Exception:
+        pass
+    return ''
+
+
 def _resolve_request_country_name():
     for header_name in (
         'CF-IPCountry',
@@ -1309,13 +1587,19 @@ def _resolve_request_country_name():
             # Country code not in our lookup — still record using ISO code as key
             # so it shows up in stats (without flag, but counted)
             return header_value
+
+    geoip_iso = _geoip_country_iso(_client_ip_address())
+    if geoip_iso:
+        return COUNTRY_DISPLAY_BY_ISO.get(geoip_iso) or geoip_iso.upper()
     return ''
 
 
 def _resolve_activity_country_bucket(user_id):
-    country_name = _resolve_user_country_name(user_id)
+    # Prefer the visitor's actual location (CDN header / GeoIP); fall back to
+    # the registered profile country for logged-in users on private networks.
+    country_name = _resolve_request_country_name()
     if not country_name:
-        country_name = _resolve_request_country_name()
+        country_name = _resolve_user_country_name(user_id)
     if not country_name:
         return _other_country_bucket()
 
@@ -1742,19 +2026,19 @@ def _editorial_member_type_label(member_type):
     lang = _current_lang_code()
     labels = EDITORIAL_MEMBER_TYPE_LABELS.get(lang, EDITORIAL_MEMBER_TYPE_LABELS['en'])
     key = (member_type or '').strip().lower()
-    return labels.get(key, labels.get('editor', 'Editor'))
+    return labels.get(key, labels.get('editorial_board', 'Editorial Board'))
 
 
 def _normalize_editorial_member_type(member_type):
     key = (member_type or '').strip().lower()
-    label_map = EDITORIAL_MEMBER_TYPE_LABELS.get('en', {})
-    if key in label_map:
-        return key
-    return 'editor'
+    return EDITORIAL_MEMBER_TYPE_ALIASES.get(key, 'editorial_board')
 
 
 def _current_lang_code():
-    lang = (session.get('language') or 'en').strip().lower()
+    try:
+        lang = (session.get('language') or 'en').strip().lower()
+    except RuntimeError:
+        return 'en'
     if lang not in {'uz', 'ru', 'en'}:
         return 'en'
     return lang
@@ -1763,6 +2047,41 @@ def _current_lang_code():
 def _editorial_ui_texts():
     lang = _current_lang_code()
     return EDITORIAL_UI_TEXTS.get(lang, EDITORIAL_UI_TEXTS['en'])
+
+
+def _editorial_group_theme(group_key):
+    theme = EDITORIAL_GROUP_THEMES.get(group_key) or EDITORIAL_GROUP_THEMES.get('editorial_board') or {}
+    return {
+        'accent': theme.get('accent', '#1666d3'),
+        'accent_dark': theme.get('accent_dark', '#104ea3'),
+        'soft': theme.get('soft', '#edf5ff'),
+        'border': theme.get('border', '#bfd8fb'),
+    }
+
+
+def _editorial_group_role_labels(group_key):
+    return {
+        'uz': EDITORIAL_MEMBER_TYPE_LABELS.get('uz', {}).get(group_key, ''),
+        'en': EDITORIAL_MEMBER_TYPE_LABELS.get('en', {}).get(group_key, ''),
+        'ru': EDITORIAL_MEMBER_TYPE_LABELS.get('ru', {}).get(group_key, ''),
+    }
+
+
+def _normalize_external_profile_url(raw_url):
+    url_text = _clean_text(raw_url)
+    if not url_text:
+        return ''
+
+    if url_text.startswith('//'):
+        url_text = f"https:{url_text}"
+    elif not re.match(r'^[a-z][a-z0-9+\-.]*://', url_text, re.IGNORECASE):
+        url_text = f"https://{url_text.lstrip('/')}"
+
+    parsed = urlparse(url_text)
+    host = (parsed.netloc or '').strip().lower()
+    if parsed.scheme not in {'http', 'https'} or not host or '.' not in host:
+        return ''
+    return url_text
 
 
 def _issue_ui_texts():
@@ -1890,6 +2209,9 @@ def _prepare_editorial_groups(editors):
         groups.append({
             'key': group_key,
             'label': _editorial_member_type_label(group_key),
+            'labels': _editorial_group_role_labels(group_key),
+            'theme': _editorial_group_theme(group_key),
+            'is_featured': group_key in FEATURED_EDITORIAL_GROUP_KEYS,
             'members': members,
             'count': len(members)
         })
@@ -1900,6 +2222,9 @@ def _prepare_editorial_groups(editors):
         groups.append({
             'key': group_key,
             'label': _editorial_member_type_label(group_key),
+            'labels': _editorial_group_role_labels(group_key),
+            'theme': _editorial_group_theme(group_key),
+            'is_featured': group_key in FEATURED_EDITORIAL_GROUP_KEYS,
             'members': members,
             'count': len(members)
         })
@@ -1941,7 +2266,10 @@ def _load_editorial_members():
             continue
 
         prepared_member = dict(member or {})
-        _apply_localized_content(prepared_member, ('full_name', 'position', 'organization', 'biography'))
+        _apply_localized_content(
+            prepared_member,
+            ('full_name', 'position', 'organization', 'biography', 'country', 'research_interests')
+        )
 
         full_name = _clean_text(prepared_member.get('full_name'))
         if not full_name:
@@ -1972,6 +2300,39 @@ def _load_editorial_members():
             or _clean_text(member.get('biography_uz'))
             or _clean_text(member.get('biography_ru'))
         )
+        country = (
+            _clean_text(prepared_member.get('country'))
+            or _clean_text(member.get('country'))
+            or _clean_text(member.get('country_uz'))
+            or _clean_text(member.get('country_ru'))
+        )
+        country_code = _clean_text(member.get('country_code')).lower()
+        research_interests = (
+            _clean_text(prepared_member.get('research_interests'))
+            or _clean_text(member.get('research_interests'))
+            or _clean_text(member.get('research_interests_uz'))
+            or _clean_text(member.get('research_interests_ru'))
+        )
+        cv_url = _normalize_public_upload_url(_localized_content_field(member, 'cv_file'))
+        google_scholar_url = _normalize_external_profile_url(member.get('google_scholar_url'))
+        orcid_value, orcid_url = _normalize_orcid_profile(member.get('orcid'))
+        scopus_value, scopus_url = _normalize_scopus_profile(
+            member.get('scopus_author_id'),
+            member.get('scopus_author_url')
+        )
+        researcherid_value, researcherid_url = _normalize_researcherid_profile(
+            member.get('researcherid'),
+            member.get('researcherid_url')
+        )
+        email_value = _clean_text(member.get('email'))
+        _, country_fallback_name, country_iso = _country_stat_bucket(country)
+        resolved_country_code = country_code if re.match(r'^[a-z]{2}$', country_code) else country_iso
+        country_display = _localized_country_display_name(
+            resolved_country_code,
+            fallback_name=country_fallback_name or country,
+            lang=_current_lang_code()
+        )
+        research_interest_items = _editorial_research_interest_items(research_interests)
 
         normalized_type = _normalize_editorial_member_type(member.get('member_type'))
         member_type_label = _editorial_member_type_label(member.get('member_type'))
@@ -1979,9 +2340,24 @@ def _load_editorial_members():
         prepared_member['position'] = position
         prepared_member['organization'] = organization
         prepared_member['biography'] = biography
+        prepared_member['country'] = country_display or country
+        prepared_member['country_code'] = resolved_country_code
+        prepared_member['country_flag'] = _country_code_to_flag(resolved_country_code)
+        prepared_member['research_interests'] = research_interests
+        prepared_member['research_interests_list'] = research_interest_items
         prepared_member['member_type'] = normalized_type
         prepared_member['member_type_label'] = member_type_label
         prepared_member['title'] = position or member_type_label
+        prepared_member['orcid'] = orcid_value
+        prepared_member['orcid_url'] = orcid_url
+        prepared_member['scopus'] = scopus_value
+        prepared_member['scopus_url'] = scopus_url
+        prepared_member['researcherid'] = researcherid_value
+        prepared_member['researcherid_url'] = researcherid_url
+        prepared_member['email'] = email_value
+        prepared_member['cv_url'] = cv_url
+        prepared_member['google_scholar_url'] = google_scholar_url
+        prepared_member['modal_id'] = f"editorial-member-{_parse_int(member.get('id')) or len(members) + 1}"
         prepared_member['sort_order'] = _parse_int(member.get('sort_order')) or 0
         members.append(prepared_member)
 
@@ -2024,9 +2400,27 @@ def _load_public_editorial_members():
         ]
         full_name = ' '.join([part for part in full_name_parts if part]).strip()
         editor['full_name'] = full_name or editor.get('email') or 'Editor'
-        editor['member_type'] = 'editor'
-        editor['member_type_label'] = _editorial_member_type_label('editor')
+        editor['member_type'] = 'editorial_board'
+        editor['member_type_label'] = _editorial_member_type_label('editorial_board')
         editor['title'] = (editor.get('position') or '').strip() or (editor.get('title') or '').strip()
+        orcid_value, orcid_url = _normalize_orcid_profile(editor.get('orcid'))
+        editor['orcid'] = orcid_value
+        editor['orcid_url'] = orcid_url
+        editor['email'] = _clean_text(editor.get('email'))
+        country_value = _author_country_display_name(editor.get('address_country'), lang=_current_lang_code())
+        _, _, country_iso = _country_stat_bucket(editor.get('address_country'))
+        editor['country'] = country_value
+        editor['country_code'] = country_iso
+        editor['country_flag'] = _country_code_to_flag(country_iso)
+        editor['research_interests'] = ''
+        editor['research_interests_list'] = []
+        editor['scopus'] = ''
+        editor['scopus_url'] = ''
+        editor['researcherid'] = ''
+        editor['researcherid_url'] = ''
+        editor['cv_url'] = ''
+        editor['google_scholar_url'] = ''
+        editor['modal_id'] = f"editorial-member-fallback-{editor.get('id') or len(prepared_editors) + 1}"
         editor['sort_order'] = _parse_int(editor.get('sort_order')) or 0
         prepared_editors.append(editor)
 
@@ -2332,13 +2726,27 @@ def app__index():
             item['authors'] = authors_value
             item['views'] = views_value
             item['downloads'] = downloads_value
-            item['count'] = authors_value + views_value + downloads_value
+            # Country activity = reader actions only; author counts are kept
+            # separately and must not inflate the activity number.
+            item['count'] = views_value + downloads_value
+
+        def _has_any_activity(item):
+            return (
+                (_parse_int(item.get('count')) or 0) > 0
+                or (_parse_int(item.get('authors')) or 0) > 0
+            )
 
         activity_items = [
             item
             for item in aggregated.values()
-            if (_parse_int(item.get('count')) or 0) > 0
+            if _has_any_activity(item)
             and not _is_other_country_bucket_key(item.get('country_key'))
+        ]
+        other_items = [
+            item
+            for item in aggregated.values()
+            if _has_any_activity(item)
+            and _is_other_country_bucket_key(item.get('country_key'))
         ]
 
         sorted_stats = sorted(
@@ -2353,6 +2761,23 @@ def app__index():
         )
         max_cnt = max((item.get('count') or 0 for item in sorted_stats), default=0)
         max_cnt = max(max_cnt, 1)
+
+        # Merge the unattributed buckets into a single trailing "Other" row so
+        # the per-country list still adds up to the journal-wide totals.
+        merged_other = None
+        if other_items:
+            merged_other = {
+                'country_key': OTHER_COUNTRY_KEY,
+                'name': country_stats_ui.get('unknown_country') or OTHER_COUNTRY_NAME,
+                'authors': sum(_parse_int(item.get('authors')) or 0 for item in other_items),
+                'views': sum(_parse_int(item.get('views')) or 0 for item in other_items),
+                'downloads': sum(_parse_int(item.get('downloads')) or 0 for item in other_items),
+                'iso': '',
+            }
+            merged_other['count'] = merged_other['views'] + merged_other['downloads']
+            if merged_other['count'] <= 0 and merged_other['authors'] <= 0:
+                merged_other = None
+
         for item in sorted_stats:
             count_value = _parse_int(item.get('count')) or 0
             item['pct'] = round(count_value / max_cnt * 100) if count_value > 0 else 0
@@ -2362,10 +2787,14 @@ def app__index():
                     fallback_name=item.get('name'),
                     lang=current_lang,
                 )
-            elif _is_other_country_bucket_key(item.get('country_key')):
-                item['name'] = country_stats_ui.get('unknown_country') or OTHER_COUNTRY_NAME
-        country_stats = sorted_stats
+
+        if merged_other:
+            merged_other['pct'] = min(100, round(merged_other['count'] / max_cnt * 100)) if merged_other['count'] > 0 else 0
+
+        country_stats = sorted_stats + ([merged_other] if merged_other else [])
         country_stats_top = sorted_stats[:10]
+        if merged_other:
+            country_stats_top = sorted_stats[:9] + [merged_other]
     except Exception:
         try:
             dbc.conn.rollback()
@@ -2425,14 +2854,27 @@ def app__index():
         for pub in publications:
             enrich_home_publication(pub)
 
-    # Recent issues for sidebar quick navigation
+    # Recent issues for sidebar quick navigation: only the latest few are
+    # shown here — the full list lives on the Issues page.
     recent_issues = []
     try:
-        recent_issues_rows = dbc.issues.get().order_by('year').per_page(40).page(1).exec()
-        recent_issues = [
+        recent_issues_rows = dbc.issues.get().exec() or []
+        visible_issues = [
             issue for issue in recent_issues_rows
             if not _is_masters_issue(issue)
-        ][:8]
+        ]
+        visible_issues = sorted(
+            visible_issues,
+            key=lambda issue: (
+                _parse_int(issue.get('year')) or 0,
+                _parse_int(issue.get('vol_no')) or 0,
+                _parse_int(issue.get('issue_no')) or 0,
+                _parse_int(issue.get('created_at')) or 0,
+                _parse_int(issue.get('id')) or 0,
+            ),
+            reverse=True,
+        )
+        recent_issues = visible_issues[:3]
         for iss in recent_issues:
             try:
                 translate(iss)
@@ -2468,10 +2910,24 @@ def app__editorial():
     editorial_ui = _editorial_ui_texts()
     prepared_editors = _load_public_editorial_members()
     editor_groups = _prepare_editorial_groups(prepared_editors)
+    featured_editor = _select_featured_editorial_member(prepared_editors)
+    featured_group = None
+    if featured_editor:
+        featured_key = _normalize_editorial_member_type(featured_editor.get('member_type'))
+        for group in editor_groups:
+            if group.get('key') == featured_key:
+                featured_group = group
+                break
+    leadership_groups = [group for group in editor_groups if group.get('is_featured')]
+    board_groups = [group for group in editor_groups if not group.get('is_featured')]
     return render_template(
         'mainweb/editorial.html',
         editors=prepared_editors,
         editor_groups=editor_groups,
+        featured_editor=featured_editor,
+        featured_group=featured_group,
+        leadership_groups=leadership_groups,
+        board_groups=board_groups,
         total_editors=len(prepared_editors),
         total_groups=len(editor_groups),
         editorial_ui=editorial_ui
@@ -3151,14 +3607,15 @@ def _publication_sort_key(publication):
     created_ts = _parse_int(row.get('created_at')) or 0
     primary_ts = publish_ts or created_ts
     publication_id = _parse_int(row.get('id')) or 0
-    return (primary_ts, created_ts, publication_id)
+    return (primary_ts, publication_id, created_ts)
 
 
 def _publication_recent_sort_key(publication):
     # Keep "latest" ordering stable across environments:
     # 1) publish date (if present),
-    # 2) creation timestamp for same publish date or missing publish date,
-    # 3) id as last tie-breaker.
+    # 2) id for the same publish date — insertion order is immutable, while
+    #    created_at is editable in the admin form and unreliable in practice,
+    # 3) creation timestamp as the last tie-breaker.
     return _publication_sort_key(publication)
 
 
@@ -4087,18 +4544,19 @@ def app__download_article(article_id):
             flash(f"Monthly download limit reached ({limit_result.get('limit')} downloads).", 'error')
             return redirect(url_for('app__article', article_id=article_id))
 
-    try:
-        new_downloads = (publication.get('stat_alt') or 0) + 1
-        dbc.publications.get(id=article_id).update(stat_alt=new_downloads).exec()
-    except Exception:
-        current_app.logger.exception('Failed to update download count for article %s', article_id)
-    _record_activity_event(
-        session.get('user_id'),
-        metric='download',
-        publication_id=article_id,
-        issue_id=publication.get('issue_id'),
-        amount=1,
-    )
+    if _should_increment_download('download', article_id, user_id=session.get('user_id')):
+        try:
+            new_downloads = (publication.get('stat_alt') or 0) + 1
+            dbc.publications.get(id=article_id).update(stat_alt=new_downloads).exec()
+        except Exception:
+            current_app.logger.exception('Failed to update download count for article %s', article_id)
+        _record_activity_event(
+            session.get('user_id'),
+            metric='download',
+            publication_id=article_id,
+            issue_id=publication.get('issue_id'),
+            amount=1,
+        )
 
     mime_type = mimetypes.guess_type(selected_file_path)[0] or 'application/pdf'
     return send_file(
@@ -4169,21 +4627,28 @@ def app__download_issue(issue_id):
         used_names.add(candidate.lower())
         return candidate
 
+    count_issue_download = _should_increment_download(
+        'issue_download', issue_id, user_id=session.get('user_id')
+    )
     archive_buffer = io.BytesIO()
     with zipfile.ZipFile(archive_buffer, mode='w', compression=zipfile.ZIP_DEFLATED) as archive:
         for publication, file_path, download_name in downloadable_files:
             archive.write(file_path, arcname=_unique_name(download_name))
-            try:
-                new_downloads = (publication.get('stat_alt') or 0) + 1
-                dbc.publications.get(id=publication.get('id')).update(stat_alt=new_downloads).exec()
-            except Exception:
-                current_app.logger.exception('Failed to update download count for article %s', publication.get('id'))
-    _record_activity_event(
-        session.get('user_id'),
-        metric='download',
-        issue_id=issue_id,
-        amount=len(downloadable_files),
-    )
+            if count_issue_download:
+                try:
+                    new_downloads = (publication.get('stat_alt') or 0) + 1
+                    dbc.publications.get(id=publication.get('id')).update(stat_alt=new_downloads).exec()
+                except Exception:
+                    current_app.logger.exception('Failed to update download count for article %s', publication.get('id'))
+    if count_issue_download:
+        # One user action = one download event, regardless of how many
+        # article files end up inside the ZIP archive.
+        _record_activity_event(
+            session.get('user_id'),
+            metric='download',
+            issue_id=issue_id,
+            amount=1,
+        )
 
     archive_buffer.seek(0)
     issue_filename = f"volume-{_clean_text(issue.get('vol_no')) or 'x'}-issue-{_clean_text(issue.get('issue_no')) or 'x'}"

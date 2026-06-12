@@ -177,7 +177,7 @@
                         </a>
                         <a href="{{ url_for('app__editorial') }}" class="sidebar-quick-link">
                             <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain shrink-0"></iconify-icon>
-                            {{ t('menu_editorial_board') }}
+                            {{ t('menu_editorial_team') }}
                         </a>
                         <a href="{{ url_for('app__page_alias', alias='aims_scope') }}" class="sidebar-quick-link">
                             <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-xs text-fmmain shrink-0"></iconify-icon>
@@ -642,7 +642,7 @@
                     <div class="flex items-center justify-between mb-3">
                         <h5 class="sidebar-card-title !mb-0">
                             <iconify-icon icon="solar:users-group-rounded-bold-duotone" class="text-fmmain"></iconify-icon>
-                            {{ t('menu_editorial_board') }}
+                            {{ t('menu_editorial_team') }}
                         </h5>
                         {% if editorial_members and editorial_members|length > 1 %}
                         <div class="editorial-slider-controls">
@@ -701,12 +701,12 @@
                     </div>
                     {% endif %}
                     {% else %}
-                    <p class="text-xs text-gray-500">{{ t('editorial_board_description') }}</p>
+                    <p class="text-xs text-gray-500">{{ t('editorial_team_description') }}</p>
                     {% endif %}
 
                     <a href="{{ url_for('app__editorial') }}"
                         class="inline-flex items-center gap-1 text-xs font-medium text-fmmain hover:text-fmmain/80 transition-colors group mt-3">
-                        {{ t('view_editorial_board') }}
+                        {{ t('view_editorial_team') }}
                         <iconify-icon icon="solar:alt-arrow-right-line-duotone" class="text-sm transition-transform group-hover:translate-x-0.5"></iconify-icon>
                     </a>
                 </div>

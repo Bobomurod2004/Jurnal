@@ -1,74 +1,282 @@
-{% macro editor(editor_info) %}
+{% macro _member_photo(editor_info, display_name, size_classes, text_size='text-2xl') %}
     {% set image_value = editor_info.image or editor_info.avatar %}
+    {% set avatar_label = (display_name[0] if display_name else 'E')|upper %}
+    <div class="{{ size_classes }} rounded-xl overflow-hidden flex-shrink-0 border border-gray-200/80 bg-gray-50 shadow-xs">
+        {% if image_value %}
+            {% if image_value.startswith('http://') or image_value.startswith('https://') or image_value.startswith('/') %}
+            <img src="{{ image_value }}" class="w-full h-full object-cover" alt="{{ display_name }}" loading="lazy">
+            {% else %}
+            <img src="{{ url_for('static', filename=image_value) }}" class="w-full h-full object-cover" alt="{{ display_name }}" loading="lazy">
+            {% endif %}
+        {% else %}
+        <div class="w-full h-full flex items-center justify-center font-serif {{ text_size }} font-bold bg-gradient-to-br from-gray-50 to-gray-100 text-gray-400">{{ avatar_label }}</div>
+        {% endif %}
+    </div>
+{% endmacro %}
+
+{% macro _country_line(editor_info, extra_classes='') %}
+    {% set country_value = (editor_info.country or '')|trim %}
+    {% set country_flag = (editor_info.country_flag or '')|trim %}
+    {% if country_value %}
+    <div class="flex items-center gap-1.5 text-xs text-gray-500 {{ extra_classes }}">
+        {% if country_flag %}
+        <span class="text-sm leading-none">{{ country_flag }}</span>
+        {% else %}
+        <iconify-icon icon="tabler:map-pin" class="text-gray-400"></iconify-icon>
+        {% endif %}
+        <span class="truncate">{{ country_value }}</span>
+    </div>
+    {% endif %}
+{% endmacro %}
+
+{% macro _academic_icons(editor_info, size='md') %}
+    {% set cv_url = editor_info.cv_url or '' %}
+    {% set orcid_url = editor_info.orcid_url or '' %}
+    {% set google_scholar_url = editor_info.google_scholar_url or '' %}
+    {% set scopus_value = editor_info.scopus or editor_info.scopus_author_id or '' %}
+    {% set scopus_url = editor_info.scopus_url or editor_info.scopus_author_url or '' %}
+    {% set researcherid_value = editor_info.researcherid or '' %}
+    {% set researcherid_url = editor_info.researcherid_url or '' %}
+    {% set box = 'w-7 h-7' if size == 'md' else 'w-6 h-6' %}
+    {% set img = 'w-4 h-4' if size == 'md' else 'w-3 h-3' %}
+    {% set txt = 'text-[10px]' if size == 'md' else 'text-[9px]' %}
+
+    {% if cv_url %}
+    <a href="{{ cv_url }}" target="_blank" rel="noopener noreferrer" title="{{ editorial_ui.cv_button }}" class="{{ box }} rounded-full flex items-center justify-center bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors">
+        <iconify-icon icon="tabler:file-text" class="text-sm"></iconify-icon>
+    </a>
+    {% endif %}
+    {% if orcid_url %}
+    <a href="{{ orcid_url }}" target="_blank" rel="noopener noreferrer" title="ORCID iD" class="{{ box }} rounded-full flex items-center justify-center bg-gray-50 border border-gray-200 hover:bg-[#A6CE39]/10 hover:border-[#A6CE39]/50 transition-colors">
+        <img src="{{ url_for('static', filename='orcid.svg') }}" alt="ORCID" class="{{ img }} object-contain">
+    </a>
+    {% endif %}
+    {% if google_scholar_url %}
+    <a href="{{ google_scholar_url }}" target="_blank" rel="noopener noreferrer" title="Google Scholar" class="{{ box }} rounded-full flex items-center justify-center bg-gray-50 border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-colors">
+        <img src="{{ url_for('static', filename='gs.png') }}" alt="Scholar" class="{{ img }} object-contain">
+    </a>
+    {% endif %}
+    {% if scopus_url or scopus_value %}
+    <a href="{{ scopus_url if scopus_url else ('https://www.scopus.com/authid/detail.uri?authorId=' ~ scopus_value) }}" target="_blank" rel="noopener noreferrer" title="Scopus" class="{{ box }} rounded-full flex items-center justify-center bg-gray-50 border border-gray-200 {{ txt }} font-bold text-orange-600 hover:bg-orange-50 hover:border-orange-300 transition-colors">SC</a>
+    {% endif %}
+    {% if researcherid_url or researcherid_value %}
+    <a href="{{ researcherid_url if researcherid_url else ('https://www.researcherid.com/rid/' ~ researcherid_value) }}" target="_blank" rel="noopener noreferrer" title="ResearcherID" class="{{ box }} rounded-full flex items-center justify-center bg-gray-50 border border-gray-200 {{ txt }} font-bold text-purple-600 hover:bg-purple-50 hover:border-purple-300 transition-colors">RG</a>
+    {% endif %}
+{% endmacro %}
+
+{# Featured leadership card — colored header band + photo + info + actions #}
+{% macro featured_card(editor_info, group) %}
     {% set full_name = editor_info.full_name or ((editor_info.name or '') ~ ' ' ~ (editor_info.second_name or '') ~ ' ' ~ (editor_info.father_name or ''))|trim %}
+    {% set display_name = full_name or editorial_ui.editor_fallback %}
     {% set title_value = editor_info.position or editor_info.title %}
     {% set organization_value = editor_info.organization or editor_info.editor_specialization %}
-    {% set member_type_label = editor_info.member_type_label %}
-    {% set raw_email = (editor_info.email or '') | string %}
-    {% set email_value = raw_email if '@' in raw_email else '' %}
-    {% set orcid_value = editor_info.orcid %}
-    {% set editor_fallback = editorial_ui.editor_fallback if editorial_ui is defined and editorial_ui.editor_fallback else 'Editor' %}
+    {% set modal_id = editor_info.modal_id or 'editorial-member' %}
+    {% set other_labels = [] %}
+    {% for lang_key in ('uz', 'en', 'ru') %}
+        {% set lang_label = group.labels.get(lang_key) %}
+        {% if lang_label and lang_label != group.label and lang_label not in other_labels %}
+            {% set _ = other_labels.append(lang_label) %}
+        {% endif %}
+    {% endfor %}
 
-    <article class="editorial-member-card">
-        <div class="editorial-member-layout">
-            <div class="editorial-avatar-wrap">
-                    {% if image_value %}
-                    {% if image_value.startswith('http://') or image_value.startswith('https://') or image_value.startswith('/') %}
-                        <img src="{{ image_value }}" class="editorial-avatar" alt="{{ full_name or editor_fallback }}">
-                    {% else %}
-                        <img src="{{ url_for('static', filename=image_value) }}" class="editorial-avatar" alt="{{ full_name or editor_fallback }}">
-                    {% endif %}
-                {% else %}
-                    <img src="{{ url_for('static', filename='person.png') }}" class="editorial-avatar" alt="{{ full_name or editor_fallback }}">
+    <article class="bg-white rounded-2xl border shadow-xs hover:shadow-lg transition-shadow duration-300 overflow-hidden flex flex-col h-full" style="border-color: {{ group.theme.border }};">
+        <!-- Role band -->
+        <div class="px-4 py-3 text-center text-white" style="background: linear-gradient(135deg, {{ group.theme.accent }} 0%, {{ group.theme.accent_dark }} 100%);">
+            <div class="text-xs font-extrabold uppercase tracking-widest leading-snug">{{ group.label }}</div>
+            {% if other_labels %}
+            <div class="text-[9px] font-semibold uppercase tracking-wider opacity-80 leading-snug mt-0.5">{{ other_labels|join(' • ') }}</div>
+            {% endif %}
+        </div>
+
+        <!-- Body -->
+        <div class="p-5 flex gap-4 items-start flex-1">
+            {{ _member_photo(editor_info, display_name, 'w-20 h-26 md:w-24 md:h-30', 'text-3xl') }}
+            <div class="flex-1 min-w-0">
+                <h3 class="font-serif font-bold text-gray-900 text-base md:text-lg leading-tight mb-1">{{ display_name }}</h3>
+                {% if title_value %}
+                <div class="text-xs md:text-sm font-semibold text-gray-700 leading-snug mb-1">{{ title_value }}</div>
                 {% endif %}
+                {% if organization_value %}
+                <div class="text-xs text-gray-500 leading-normal mb-1.5 line-clamp-2">{{ organization_value }}</div>
+                {% endif %}
+                {{ _country_line(editor_info) }}
             </div>
+        </div>
 
-            <div class="editorial-member-content">
-                <div class="editorial-badges">
-                    {% if title_value %}
-                    <span class="editorial-badge editorial-badge-main">{{ title_value }}</span>
-                    {% endif %}
-                    {% if member_type_label and member_type_label != title_value %}
-                    <span class="editorial-badge">{{ member_type_label }}</span>
-                    {% endif %}
-                </div>
-
-                <h3 class="editorial-member-name">{{ full_name or editor_fallback }}</h3>
-
-                {% if email_value or orcid_value %}
-                <div class="editorial-member-meta">
-                    {% if email_value %}
-                    <a href="mailto:{{ email_value }}" class="editorial-meta-chip">
-                        <iconify-icon icon="tabler:mail" class="editorial-chip-icon"></iconify-icon>
-                        {{ email_value }}
-                    </a>
-                    {% endif %}
-                    {% if orcid_value %}
-                    <a href="https://orcid.org/{{ orcid_value }}" target="_blank" rel="noopener noreferrer" class="editorial-meta-chip">
-                        <iconify-icon icon="tabler:id-badge-2" class="editorial-chip-icon"></iconify-icon>
-                        ORCID
-                    </a>
-                    {% endif %}
-                </div>
-                {% endif %}
-
-                {% if title_value or organization_value %}
-                <div class="editorial-member-facts">
-                    {% if title_value %}
-                    <div class="editorial-fact">
-                        <span class="editorial-fact-label">{{ t('editorial_position_label') }}</span>
-                        <strong>{{ title_value }}</strong>
-                    </div>
-                    {% endif %}
-                    {% if organization_value %}
-                    <div class="editorial-fact">
-                        <span class="editorial-fact-label">{{ t('editorial_institution_label') }}</span>
-                        <strong>{{ organization_value }}</strong>
-                    </div>
-                    {% endif %}
-                </div>
-                {% endif %}
+        <!-- Actions -->
+        <div class="px-5 pb-4 flex flex-wrap items-center gap-2 border-t border-gray-100/80 pt-3 mt-auto">
+            <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-white rounded-lg text-xs font-bold hover:opacity-90 transition-opacity shadow-xs cursor-pointer"
+                    style="background-color: {{ group.theme.accent }};"
+                    data-editorial-open="{{ modal_id }}">
+                <iconify-icon icon="tabler:user"></iconify-icon>
+                <span>{{ editorial_ui.profile_button }}</span>
+            </button>
+            <div class="flex items-center gap-1.5">
+                {{ _academic_icons(editor_info, 'md') }}
             </div>
         </div>
     </article>
+{% endmacro %}
+
+{# Compact card used inside the moving group streams #}
+{% macro member_card(editor_info, group) %}
+    {% set full_name = editor_info.full_name or ((editor_info.name or '') ~ ' ' ~ (editor_info.second_name or '') ~ ' ' ~ (editor_info.father_name or ''))|trim %}
+    {% set display_name = full_name or editorial_ui.editor_fallback %}
+    {% set title_value = editor_info.position or editor_info.title %}
+    {% set organization_value = editor_info.organization or editor_info.editor_specialization %}
+    {% set modal_id = editor_info.modal_id or 'editorial-member' %}
+
+    <article class="bg-white rounded-xl border border-gray-200 shadow-xs hover:shadow-md transition-shadow duration-300 p-3.5 flex gap-3.5 w-full h-full items-stretch">
+        {{ _member_photo(editor_info, display_name, 'w-16 h-21', 'text-xl') }}
+
+        <div class="flex-1 min-w-0 flex flex-col">
+            <h3 class="font-serif font-bold text-gray-900 text-sm leading-snug line-clamp-2" title="{{ display_name }}">{{ display_name }}</h3>
+            <div class="text-[11px] text-gray-600 line-clamp-2 mt-0.5 leading-normal" title="{{ title_value }}{% if title_value and organization_value %}, {% endif %}{{ organization_value }}">
+                {%- if title_value %}{{ title_value }}{% endif %}{% if title_value and organization_value %}, {% endif %}{% if organization_value %}{{ organization_value }}{% endif -%}
+            </div>
+            {{ _country_line(editor_info, 'mt-1 text-[10px]') }}
+
+            <div class="flex items-center justify-between gap-2 mt-auto pt-2">
+                <button type="button" class="px-2.5 py-1 text-white rounded-md text-[10px] font-bold hover:opacity-90 transition-opacity shadow-xs cursor-pointer"
+                        style="background-color: {{ group.theme.accent }};"
+                        data-editorial-open="{{ modal_id }}">
+                    {{ editorial_ui.profile_button }}
+                </button>
+                <div class="flex items-center gap-1">
+                    {{ _academic_icons(editor_info, 'sm') }}
+                </div>
+            </div>
+        </div>
+    </article>
+{% endmacro %}
+
+{# Detail modal — rendered ONCE per member at page level (never inside duplicated marquee copies) #}
+{% macro member_modal(editor_info, group) %}
+    {% set full_name = editor_info.full_name or ((editor_info.name or '') ~ ' ' ~ (editor_info.second_name or '') ~ ' ' ~ (editor_info.father_name or ''))|trim %}
+    {% set display_name = full_name or editorial_ui.editor_fallback %}
+    {% set title_value = editor_info.position or editor_info.title %}
+    {% set organization_value = editor_info.organization or editor_info.editor_specialization %}
+    {% set member_type_label = editor_info.member_type_label or group.label %}
+    {% set bio_value = editor_info.biography or '' %}
+    {% set email_value = editor_info.email or '' %}
+    {% set orcid_url = editor_info.orcid_url or '' %}
+    {% set scopus_value = editor_info.scopus or editor_info.scopus_author_id or '' %}
+    {% set scopus_url = editor_info.scopus_url or editor_info.scopus_author_url or '' %}
+    {% set researcherid_value = editor_info.researcherid or '' %}
+    {% set researcherid_url = editor_info.researcherid_url or '' %}
+    {% set cv_url = editor_info.cv_url or '' %}
+    {% set google_scholar_url = editor_info.google_scholar_url or '' %}
+    {% set country_value = (editor_info.country or '')|trim %}
+    {% set country_flag = (editor_info.country_flag or '')|trim %}
+    {% set research_interest_items = editor_info.research_interests_list or [] %}
+    {% set modal_id = editor_info.modal_id or 'editorial-member' %}
+
+    <div class="editorial-modal fixed inset-0 z-50 overflow-y-auto hidden items-center justify-center" id="{{ modal_id }}" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="{{ modal_id }}-title">
+        <div class="editorial-modal__backdrop fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity" data-editorial-close></div>
+
+        <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100 mx-4 max-h-[90vh] flex flex-col z-10 animate-fade-in">
+            <button type="button" class="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-800 transition-colors z-20 cursor-pointer" data-editorial-close aria-label="{{ editorial_ui.close_button }}">
+                <iconify-icon icon="tabler:x" class="text-lg"></iconify-icon>
+            </button>
+
+            <div class="overflow-y-auto flex-1">
+                <div class="grid grid-cols-1 md:grid-cols-[220px_1fr]">
+                    <!-- Aside profile card -->
+                    <div class="bg-gray-50/60 p-6 flex flex-col items-center text-center border-b md:border-b-0 md:border-r border-gray-100">
+                        {{ _member_photo(editor_info, display_name, 'w-32 h-40 mb-4', 'text-4xl') }}
+
+                        <span class="px-2.5 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider mb-4"
+                              style="background-color: {{ group.theme.soft or '#f0f4f8' }}; color: {{ group.theme.accent_dark or '#1e3a8a' }};">
+                            {{ member_type_label }}
+                        </span>
+
+                        <div class="w-full flex flex-col gap-2 mt-2">
+                            {% if cv_url %}
+                            <a href="{{ cv_url }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-xs">
+                                <iconify-icon icon="tabler:file-text"></iconify-icon>
+                                <span>{{ editorial_ui.cv_button }}</span>
+                            </a>
+                            {% endif %}
+                            {% if orcid_url %}
+                            <a href="{{ orcid_url }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 px-3 py-2 bg-[#A6CE39] text-white rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity shadow-xs">
+                                <img src="{{ url_for('static', filename='orcid.svg') }}" alt="ORCID" class="w-3.5 h-3.5 object-contain filter invert brightness-0">
+                                <span>ORCID iD</span>
+                            </a>
+                            {% endif %}
+                            {% if google_scholar_url %}
+                            <a href="{{ google_scholar_url }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors shadow-xs">
+                                <iconify-icon icon="simple-icons:googlescholar"></iconify-icon>
+                                <span>Scholar</span>
+                            </a>
+                            {% endif %}
+                            {% if scopus_url or scopus_value %}
+                            <a href="{{ scopus_url if scopus_url else ('https://www.scopus.com/authid/detail.uri?authorId=' ~ scopus_value) }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-lg text-xs font-semibold hover:bg-orange-700 transition-colors shadow-xs">
+                                <span class="font-bold text-[10px]">SC</span>
+                                <span>Scopus</span>
+                            </a>
+                            {% endif %}
+                            {% if researcherid_url or researcherid_value %}
+                            <a href="{{ researcherid_url if researcherid_url else ('https://www.researcherid.com/rid/' ~ researcherid_value) }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700 transition-colors shadow-xs">
+                                <span class="font-bold text-[10px]">RG</span>
+                                <span>ResearcherID</span>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Main details -->
+                    <div class="p-6">
+                        <h3 id="{{ modal_id }}-title" class="font-serif font-bold text-gray-900 text-2xl leading-tight mb-2">{{ display_name }}</h3>
+
+                        {% if title_value %}
+                        <div class="text-base font-semibold text-gray-800 leading-tight mb-1">{{ title_value }}</div>
+                        {% endif %}
+
+                        {% if organization_value %}
+                        <div class="text-sm text-gray-600 leading-relaxed mb-2">{{ organization_value }}</div>
+                        {% endif %}
+
+                        {% if country_value %}
+                        <div class="flex items-center gap-1.5 text-xs text-gray-500 mb-4 pb-4 border-b border-gray-100">
+                            {% if country_flag %}
+                            <span class="text-sm leading-none">{{ country_flag }}</span>
+                            {% else %}
+                            <iconify-icon icon="tabler:map-pin" class="text-gray-400"></iconify-icon>
+                            {% endif %}
+                            <span>{{ country_value }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if email_value %}
+                        <div class="mb-4">
+                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Email</span>
+                            <a href="mailto:{{ email_value }}" class="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline">
+                                <iconify-icon icon="tabler:mail"></iconify-icon>
+                                <span>{{ email_value }}</span>
+                            </a>
+                        </div>
+                        {% endif %}
+
+                        {% if research_interest_items %}
+                        <div class="mb-5">
+                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">{{ editorial_ui.research_interests_title }}</span>
+                            <div class="flex flex-wrap gap-1.5">
+                                {% for interest in research_interest_items %}
+                                <span class="px-2.5 py-1 bg-gray-50 text-gray-700 text-xs rounded-full border border-gray-200/60 font-medium">{{ interest }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if bio_value %}
+                        <div class="mb-2">
+                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">{{ editorial_ui.biography_title }}</span>
+                            <div class="text-sm text-gray-600 leading-relaxed font-sans whitespace-pre-line">{{ bio_value }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endmacro %}

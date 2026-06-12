@@ -20,7 +20,9 @@ def test_publication_recent_sort_key_prefers_publish_date_then_id():
     assert [row['id'] for row in ordered] == [21, 17, 18]
 
 
-def test_publication_recent_sort_key_uses_created_at_for_same_publish_date():
+def test_publication_recent_sort_key_uses_id_for_same_publish_date():
+    # created_at is editable in the fmadmin article form and unreliable; the
+    # immutable id (insertion order) must decide ties within the same day.
     publications = [
         {'id': 200, 'date_publish': 1797033600, 'created_at': 1700000000},
         {'id': 150, 'date_publish': 1797033600, 'created_at': 1800000000},
@@ -28,7 +30,22 @@ def test_publication_recent_sort_key_uses_created_at_for_same_publish_date():
 
     ordered = sorted(publications, key=public_routes._publication_recent_sort_key, reverse=True)
 
-    assert [row['id'] for row in ordered] == [150, 200]
+    assert [row['id'] for row in ordered] == [200, 150]
+
+
+def test_publication_recent_sort_key_survives_corrupted_created_at():
+    # Production regression: the newest article (highest id) fell out of the
+    # homepage "latest" list because its created_at was wiped on edit while
+    # older same-day articles kept larger created_at values.
+    publications = [
+        {'id': 132, 'date_publish': 1779994800, 'created_at': None},
+        {'id': 102, 'date_publish': 1779994800, 'created_at': 1779999000},
+        {'id': 104, 'date_publish': 1779994800, 'created_at': 1779998000},
+    ]
+
+    ordered = sorted(publications, key=public_routes._publication_recent_sort_key, reverse=True)
+
+    assert [row['id'] for row in ordered] == [132, 104, 102]
 
 
 def test_publication_recent_sort_key_ignores_legacy_publish_time_within_same_day():
@@ -727,3 +744,143 @@ def test_sitemap_excludes_masters_content_when_series_mode_disabled(monkeypatch)
     assert 'https://journal.example/article/101' in body
     assert 'https://journal.example/issue/2' not in body
     assert 'https://journal.example/article/102' not in body
+
+
+def test_public_editorial_groups_follow_new_role_order_and_legacy_aliases():
+    editors = [
+        {'id': 1, 'member_type': 'reviewer', 'full_name': 'Legacy Reviewer'},
+        {'id': 2, 'member_type': 'international_editorial_council', 'full_name': 'Council Member'},
+        {'id': 3, 'member_type': 'executive_secretary', 'full_name': 'Secretary'},
+        {'id': 4, 'member_type': 'editor_in_chief', 'full_name': 'Chief Editor'},
+    ]
+
+    groups = public_routes._prepare_editorial_groups(editors)
+
+    assert [group['key'] for group in groups] == [
+        'editor_in_chief',
+        'executive_secretary',
+        'editorial_board',
+        'international_editorial_council',
+    ]
+    assert groups[2]['members'][0]['full_name'] == 'Legacy Reviewer'
+
+
+def test_public_editorial_labels_are_localized_for_new_roles():
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    with app.test_request_context('/editorial'):
+        session['language'] = 'uz'
+        assert public_routes._editorial_member_type_label('deputy_editor_in_chief') == "Bosh muharrir o'rinbosari"
+        assert public_routes._normalize_editorial_member_type('Ответственный секретарь') == 'executive_secretary'
+
+    with app.test_request_context('/editorial'):
+        session['language'] = 'ru'
+        assert public_routes._editorial_member_type_label('international_editorial_council') == "Международный редакционный совет"
+
+
+def test_fmadmin_editorial_type_options_use_new_role_list():
+    from fmadmin.routes import web as fm_web
+
+    options = fm_web._editorial_member_type_options('en')
+
+    assert [item['value'] for item in options] == [
+        'editor_in_chief',
+        'deputy_editor_in_chief',
+        'executive_secretary',
+        'editorial_board',
+        'international_editorial_board',
+        'editorial_council',
+        'international_editorial_council',
+    ]
+    assert fm_web._normalize_editorial_member_type('Главный редактор') == 'editor_in_chief'
+    assert fm_web._normalize_editorial_member_type('deputy_editor') == 'executive_secretary'
+
+
+def test_country_iso_lookup_handles_apostrophe_variants():
+    assert public_routes._country_iso_for_name("O'zbekiston") == 'uz'
+    assert public_routes._country_iso_for_name("Oʻzbekiston") == 'uz'  # official Uzbek Latin ʻ
+    assert public_routes._country_iso_for_name("O’zbekiston") == 'uz'  # typographic ’
+    assert public_routes._country_iso_for_name('Узбекистан') == 'uz'
+    assert public_routes._country_iso_for_name('Uzbekistan') == 'uz'
+
+
+def test_bot_requests_do_not_increment_view_or_download_counters():
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    bot_headers = {'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'}
+    with app.test_request_context('/article/5', headers=bot_headers):
+        assert public_routes._should_increment_article_view(5) is False
+        assert public_routes._should_increment_download('download', 5) is False
+
+    # Missing user agent is treated as a bot as well
+    with app.test_request_context('/article/5'):
+        assert public_routes._should_increment_article_view(5) is False
+
+
+def test_download_counter_deduplicates_within_session():
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    browser_headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36'}
+    with app.test_request_context('/article/download/7', headers=browser_headers):
+        assert public_routes._should_increment_download('download', 7) is True
+        assert public_routes._should_increment_download('download', 7) is False
+        # A different object or kind still counts
+        assert public_routes._should_increment_download('download', 8) is True
+        assert public_routes._should_increment_download('issue_download', 7) is True
+
+
+def test_activity_marks_session_is_pruned_and_capped():
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    browser_headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36'}
+    with app.test_request_context('/', headers=browser_headers):
+        for object_id in range(1, 150):
+            assert public_routes._should_count_activity('view', object_id) is True
+        marks = session[public_routes.ACTIVITY_SESSION_MARKS_KEY]
+        assert len(marks) <= public_routes.ACTIVITY_SESSION_MARKS_LIMIT
+
+
+def test_request_country_resolution_prefers_cdn_header_then_geoip(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    with app.test_request_context('/', headers={'CF-IPCountry': 'JP'}):
+        assert public_routes._resolve_request_country_name() == 'Japan'
+
+    class _FakeReader:
+        def get(self, ip_address):
+            assert ip_address == '203.0.113.5'
+            return {'country': {'iso_code': 'CA'}}
+
+    monkeypatch.setattr(public_routes, '_get_geoip_reader', lambda: _FakeReader())
+    with app.test_request_context('/', environ_base={'REMOTE_ADDR': '203.0.113.5'}):
+        assert public_routes._resolve_request_country_name() == 'Canada'
+
+
+def test_recent_issues_sidebar_shows_latest_three_in_order(monkeypatch):
+    issues = [
+        {'id': 4, 'year': 2024, 'vol_no': 1, 'issue_no': 1, 'category': 'phd'},
+        {'id': 9, 'year': 2025, 'vol_no': 2, 'issue_no': 1, 'category': 'phd'},
+        {'id': 12, 'year': 2025, 'vol_no': 2, 'issue_no': 3, 'category': 'phd'},
+        {'id': 11, 'year': 2025, 'vol_no': 2, 'issue_no': 2, 'category': 'phd'},
+        {'id': 13, 'year': 2026, 'vol_no': 3, 'issue_no': 1, 'category': 'masters'},
+    ]
+
+    visible = [issue for issue in issues if issue.get('category') != 'masters']
+    ordered = sorted(
+        visible,
+        key=lambda issue: (
+            issue.get('year') or 0,
+            issue.get('vol_no') or 0,
+            issue.get('issue_no') or 0,
+            issue.get('created_at') or 0,
+            issue.get('id') or 0,
+        ),
+        reverse=True,
+    )[:3]
+
+    assert [issue['id'] for issue in ordered] == [12, 11, 9]
