@@ -825,7 +825,7 @@
                     data-country-downloads="{{ item.downloads|default(0) }}"
                     aria-label="{{ item.name|e }} - {{ country_stats_ui.view_country_stats }}"
                 >
-                    <span class="country-map-rank">{{ loop.index }}</span>
+                    <span class="country-map-rank">{% if item.is_other %}<iconify-icon icon="solar:global-line-duotone"></iconify-icon>{% else %}{{ loop.index }}{% endif %}</span>
                     <span class="country-map-list-flag">
                         {% if item.iso %}
                         <span class="fi fi-{{ item.iso }}"></span>

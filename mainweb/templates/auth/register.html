@@ -68,9 +68,13 @@
                                             data-value="{{ each.id }}"
                                             data-name-en="{{ each.get('name_en', each.name) }}"
                                             data-name="{{ each.name }}"
-                                            data-code="{{ each.get('country_code', '') }}"
-                                            data-flag="{{ each.get('country_flag', '🏳') }}">
-                                            <span class="country-flag text-lg flex-shrink-0">{{ each.get('country_flag', '🏳') }}</span>
+                                            data-code="{{ each.get('country_code', '') }}">
+                                            {% set _opt_iso = (each.get('country_code') or '')|lower %}
+                                            {% if _opt_iso %}
+                                            <span class="fi fi-{{ _opt_iso }} flex-shrink-0 rounded-xs" style="width:20px;height:15px;box-shadow:0 0 0 1px rgba(0,0,0,0.08);"></span>
+                                            {% else %}
+                                            <iconify-icon icon="tabler:map-pin" class="text-gray-400 flex-shrink-0"></iconify-icon>
+                                            {% endif %}
                                             <span>{{ each.name }}</span>
                                         </div>
                                         {% endfor %}
@@ -325,14 +329,21 @@
             countryBtnText.classList.add('text-gray-400');
         }
 
-        function renderSelected(name, flag) {
+        function renderSelected(name, code) {
             countryBtnText.textContent = '';
             countryBtnText.classList.remove('text-gray-400');
             countryBtnText.classList.add('text-gray-900');
 
+            const iso = (code || '').toLowerCase();
             const flagNode = document.createElement('span');
-            flagNode.className = 'text-lg leading-none';
-            flagNode.textContent = flag || '🏳';
+            if (/^[a-z]{2}$/.test(iso)) {
+                flagNode.className = 'fi fi-' + iso + ' flex-shrink-0 rounded-xs';
+                flagNode.style.width = '20px';
+                flagNode.style.height = '15px';
+                flagNode.style.boxShadow = '0 0 0 1px rgba(0,0,0,0.08)';
+            } else {
+                flagNode.className = 'inline-block';
+            }
 
             const nameNode = document.createElement('span');
             nameNode.textContent = name;
@@ -368,7 +379,6 @@
         function selectCountry(option) {
             const selectedName = option.dataset.name || option.dataset.nameEn || '';
             const selectedCode = option.dataset.code || '';
-            const selectedFlag = option.dataset.flag || codeToFlag(selectedCode);
             const selectedValue = option.dataset.value || '';
 
             if (!selectedValue) {
@@ -376,7 +386,7 @@
             }
 
             countryInput.value = selectedValue;
-            renderSelected(selectedName, selectedFlag);
+            renderSelected(selectedName, selectedCode);
 
             countryOptions.forEach(function (item) {
                 item.classList.remove('bg-fmmain-light/70');
@@ -387,14 +397,6 @@
         }
 
         countryOptions.forEach(function (option) {
-            const flagFromCode = codeToFlag(option.dataset.code || '');
-            if (!option.dataset.flag) {
-                option.dataset.flag = flagFromCode;
-            }
-            const flagNode = option.querySelector('.country-flag');
-            if (flagNode && !flagNode.textContent.trim()) {
-                flagNode.textContent = option.dataset.flag || flagFromCode;
-            }
             option.addEventListener('click', function () {
                 selectCountry(option);
             });

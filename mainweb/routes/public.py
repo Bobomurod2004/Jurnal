@@ -162,6 +162,8 @@ EDITORIAL_UI_TEXTS = {
         'google_scholar_full': 'Google Scholar',
         'biography_title': 'Short Biography',
         'research_interests_title': 'Research Interests',
+        'academic_degree_title': 'Academic Degree',
+        'academic_title_title': 'Academic Title',
         'contact_title': 'Academic Profiles',
         'close_button': 'Close',
         'note': 'Click on Profile to view detailed information about each member.',
@@ -185,6 +187,8 @@ EDITORIAL_UI_TEXTS = {
         'google_scholar_full': 'Google Scholar',
         'biography_title': 'Qisqacha biografiya',
         'research_interests_title': 'Ilmiy qiziqishlar',
+        'academic_degree_title': 'Ilmiy daraja',
+        'academic_title_title': 'Ilmiy unvon',
         'contact_title': 'Ilmiy profillar',
         'close_button': 'Yopish',
         'note': "Har bir a'zo haqida batafsil ma'lumotni Profil tugmasi orqali ko'rishingiz mumkin.",
@@ -208,6 +212,8 @@ EDITORIAL_UI_TEXTS = {
         'google_scholar_full': 'Google Scholar',
         'biography_title': 'Краткая биография',
         'research_interests_title': 'Научные интересы',
+        'academic_degree_title': 'Учёная степень',
+        'academic_title_title': 'Учёное звание',
         'contact_title': 'Научные профили',
         'close_button': 'Закрыть',
         'note': 'Нажмите Profile, чтобы открыть подробную информацию о каждом участнике.',
@@ -2319,7 +2325,8 @@ def _load_editorial_members():
         prepared_member = dict(member or {})
         _apply_localized_content(
             prepared_member,
-            ('full_name', 'position', 'organization', 'biography', 'country', 'research_interests')
+            ('full_name', 'position', 'organization', 'biography', 'country', 'research_interests',
+             'academic_degree', 'academic_title')
         )
 
         full_name = _clean_text(prepared_member.get('full_name'))
@@ -2356,6 +2363,18 @@ def _load_editorial_members():
             or _clean_text(member.get('country'))
             or _clean_text(member.get('country_uz'))
             or _clean_text(member.get('country_ru'))
+        )
+        academic_degree = (
+            _clean_text(prepared_member.get('academic_degree'))
+            or _clean_text(member.get('academic_degree'))
+            or _clean_text(member.get('academic_degree_uz'))
+            or _clean_text(member.get('academic_degree_ru'))
+        )
+        academic_title = (
+            _clean_text(prepared_member.get('academic_title'))
+            or _clean_text(member.get('academic_title'))
+            or _clean_text(member.get('academic_title_uz'))
+            or _clean_text(member.get('academic_title_ru'))
         )
         country_code = _clean_text(member.get('country_code')).lower()
         research_interests = (
@@ -2397,6 +2416,8 @@ def _load_editorial_members():
         prepared_member['country_flag'] = _country_code_to_flag(resolved_country_code)
         prepared_member['research_interests'] = research_interests
         prepared_member['research_interests_list'] = research_interest_items
+        prepared_member['academic_degree'] = academic_degree
+        prepared_member['academic_title'] = academic_title
         prepared_member['member_type'] = normalized_type
         prepared_member['member_type_label'] = member_type_label
         prepared_member['title'] = position or member_type_label
@@ -2709,14 +2730,24 @@ def app__index():
                 or (_parse_int(item.get('authors')) or 0) > 0
             )
 
-        activity_items = [
+        # Attributable countries are shown individually; every unattributed or
+        # catch-all bucket (other/unknown/legacy) is merged into a single trailing
+        # "Other countries" row so the country list reconciles with the headline
+        # view/download totals instead of silently dropping the bulk of activity.
+        real_items = [
             item
             for item in aggregated.values()
             if _has_any_activity(item)
             and not _is_other_country_bucket_key(item.get('country_key'))
         ]
+        other_items = [
+            item
+            for item in aggregated.values()
+            if _has_any_activity(item)
+            and _is_other_country_bucket_key(item.get('country_key'))
+        ]
         sorted_stats = sorted(
-            activity_items,
+            real_items,
             key=lambda item: (
                 -(item.get('count') or 0),
                 -(item.get('views') or 0),
@@ -2725,6 +2756,8 @@ def app__index():
                 (item.get('name') or '').lower(),
             )
         )
+        # Percentage bars are scaled against the busiest *attributable* country so
+        # the large catch-all bucket does not flatten everyone else's bar.
         max_cnt = max((item.get('count') or 0 for item in sorted_stats), default=0)
         max_cnt = max(max_cnt, 1)
 
@@ -2737,8 +2770,28 @@ def app__index():
                     fallback_name=item.get('name'),
                     lang=current_lang,
                 )
-        country_stats = sorted_stats
-        country_stats_top = sorted_stats[:10]
+
+        other_row = None
+        if other_items:
+            other_authors = sum(max(0, _parse_int(i.get('authors')) or 0) for i in other_items)
+            other_views = sum(max(0, _parse_int(i.get('views')) or 0) for i in other_items)
+            other_downloads = sum(max(0, _parse_int(i.get('downloads')) or 0) for i in other_items)
+            other_count = other_views + other_downloads
+            if other_count > 0 or other_authors > 0:
+                other_row = {
+                    'country_key': OTHER_COUNTRY_KEY,
+                    'name': country_stats_ui.get('unknown_country') or OTHER_COUNTRY_NAME,
+                    'iso': '',
+                    'authors': other_authors,
+                    'views': other_views,
+                    'downloads': other_downloads,
+                    'count': other_count,
+                    'pct': min(100, round(other_count / max_cnt * 100)) if other_count > 0 else 0,
+                    'is_other': True,
+                }
+
+        country_stats = sorted_stats + ([other_row] if other_row else [])
+        country_stats_top = sorted_stats[:10] + ([other_row] if other_row else [])
     except Exception:
         try:
             dbc.conn.rollback()
@@ -4510,6 +4563,23 @@ def app__download_article(article_id):
             issue_id=publication.get('issue_id'),
             amount=1,
         )
+        # A direct download (e.g. from an issue's table of contents) implies the
+        # article was consulted, yet it bypasses the article page where views are
+        # counted. Register a view too — guarded by the same per-session dedup and
+        # bot filter — so total downloads can never outpace total views.
+        if _should_increment_article_view(article_id, user_id=session.get('user_id')):
+            try:
+                new_views = (publication.get('stat_views') or 0) + 1
+                dbc.publications.get(id=article_id).update(stat_views=new_views).exec()
+            except Exception:
+                current_app.logger.exception('Failed to update view count for article %s', article_id)
+            _record_activity_event(
+                session.get('user_id'),
+                metric='view',
+                publication_id=article_id,
+                issue_id=publication.get('issue_id'),
+                amount=1,
+            )
 
     mime_type = mimetypes.guess_type(selected_file_path)[0] or 'application/pdf'
     return send_file(

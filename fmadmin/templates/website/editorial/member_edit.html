@@ -140,6 +140,42 @@
             </div>
           </div>
         </div>
+
+        <div class="editorial-admin-field-group">
+          <div class="editorial-admin-field-label">{{ editorial_ui['field_academic_degree'] }}</div>
+          <div class="row">
+            <div class="col-md-4">
+              <input type="text" class="form-control" name="academic_degree" value="{{ member.academic_degree or '' }}"
+                     placeholder="{{ editorial_ui['ph_academic_degree_en'] }}">
+            </div>
+            <div class="col-md-4">
+              <input type="text" class="form-control" name="academic_degree_uz" value="{{ member.academic_degree_uz or '' }}"
+                     placeholder="{{ editorial_ui['ph_academic_degree_uz'] }}">
+            </div>
+            <div class="col-md-4">
+              <input type="text" class="form-control" name="academic_degree_ru" value="{{ member.academic_degree_ru or '' }}"
+                     placeholder="{{ editorial_ui['ph_academic_degree_ru'] }}">
+            </div>
+          </div>
+        </div>
+
+        <div class="editorial-admin-field-group">
+          <div class="editorial-admin-field-label">{{ editorial_ui['field_academic_title'] }}</div>
+          <div class="row">
+            <div class="col-md-4">
+              <input type="text" class="form-control" name="academic_title" value="{{ member.academic_title or '' }}"
+                     placeholder="{{ editorial_ui['ph_academic_title_en'] }}">
+            </div>
+            <div class="col-md-4">
+              <input type="text" class="form-control" name="academic_title_uz" value="{{ member.academic_title_uz or '' }}"
+                     placeholder="{{ editorial_ui['ph_academic_title_uz'] }}">
+            </div>
+            <div class="col-md-4">
+              <input type="text" class="form-control" name="academic_title_ru" value="{{ member.academic_title_ru or '' }}"
+                     placeholder="{{ editorial_ui['ph_academic_title_ru'] }}">
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -302,11 +338,12 @@
                   <label class="form-label">{{ editorial_ui['field_cv_files'] }} ({{ label }})</label>
                   <input
                     type="file"
-                    class="form-control"
+                    class="form-control editorial-cv-input"
                     name="{{ field_name }}"
                     multiple
                     accept=".pdf,.doc,.docx,application/pdf,.doc,.docx"
                     data-current-files-text="{{ current_files_text }}">
+                  <div class="editorial-cv-selected mt-2"></div>
                   {% if current_files %}
                   <div class="editorial-admin-file mt-2">
                     {% for file_path in current_files %}
@@ -426,6 +463,67 @@
         maxOptions: 300,
       });
     }
+
+    // CV file inputs: accumulate files across multiple selections.
+    // A native <input type="file" multiple> replaces its selection each time
+    // the dialog is reopened, so picking files one-by-one keeps only the last
+    // batch. We merge every selection into a DataTransfer so the user can add
+    // files incrementally and remove individual ones before saving.
+    var removeLabel = '{{ editorial_ui["remove_file"] }}';
+    document.querySelectorAll('.editorial-cv-input').forEach(function (input) {
+      var listEl = input.parentNode.querySelector('.editorial-cv-selected');
+      if (!listEl) return;
+      var store = new DataTransfer();
+
+      function fileKey(file) {
+        return file.name + '|' + file.size + '|' + (file.lastModified || 0);
+      }
+
+      function syncInput() {
+        input.files = store.files;
+        render();
+      }
+
+      function render() {
+        listEl.innerHTML = '';
+        if (!store.files.length) return;
+        Array.prototype.forEach.call(store.files, function (file, index) {
+          var chip = document.createElement('span');
+          chip.className = 'badge bg-blue-lt text-blue me-2 mb-2 d-inline-flex align-items-center';
+          chip.style.gap = '6px';
+          var name = document.createElement('span');
+          name.innerHTML = '<i class="ti ti-file-text"></i> ' + file.name;
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn-close btn-close-sm';
+          btn.setAttribute('aria-label', removeLabel);
+          btn.title = removeLabel;
+          btn.addEventListener('click', function () {
+            var keep = new DataTransfer();
+            Array.prototype.forEach.call(store.files, function (f, i) {
+              if (i !== index) keep.items.add(f);
+            });
+            store = keep;
+            syncInput();
+          });
+          chip.appendChild(name);
+          chip.appendChild(btn);
+          listEl.appendChild(chip);
+        });
+      }
+
+      input.addEventListener('change', function () {
+        var existing = {};
+        Array.prototype.forEach.call(store.files, function (f) { existing[fileKey(f)] = true; });
+        Array.prototype.forEach.call(input.files, function (f) {
+          if (!existing[fileKey(f)]) {
+            store.items.add(f);
+            existing[fileKey(f)] = true;
+          }
+        });
+        syncInput();
+      });
+    });
   });
 </script>
 {% endblock %}

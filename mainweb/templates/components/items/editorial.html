@@ -16,11 +16,11 @@
 
 {% macro _country_line(editor_info, extra_classes='') %}
     {% set country_value = (editor_info.country or '')|trim %}
-    {% set country_flag = (editor_info.country_flag or '')|trim %}
+    {% set country_iso = (editor_info.country_code or '')|trim|lower %}
     {% if country_value %}
     <div class="flex items-center gap-1.5 text-xs text-gray-500 {{ extra_classes }}">
-        {% if country_flag %}
-        <span class="text-sm leading-none">{{ country_flag }}</span>
+        {% if country_iso %}
+        <span class="fi fi-{{ country_iso }} shrink-0 rounded-xs" style="width:16px;height:12px;box-shadow:0 0 0 1px rgba(0,0,0,0.08);"></span>
         {% else %}
         <iconify-icon icon="tabler:map-pin" class="text-gray-400"></iconify-icon>
         {% endif %}
@@ -71,6 +71,8 @@
     {% set display_name = full_name or editorial_ui.editor_fallback %}
     {% set title_value = editor_info.position or editor_info.title %}
     {% set organization_value = editor_info.organization or editor_info.editor_specialization %}
+    {% set academic_degree_value = (editor_info.academic_degree or '')|trim %}
+    {% set academic_title_value = (editor_info.academic_title or '')|trim %}
     {% set modal_id = editor_info.modal_id or 'editorial-member' %}
     {% set other_labels = [] %}
     {% for lang_key in ('uz', 'en', 'ru') %}
@@ -94,6 +96,16 @@
             {{ _member_photo(editor_info, display_name, 'w-20 h-26 md:w-24 md:h-30', 'text-3xl') }}
             <div class="flex-1 min-w-0">
                 <h3 class="font-serif font-bold text-gray-900 text-base md:text-lg leading-tight mb-1">{{ display_name }}</h3>
+                {% if academic_degree_value or academic_title_value %}
+                <div class="flex flex-wrap gap-1 mb-1.5">
+                    {% if academic_degree_value %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">{{ academic_degree_value }}</span>
+                    {% endif %}
+                    {% if academic_title_value %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-100">{{ academic_title_value }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
                 {% if title_value %}
                 <div class="text-xs md:text-sm font-semibold text-gray-700 leading-snug mb-1">{{ title_value }}</div>
                 {% endif %}
@@ -125,6 +137,8 @@
     {% set display_name = full_name or editorial_ui.editor_fallback %}
     {% set title_value = editor_info.position or editor_info.title %}
     {% set organization_value = editor_info.organization or editor_info.editor_specialization %}
+    {% set academic_degree_value = (editor_info.academic_degree or '')|trim %}
+    {% set academic_title_value = (editor_info.academic_title or '')|trim %}
     {% set modal_id = editor_info.modal_id or 'editorial-member' %}
 
     <article class="bg-white rounded-xl border border-gray-200 shadow-xs hover:shadow-md transition-shadow duration-300 p-3.5 flex gap-3.5 w-full h-full items-stretch">
@@ -132,6 +146,16 @@
 
         <div class="flex-1 min-w-0 flex flex-col">
             <h3 class="font-serif font-bold text-gray-900 text-sm leading-snug line-clamp-2" title="{{ display_name }}">{{ display_name }}</h3>
+            {% if academic_degree_value or academic_title_value %}
+            <div class="flex flex-wrap gap-1 mt-1">
+                {% if academic_degree_value %}
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">{{ academic_degree_value }}</span>
+                {% endif %}
+                {% if academic_title_value %}
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-100">{{ academic_title_value }}</span>
+                {% endif %}
+            </div>
+            {% endif %}
             <div class="text-[11px] text-gray-600 line-clamp-2 mt-0.5 leading-normal" title="{{ title_value }}{% if title_value and organization_value %}, {% endif %}{{ organization_value }}">
                 {%- if title_value %}{{ title_value }}{% endif %}{% if title_value and organization_value %}, {% endif %}{% if organization_value %}{{ organization_value }}{% endif -%}
             </div>
@@ -157,6 +181,8 @@
     {% set display_name = full_name or editorial_ui.editor_fallback %}
     {% set title_value = editor_info.position or editor_info.title %}
     {% set organization_value = editor_info.organization or editor_info.editor_specialization %}
+    {% set academic_degree_value = (editor_info.academic_degree or '')|trim %}
+    {% set academic_title_value = (editor_info.academic_title or '')|trim %}
     {% set member_type_label = editor_info.member_type_label or group.label %}
     {% set bio_value = editor_info.biography or '' %}
     {% set email_value = editor_info.email or '' %}
@@ -169,7 +195,7 @@
     {% set cv_url = editor_info.cv_url or (cv_urls[0] if cv_urls else '') %}
     {% set google_scholar_url = editor_info.google_scholar_url or '' %}
     {% set country_value = (editor_info.country or '')|trim %}
-    {% set country_flag = (editor_info.country_flag or '')|trim %}
+    {% set country_iso = (editor_info.country_code or '')|trim|lower %}
     {% set research_interest_items = editor_info.research_interests_list or [] %}
     {% set modal_id = editor_info.modal_id or 'editorial-member' %}
 
@@ -240,12 +266,29 @@
 
                         {% if country_value %}
                         <div class="flex items-center gap-1.5 text-xs text-gray-500 mb-4 pb-4 border-b border-gray-100">
-                            {% if country_flag %}
-                            <span class="text-sm leading-none">{{ country_flag }}</span>
+                            {% if country_iso %}
+                            <span class="fi fi-{{ country_iso }} shrink-0 rounded-xs" style="width:18px;height:13px;box-shadow:0 0 0 1px rgba(0,0,0,0.08);"></span>
                             {% else %}
                             <iconify-icon icon="tabler:map-pin" class="text-gray-400"></iconify-icon>
                             {% endif %}
                             <span>{{ country_value }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if academic_degree_value or academic_title_value %}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                            {% if academic_degree_value %}
+                            <div>
+                                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">{{ editorial_ui.academic_degree_title }}</span>
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">{{ academic_degree_value }}</span>
+                            </div>
+                            {% endif %}
+                            {% if academic_title_value %}
+                            <div>
+                                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">{{ editorial_ui.academic_title_title }}</span>
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100">{{ academic_title_value }}</span>
+                            </div>
+                            {% endif %}
                         </div>
                         {% endif %}
 

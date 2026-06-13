@@ -1526,6 +1526,8 @@ def _editorial_admin_ui_texts(lang=None):
             'helper_assets': "Rasm va CV fayllari ixtiyoriy. Faqat kerakli tillar uchun yuklang.",
             'field_full_name': "F.I.Sh.",
             'field_position': "Lavozim",
+            'field_academic_degree': "Ilmiy daraja",
+            'field_academic_title': "Ilmiy unvon",
             'field_organization': "Tashkilot",
             'field_bio': "Biografiya",
             'field_country': "Mamlakat",
@@ -1551,6 +1553,12 @@ def _editorial_admin_ui_texts(lang=None):
             'ph_position_en': "Masalan: Professor, PhD",
             'ph_position_uz': "Masalan: Professor, PhD",
             'ph_position_ru': "Masalan: Профессор, PhD",
+            'ph_academic_degree_en': "Masalan: PhD, DSc",
+            'ph_academic_degree_uz': "Masalan: PhD, fan doktori (DSc)",
+            'ph_academic_degree_ru': "Masalan: PhD, доктор наук",
+            'ph_academic_title_en': "Masalan: Professor, Associate Professor",
+            'ph_academic_title_uz': "Masalan: Professor, dotsent",
+            'ph_academic_title_ru': "Masalan: Профессор, доцент",
             'ph_org_en': "Masalan: Uzbek State World Languages University",
             'ph_org_uz': "Masalan: O'zbekiston davlat jahon tillari universiteti",
             'ph_org_ru': "Masalan: Узбекский государственный университет мировых языков",
@@ -1612,6 +1620,8 @@ def _editorial_admin_ui_texts(lang=None):
             'helper_assets': "Фото и файлы CV необязательны. Загружайте только нужные языковые версии.",
             'field_full_name': "Ф.И.О.",
             'field_position': "Должность",
+            'field_academic_degree': "Учёная степень",
+            'field_academic_title': "Учёное звание",
             'field_organization': "Организация",
             'field_bio': "Биография",
             'field_country': "Страна",
@@ -1637,6 +1647,12 @@ def _editorial_admin_ui_texts(lang=None):
             'ph_position_en': "Например: Professor, PhD",
             'ph_position_uz': "Например: Профессор, PhD (узб.)",
             'ph_position_ru': "Например: Профессор, PhD",
+            'ph_academic_degree_en': "Например: PhD, DSc",
+            'ph_academic_degree_uz': "Например: PhD, fan doktori (DSc)",
+            'ph_academic_degree_ru': "Например: PhD, доктор наук",
+            'ph_academic_title_en': "Например: Professor, Associate Professor",
+            'ph_academic_title_uz': "Например: Professor, dotsent",
+            'ph_academic_title_ru': "Например: Профессор, доцент",
             'ph_org_en': "Например: Uzbek State World Languages University",
             'ph_org_uz': "Например: Узбекский государственный университет мировых языков (узб.)",
             'ph_org_ru': "Например: Узбекский государственный университет мировых языков",
@@ -1698,6 +1714,8 @@ def _editorial_admin_ui_texts(lang=None):
             'helper_assets': "Image and CV files are optional. Upload only the language versions you need.",
             'field_full_name': "Full name",
             'field_position': "Position",
+            'field_academic_degree': "Academic degree",
+            'field_academic_title': "Academic title",
             'field_organization': "Organization",
             'field_bio': "Biography",
             'field_country': "Country",
@@ -1723,6 +1741,12 @@ def _editorial_admin_ui_texts(lang=None):
             'ph_position_en': "Example: Professor, PhD",
             'ph_position_uz': "Example: Professor, PhD (UZ)",
             'ph_position_ru': "Example: Профессор, PhD",
+            'ph_academic_degree_en': "Example: PhD, DSc",
+            'ph_academic_degree_uz': "Example: PhD, fan doktori (DSc)",
+            'ph_academic_degree_ru': "Example: PhD, доктор наук",
+            'ph_academic_title_en': "Example: Professor, Associate Professor",
+            'ph_academic_title_uz': "Example: Professor, dotsent",
+            'ph_academic_title_ru': "Example: Профессор, доцент",
             'ph_org_en': "Example: Uzbek State World Languages University",
             'ph_org_uz': "Example: O'zbekiston davlat jahon tillari universiteti",
             'ph_org_ru': "Example: Узбекский государственный университет мировых языков",
@@ -1846,6 +1870,12 @@ def _editorial_member_schema_field_labels(editorial_ui):
         'research_interests': editorial_ui['field_research_interests'],
         'research_interests_uz': f"{editorial_ui['field_research_interests']} ({editorial_ui['lang_uz']})",
         'research_interests_ru': f"{editorial_ui['field_research_interests']} ({editorial_ui['lang_ru']})",
+        'academic_degree': editorial_ui['field_academic_degree'],
+        'academic_degree_uz': f"{editorial_ui['field_academic_degree']} ({editorial_ui['lang_uz']})",
+        'academic_degree_ru': f"{editorial_ui['field_academic_degree']} ({editorial_ui['lang_ru']})",
+        'academic_title': editorial_ui['field_academic_title'],
+        'academic_title_uz': f"{editorial_ui['field_academic_title']} ({editorial_ui['lang_uz']})",
+        'academic_title_ru': f"{editorial_ui['field_academic_title']} ({editorial_ui['lang_ru']})",
         'google_scholar_url': editorial_ui['field_google_scholar'],
         'scopus_author_id': editorial_ui['field_scopus_id'],
         'scopus_author_url': editorial_ui['field_scopus_url'],
@@ -3226,6 +3256,12 @@ def _ensure_editorial_members_table():
             'country_ru': 'TEXT',
             'research_interests_uz': 'TEXT',
             'research_interests_ru': 'TEXT',
+            'academic_degree': 'TEXT',
+            'academic_degree_uz': 'TEXT',
+            'academic_degree_ru': 'TEXT',
+            'academic_title': 'TEXT',
+            'academic_title_uz': 'TEXT',
+            'academic_title_ru': 'TEXT',
             'cv_file_uz': 'TEXT',
             'cv_file_ru': 'TEXT',
         }
@@ -9295,6 +9331,12 @@ def editorial_member_edit(member_id):
         research_interests_en = _clean_text(request.form.get('research_interests'))
         research_interests_uz = _clean_text(request.form.get('research_interests_uz'))
         research_interests_ru = _clean_text(request.form.get('research_interests_ru'))
+        academic_degree_en = _clean_text(request.form.get('academic_degree'))
+        academic_degree_uz = _clean_text(request.form.get('academic_degree_uz'))
+        academic_degree_ru = _clean_text(request.form.get('academic_degree_ru'))
+        academic_title_en = _clean_text(request.form.get('academic_title'))
+        academic_title_uz = _clean_text(request.form.get('academic_title_uz'))
+        academic_title_ru = _clean_text(request.form.get('academic_title_ru'))
 
         payload = {
             'full_name': full_name,
@@ -9316,6 +9358,12 @@ def editorial_member_edit(member_id):
             'research_interests': research_interests_en or research_interests_uz or research_interests_ru,
             'research_interests_uz': research_interests_uz,
             'research_interests_ru': research_interests_ru,
+            'academic_degree': academic_degree_en or academic_degree_uz or academic_degree_ru,
+            'academic_degree_uz': academic_degree_uz,
+            'academic_degree_ru': academic_degree_ru,
+            'academic_title': academic_title_en or academic_title_uz or academic_title_ru,
+            'academic_title_uz': academic_title_uz,
+            'academic_title_ru': academic_title_ru,
             'member_type': _normalize_editorial_member_type(request.form.get('member_type')),
             'email': _clean_text(request.form.get('email')),
             'orcid': _clean_text(request.form.get('orcid')),
@@ -9479,6 +9527,12 @@ def editorial_member_edit(member_id):
             'research_interests': '',
             'research_interests_uz': '',
             'research_interests_ru': '',
+            'academic_degree': '',
+            'academic_degree_uz': '',
+            'academic_degree_ru': '',
+            'academic_title': '',
+            'academic_title_uz': '',
+            'academic_title_ru': '',
             'image': '',
             'member_type': 'editorial_board',
             'email': '',
@@ -9527,6 +9581,12 @@ def editorial_member_edit(member_id):
         member['research_interests'] = _clean_text(member.get('research_interests'))
         member['research_interests_uz'] = _clean_text(member.get('research_interests_uz'))
         member['research_interests_ru'] = _clean_text(member.get('research_interests_ru'))
+        member['academic_degree'] = _clean_text(member.get('academic_degree'))
+        member['academic_degree_uz'] = _clean_text(member.get('academic_degree_uz'))
+        member['academic_degree_ru'] = _clean_text(member.get('academic_degree_ru'))
+        member['academic_title'] = _clean_text(member.get('academic_title'))
+        member['academic_title_uz'] = _clean_text(member.get('academic_title_uz'))
+        member['academic_title_ru'] = _clean_text(member.get('academic_title_ru'))
         member['member_type'] = _normalize_editorial_member_type(member.get('member_type'))
         member['email'] = _clean_text(member.get('email'))
         member['orcid'] = _clean_text(member.get('orcid'))
