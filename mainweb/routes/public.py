@@ -691,7 +691,8 @@ def _issue_sort_key(issue_row):
     issue_no_text = _clean_text(row.get('issue_no'))
     issue_no_numeric = _parse_int(issue_no_text)
     issue_no_sort = issue_no_numeric if issue_no_numeric is not None else -1
-    return (year, issue_no_sort, issue_no_text.lower())
+    created_at = _parse_int(row.get('created_at')) or 0
+    return (year, issue_no_sort, created_at, issue_no_text.lower())
 
 
 class _SimplePagination:
