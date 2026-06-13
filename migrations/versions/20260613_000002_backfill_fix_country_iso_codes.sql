@@ -3,6 +3,11 @@
 -- two-letter code; emoji flags were used before but do not render on many
 -- servers/browsers. Only rows with an empty code are touched, so this is safe
 -- to re-run.
+
+-- Some deployments never had the columns, so create them first (idempotent).
+ALTER TABLE fix_country ADD COLUMN IF NOT EXISTS country_code TEXT;
+ALTER TABLE fix_country ADD COLUMN IF NOT EXISTS country_flag TEXT;
+
 UPDATE fix_country AS f
 SET country_code = v.iso
 FROM (VALUES
