@@ -691,8 +691,7 @@ def _issue_sort_key(issue_row):
     issue_no_text = _clean_text(row.get('issue_no'))
     issue_no_numeric = _parse_int(issue_no_text)
     issue_no_sort = issue_no_numeric if issue_no_numeric is not None else -1
-    created_at = _parse_int(row.get('created_at')) or 0
-    return (year, issue_no_sort, created_at, issue_no_text.lower())
+    return (year, issue_no_sort, issue_no_text.lower())
 
 
 class _SimplePagination:
@@ -3436,7 +3435,7 @@ def app__issues():
         elif access_filter == 'subscription':
             query = query.equal(subscription_enable=True)
 
-    issues = query.order_by('year').exec()
+    issues = query.exec()
     if not masters_series_mode:
         issues = [
             issue for issue in issues
@@ -3445,7 +3444,7 @@ def app__issues():
     for issue in issues:
         translate(issue)
         _apply_localized_content(issue, ('title', 'shortinfo', 'price'), lang=current_lang)
-    issues = sorted(issues, key=_issue_sort_key, reverse=True)
+    issues = sorted(issues, key=lambda x: (_parse_int(x.get('created_at')) or 0), reverse=True)
 
     all_issues = dbc.issues.get().exec()
     year_source = [
