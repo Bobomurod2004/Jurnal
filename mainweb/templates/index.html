@@ -104,7 +104,7 @@
                             <iconify-icon icon="solar:global-line-duotone" class="text-gray-300 text-xs shrink-0"></iconify-icon>
                             {% endif %}
                             <span class="flex-1 text-xs text-gray-700 truncate">{{ item.name }}</span>
-                            <span class="text-xs font-bold text-fmmain shrink-0">{{ item.count }}</span>
+                            <span class="text-xs font-bold text-fmmain shrink-0">{{ item.total }}</span>
                         </div>
                         {% endfor %}
                     </div>
@@ -819,7 +819,7 @@
                     class="country-map-list-item js-country-stat-item"
                     data-country-name="{{ item.name|e }}"
                     data-country-iso="{{ item.iso|default('', true) }}"
-                    data-country-total="{{ item.count|default(0) }}"
+                    data-country-total="{{ item.total|default(0) }}"
                     data-country-authors="{{ item.authors|default(0) }}"
                     data-country-views="{{ item.views|default(0) }}"
                     data-country-downloads="{{ item.downloads|default(0) }}"
@@ -834,7 +834,7 @@
                         {% endif %}
                     </span>
                     <span class="country-map-list-name" title="{{ item.name }}">{{ item.name }}</span>
-                    <span class="country-map-list-count">{{ item.count }}</span>
+                    <span class="country-map-list-count">{{ item.total }}</span>
                 </button>
                 {% endfor %}
             </div>
@@ -1036,7 +1036,7 @@ $(document).ready(function () {
     var unknownCountryLabel = countryStatsUi.unknown_country || 'Other countries';
     var cStats = {};
     {% for item in country_stats %}{% if item.iso %}
-    cStats["{{ item.iso|upper }}"] = { name:"{{ item.name|replace('"','\\"') }}", iso:"{{ item.iso }}", total:{{ item.count|default(0) }}, authors:{{ item.authors|default(0) }}, views:{{ item.views|default(0) }}, downloads:{{ item.downloads|default(0) }} };{% endif %}{% endfor %}
+    cStats["{{ item.iso|upper }}"] = { name:"{{ item.name|replace('"','\\"') }}", iso:"{{ item.iso }}", total:{{ item.total|default(0) }}, authors:{{ item.authors|default(0) }}, views:{{ item.views|default(0) }}, downloads:{{ item.downloads|default(0) }} };{% endif %}{% endfor %}
 
     var maxCount = 1;
     Object.values(cStats).forEach(function(d){ if((d.total||0)>maxCount) maxCount=(d.total||0); });

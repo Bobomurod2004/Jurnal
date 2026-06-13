@@ -1,0 +1,232 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">Aloqa ma'lumotlari</h2>
+      <p class="text-secondary mb-0">Contact sahifasida ko'rinadigan xodimlar, ijtimoiy tarmoqlar va aloqa ma'lumotlari.</p>
+    </div>
+  </div>
+</div>
+
+<form method="post" class="mt-4">
+
+  <!-- ===================== PERSONS ===================== -->
+  <div class="card mb-4">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <div class="card-title mb-0">Xodimlar ro'yxati</div>
+      <button type="button" class="btn btn-sm btn-success" id="add-person-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Xodim qo'shish
+      </button>
+    </div>
+    <div class="card-body pb-1">
+      <div id="persons-container">
+        {% set existing = persons if persons else [] %}
+        {% for p in existing %}
+        <div class="card mb-3 person-card border">
+          <div class="card-header py-2 bg-light d-flex align-items-center justify-content-between">
+            <small class="text-muted fw-semibold">Xodim #{{ loop.index }}</small>
+            <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-person-btn">O'chirish</button>
+          </div>
+          <div class="card-body py-3">
+            <!-- EN row -->
+            <div class="row g-2 mb-2 align-items-center">
+              <div class="col-auto"><span class="badge bg-blue" style="width:32px;text-align:center">EN</span></div>
+              <div class="col">
+                <input type="text" class="form-control form-control-sm" name="person_name[]"
+                  value="{{ p.name or '' }}" placeholder="Full Name (English)">
+              </div>
+              <div class="col">
+                <input type="text" class="form-control form-control-sm" name="person_position[]"
+                  value="{{ p.position or '' }}" placeholder="Position (English)">
+              </div>
+            </div>
+            <!-- UZ row -->
+            <div class="row g-2 mb-2 align-items-center">
+              <div class="col-auto"><span class="badge bg-green" style="width:32px;text-align:center">UZ</span></div>
+              <div class="col">
+                <input type="text" class="form-control form-control-sm" name="person_name_uz[]"
+                  value="{{ p.name_uz or '' }}" placeholder="Ism Familiya (O'zbekcha)">
+              </div>
+              <div class="col">
+                <input type="text" class="form-control form-control-sm" name="person_position_uz[]"
+                  value="{{ p.position_uz or '' }}" placeholder="Lavozim (O'zbekcha)">
+              </div>
+            </div>
+            <!-- RU row -->
+            <div class="row g-2 mb-2 align-items-center">
+              <div class="col-auto"><span class="badge bg-red" style="width:32px;text-align:center">RU</span></div>
+              <div class="col">
+                <input type="text" class="form-control form-control-sm" name="person_name_ru[]"
+                  value="{{ p.name_ru or '' }}" placeholder="Имя Фамилия (Русский)">
+              </div>
+              <div class="col">
+                <input type="text" class="form-control form-control-sm" name="person_position_ru[]"
+                  value="{{ p.position_ru or '' }}" placeholder="Должность (Русский)">
+              </div>
+            </div>
+            <hr class="my-2">
+            <div class="row g-2">
+              <div class="col-md-6">
+                <input type="email" class="form-control form-control-sm" name="person_email[]"
+                  value="{{ p.email or '' }}" placeholder="Email">
+              </div>
+              <div class="col-md-6">
+                <input type="text" class="form-control form-control-sm" name="person_phone[]"
+                  value="{{ p.phone or '' }}" placeholder="+998 90 000 00 00">
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+        {% if not existing %}
+        <!-- empty state — first card will be added by JS or show placeholder -->
+        <p class="text-muted small" id="persons-empty-hint">Hali xodim qo'shilmagan. "Xodim qo'shish" tugmasini bosing.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== SOCIAL LINKS ===================== -->
+  <div class="card mb-4">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <div class="card-title mb-0">Ijtimoiy tarmoqlar va aloqa</div>
+      <button type="button" class="btn btn-sm btn-success" id="add-social-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Link qo'shish
+      </button>
+    </div>
+    <div class="card-body pb-1">
+      <div id="social-container">
+        {% for link in social_links %}
+        <div class="row g-2 mb-2 align-items-center social-link-row">
+          <div class="col-md-3">
+            <select name="social_platform[]" class="form-select form-select-sm">
+              {% for val, label in social_platforms %}
+              <option value="{{ val }}" {% if link.platform == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col">
+            <input type="text" name="social_url[]" class="form-control form-control-sm"
+              value="{{ link.url or '' }}" placeholder="URL yoki @username">
+          </div>
+          <div class="col-auto">
+            <button type="button" class="btn btn-sm btn-outline-danger remove-social-btn">O'chirish</button>
+          </div>
+        </div>
+        {% endfor %}
+        {% if not social_links %}
+        <p class="text-muted small" id="social-empty-hint">Hali link qo'shilmagan. "Link qo'shish" tugmasini bosing.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 mb-4">
+    <button type="submit" class="btn btn-primary">Saqlash</button>
+    <a href="{{ url_for('contact_info_settings') }}" class="btn btn-secondary">Bekor qilish</a>
+  </div>
+</form>
+
+<!-- ===================== TEMPLATES ===================== -->
+<template id="person-card-template">
+  <div class="card mb-3 person-card border">
+    <div class="card-header py-2 bg-light d-flex align-items-center justify-content-between">
+      <small class="text-muted fw-semibold person-card-label">Xodim</small>
+      <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-person-btn">O'chirish</button>
+    </div>
+    <div class="card-body py-3">
+      <div class="row g-2 mb-2 align-items-center">
+        <div class="col-auto"><span class="badge bg-blue" style="width:32px;text-align:center">EN</span></div>
+        <div class="col"><input type="text" class="form-control form-control-sm" name="person_name[]" placeholder="Full Name (English)"></div>
+        <div class="col"><input type="text" class="form-control form-control-sm" name="person_position[]" placeholder="Position (English)"></div>
+      </div>
+      <div class="row g-2 mb-2 align-items-center">
+        <div class="col-auto"><span class="badge bg-green" style="width:32px;text-align:center">UZ</span></div>
+        <div class="col"><input type="text" class="form-control form-control-sm" name="person_name_uz[]" placeholder="Ism Familiya (O'zbekcha)"></div>
+        <div class="col"><input type="text" class="form-control form-control-sm" name="person_position_uz[]" placeholder="Lavozim (O'zbekcha)"></div>
+      </div>
+      <div class="row g-2 mb-2 align-items-center">
+        <div class="col-auto"><span class="badge bg-red" style="width:32px;text-align:center">RU</span></div>
+        <div class="col"><input type="text" class="form-control form-control-sm" name="person_name_ru[]" placeholder="Имя Фамилия (Русский)"></div>
+        <div class="col"><input type="text" class="form-control form-control-sm" name="person_position_ru[]" placeholder="Должность (Русский)"></div>
+      </div>
+      <hr class="my-2">
+      <div class="row g-2">
+        <div class="col-md-6"><input type="email" class="form-control form-control-sm" name="person_email[]" placeholder="Email"></div>
+        <div class="col-md-6"><input type="text" class="form-control form-control-sm" name="person_phone[]" placeholder="+998 90 000 00 00"></div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="social-link-row-template">
+  <div class="row g-2 mb-2 align-items-center social-link-row">
+    <div class="col-md-3">
+      <select name="social_platform[]" class="form-select form-select-sm">
+        {% for val, label in social_platforms %}
+        <option value="{{ val }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col">
+      <input type="text" name="social_url[]" class="form-control form-control-sm" placeholder="URL yoki @username">
+    </div>
+    <div class="col-auto">
+      <button type="button" class="btn btn-sm btn-outline-danger remove-social-btn">O'chirish</button>
+    </div>
+  </div>
+</template>
+
+<script>
+(function () {
+  var personCount = {{ (persons|length) if persons else 0 }};
+
+  function updatePersonLabels() {
+    document.querySelectorAll('#persons-container .person-card-label').forEach(function (el, i) {
+      el.textContent = 'Xodim #' + (i + 1);
+    });
+    var hint = document.getElementById('persons-empty-hint');
+    if (hint) hint.style.display = document.querySelectorAll('#persons-container .person-card').length ? 'none' : '';
+  }
+
+  document.getElementById('add-person-btn').addEventListener('click', function () {
+    var container = document.getElementById('persons-container');
+    var hint = document.getElementById('persons-empty-hint');
+    if (hint) hint.style.display = 'none';
+    var tpl = document.getElementById('person-card-template');
+    var clone = tpl.content.cloneNode(true);
+    container.appendChild(clone);
+    personCount++;
+    updatePersonLabels();
+  });
+
+  document.getElementById('persons-container').addEventListener('click', function (e) {
+    if (e.target.classList.contains('remove-person-btn')) {
+      e.target.closest('.person-card').remove();
+      updatePersonLabels();
+    }
+  });
+
+  document.getElementById('add-social-btn').addEventListener('click', function () {
+    var container = document.getElementById('social-container');
+    var hint = document.getElementById('social-empty-hint');
+    if (hint) hint.style.display = 'none';
+    var tpl = document.getElementById('social-link-row-template');
+    var clone = tpl.content.cloneNode(true);
+    container.appendChild(clone);
+  });
+
+  document.getElementById('social-container').addEventListener('click', function (e) {
+    if (e.target.classList.contains('remove-social-btn')) {
+      e.target.closest('.social-link-row').remove();
+    }
+  });
+
+  updatePersonLabels();
+})();
+</script>
+{% endblock %}

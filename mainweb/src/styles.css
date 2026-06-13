@@ -390,6 +390,16 @@ section.mt-6.overflow-hidden::before {
     font-weight: 800;
 }
 
+.info-page-content a {
+    color: #2563EB;
+    text-decoration-line: underline;
+    text-underline-offset: 0.2em;
+}
+
+.info-page-content a:hover {
+    color: #1D4ED8;
+}
+
 .info-page-sidebar {
     min-width: 0;
 }

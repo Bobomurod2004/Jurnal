@@ -7768,6 +7768,108 @@ def home_videos():
     )
 
 
+@bp.route('/fmadmin/website/contact-info', methods=['GET', 'POST'])
+@is_superadmin_required
+def contact_info_settings():
+    _SOCIAL_PLATFORMS = [
+        ('telegram', 'Telegram'),
+        ('instagram', 'Instagram'),
+        ('facebook', 'Facebook'),
+        ('twitter', 'Twitter / X'),
+        ('youtube', 'YouTube'),
+        ('linkedin', 'LinkedIn'),
+        ('website', 'Veb-sayt'),
+        ('other', 'Boshqa'),
+    ]
+
+    def _get_contact_persons():
+        try:
+            rows = db.settings.get(k='contact_persons').exec()
+            if rows and rows[0].get('v'):
+                data = json.loads(rows[0]['v'])
+                if isinstance(data, list):
+                    return data
+        except Exception:
+            pass
+        return []
+
+    def _get_social_links():
+        try:
+            rows = db.settings.get(k='contact_social_links').exec()
+            if rows and rows[0].get('v'):
+                data = json.loads(rows[0]['v'])
+                if isinstance(data, list):
+                    return data
+        except Exception:
+            pass
+        # backward compat: migrate old telegram setting
+        try:
+            tg = _get_site_setting('contact_telegram', '')
+            if tg:
+                return [{'platform': 'telegram', 'url': tg}]
+        except Exception:
+            pass
+        return []
+
+    if request.method == 'POST':
+        names = request.form.getlist('person_name[]')
+        names_uz = request.form.getlist('person_name_uz[]')
+        names_ru = request.form.getlist('person_name_ru[]')
+        positions = request.form.getlist('person_position[]')
+        positions_uz = request.form.getlist('person_position_uz[]')
+        positions_ru = request.form.getlist('person_position_ru[]')
+        emails = request.form.getlist('person_email[]')
+        phones = request.form.getlist('person_phone[]')
+
+        def _get(lst, i):
+            return _clean_text(lst[i] if i < len(lst) else '')
+
+        persons = []
+        for i in range(len(names)):
+            name = _get(names, i)
+            name_uz = _get(names_uz, i)
+            name_ru = _get(names_ru, i)
+            if not (name or name_uz or name_ru):
+                continue
+            persons.append({
+                'name': name,
+                'name_uz': name_uz,
+                'name_ru': name_ru,
+                'position': _get(positions, i),
+                'position_uz': _get(positions_uz, i),
+                'position_ru': _get(positions_ru, i),
+                'email': _get(emails, i),
+                'phone': _get(phones, i),
+            })
+
+        platforms = request.form.getlist('social_platform[]')
+        urls = request.form.getlist('social_url[]')
+        social_links = []
+        for i in range(len(platforms)):
+            platform = _clean_text(platforms[i] if i < len(platforms) else '')
+            url = _clean_text(urls[i] if i < len(urls) else '')
+            if url:
+                social_links.append({'platform': platform or 'other', 'url': url})
+
+        ok = _set_site_setting('contact_persons', json.dumps(persons, ensure_ascii=False))
+        ok = _set_site_setting('contact_social_links', json.dumps(social_links, ensure_ascii=False)) and ok
+
+        if ok:
+            flash("Aloqa ma'lumotlari saqlandi", "success")
+        else:
+            flash("Saqlashda xatolik yuz berdi", "danger")
+        return redirect(url_for('contact_info_settings'))
+
+    persons = _get_contact_persons()
+    social_links = _get_social_links()
+    return render_template(
+        'website/contact_info.html',
+        persons=persons,
+        social_links=social_links,
+        social_platforms=_SOCIAL_PLATFORMS,
+    )
+
+
 @bp.route('/fmadmin/website/payment-guide', methods=['GET', 'POST'])
 @is_superadmin_required
 def payment_guide_settings():

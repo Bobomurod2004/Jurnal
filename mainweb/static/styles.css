@@ -3040,9 +3040,20 @@
       margin-bottom: calc(var(--spacing) * 0);
     }
   }
+  .last\:border-0 {
+    &:last-child {
+      border-style: var(--tw-border-style);
+      border-width: 0px;
+    }
+  }
   .last\:bg-white {
     &:last-child {
       background-color: var(--color-white);
+    }
+  }
+  .last\:pb-0 {
+    &:last-child {
+      padding-bottom: calc(var(--spacing) * 0);
     }
   }
   .hover\:scale-\[1\.03\] {
@@ -4536,6 +4547,14 @@ section.mt-6.overflow-hidden::before {
 .info-page-content strong {
   color: #0F3D2A;
   font-weight: 800;
+}
+.info-page-content a {
+  color: #2563EB;
+  text-decoration-line: underline;
+  text-underline-offset: 0.2em;
+}
+.info-page-content a:hover {
+  color: #1D4ED8;
 }
 .info-page-sidebar {
   min-width: 0;

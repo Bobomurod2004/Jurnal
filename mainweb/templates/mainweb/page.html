@@ -41,6 +41,10 @@
             return;
         }
 
+        {% if show_toc is defined and not show_toc %}
+        tocCard.classList.add('hidden');
+        return;
+        {% endif %}
         var headings = Array.from(content.querySelectorAll('section > h4'));
         if (headings.length < 2) {
             tocCard.classList.add('hidden');

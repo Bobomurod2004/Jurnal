@@ -71,6 +71,42 @@
 
             <!-- Contact Information -->
             <div class="border-s ms-4 border-gray-100 px-4">
+                {% if contact_persons %}
+                <div class="mb-8">
+                    <h5 class="text-lg font-medium mb-4">{{ t('contact_information') }}</h5>
+                    <div class="space-y-5">
+                        {% for person in contact_persons %}
+                        {% set display_name = person.display_name or person.name or '' %}
+                        {% if display_name %}
+                        <div class="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                            <div class="flex items-start gap-2 mb-2">
+                                <iconify-icon icon="tabler:user" class="text-fmmain text-xl mt-0.5 flex-shrink-0"></iconify-icon>
+                                <div>
+                                    <div class="font-medium text-gray-800 text-sm leading-snug">{{ display_name }}</div>
+                                    {% set display_pos = person.display_position or person.position or '' %}
+                                    {% if display_pos %}
+                                    <div class="text-xs text-gray-500">{{ display_pos }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if person.email %}
+                            <a href="mailto:{{ person.email }}" class="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm mt-1">
+                                <iconify-icon icon="tabler:mail" class="text-base flex-shrink-0"></iconify-icon>
+                                {{ person.email }}
+                            </a>
+                            {% endif %}
+                            {% if person.phone %}
+                            <a href="tel:{{ person.phone|replace(' ', '') }}" class="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm mt-1">
+                                <iconify-icon icon="tabler:phone" class="text-base flex-shrink-0"></iconify-icon>
+                                {{ person.phone }}
+                            </a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
                 <div class="mb-8">
                     <h5 class="text-lg font-medium mb-4">{{ t('contact_information') }}</h5>
                     <div class="space-y-4">
@@ -80,14 +116,28 @@
                         </div>
                         <div class="my-4">
                             <div class="mb-1 font-medium text-gray-700">{{ t('email') }}</div>
-                            <a href="mailto:philologymatters@uzswlu.uz" class="text-blue-600 hover:text-blue-800 px-2 py-1 border-s-2 mb-2 bg-gray-50/0 border-fmmain/0">philologymatters@uzswlu.uz</a>
-                        </div>
-                        <div class="my-4">
-                            <div class="mb-1 font-medium text-gray-700">{{ t('phone')|capitalize }}</div>
-                            <a href="tel:+99893-392-47-78" class="text-blue-600 hover:text-blue-800 px-2 py-1 border-s-2 mb-2 bg-gray-50/0 border-fmmain/0">+998 93 392 47 78</a>
+                            <a href="mailto:philologymatters@uzswlu.uz" class="text-blue-600 hover:text-blue-800 px-2 py-1">philologymatters@uzswlu.uz</a>
                         </div>
                     </div>
                 </div>
+                {% endif %}
+
+                {% if contact_social_links %}
+                <div class="mb-6">
+                    <h5 class="text-lg font-medium mb-3">{{ t('follow_us') if t('follow_us') != 'follow_us' else 'Ijtimoiy tarmoqlar' }}</h5>
+                    <div class="space-y-2">
+                        {% for sl in contact_social_links %}
+                        {% if sl.url %}
+                        {% set href = sl.url if sl.url.startswith('http') else ('https://t.me/' + sl.url.lstrip('@') if sl.platform == 'telegram' else sl.url) %}
+                        <div class="flex items-center gap-2 text-sm">
+                            <iconify-icon icon="{{ sl.icon }}" class="text-blue-500 text-xl flex-shrink-0"></iconify-icon>
+                            <a href="{{ href }}" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-800">{{ sl.url }}</a>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
 
                 <div>
                     <h5 class="text-lg font-medium mb-4">{{ t('quick_links') }}</h5>

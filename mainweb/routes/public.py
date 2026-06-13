@@ -2714,56 +2714,35 @@ def app__index():
             )
 
         for item in aggregated.values():
-            authors_value = max(0, _parse_int(item.get('authors')) or 0)
-            views_value = max(0, _parse_int(item.get('views')) or 0)
-            downloads_value = max(0, _parse_int(item.get('downloads')) or 0)
-            item['authors'] = authors_value
-            item['views'] = views_value
-            item['downloads'] = downloads_value
-            # Country activity = reader actions only; author counts are kept
-            # separately and must not inflate the activity number.
-            item['count'] = views_value + downloads_value
+            a = max(0, _parse_int(item.get('authors')) or 0)
+            v = max(0, _parse_int(item.get('views')) or 0)
+            d = max(0, _parse_int(item.get('downloads')) or 0)
+            item['authors'] = a
+            item['views'] = v
+            item['downloads'] = d
+            item['count'] = v + d
+            item['total'] = a + v + d
 
-        def _has_any_activity(item):
-            return (
-                (_parse_int(item.get('count')) or 0) > 0
-                or (_parse_int(item.get('authors')) or 0) > 0
-            )
-
-        # Attributable countries are shown individually; every unattributed or
-        # catch-all bucket (other/unknown/legacy) is merged into a single trailing
-        # "Other countries" row so the country list reconciles with the headline
-        # view/download totals instead of silently dropping the bulk of activity.
         real_items = [
             item
             for item in aggregated.values()
-            if _has_any_activity(item)
+            if item['total'] > 0
             and not _is_other_country_bucket_key(item.get('country_key'))
-        ]
-        other_items = [
-            item
-            for item in aggregated.values()
-            if _has_any_activity(item)
-            and _is_other_country_bucket_key(item.get('country_key'))
         ]
         sorted_stats = sorted(
             real_items,
             key=lambda item: (
-                -(item.get('count') or 0),
-                -(item.get('views') or 0),
-                -(item.get('downloads') or 0),
-                -(item.get('authors') or 0),
+                -item['total'],
+                -item['count'],
+                -item['authors'],
                 (item.get('name') or '').lower(),
             )
         )
-        # Percentage bars are scaled against the busiest *attributable* country so
-        # the large catch-all bucket does not flatten everyone else's bar.
-        max_cnt = max((item.get('count') or 0 for item in sorted_stats), default=0)
-        max_cnt = max(max_cnt, 1)
+        max_total = max((item['total'] for item in sorted_stats), default=1)
+        max_total = max(max_total, 1)
 
         for item in sorted_stats:
-            count_value = _parse_int(item.get('count')) or 0
-            item['pct'] = round(count_value / max_cnt * 100) if count_value > 0 else 0
+            item['pct'] = round(item['total'] / max_total * 100)
             if item.get('iso'):
                 item['name'] = _localized_country_display_name(
                     item.get('iso'),
@@ -2771,27 +2750,8 @@ def app__index():
                     lang=current_lang,
                 )
 
-        other_row = None
-        if other_items:
-            other_authors = sum(max(0, _parse_int(i.get('authors')) or 0) for i in other_items)
-            other_views = sum(max(0, _parse_int(i.get('views')) or 0) for i in other_items)
-            other_downloads = sum(max(0, _parse_int(i.get('downloads')) or 0) for i in other_items)
-            other_count = other_views + other_downloads
-            if other_count > 0 or other_authors > 0:
-                other_row = {
-                    'country_key': OTHER_COUNTRY_KEY,
-                    'name': country_stats_ui.get('unknown_country') or OTHER_COUNTRY_NAME,
-                    'iso': '',
-                    'authors': other_authors,
-                    'views': other_views,
-                    'downloads': other_downloads,
-                    'count': other_count,
-                    'pct': min(100, round(other_count / max_cnt * 100)) if other_count > 0 else 0,
-                    'is_other': True,
-                }
-
-        country_stats = sorted_stats + ([other_row] if other_row else [])
-        country_stats_top = sorted_stats[:10] + ([other_row] if other_row else [])
+        country_stats = sorted_stats
+        country_stats_top = sorted_stats[:10]
     except Exception:
         try:
             dbc.conn.rollback()
@@ -2958,7 +2918,8 @@ def app__page_alias(alias):
     except Exception:
         pass
     page = _apply_localized_content(page, ('title', 'content'), lang=_current_lang_code())
-    return render_template('mainweb/page.html', page=page)
+    no_toc_aliases = {'author_instructions'}
+    return render_template('mainweb/page.html', page=page, show_toc=(page_alias not in no_toc_aliases))
 
 
 def app__payment_guide():
@@ -2972,6 +2933,7 @@ def app__payment_guide():
 
 
 def app__contact():
+    current_lang = _current_lang_code()
     if request.method == 'POST':
         name = sanitize_input(request.form.get('name'))
         email = sanitize_input(request.form.get('email')).lower()
@@ -3069,7 +3031,59 @@ def app__contact():
         else:
             flash('All fields are required', 'error')
         return redirect(url_for('app__contact'))
-    return render_template('mainweb/contact.html')
+
+    contact_persons = []
+    contact_social_links = []
+    try:
+        rows = dbc.settings.get(k='contact_persons').exec()
+        if rows and rows[0].get('v'):
+            data = json.loads(rows[0]['v'])
+            if isinstance(data, list):
+                contact_persons = data
+    except Exception:
+        pass
+    try:
+        sl_rows = dbc.settings.get(k='contact_social_links').exec()
+        if sl_rows and sl_rows[0].get('v'):
+            data = json.loads(sl_rows[0]['v'])
+            if isinstance(data, list):
+                contact_social_links = data
+        elif not contact_social_links:
+            tg_rows = dbc.settings.get(k='contact_telegram').exec()
+            if tg_rows and tg_rows[0].get('v'):
+                contact_social_links = [{'platform': 'telegram', 'url': tg_rows[0]['v'].strip()}]
+    except Exception:
+        pass
+
+    _SOCIAL_ICONS = {
+        'telegram': 'tabler:brand-telegram',
+        'instagram': 'tabler:brand-instagram',
+        'facebook': 'tabler:brand-facebook',
+        'twitter': 'tabler:brand-x',
+        'youtube': 'tabler:brand-youtube',
+        'linkedin': 'tabler:brand-linkedin',
+        'website': 'tabler:world-www',
+        'other': 'tabler:link',
+    }
+    for sl in contact_social_links:
+        sl['icon'] = _SOCIAL_ICONS.get(sl.get('platform', ''), 'tabler:link')
+
+    def _person_localized(person, field):
+        if current_lang == 'uz':
+            val = person.get(f'{field}_uz') or person.get(field, '')
+        elif current_lang == 'ru':
+            val = person.get(f'{field}_ru') or person.get(field, '')
+        else:
+            val = person.get(field, '')
+        return val or ''
+
+    for p in contact_persons:
+        p['display_name'] = _person_localized(p, 'name')
+        p['display_position'] = _person_localized(p, 'position')
+
+    return render_template('mainweb/contact.html',
+                           contact_persons=contact_persons,
+                           contact_social_links=contact_social_links)
 
 
 def app__articles():
