@@ -2644,9 +2644,10 @@ def app__index():
     country_stats_ui = _country_stats_ui_texts()
     author_tooltip_ui = _author_tooltip_ui_texts()
     try:
+        # Use ALL author profiles (not just visible-publication authors) so every
+        # registered author's country contributes to the global-reach map.
         author_rows_map = {}
-        for author_id in _visible_author_ids():
-            profile = _author_profiles_by_id().get(author_id) or {}
+        for profile in (dbc.author_profile.get().exec() or []):
             country_name = _normalize_country_name(profile.get('address_country'))
             if not country_name:
                 continue
@@ -2751,7 +2752,26 @@ def app__index():
                 )
 
         country_stats = sorted_stats
-        country_stats_top = sorted_stats[:10]
+        top10 = sorted_stats[:10]
+        rest = sorted_stats[10:]
+        if rest:
+            _ui = country_stats_ui
+            other_row = {
+                'country_key': 'other',
+                'name': _ui.get('unknown_country', 'Other countries'),
+                'iso': '',
+                'authors': sum(r['authors'] for r in rest),
+                'views': sum(r['views'] for r in rest),
+                'downloads': sum(r['downloads'] for r in rest),
+                'count': sum(r['count'] for r in rest),
+                'total': sum(r['total'] for r in rest),
+                'pct': 0,
+                'is_other': True,
+            }
+            other_row['pct'] = round(other_row['total'] / max_total * 100) if max_total > 0 else 0
+            country_stats_top = top10 + [other_row]
+        else:
+            country_stats_top = top10
     except Exception:
         try:
             dbc.conn.rollback()
