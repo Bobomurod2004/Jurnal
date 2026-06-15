@@ -226,13 +226,13 @@
           <div class="editorial-admin-field-label">{{ editorial_ui['field_bio'] }}</div>
           <div class="row">
             <div class="col-md-4">
-              <textarea class="form-control" name="biography" rows="6" placeholder="{{ editorial_ui['ph_bio_en'] }}">{{ member.biography or '' }}</textarea>
+              <textarea class="form-control ckeditor-word" name="biography" rows="6" data-editor-height="260" placeholder="{{ editorial_ui['ph_bio_en'] }}">{{ member.biography or '' }}</textarea>
             </div>
             <div class="col-md-4">
-              <textarea class="form-control" name="biography_uz" rows="6" placeholder="{{ editorial_ui['ph_bio_uz'] }}">{{ member.biography_uz or '' }}</textarea>
+              <textarea class="form-control ckeditor-word" name="biography_uz" rows="6" data-editor-height="260" placeholder="{{ editorial_ui['ph_bio_uz'] }}">{{ member.biography_uz or '' }}</textarea>
             </div>
             <div class="col-md-4">
-              <textarea class="form-control" name="biography_ru" rows="6" placeholder="{{ editorial_ui['ph_bio_ru'] }}">{{ member.biography_ru or '' }}</textarea>
+              <textarea class="form-control ckeditor-word" name="biography_ru" rows="6" data-editor-height="260" placeholder="{{ editorial_ui['ph_bio_ru'] }}">{{ member.biography_ru or '' }}</textarea>
             </div>
           </div>
         </div>

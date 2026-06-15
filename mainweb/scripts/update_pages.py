@@ -7,7 +7,18 @@ import time
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from modules.connector import PostgreSQLConnector
-from config import *
+
+
+def _env(name, default=''):
+    value = os.environ.get(name, default)
+    return default if value is None else value
+
+
+DB_HOST = _env('DB_HOST', 'db')
+DB_PORT = int(_env('DB_PORT', '5432'))
+DB_USER = _env('DB_USER', 'postgres')
+DB_PASSWORD = _env('DB_PASSWORD', '')
+DB_NAME = _env('DB_NAME', 'journal2')
 
 PAGES_DATA = {
     'submission_guidelines': {

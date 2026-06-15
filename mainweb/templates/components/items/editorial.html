@@ -95,14 +95,14 @@
         <div class="p-5 flex gap-4 items-start flex-1">
             {{ _member_photo(editor_info, display_name, 'w-20 h-26 md:w-24 md:h-30', 'text-3xl') }}
             <div class="flex-1 min-w-0">
-                <h3 class="font-serif font-bold text-gray-900 text-base md:text-lg leading-tight mb-1">{{ display_name }}</h3>
+                <h3 class="font-serif font-bold text-gray-900 text-base md:text-lg leading-tight mb-2">{{ display_name }}</h3>
                 {% if academic_degree_value or academic_title_value %}
-                <div class="flex flex-wrap gap-1 mb-1.5">
+                <div class="flex flex-wrap gap-1 mb-2">
                     {% if academic_degree_value %}
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">{{ academic_degree_value }}</span>
+                    <span class="inline-flex max-w-full items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 truncate">{{ academic_degree_value }}</span>
                     {% endif %}
                     {% if academic_title_value %}
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-100">{{ academic_title_value }}</span>
+                    <span class="inline-flex max-w-full items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-100 truncate">{{ academic_title_value }}</span>
                     {% endif %}
                 </div>
                 {% endif %}
@@ -141,22 +141,22 @@
     {% set academic_title_value = (editor_info.academic_title or '')|trim %}
     {% set modal_id = editor_info.modal_id or 'editorial-member' %}
 
-    <article class="bg-white rounded-xl border border-gray-200 shadow-xs hover:shadow-md transition-shadow duration-300 p-3.5 flex gap-3.5 w-full h-full items-stretch">
-        {{ _member_photo(editor_info, display_name, 'w-16 h-21', 'text-xl') }}
+    <article class="bg-white rounded-xl border border-gray-200 shadow-xs hover:shadow-md transition-shadow duration-300 p-4 flex gap-4 w-full h-full items-stretch overflow-hidden">
+        {{ _member_photo(editor_info, display_name, 'w-20 h-24', 'text-xl') }}
 
         <div class="flex-1 min-w-0 flex flex-col">
-            <h3 class="font-serif font-bold text-gray-900 text-sm leading-snug line-clamp-2" title="{{ display_name }}">{{ display_name }}</h3>
+            <h3 class="editorial-member-card__name font-serif font-bold text-gray-900 text-sm leading-snug mb-1" title="{{ display_name }}">{{ display_name }}</h3>
             {% if academic_degree_value or academic_title_value %}
-            <div class="flex flex-wrap gap-1 mt-1">
+            <div class="flex flex-wrap gap-1 mb-1.5">
                 {% if academic_degree_value %}
-                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">{{ academic_degree_value }}</span>
+                <span class="inline-flex max-w-full items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 truncate" title="{{ academic_degree_value }}">{{ academic_degree_value }}</span>
                 {% endif %}
                 {% if academic_title_value %}
-                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-100">{{ academic_title_value }}</span>
+                <span class="inline-flex max-w-full items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-100 truncate" title="{{ academic_title_value }}">{{ academic_title_value }}</span>
                 {% endif %}
             </div>
             {% endif %}
-            <div class="text-[11px] text-gray-600 line-clamp-2 mt-0.5 leading-normal" title="{{ title_value }}{% if title_value and organization_value %}, {% endif %}{{ organization_value }}">
+            <div class="text-[11px] text-gray-600 line-clamp-2 leading-normal" title="{{ title_value }}{% if title_value and organization_value %}, {% endif %}{{ organization_value }}">
                 {%- if title_value %}{{ title_value }}{% endif %}{% if title_value and organization_value %}, {% endif %}{% if organization_value %}{{ organization_value }}{% endif -%}
             </div>
             {{ _country_line(editor_info, 'mt-1 text-[10px]') }}
@@ -316,7 +316,7 @@
                         {% if bio_value %}
                         <div class="mb-2">
                             <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">{{ editorial_ui.biography_title }}</span>
-                            <div class="text-sm text-gray-600 leading-relaxed font-sans whitespace-pre-line">{{ bio_value }}</div>
+                            <div class="editorial-rich-text text-sm text-gray-600 leading-relaxed font-sans">{{ bio_value|render_richtext }}</div>
                         </div>
                         {% endif %}
                     </div>
