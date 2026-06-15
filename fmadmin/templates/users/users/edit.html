@@ -446,13 +446,14 @@
             }
         }
 
-        const updatedSelectedRoles = roleCheckboxes.filter(node => node.checked).map(node => node.value);
-        const staffRoles = updatedSelectedRoles.filter(role => ['admin', 'editor', 'superadmin'].includes(role));
-        if (updatedSelectedRoles.includes('superadmin')) {
-            roleSelect.value = 'superadmin';
-        } else if (selectedRole === 'user' && staffRoles.length > 0) {
-            roleSelect.value = staffRoles[0];
+        const superadminCheckbox = roleCheckboxes.find(node => node.value === 'superadmin');
+        if (roleSelect.value !== 'superadmin' && superadminCheckbox && superadminCheckbox.checked) {
+            superadminCheckbox.checked = false;
         }
+        if (roleSelect.value === 'superadmin' && superadminCheckbox && !superadminCheckbox.checked) {
+            superadminCheckbox.checked = true;
+        }
+        const updatedSelectedRoles = roleCheckboxes.filter(node => node.checked).map(node => node.value);
 
         document.querySelectorAll('.role-dependent').forEach(function (node) {
             const visibleFor = node.getAttribute('data-role');

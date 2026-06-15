@@ -6,6 +6,7 @@ from mainweb.routes import api as api_routes
 from mainweb.routes import context as context_routes
 from mainweb.routes import dashboard as dashboard_routes
 from mainweb.routes import public as public_routes
+from fmadmin.routes import web as fmadmin_web
 
 
 def test_publication_recent_sort_key_prefers_publish_date_then_id():
@@ -763,6 +764,15 @@ def test_sitemap_excludes_masters_content_when_series_mode_disabled(monkeypatch)
     assert 'https://journal.example/article/101' in body
     assert 'https://journal.example/issue/2' not in body
     assert 'https://journal.example/article/102' not in body
+
+
+def test_extract_selected_roles_allows_superadmin_demotion():
+    data = {'rolename': 'user', 'roles': ['user', 'admin', 'superadmin']}
+
+    selection = fmadmin_web._extract_selected_roles(data, 'user', allowed_roles=['user', 'admin', 'editor'])
+
+    assert selection['primary_role'] == 'user'
+    assert selection['roles'] == ['user', 'admin']
 
 
 def test_public_editorial_groups_follow_new_role_order_and_legacy_aliases():

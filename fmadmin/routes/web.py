@@ -2644,8 +2644,13 @@ def _extract_selected_roles(data, primary_role_name, allowed_roles=None, fallbac
         primary = selected_staff_roles[0]
         roles = build_user_roles(primary, include_author_role=(AUTHOR_ROLE in roles), extra_roles=roles)
 
-    if 'superadmin' in roles and primary != 'superadmin':
-        primary = 'superadmin'
+    if primary != 'superadmin' and 'superadmin' in roles:
+        roles = [role_name for role_name in roles if role_name != 'superadmin']
+        if not roles:
+            roles = build_user_roles(primary, include_author_role=(primary == AUTHOR_ROLE))
+        elif primary not in roles:
+            roles = build_user_roles(primary, include_author_role=(AUTHOR_ROLE in roles), extra_roles=roles)
+    elif primary == 'superadmin' and 'superadmin' not in roles:
         roles = build_user_roles(primary, include_author_role=(AUTHOR_ROLE in roles), extra_roles=roles)
 
     return {

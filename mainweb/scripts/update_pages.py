@@ -124,22 +124,6 @@ PAGES_DATA = {
           <p class="mb-0">Thank you for choosing to submit your paper to the electronic scientific-methodological journal <strong>Philology Matters</strong>. These instructions will ensure we have everything required so your paper can move through double-blinded peer review, production and publication smoothly. Please take the time to read and follow them as closely as possible, as doing so will ensure your paper matches the journal's requirements.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Contents</h4>
-          <ul class="list-disc list-inside space-y-1">
-            <li>About the Journal</li>
-            <li>Open Access</li>
-            <li>Peer Review and Ethics</li>
-            <li>Preparing Your Paper</li>
-            <li>Types of Articles</li>
-            <li>Submission without Formatting</li>
-            <li>Checklist: What to Include</li>
-            <li>Using Third-Party Material</li>
-            <li>Submitting Your Paper</li>
-            <li>Publication Charges</li>
-            <li>Copyright Options</li>
-          </ul>
-        </section>
-        <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">About the Journal</h4>
           <p class="mb-4"><strong>Philology Matters</strong> is an electronic scientific-methodological journal publishing high-quality, original research. Please see the journal's <a href="/page/aims_scope" class="text-fmmain hover:underline">Aims &amp; Scope</a> for information about its focus and peer-review policy.</p>
           <p class="mb-4">Please note that this journal publishes manuscripts in different languages.</p>
@@ -548,23 +532,6 @@ PAGES_DATA = {
           <h4 class="text-lg font-semibold mb-3">Инструкции для авторов</h4>
           <p class="mb-4">Благодарим вас за выбор электронного научно-методического журнала <strong>«Вопросы филологии»</strong> для публикации вашей рукописи. Настоящие инструкции разработаны для корректной организации процессов двойного слепого рецензирования, редакционной подготовки и публикации.</p>
           <p class="mb-0">Пожалуйста, внимательно ознакомьтесь с требованиями, чтобы рукопись полностью соответствовала стандартам журнала.</p>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Содержание</h4>
-          <ul class="list-disc list-inside space-y-1">
-            <li>О журнале</li>
-            <li>Открытый доступ (Open Access)</li>
-            <li>Рецензирование и требования этики</li>
-            <li>Подготовка рукописи</li>
-            <li>Типы статей</li>
-            <li>Подача без жесткого форматирования</li>
-            <li>Услуги редактирования</li>
-            <li>Проверочный список</li>
-            <li>Использование материалов третьих лиц</li>
-            <li>Подача рукописи</li>
-            <li>Плата за публикацию</li>
-            <li>Авторские права и лицензирование</li>
-          </ul>
         </section>
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">О журнале</h4>
@@ -1337,18 +1304,16 @@ PAGES_DATA = {
         'content': '''
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Aims and Scope</h4>
-          <p class="mb-0">The journal is devoted to theoretical and applied research in philology and linguistics and promotes contemporary scholarly approaches in these fields.</p>
+          <p class="mb-4">The electronic scientific-methodological journal <strong>Philology Matters</strong> supports the publication of research conducted worldwide that advances knowledge, theory, and methodology at the intersection of Philology (10.00.00) and Pedagogy (13.00.00). The journal focuses on the role of language and other philological issues in relation to pedagogical challenges associated with the learning, teaching, and acquisition of first (native), second, and foreign languages in the world.</p>
+          <p class="mb-4">The journal publishes research aimed at providing the scholarly community with opportunities to disseminate original research findings; drawing attention to current and emerging directions in philological and pedagogical sciences; promoting scientific exchange and collaboration between Uzbek and international philologists; presenting research outcomes and constructive ideas relevant to both Uzbekistan and the international academic community, including innovative approaches to the teaching of philological disciplines; and familiarizing readers with contemporary trends, theories, and their practical applications developed in Uzbekistan, CIS countries, and the broader international research community. The journal also publishes original interdisciplinary studies addressing a wide range of current philological and pedagogical issues that reveal the interaction between language, culture, cognition, and communication.</p>
+          <p class="mb-4"><strong>Philology Matters</strong> encourages research that integrates theories and methodologies from all traditions of philology and pedagogy to explore any aspect of language education. Areas studied at the intersection of philology and pedagogy include, but are not limited to, linguistics, literary studies, translation studies, journalism, teaching methodology, pedagogy, and psychology.</p>
+          <p class="mb-4"><strong>Philology Matters</strong> is a journal focused on original research. Although articles may have practical and policy implications for education, they must be grounded in rigorous research and demonstrate a strong conceptual foundation in both analysis and discussion. The journal welcomes experimental studies, review articles, practical reports, and research projects covering various areas of philology and related disciplines, drawing upon disciplinary and interdisciplinary research traditions that reflect the principled application of qualitative, quantitative, or mixed-method paradigms. These may include, for example, applied research, ethnographic fieldwork, experimental and quasi-experimental studies, and related forms of scholarly inquiry. Articles submitted to the journal should be relevant and accessible to an international readership.</p>
+          <p class="mb-0">Articles addressing all aspects of philology and pedagogical sciences may focus on any country, society, educational context, or language of the world. This includes studies related to first and second language teaching, immersion education, content-based language instruction, bilingualism/multilingualism, and learning environments. However, language and educational competence are not limited solely to contemporary foreign language education (such as modern foreign languages or English as a foreign language).</p>
         </section>
         <section>
-          <h4 class="text-lg font-semibold mb-3">Main Areas</h4>
-          <ul class="list-disc list-inside space-y-1">
-            <li>General and comparative linguistics</li>
-            <li>Applied linguistics and translation studies</li>
-            <li>Literary studies and text analysis</li>
-            <li>Discourse and pragmatics research</li>
-            <li>Language teaching methodology</li>
-            <li>Corpus and digital linguistics</li>
-          </ul>
+          <h4 class="text-lg font-semibold mb-3">Double-Blind Peer Review Policy</h4>
+          <p class="mb-4">All research articles submitted to this journal undergo rigorous evaluation through an initial editorial screening followed by a double-blind peer review process.</p>
+          <p class="mb-0">For instructions on how to submit your manuscript, please read <a href="/page/author_instructions" class="text-fmmain hover:underline">Guidelines for Authors</a>.</p>
         </section>
         ''',
         'content_uz': '''
