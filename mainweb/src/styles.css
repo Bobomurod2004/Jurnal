@@ -355,7 +355,8 @@ section.mt-6.overflow-hidden::before {
     margin-top: 0 !important;
 }
 
-.info-page-content ul {
+.info-page-content ul,
+.info-page-content ol {
     margin: 1rem 0 0 !important;
     padding: 0 !important;
     list-style: none !important;

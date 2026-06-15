@@ -2640,7 +2640,8 @@ def _extract_selected_roles(data, primary_role_name, allowed_roles=None, fallbac
         roles.append(AUTHOR_ROLE)
 
     selected_staff_roles = [role_name for role_name in roles if role_name in PRIVILEGED_ROLES]
-    if selected_staff_roles and primary == AUTHOR_ROLE:
+    primary_explicitly_chosen = allowed_set and primary in allowed_set
+    if selected_staff_roles and primary == AUTHOR_ROLE and not primary_explicitly_chosen:
         primary = selected_staff_roles[0]
         roles = build_user_roles(primary, include_author_role=(AUTHOR_ROLE in roles), extra_roles=roles)
 
