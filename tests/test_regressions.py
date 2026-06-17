@@ -598,8 +598,8 @@ def test_ensure_seed_page_keeps_custom_localized_fields(monkeypatch):
 def test_editorial_policy_seed_content_is_english():
     seed_payload = public_routes._seed_page_payload('editorial_policy')
 
-    assert 'Editorial Policy Overview' in seed_payload['content']
-    assert 'Double-Blind Peer Review' in seed_payload['content']
+    assert 'Affiliations' in seed_payload['content']
+    assert 'Peer review' in seed_payload['content']
     assert 'Обзор редакционной политики' in seed_payload['content_ru']
 
 

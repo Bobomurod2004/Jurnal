@@ -2911,32 +2911,102 @@ def app__editorial():
     )
 
 
+_SOCIAL_ICONS = {
+    'telegram': 'tabler:brand-telegram',
+    'instagram': 'tabler:brand-instagram',
+    'facebook': 'tabler:brand-facebook',
+    'twitter': 'tabler:brand-x',
+    'youtube': 'tabler:brand-youtube',
+    'linkedin': 'tabler:brand-linkedin',
+    'website': 'tabler:world-www',
+    'other': 'tabler:link',
+}
+_SOCIAL_NAMES = {
+    'telegram': 'Telegram Messenger',
+    'instagram': 'Instagram',
+    'facebook': 'Facebook',
+    'twitter': 'Twitter / X',
+    'youtube': 'YouTube',
+    'linkedin': 'LinkedIn',
+    'website': 'Website',
+}
+
+
+def _fetch_contact_social_links():
+    social_links = []
+    try:
+        sl_rows = dbc.settings.get(k='contact_social_links').exec()
+        if sl_rows and sl_rows[0].get('v'):
+            data = json.loads(sl_rows[0]['v'])
+            if isinstance(data, list):
+                social_links = data
+        if not social_links:
+            tg_rows = dbc.settings.get(k='contact_telegram').exec()
+            if tg_rows and tg_rows[0].get('v'):
+                social_links = [{'platform': 'telegram', 'url': tg_rows[0]['v'].strip()}]
+    except Exception:
+        pass
+    return social_links
+
+
+def _render_journal_info_page():
+    page = _seed_page_payload('journal_info')
+    if not page:
+        flash('Page not found', 'error')
+        return redirect(url_for('app__index'))
+
+    page = _apply_localized_content(page, ('title', 'content'), lang=_current_lang_code())
+
+    social_links = _fetch_contact_social_links()
+    if social_links:
+        items_html = ''
+        for sl in social_links:
+            url = (sl.get('url') or '').strip()
+            if not url:
+                continue
+            platform = sl.get('platform', 'other')
+            if not url.startswith('http'):
+                if platform == 'telegram':
+                    url = 'https://t.me/' + url.lstrip('@')
+            icon = _SOCIAL_ICONS.get(platform, 'tabler:link')
+            name = _SOCIAL_NAMES.get(platform, platform.capitalize())
+            items_html += (
+                f'<div class="flex items-center gap-3">'
+                f'<iconify-icon icon="{icon}" class="text-fmmain text-xl flex-shrink-0"></iconify-icon>'
+                f'<a href="{url}" target="_blank" rel="noopener" class="text-fmmain hover:underline break-all">'
+                f'{name} &#8211; {url}</a></div>'
+            )
+        if items_html:
+            social_section = (
+                '\n<section>'
+                '<h4 class="text-lg font-semibold mb-3">Official Pages of the Journal</h4>'
+                '<div class="space-y-3">' + items_html + '</div>'
+                '</section>'
+            )
+            page['content'] = page['content'].rstrip() + social_section
+
+    return render_template('mainweb/page.html', page=page, show_toc=True)
+
+
 def app__page_alias(alias):
     page_alias = _clean_text(alias).lower()
 
     if page_alias == 'payment_guide':
         return redirect(url_for('app__payment_guide'))
 
+    if page_alias == 'journal_info':
+        return _render_journal_info_page()
+
     redirected = PAGE_ALIAS_REDIRECTS.get(page_alias)
     if redirected:
         endpoint, endpoint_kwargs = redirected
         return redirect(url_for(endpoint, **endpoint_kwargs))
 
-    page = _ensure_seed_page(page_alias)
+    page = _seed_page_payload(page_alias)
     if not page:
         flash('Page not found', 'error')
         return redirect(url_for('app__index'))
 
-    if isinstance(page, list):
-        page = page[0] if page else None
-    if not page:
-        flash('Page not found', 'error')
-        return redirect(url_for('app__index'))
-
-    try:
-        page = translate(page)
-    except Exception:
-        pass
     page = _apply_localized_content(page, ('title', 'content'), lang=_current_lang_code())
     no_toc_aliases = {'author_instructions'}
     return render_template('mainweb/page.html', page=page, show_toc=(page_alias not in no_toc_aliases))

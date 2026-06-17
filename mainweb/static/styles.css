@@ -947,6 +947,9 @@
   .list-disc {
     list-style-type: disc;
   }
+  .list-none {
+    list-style-type: none;
+  }
   .grid-cols-1 {
     grid-template-columns: repeat(1, minmax(0, 1fr));
   }
@@ -4487,6 +4490,7 @@ section.mt-6.overflow-hidden::before {
   color: #334155;
   font-size: 1.02rem;
   line-height: 1.82;
+  text-align: justify;
 }
 .info-page-content p:first-of-type {
   margin-top: 0 !important;

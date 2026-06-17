@@ -349,6 +349,7 @@ section.mt-6.overflow-hidden::before {
     color: #334155;
     font-size: 1.02rem;
     line-height: 1.82;
+    text-align: justify;
 }
 
 .info-page-content p:first-of-type {

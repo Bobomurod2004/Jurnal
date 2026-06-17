@@ -378,6 +378,48 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+(function () {
+  function syncAllEditors() {
+    if (!window.CKEDITOR || !window.CKEDITOR.instances) return;
+    Object.keys(window.CKEDITOR.instances).forEach(function (key) {
+      var ed = window.CKEDITOR.instances[key];
+      if (ed && typeof ed.updateElement === 'function') {
+        ed.updateElement();
+      }
+    });
+  }
+
+  function bindFormSubmitSync() {
+    var form = document.getElementById('editorial-member-form');
+    if (!form || form.dataset.bioSyncBound === '1') return;
+    form.dataset.bioSyncBound = '1';
+    form.addEventListener('submit', syncAllEditors);
+  }
+
+  function onCKEditorReady() {
+    bindFormSubmitSync();
+
+    window.CKEDITOR.on('instanceReady', function (evt) {
+      var editor = evt.editor;
+      editor.on('change', function () {
+        editor.updateElement();
+      });
+      editor.on('key', function () {
+        setTimeout(function () { editor.updateElement(); }, 0);
+      });
+    });
+  }
+
+  if (window.__fmadminWordEditorReady && typeof window.__fmadminWordEditorReady.then === 'function') {
+    window.__fmadminWordEditorReady.then(onCKEditorReady);
+  } else {
+    document.addEventListener('DOMContentLoaded', function () {
+      setTimeout(onCKEditorReady, 300);
+    });
+  }
+})();
+</script>
 <style>
   .editorial-admin-shell {
     display: grid;
