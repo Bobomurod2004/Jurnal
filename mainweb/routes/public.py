@@ -10,6 +10,7 @@ import zipfile
 from functools import lru_cache
 from urllib.parse import urlparse, parse_qs, unquote
 from flask import current_app, render_template, session, request, jsonify, flash, redirect, url_for, send_file, send_from_directory, abort, Response
+from markupsafe import escape
 from extensions import dbc
 from modules.translate import t, translate, clear_translations_cache
 try:
@@ -2949,13 +2950,92 @@ def _fetch_contact_social_links():
     return social_links
 
 
+def _fetch_author_guideline_docs():
+    """Return uploaded author-guideline document paths managed in fmadmin.
+
+    Stored in the ``settings`` table under the key ``author_guideline_docs``
+    as a JSON object: ``{"uz": "/static/uploads/...", "ru": "...", "en": "..."}``.
+    """
+    docs = {}
+    try:
+        rows = dbc.settings.get(k='author_guideline_docs').exec()
+        if rows and rows[0].get('v'):
+            data = json.loads(rows[0]['v'])
+            if isinstance(data, dict):
+                for lang_code in ('uz', 'ru', 'en'):
+                    value = data.get(lang_code)
+                    if isinstance(value, str) and value.strip():
+                        docs[lang_code] = value.strip()
+    except Exception:
+        pass
+    return docs
+
+
+# Labels for the author-guideline download links, keyed by document language.
+_AUTHOR_GUIDELINE_DOC_LABELS = {
+    'uz': "O'zbekcha (Mualliflar uchun ko'rsatmalar)",
+    'ru': 'Русский (Требования к статьям)',
+    'en': 'English (Author Guidelines)',
+}
+
+# ASCII-safe base filenames used for the downloaded file, keyed by document language.
+_AUTHOR_GUIDELINE_DOC_FILENAMES = {
+    'uz': 'Philology_Matters_Author_Guidelines_UZ',
+    'ru': 'Philology_Matters_Author_Guidelines_RU',
+    'en': 'Philology_Matters_Author_Guidelines_EN',
+}
+
+# Localized heading for the download section, keyed by the current UI language.
+_AUTHOR_GUIDELINE_DOWNLOAD_HEADING = {
+    'uz': 'Hujjatlarni yuklab olish',
+    'ru': 'Скачать документы',
+    'en': 'Download Documents',
+}
+
+
+def _author_guideline_download_section(lang):
+    """Build the HTML for the author-guideline downloads block, or '' if none."""
+    docs = _fetch_author_guideline_docs()
+    if not docs:
+        return ''
+
+    items_html = ''
+    for doc_lang in ('uz', 'ru', 'en'):
+        url = docs.get(doc_lang)
+        if not url:
+            continue
+        normalized_url = _normalize_public_upload_url(url) or url
+        safe_url = escape(normalized_url)
+        label = escape(_AUTHOR_GUIDELINE_DOC_LABELS.get(doc_lang, doc_lang.upper()))
+        ext = normalized_url.rsplit('.', 1)[-1].lower() if '.' in normalized_url.rsplit('/', 1)[-1] else ''
+        base_name = _AUTHOR_GUIDELINE_DOC_FILENAMES.get(doc_lang, f'Author_Guidelines_{doc_lang.upper()}')
+        download_name = escape(f'{base_name}.{ext}' if ext else base_name)
+        items_html += (
+            '<li>'
+            f'<a href="{safe_url}" download="{download_name}" class="text-fmmain hover:underline">'
+            f'<iconify-icon icon="tabler:file-type-pdf" class="align-middle"></iconify-icon> {label}</a>'
+            '</li>'
+        )
+    if not items_html:
+        return ''
+
+    heading = escape(_AUTHOR_GUIDELINE_DOWNLOAD_HEADING.get(lang, _AUTHOR_GUIDELINE_DOWNLOAD_HEADING['en']))
+    return (
+        '\n<section>'
+        f'<h4 class="text-lg font-semibold mb-3">{heading}</h4>'
+        f'<ul class="list-disc list-inside space-y-1">{items_html}</ul>'
+        '</section>'
+    )
+
+
 def _render_journal_info_page():
     page = _seed_page_payload('journal_info')
     if not page:
         flash('Page not found', 'error')
         return redirect(url_for('app__index'))
 
-    page = _apply_localized_content(page, ('title', 'content'), lang=_current_lang_code())
+    lang = _current_lang_code()
+    page = _apply_localized_content(page, ('title', 'content'), lang=lang)
 
     social_links = _fetch_contact_social_links()
     if social_links:
@@ -2977,9 +3057,14 @@ def _render_journal_info_page():
                 f'{name} &#8211; {url}</a></div>'
             )
         if items_html:
+            official_pages_heading = {
+                'uz': 'Jurnalning rasmiy sahifalari',
+                'ru': 'Официальные страницы журнала',
+                'en': 'Official Pages of the Journal',
+            }.get(lang, 'Official Pages of the Journal')
             social_section = (
                 '\n<section>'
-                '<h4 class="text-lg font-semibold mb-3">Official Pages of the Journal</h4>'
+                f'<h4 class="text-lg font-semibold mb-3">{official_pages_heading}</h4>'
                 '<div class="space-y-3">' + items_html + '</div>'
                 '</section>'
             )
@@ -3007,7 +3092,14 @@ def app__page_alias(alias):
         flash('Page not found', 'error')
         return redirect(url_for('app__index'))
 
-    page = _apply_localized_content(page, ('title', 'content'), lang=_current_lang_code())
+    lang = _current_lang_code()
+    page = _apply_localized_content(page, ('title', 'content'), lang=lang)
+
+    if page_alias == 'author_instructions':
+        download_section = _author_guideline_download_section(lang)
+        if download_section:
+            page['content'] = (page.get('content') or '').rstrip() + download_section
+
     no_toc_aliases = {'author_instructions'}
     return render_template('mainweb/page.html', page=page, show_toc=(page_alias not in no_toc_aliases))
 

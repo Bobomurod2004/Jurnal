@@ -7876,6 +7876,62 @@ def contact_info_settings():
     )
 
 
+@bp.route('/fmadmin/website/author-guidelines', methods=['GET', 'POST'])
+@is_superadmin_required
+def author_guideline_docs_settings():
+    """Manage the downloadable author-guideline documents (UZ / RU / EN).
+
+    Paths are stored in the ``settings`` table under the key
+    ``author_guideline_docs`` as JSON: ``{"uz": path, "ru": path, "en": path}``.
+    The public page /page/author_instructions renders download links for them.
+    """
+    doc_langs = [
+        ('uz', "O'zbekcha (Mualliflar uchun ko'rsatmalar)"),
+        ('ru', 'Русский (Требования к статьям)'),
+        ('en', 'English (Author Guidelines)'),
+    ]
+    allowed_exts = ['pdf', 'doc', 'docx']
+
+    def _load_docs():
+        try:
+            raw = _get_site_setting('author_guideline_docs', '')
+            if raw:
+                data = json.loads(raw)
+                if isinstance(data, dict):
+                    return {k: v for k, v in data.items() if isinstance(v, str) and v.strip()}
+        except Exception:
+            pass
+        return {}
+
+    if request.method == 'POST':
+        docs = _load_docs()
+        try:
+            for code, _label in doc_langs:
+                if request.form.get(f'remove_{code}'):
+                    docs.pop(code, None)
+                    continue
+                uploaded = request.files.get(f'doc_{code}')
+                if uploaded and uploaded.filename:
+                    docs[code] = save_file('author_guidelines', uploaded, allowed_exts)
+            ok = _set_site_setting('author_guideline_docs', json.dumps(docs, ensure_ascii=False))
+            if ok:
+                flash('Mualliflar uchun hujjatlar saqlandi', 'success')
+            else:
+                flash('Saqlashda xatolik yuz berdi', 'danger')
+        except ValueError as exc:
+            flash(str(exc), 'danger')
+        except Exception:
+            flash('Saqlashda xatolik yuz berdi', 'danger')
+        return redirect(url_for('author_guideline_docs_settings'))
+
+    return render_template(
+        'website/author_guidelines.html',
+        docs=_load_docs(),
+        doc_langs=doc_langs,
+        allowed_exts=allowed_exts,
+    )
+
+
 @bp.route('/fmadmin/website/payment-guide', methods=['GET', 'POST'])
 @is_superadmin_required
 def payment_guide_settings():

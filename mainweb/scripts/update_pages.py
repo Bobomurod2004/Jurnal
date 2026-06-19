@@ -128,526 +128,554 @@ PAGES_DATA = {
     'author_instructions': {
         'title': 'Guidelines for Authors',
         'title_uz': 'Mualliflar uchun ko\'rsatmalar',
-        'title_ru': 'Инструкции для авторов',
+        'title_ru': 'Руководство для авторов',
         'content': '''
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Guidelines for Authors</h4>
-          <p class="mb-0">Thank you for choosing to submit your paper to the electronic scientific-methodological journal <strong>Philology Matters</strong>. These instructions will ensure we have everything required so your paper can move through double-blinded peer review, production and publication smoothly. Please take the time to read and follow them as closely as possible, as doing so will ensure your paper matches the journal's requirements.</p>
+          <h4 class="text-lg font-semibold mb-3">I. Preparation of the Manuscript for Publication</h4>
+          <p class="mb-4">The manuscript is submitted through the journal's official website: <a href="https://philmatt.uzswlu.uz/" class="text-fmmain hover:underline">https://philmatt.uzswlu.uz/</a>, with each version attached as an individual file. The first version, containing the author's full name, institutional affiliation, and email address, should be saved as: <strong>Surname_manuscript.docx</strong>. The second version, prepared for double-blind peer review and excluding all author information, should be saved under the word "Manuscript": <strong>Manuscript.docx</strong>. In this version, the word "Author" should be used in references to the author's own publications instead of the author's full name.</p>
+          <p class="mb-4">The submitted manuscript must not have been previously published in other journals or publications and should present the results of the author's original research, demonstrating its scientific novelty, relevance, and theoretical as well as practical significance.</p>
+          <p class="mb-4">All the manuscripts that have passed the technical review are checked using Antiplag.uz or Turnitin.com. Only manuscripts with an originality rate exceeding 80% are accepted for further editorial processing.</p>
+          <p class="mb-4">The review process is conducted in accordance with the principles of double-blind peer review. Manuscripts that receive positive reviewer evaluations are forwarded to a journal expert for further editorial preparation prior to publication.</p>
+          <p class="mb-0">To ensure compliance with the journal's requirements, authors are assisted by a journal expert throughout the editorial process. The editorial board is committed to maintaining constructive cooperation with authors until a final positive editorial decision is reached. All communication between the author and the editorial board is conducted through the journal expert.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">About the Journal</h4>
-          <p class="mb-4"><strong>Philology Matters</strong> is an electronic scientific-methodological journal publishing high-quality, original research. Please see the journal's <a href="/page/aims_scope" class="text-fmmain hover:underline">Aims &amp; Scope</a> for information about its focus and peer-review policy.</p>
-          <p class="mb-4">Please note that this journal publishes manuscripts in different languages.</p>
-          <p class="mb-2"><strong>Philology Matters</strong> is an electronic scientific-methodological journal that accepts the following types of articles:</p>
+          <h4 class="text-lg font-semibold mb-3">II. Technical Guidelines for Manuscript Preparation</h4>
+          <p class="mb-4">The manuscript should contain 4,000–7,000 words for doctoral students, independent researchers, and academic staff, and 2,500–3,000 words for master's degree students. Manuscripts must be submitted in DOCX format and prepared in Times New Roman font with 1.5 line spacing and 2 cm margins on all sides.</p>
+          <p class="mb-4">The title of the manuscript should be centered at the top of the page and typed in 14 pt BOLD UPPERCASE LETTERS without paragraph indentation. No full stop should be placed at the end of the title. The title must be provided in Uzbek, English, and Russian, as well as in the language of the manuscript.</p>
+          <p class="mb-4">Below the title, the author's first name, patronymic, and surname should be provided in Uzbek, English, and Russian, as well as in the language of the manuscript, in 14 pt bold font. The number of authors of a single manuscript must not exceed three.</p>
+          <p class="mb-4">The following line should contain the full name of the author's (authors') institution, followed by the city and country. On the next line, the email address of the corresponding author should be indicated in 14 pt font. This information must be provided in Uzbek, English, and Russian, as well as in the language of the manuscript. If the authors are affiliated with different institutions, the corresponding affiliation should be specified separately for each author. Only the principal place of work or study of the author(s) should be indicated. The ORCID ID of each author should also be provided. Author information in each language should be presented separately.</p>
+          <p class="mb-4">The abstract should be placed below the author information. It must include the relevance of the study, the aims and objectives of the research, the methods employed, the main findings, and the conclusions. The abstract should contain 250–300 words for doctoral students, independent researchers, and academic staff, and 150–200 words for master's degree students. It must be provided in Uzbek, English, and Russian, as well as in the language of the manuscript. The abstract should be formatted in 14 pt font, with 2 cm left and right indents, justified alignment, and a 1 cm first-line paragraph indent. A 1.5-line space should be left after the abstract.</p>
+          <p class="mb-4">Below the abstract, 8–10 keywords for doctoral students, independent researchers, and academic staff, and 6–8 keywords for master's degree students should be provided. The keywords should reflect the subject matter of the research and facilitate the retrieval of relevant information. Keywords should be formatted in a 14 pt font, with 2 cm left and right indents and justified alignment. A 1.5-line space should be left after the keywords.</p>
+          <p class="mb-0">The main text of the manuscript should be typed in regular 14 pt font. The text should be justified, with a first-line paragraph indent of 1 cm. The journal publishes two types of manuscripts, which must be prepared in accordance with the IMRAD format.</p>
+        </section>
+        <section class="mb-8">
+          <h4 class="text-lg font-semibold mb-3">1. Original Research Article (IMRAD structure)</h4>
+          <p class="mb-4">An <strong>Original Research Article</strong> presents the results of an original empirical study conducted by the author(s). In other words, the author independently collects data, analyzes them, and formulates conclusions. The manuscript should include the following sections, with the titles of the IMRAD sections indicated in UPPERCASE LETTERS:</p>
+          <p class="mb-2"><strong>INTRODUCTION</strong></p>
+          <p class="mb-3">This section should provide the rationale for the study and establish the research context. It should include:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>the relevance of the research topic;</li>
+            <li>formulation of the research question;</li>
+            <li>a brief review of existing studies;</li>
+            <li>identification of the research gap;</li>
+            <li>the aim and objectives of the study;</li>
+            <li>the hypothesis (if applicable).</li>
+          </ul>
+          <p class="mb-4"><em>→ This section should justify the necessity and scholarly significance of the study.</em></p>
+          <p class="mb-2"><strong>METHODS</strong></p>
+          <p class="mb-3">This section should provide a detailed description of the research procedure sufficient to ensure the transparency and replicability of the study. The section should include:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>the research design (experimental, correlational, corpus-based analysis, etc.);</li>
+            <li>the object and subject of the research;</li>
+            <li>data collection methods: questionnaires; interviews; observation; text or corpus analysis;</li>
+            <li>sample characteristics: sample size; sample parameters;</li>
+            <li>methods of analysis: statistical methods (SPSS, R, etc.); linguistic or cognitive methods;</li>
+            <li>issues of research reliability and validity.</li>
+          </ul>
+          <p class="mb-4"><em>→ This section should provide sufficient detail to enable replication of the study.</em></p>
+          <p class="mb-2"><strong>RESULTS</strong></p>
+          <p class="mb-3">This section presents only factual findings without interpretation. The section should include:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>the main empirical findings;</li>
+            <li>tables, graphs, and charts (if applicable);</li>
+            <li>statistical indicators;</li>
+            <li>identified patterns and trends.</li>
+          </ul>
+          <p class="mb-4"><em>→ This section should answer the question: "What results were obtained?"</em></p>
+          <p class="mb-2"><strong>DISCUSSION</strong></p>
+          <p class="mb-3">This section is devoted to the interpretation of the findings and explains their scholarly significance. The section should include:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>interpretation of the findings;</li>
+            <li>comparison with previous studies;</li>
+            <li>confirmation or refutation of the hypothesis;</li>
+            <li>theoretical significance of the study;</li>
+            <li>practical significance of the study;</li>
+            <li>limitations of the study;</li>
+            <li>directions for further research.</li>
+          </ul>
+          <p class="mb-4"><em>→ This section reveals the scientific significance of the study.</em></p>
+          <p class="mb-2"><strong>CONCLUSION</strong> (not included in the IMRAD format but considered a mandatory section)</p>
+          <p class="mb-3">The section should include:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>the conclusions of the study;</li>
+            <li>the scientific novelty of the study;</li>
+            <li>a concise summary of the findings.</li>
+          </ul>
+          <p class="mb-0">Citations should not be included in this section.</p>
+        </section>
+        <section class="mb-8">
+          <h4 class="text-lg font-semibold mb-3">2. Review Article (IMRAD structure)</h4>
+          <p class="mb-4">A <strong>Review Article</strong> (review research article or analytical article) presents a systematic analysis, comparison, and synthesis of previously published studies within a particular research field. Unlike an Original Research Article, a Review Article does not involve the collection of new empirical data; instead, it develops theoretical and methodological conclusions based on existing scholarly literature. The manuscript should include the following sections, with the titles of the structural sections indicated in UPPERCASE LETTERS:</p>
+          <p class="mb-2"><strong>INTRODUCTION</strong></p>
+          <p class="mb-3">The section should include:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>the relevance of the research field;</li>
+            <li>justification for conducting the review study;</li>
+            <li>formulation of the research problem;</li>
+            <li>the aim of the review.</li>
+          </ul>
+          <p class="mb-4"><em>→ Identification of research gaps related to the problem is mandatory.</em></p>
+          <p class="mb-2"><strong>METHODS</strong></p>
+          <p class="mb-3">The section should include:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>criteria for source selection: time period; databases used (Scopus, Web of Science, etc.);</li>
+            <li>the search strategy and keywords used;</li>
+            <li>inclusion and exclusion criteria for sources;</li>
+            <li>methods of analysis: thematic analysis; meta-analysis (if applicable).</li>
+          </ul>
+          <p class="mb-4"><em>→ This section should ensure the scientific validity and methodological transparency of the review.</em></p>
+          <p class="mb-2"><strong>RESULTS</strong></p>
+          <p class="mb-3">This section presents the results of the analysis of scholarly literature, not empirical data. The section should include:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>the main scientific approaches;</li>
+            <li>major theoretical schools;</li>
+            <li>contradictions and inconsistencies in previous studies;</li>
+            <li>current research trends;</li>
+            <li>comparative tables.</li>
+          </ul>
+          <p class="mb-4"><em>→ This section should provide a comprehensive scholarly overview of the research topic under consideration.</em></p>
+          <p class="mb-2"><strong>DISCUSSION</strong></p>
+          <p class="mb-3">This section is the main analytical section of the review manuscript. The section should include:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>generalized conclusions based on the analysis of the literature;</li>
+            <li>critical evaluation of existing approaches;</li>
+            <li>identification of research gaps;</li>
+            <li>unresolved or problematic issues within the research field;</li>
+            <li>directions for further research.</li>
+          </ul>
+          <p class="mb-2"><strong>CONCLUSION</strong> (not included in the IMRAD format but considered a mandatory section)</p>
+          <p class="mb-3">The section should include:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>final generalizations;</li>
+            <li>theoretical conclusions;</li>
+            <li>recommendations based on the review findings.</li>
+          </ul>
+          <p class="mb-0">Citations should not be included in this section.</p>
+        </section>
+        <section class="mb-8">
+          <h4 class="text-lg font-semibold mb-3">Figures, Formulas, and Tables</h4>
+          <p class="mb-4">Figures should be prepared using CorelDRAW or one of the Microsoft Office applications. Graphs, figures, and photographs should be placed in the manuscript immediately after their first mention in the text. In the electronic version of the manuscript, each figure, photograph, graph, and other illustrative material should additionally be submitted to the editorial board as a separate file. Illustrations, tables, and formulas may be formatted across the full width of the page. The caption of an illustration should be centered below it. After the word "Figure" (12 pt, bold font), the sequential number of the figure should be indicated, followed by the figure title in 12 pt regular font. If the manuscript contains only one figure, it should not be numbered.</p>
+          <p class="mb-4">Formulas should be prepared using Microsoft Equation or MathType. Formulas should be centred on the page, while their sequential number should be indicated in parentheses and aligned to the right margin. If the manuscript contains only one formula, it should not be numbered.</p>
+          <p class="mb-0">The word "Table" with its sequential number should be placed above the table and aligned to the right. On the following line, the title of the table should be provided, centered, without paragraph indentation or line breaks. No full stop should be placed at the end of the table title. One line space should be left after the table. If the manuscript contains only one table, it should not be numbered.</p>
+        </section>
+        <section class="mb-8">
+          <h4 class="text-lg font-semibold mb-3">References and Citations</h4>
+          <p class="mb-4">In-text references should be provided in square brackets and include the author's surname, year of publication, and page number: [Ivanov, 1990: 25]; for two authors – [Toshmatov &amp; Azizova, 2023: 45]; for three or more authors – [Toshmatov et al., 2025: 56].</p>
+          <p class="mb-4">The manuscript should include no fewer than 30 and no more than 60 references. Every source included in the reference list must be cited in the main text through a corresponding in-text reference. The number of sources must be identical in both versions of the reference list.</p>
+          <p class="mb-4">In-text references to sources in foreign languages should be provided in the language of the article's publication. The reference list should also be presented in the original language of the cited sources.</p>
+          <p class="mb-4">The author bears full responsibility for the accuracy of quotations and the correct formatting of references.</p>
+          <p class="mb-4">Examples included in the manuscript should be italicised and presented without quotation marks. The source of the example, including the author's surname, initials, and page number, should be indicated in parentheses: <em>She had not known the weight until she felt the freedom</em> (Morrison T. Beloved, 112).</p>
+          <p class="mb-4">In manuscripts written in English, examples in Russian should be presented in the original language and accompanied by a literal (interlinear) English translation.</p>
+          <p class="mb-4">The reference list should be placed after the main text of the article in alphabetical order under the headings FOYDALANILGAN ADABIYOTLAR / LITERATURA and REFERENCES. No full stop or colon should be placed after the headings. The headings should be formatted in 14 pt bold font. The reference list must be prepared in accordance with APA style. References to the author's own publications should not exceed one-third of the total number of sources.</p>
+          <p class="mb-4">Sources published in Russian should be transliterated automatically using the BGN (Board of Geographic Names) system available at translit.ru.</p>
+          <p class="mb-2"><strong>LITERATURA</strong></p>
+          <ul class="list-disc list-inside space-y-1 mb-4">
+            <li>1. Abramyan, L., Barker, A., Belkov, P. (2004). Sovremennyye tendentsii v antropologicheskikh issledovaniyakh. <em>Antropologicheskiy forum</em>, 1, 6–101.</li>
+            <li>2. Agapkin, I.I. (2018). Ideya «kosmo-psikho-logosa» v tvorcheskom nasledii G.D. Gacheva. <em>Vestnik Russkoy khristianskoy gumanitarnoy akademii</em>, 19(2), 261–268.</li>
+            <li>3. Baryshnikov, P.N. (2010). <em>Mif i metafora: lingvofilosofskiy podkhod</em>. Sankt-Peterburg: Aleteyya.</li>
+            <li>4. Gumbol'dt, fon V. (2000). <em>Izbrannyye trudy po yazykoznaniyu</em> (2-ye izd.). Moskva: Progress.</li>
+          </ul>
+          <p class="mb-3">If the manuscript is not written in English, the reference list should be provided in two versions:</p>
           <ul class="list-disc list-inside space-y-1">
-            <li>Original Research Article</li>
-            <li>Review Article</li>
+            <li>The first version should be presented entirely in Latin script. Sources published in Russian should be provided in Latin transliteration.</li>
+            <li>The second version should be provided entirely in English. For sources originally published in languages other than English, the language of publication should be indicated in parentheses at the end of the reference, for example: (in Russian), (in Uzbek), etc.</li>
           </ul>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Open Access</h4>
-          <p class="mb-4">You have the option to publish open access in this journal via our Open Select publishing program. Publishing open access means that your article will be free to access online immediately on publication, increasing the visibility, readership and impact of your research.</p>
-          <p class="mb-0">You will be asked to pay an article publishing charge to make your article open access, and this cost can often be covered by your institution or funder.</p>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Peer Review and Ethics</h4>
-          <p class="mb-0">The editorial board of the electronic scientific and methodological journal <strong>Philology Matters</strong> is committed to maintaining the integrity of the peer review process and upholding the highest standards of manuscript evaluation. Following an initial assessment of the manuscript's suitability by the editor, the submission undergoes a <strong>double-blind peer review</strong> conducted by two independent anonymous reviewers. Find out more about what to expect during peer review and read our guidance on <a href="/page/editorial_policy" class="text-fmmain hover:underline">publishing ethics</a>.</p>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Preparing Your Paper</h4>
-          <h5 class="font-semibold mb-2">General Guidelines</h5>
-          <ul class="list-disc list-inside space-y-2">
-            <li>manuscripts must be structured in the following strict sequence: the title in three languages (Uzbek, Russian, and English); abstract and keywords in three languages (Uzbek, Russian, and English); the main text organized according to the IMRAD structure: Introduction, Methods, Results and Discussion (Acknowledgements, Declaration of Interests, and Recommendations &ndash; optional); appendices; tables with titles (submitted on separate pages); figures; and, where necessary, figure captions presented in list form;</li>
-            <li>the abstract must be provided in three languages (Uzbek, Russian, and English) and contain 250&ndash;300 words, clearly reflecting the purpose of the study, its novelty, research methods, main findings, and principal conclusions;</li>
-            <li>keywords must be provided in three languages (Uzbek, Russian, and English) and should not exceed 8&ndash;10 entries;</li>
-            <li>the main body of the manuscript, from the introduction to the conclusion, must contain between 4,000 and 7,000 words (excluding the abstract and keywords);</li>
-            <li>the list of references must include 30&ndash;60 sources presented in the Latin alphabet, accompanied by English translations where the manuscript is not written in English.</li>
+          <h4 class="text-lg font-semibold mb-3">III. Article Review Procedure</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li>1. Upon submission, the article initially undergoes a technical screening, followed by plagiarism detection. After compliance with the journal requirements has been confirmed, the manuscript is forwarded for peer review. The identities of reviewers are not disclosed to the authors and reviewers are likewise not provided with information about the authors.</li>
+            <li>2. The editorial board does not publish manuscripts on a commercial or commissioned basis and does not guarantee publication within timeframes specified by the authors. The editorial board reserves the right to make necessary editorial corrections and reductions to the manuscript.</li>
+            <li>3. If a manuscript is returned to the author for revision, the revised version must be resubmitted for repeated review. If additional revisions are required following the repeated review, the revision process continues until a positive review decision is obtained.</li>
+            <li>4. Manuscripts returned for revision are considered newly submitted and are reviewed for the issue during which they were resubmitted. Manuscripts in which plagiarism is detected are returned to the author for correction and subsequently undergo repeated plagiarism screening. Editorial cooperation with the author continues until the manuscript achieves an originality level of at least 80%.</li>
+            <li>5. Following a positive review decision, the editorial board determines whether the manuscript may be accepted for publication in the journal.</li>
+            <li>6. ATTENTION! All communication between the editorial board, the journal expert, and the authors is conducted via email throughout all stages of manuscript processing. Authors are required to provide a valid email address and promptly notify the editorial board of any changes. In the case of co-authored manuscripts, correspondence is conducted with the designated corresponding author.</li>
+            <li>7. The editorial board does not consider appeals concerning editorial decisions, reviewers' comments, or other matters related to manuscript submission, formatting, peer review, and publication procedures. Editorial decisions regarding manuscripts are made collectively by the editorial board.</li>
+            <li>8. Manuscripts that have undergone the review process are not returned to the authors.</li>
+            <li>9. The author(s) bear full responsibility for scientific and factual accuracy, as well as for the quality of the abstract translation. In such cases, the revised manuscript must be resubmitted together with the necessary corrections and justified explanations.</li>
+            <li>10. No substantial changes may be introduced after the manuscript has been typeset. Authors have the right to withdraw the manuscript from publication; however, payment for the review process remains mandatory.</li>
+            <li>11. The scientific views expressed by the author may not necessarily coincide with the position of the editorial board.</li>
+            <li>12. The editorial board kindly requests that authors observe the principles of academic ethics in scholarly communication, refrain from unfounded evaluative judgments, and avoid inappropriate statements regarding the journal regulations and expert reviews.</li>
           </ul>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Types of Articles</h4>
-          <div class="space-y-6">
-            <div>
-              <h5 class="font-semibold mb-2">1. Original Research Article</h5>
-              <p class="mb-3">An <strong>Original Research Article</strong> presents the results of an original empirical study conducted by the author(s). In other words, the author independently collects data, analyzes them, and formulates conclusions. The manuscript should include the following sections, with the titles of the IMRAD sections indicated in UPPERCASE LETTERS:</p>
-              <div class="space-y-4">
-                <div>
-                  <h6 class="font-semibold mb-1">INTRODUCTION</h6>
-                  <p class="mb-2">This section should provide the rationale for the study and establish the research context. It should include:</p>
-                  <ul class="list-disc list-inside space-y-1 mb-2">
-                    <li>the relevance of the research topic;</li>
-                    <li>formulation of the research question;</li>
-                    <li>a brief review of existing studies;</li>
-                    <li>identification of the research gap;</li>
-                    <li>the aim and objectives of the study;</li>
-                    <li>the hypothesis (if applicable).</li>
-                  </ul>
-                  <p class="mb-0">This section should justify the necessity and scholarly significance of the study.</p>
-                </div>
-                <div>
-                  <h6 class="font-semibold mb-1">METHODS</h6>
-                  <p class="mb-2">This section should provide a detailed description of the research procedure sufficient to ensure the transparency and replicability of the study. The section should include:</p>
-                  <ul class="list-disc list-inside space-y-1 mb-2">
-                    <li>the research design (experimental, correlational, corpus-based analysis, etc.);</li>
-                    <li>the object and subject of the research;</li>
-                    <li>data collection methods: questionnaires; interviews; observation; text or corpus analysis;</li>
-                    <li>sample characteristics: sample size; sample parameters;</li>
-                    <li>methods of analysis: statistical methods (SPSS, R, etc.); linguistic or cognitive methods;</li>
-                    <li>issues of research reliability and validity.</li>
-                  </ul>
-                  <p class="mb-0">This section should provide sufficient detail to enable replication of the study.</p>
-                </div>
-                <div>
-                  <h6 class="font-semibold mb-1">RESULTS</h6>
-                  <p class="mb-2">This section presents only factual findings without interpretation. The section should include:</p>
-                  <ul class="list-disc list-inside space-y-1 mb-2">
-                    <li>the main empirical findings;</li>
-                    <li>tables, graphs, and charts (if applicable);</li>
-                    <li>statistical indicators;</li>
-                    <li>identified patterns and trends.</li>
-                  </ul>
-                  <p class="mb-0">This section should answer the question: &ldquo;What results were obtained?&rdquo;</p>
-                </div>
-                <div>
-                  <h6 class="font-semibold mb-1">DISCUSSION</h6>
-                  <p class="mb-2">This section is devoted to the interpretation of the findings and explanation of their scholarly significance. The section should include:</p>
-                  <ul class="list-disc list-inside space-y-1 mb-2">
-                    <li>interpretation of the findings;</li>
-                    <li>comparison with previous studies;</li>
-                    <li>confirmation or refutation of the hypothesis;</li>
-                    <li>theoretical significance of the study;</li>
-                    <li>practical significance of the study;</li>
-                    <li>limitations of the study;</li>
-                    <li>directions for further research.</li>
-                  </ul>
-                  <p class="mb-0">This section reveals the scientific significance of the study.</p>
-                </div>
-                <div>
-                  <h6 class="font-semibold mb-1">CONCLUSION</h6>
-                  <p class="mb-2">(not included in the IMRAD format but considered a mandatory section) The section should include:</p>
-                  <ul class="list-disc list-inside space-y-1 mb-2">
-                    <li>the conclusions of the study;</li>
-                    <li>the scientific novelty of the study;</li>
-                    <li>a concise summary of the findings.</li>
-                  </ul>
-                  <p class="mb-0">Citations should not be included in this section.</p>
-                </div>
-              </div>
-            </div>
-            <div>
-              <h5 class="font-semibold mb-2">2. Review Article</h5>
-              <p class="mb-3">A <strong>Review Article</strong> (review research article or analytical article) presents a systematic analysis, comparison, and synthesis of previously published studies within a particular research field. Unlike an Original Research Article, a Review Article does not involve the collection of new empirical data; instead, it develops theoretical and methodological conclusions based on existing scholarly literature. The manuscript should include the following sections, with the titles of the structural sections indicated in UPPERCASE LETTERS:</p>
-              <div class="space-y-4">
-                <div>
-                  <h6 class="font-semibold mb-1">INTRODUCTION</h6>
-                  <p class="mb-2">The section should include:</p>
-                  <ul class="list-disc list-inside space-y-1 mb-2">
-                    <li>the relevance of the research field;</li>
-                    <li>justification for conducting the review study;</li>
-                    <li>formulation of the research problem;</li>
-                    <li>the aim of the review.</li>
-                  </ul>
-                  <p class="mb-0">Identification of research gaps related to the problem is mandatory.</p>
-                </div>
-                <div>
-                  <h6 class="font-semibold mb-1">METHODS</h6>
-                  <p class="mb-2">The section should include:</p>
-                  <ul class="list-disc list-inside space-y-1 mb-2">
-                    <li>criteria for source selection: time period; databases used (Scopus, Web of Science, etc.);</li>
-                    <li>the search strategy and keywords used;</li>
-                    <li>inclusion and exclusion criteria for sources;</li>
-                    <li>methods of analysis: thematic analysis; meta-analysis (if applicable).</li>
-                  </ul>
-                  <p class="mb-0">This section should ensure the scientific validity and methodological transparency of the review.</p>
-                </div>
-                <div>
-                  <h6 class="font-semibold mb-1">RESULTS</h6>
-                  <p class="mb-2">This section presents the results of the analysis of scholarly literature, not empirical data. The section should include:</p>
-                  <ul class="list-disc list-inside space-y-1 mb-2">
-                    <li>the main scientific approaches;</li>
-                    <li>major theoretical schools;</li>
-                    <li>contradictions and inconsistencies in previous studies;</li>
-                    <li>current research trends;</li>
-                    <li>comparative tables.</li>
-                  </ul>
-                  <p class="mb-0">This section should provide a comprehensive scholarly overview of the research topic under consideration.</p>
-                </div>
-                <div>
-                  <h6 class="font-semibold mb-1">DISCUSSION</h6>
-                  <p class="mb-2">This section is the main analytical section of the review manuscript. The section should include:</p>
-                  <ul class="list-disc list-inside space-y-1 mb-2">
-                    <li>generalized conclusions based on the analysis of the literature;</li>
-                    <li>critical evaluation of existing approaches;</li>
-                    <li>identification of research gaps;</li>
-                    <li>unresolved or problematic issues within the research field;</li>
-                    <li>directions for further research.</li>
-                  </ul>
-                </div>
-                <div>
-                  <h6 class="font-semibold mb-1">CONCLUSION</h6>
-                  <p class="mb-2">(not included in the IMRAD format but considered a mandatory section) The section should include:</p>
-                  <ul class="list-disc list-inside space-y-1 mb-2">
-                    <li>final generalizations;</li>
-                    <li>theoretical conclusions;</li>
-                    <li>recommendations based on the review findings.</li>
-                  </ul>
-                  <p class="mb-0">Citations should not be included in this section.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Submission without Formatting</h4>
-          <p class="mb-4">Authors may submit their manuscripts in any scholarly format or arrangement. Manuscripts may be uploaded as single or multiple files in Word format (DOC or DOCX). Figures and tables may be embedded within the text or submitted as separate documents. All images must be of sufficient resolution to ensure clarity and readability.</p>
-          <ul class="list-disc list-inside space-y-2 mb-4">
-            <li>there are no strict formatting requirements; however, all manuscripts must contain the essential elements necessary for the initial evaluation process, including an abstract, basic author information (full name, position, academic degree, email address, and phone number in three languages: Uzbek, Russian, and English), as well as figures, tables, and appendices where applicable. Additional information may be requested following the acceptance of the manuscript;</li>
-            <li>the list of references must be prepared in accordance with the <strong>APA (American Psychological Association)</strong> citation style.</li>
-          </ul>
-          <p class="mb-0">Please note that, regardless of the original file format of the submission, an editable version of the manuscript must be provided at the revision stage.</p>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Checklist: What to Include</h4>
-          <ol class="list-decimal list-inside space-y-3">
-            <li><strong>Author details.</strong> Please ensure everyone meets the authorship criteria established by the electronic scientific-methodological journal <strong>Philology Matters</strong>. All authors of a manuscript should include their full names, position, academic degree, email address, and phone number on the cover page of the manuscript. Where available, please also include ORCID, Google Scholar, and Scopus profile links. If any changes in authorship occur during the peer review process, newly added contributors may be indicated with an explanatory note. Please note that no changes to authorship details will be permitted after the article has been published.</li>
-            <li><strong>Figures.</strong> Figures should be high quality (1200 dpi for line art, 600 dpi for grayscale and 300 dpi for colour, at the correct size). Figures should be supplied in one of the file formats accepted by the editorial office: PS, JPEG, TIFF, or Microsoft Word (DOC or DOCX) files are acceptable for figures that have been drawn in Word.</li>
-            <li><strong>Tables.</strong> Tables should be cited and referred to in the main text of the manuscript. Please supply editable files.</li>
-            <li><strong>Equations.</strong> If you are submitting your manuscript as a Word document, please ensure that equations are editable.</li>
-          </ol>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Using Third-Party Material</h4>
-          <p class="mb-0">You must obtain the necessary permission to reuse third-party material in your article. The use of short extracts of text and some other types of material is usually permitted, on a limited basis, for the purposes of criticism and review without securing formal permission. If you wish to include any material in your paper for which you do not hold copyright, and which is not covered by this informal agreement, you will need to obtain written permission from the copyright owner prior to submission.</p>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Submitting Your Paper</h4>
-          <p class="mb-4">To submit your manuscript, please <a href="/dashboard/new_article" class="text-fmmain hover:underline font-semibold">click here</a>.</p>
-          <p class="mb-4">Please note that the editorial office of the electronic scientific-methodological journal <strong>Philology Matters</strong> uses <strong>Antiplagiat.ru</strong> and <strong>Turnitin</strong> to screen manuscripts that meet the initial technical requirements for unoriginal material. By submitting your manuscript to the editorial office of <strong>Philology Matters</strong>, you consent to originality screening as part of the peer-review and production processes.</p>
-          <p class="mb-0">On acceptance, we recommend that you keep a copy of your Accepted Manuscript.</p>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Publication Charges</h4>
-          <p class="mb-0">The publication fee for one article per year in the electronic scientific-methodological journal <strong>Philology Matters</strong> is <strong>600,000 (six hundred thousand) Uzbek soums</strong> for citizens of the Republic of Uzbekistan. For international authors, the publication fee is <strong>100 (one hundred) US dollars</strong>.</p>
+          <h4 class="text-lg font-semibold mb-3">IV. Journal Policy</h4>
+          <p class="mb-2"><strong>Policy on the Use of Artificial Intelligence in Manuscript Preparation</strong></p>
+          <p class="mb-4">The author(s) are required to disclose any use of artificial intelligence in the preparation of the manuscript. Artificial intelligence tools cannot be identified as authors of the manuscript, and full responsibility for the content of the manuscript rests solely with the author(s).</p>
+          <p class="mb-4">The use of artificial intelligence is permitted solely for language editing, translation, and stylistic improvement of the text. The use of artificial intelligence for generating scientific results, analytical conclusions, unreliable information, or fictitious references is strictly prohibited.</p>
+          <p class="mb-4">ATTENTION! Every manuscript submitted to the journal must include one of the following statements. For example:</p>
+          <p class="mb-4"><em>"Artificial intelligence tools were used exclusively for language editing and stylistic improvement during the preparation of this manuscript. The scientific content, analysis, and conclusions are the sole responsibility of the author."</em></p>
+          <p class="mb-3">If artificial intelligence has not been used:</p>
+          <p class="mb-0"><em>"No artificial intelligence tools were used in the preparation of this manuscript."</em></p>
         </section>
         <section>
-          <h4 class="text-lg font-semibold mb-3">Copyright Options</h4>
-          <p class="mb-4">Copyright allows you to protect your original work and prevents unauthorised use of your work without your permission. The electronic scientific-methodological journal <strong>Philology Matters</strong> offers a number of different license and reuse options, including <strong>Creative Commons</strong> licenses when publishing open access. Read more on publishing agreements.</p>
-          <p class="mb-0">If you have any questions, please contact us at: <a href="mailto:philologymatters@uzswlu.uz" class="text-fmmain hover:underline">philologymatters@uzswlu.uz</a>.</p>
+          <h4 class="text-lg font-semibold mb-3">V. Copyright</h4>
+          <p class="mb-4">By submitting a manuscript to the editorial board, the authors consent to its publication in the journal Philology Matters in electronic form without payment of an honorarium. Upon publication, the authors transfer copyright for the published manuscript to the Uzbekistan State World Languages University. Authors of manuscripts accepted for publication are required to conclude a copyright agreement. The full text of the agreement is available in the "For Authors" section of the journal website.</p>
+          <p class="mb-0">Authors retain the right to use their materials in subsequent publications, provided that proper reference to the original publication in Philology Matters is indicated. Furthermore, in accordance with the Law of the Republic of Uzbekistan "On Personal Data" No. LRU-547 dated July 2, 2019, authors submitting manuscripts for publication consent to Uzbekistan State World Languages University processing the personal data provided, including its collection, systematization, storage, updating, use, and destruction. Such consent must be confirmed by the personal scanned signature of the author(s) and submitted together with the manuscript materials. This consent is granted for an indefinite period and may be withdrawn by written notification.</p>
         </section>
         ''',
         'content_uz': '''
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Mualliflar uchun ko'rsatmalar</h4>
-          <p class="mb-4">Maqolangizni nashr qilishda <strong>“Filologiya masalalari”</strong> elektron ilmiy-metodik jurnalini tanlaganingiz uchun tashakkur. Ushbu ko'rsatmalar sizning qo'lyozmangizni ikki karra o'zaro yashirin baholash (double-blinded peer review), tahrirlash va nashr etish jarayonlarini oson ta'minlash borasidagi zarur sharoitlarni yaratish uchun muhim.</p>
-          <p class="mb-0">Iltimos, ularni o'qishga vaqt ajrating va iloji boricha diqqat bilan ko'rib chiqing, chunki bu qo'lyozmangizning jurnal talablariga javob berishini kafolatlaydi.</p>
+          <h4 class="text-lg font-semibold mb-3">I. Maqolani nashrga tayyorlab yuborish</h4>
+          <p class="mb-4">Maqola jurnalning rasmiy veb-sayti orqali yuboriladi: <a href="https://philmatt.uzswlu.uz/" class="text-fmmain hover:underline">https://philmatt.uzswlu.uz/</a>. Maqola ekspertga elektron shaklda ikki variantda taqdim etiladi. Har bir variant alohida fayl ko'rinishida yuboriladi; maqolaning birinchi varianti uchun fayl nomi: <strong>Familiya_maqola.docx</strong>; maqolaning ikkinchi varianti uchun (unda muallifning shaxsiy ma'lumotlari olib tashlanadi) fayl nomi: <strong>Maqola.docx</strong>.</p>
+          <p class="mb-4">Birinchi variant ko'rsatilgan talablarga muvofiq rasmiylashtiriladi. Ikkinchi variantda muallif(lar) haqidagi barcha ma'lumotlar (ism-familiyasi, tashkilot nomi, elektron pochta manzili, shuningdek qo'lyozma yuborilgan tashkilot nomi) olib tashlanadi. Muallifning o'z ishlariga berilgan havolalarda F.I.Sh. o'rniga "muallif" so'zi qo'llaniladi.</p>
+          <p class="mb-4">Taqdim etilayotgan maqola avval boshqa nashrlarda chop etilmagan bo'lishi shart. Maqola muallif (mualliflar) tomonidan mustaqil bajarilgan original tadqiqot natijalarini o'z ichiga olishi va uning ilmiy yangiligi, dolzarbligi, nazariy va amaliy ahamiyati bilan aniq tavsiflanishi lozim.</p>
+          <p class="mb-4">Jurnal talablariga texnik jihatdan mos kelgan maqola qo'lyozmalari antiplag.uz yoki turnitin.com dasturida tekshiriladi. Maqolaning originallik darajasi 80%dan yuqori bo'lsa, tahrirlash bosqichiga o'tkaziladi.</p>
+          <p class="mb-4">Tahrirlash − double blind peer review (ikki tomonlama yopiq taqriz) asosida amalga oshiriladi. Taqrizchilarning ijobiy xulosasini olgan maqola keyingi bosqichga tayyorlash uchun ekspertga yuboriladi.</p>
+          <p class="mb-0">Maqolani jurnal talablariga mos keltirish maqsadida jurnal eksperti muallifga yordam beradi. Jurnal tahririyati doim maqolaning nashr etilishiga yo'naltirilgan bo'lib, qo'lyozma ijobiy baholangunga qadar muallif bilan konstruktiv hamkorlik qiladi. Muallif bilan muharrir faoliyati ekspert orqali amalga oshadi.</p>
         </section>
-
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Jurnal haqida</h4>
-          <p class="mb-4"><strong>“Filologiya masalalari”</strong> yuqori sifatli, original tadqiqotlarni nashr etuvchi elektron ilmiy-metodik jurnal hisoblanadi.</p>
-          <p class="mb-4">Jurnalda barcha tillarda maqolalar e'lon qilinadi. Jurnalning asosiy fokusi va ekspertiza siyosati haqida ma'lumot olish uchun jurnalning maqsadlari va qamroviga e'tibor qarating.</p>
-          <p class="mb-2">Jurnal quyidagi maqola turlarini qabul qiladi:</p>
+          <h4 class="text-lg font-semibold mb-3">II. Maqolaning texnik jihatdan rasmiylashtirilishi</h4>
+          <p class="mb-4">Maqola matnining hajmi 4000–7000 ta so'zdan (doktorantlar, mustaqil izlanuvchilar va professor-o'qituvchilar uchun) hamda 2500–3000 ta so'zdan (magistrantlar uchun) tashkil topishi va DOCX formatida 1,5 intervalda, Times New Roman shriftida, barcha tomondan 2 sm qoldirib yozilgan sahifalarda taqdim etilishi zarur.</p>
+          <p class="mb-4">Yuqori qatorda markaz bo'ylab maqola nomi – sarlavha 14 pt hajmda QALIN BOSMA BOSH HARFLAR bilan, markazda, abzats chekinishisiz beriladi. Sarlavha oxirida nuqta qo'yilmaydi. Maqola nomi uch tilda: o'zbek, ingliz va rus tillarida (hamda maqola tilida) taqdim etiladi.</p>
+          <p class="mb-4">Maqola sarlavhasidan keyin muallif(lar)ning ismi, otasining ismi va familiyasi (uch tilda: o'zbek, ingliz va rus tillarida (hamda maqola tilida)) – 14 pt, qalin shrift bilan yoziladi. Bir maqolada 3 tadan ortiq muallif bo'lmasligi kerak!</p>
+          <p class="mb-4">Keyingi qatorda muallif(lar)ning ish joyi hisoblangan tashkilotning to'liq nomi, shahar va mamlakat ko'rsatiladi, undan keyingi qatorda korrespondent muallifning elektron pochta manzili beriladi (14 pt) (uch tilda: o'zbek, ingliz va rus tillarida (hamda maqola tilida)). Agar mualliflar turli tashkilotlarda ishlasa, har bir muallif uchun alohida tashkilot nomi (affiliatsiya) ko'rsatiladi. Faqat muallif(lar)ning asosiy ish yoki ta'lim maskani ko'rsatiladi. Shundan so'ng muallif(lar)ning ORCID ID(lar)i keltiriladi. Muallif(lar) haqidagi ma'lumotlar har bir tilda alohida-alohida taqdim etilishi kerak.</p>
+          <p class="mb-4">Keyingi qatorda maqolaning annotatsiyasi beriladi. Unda mavzuning tavsifi, maqsad, vazifalar, metodlar, asosiy natijalar va xulosalar qamrab olinadi; hajmi – 250–300 ta so'z (doktorantlar, mustaqil izlanuvchilar va professor-o'qituvchilar uchun) hamda 150–200 ta so'z (magistrantlar uchun) (uch tilda: o'zbek, ingliz va rus tillarida (hamda maqola tilida)), 14 pt qalin, abzatsning chap va o'ng tomonlaridan 2 sm chekinish, kenglik bo'yicha tekislash, birinchi qator chekinishi – 1 sm. Annotatsiyadan keyin – 1,5 interval tashlanadi.</p>
+          <p class="mb-4">Annotatsiya ostida 8–10 ta kalit so'z (doktorantlar, mustaqil izlanuvchilar va professor-o'qituvchilar uchun) hamda 6–8 ta kalit so'z (magistrantlar uchun) yoki tushunchalar (ish mavzusini aks ettiruvchi va tegishli ma'lumotni izlashda kalit vazifasini bajaruvchi) beriladi, 14 pt, abzatsning chap va o'ng tomonlaridan 2 sm chekinish, kenglik bo'yicha tekislash (Kalit so'zlar: so'zlar, so'zlar va h.k.). Kalit so'zlardan keyin – 1,5 interval tashlanadi.</p>
+          <p class="mb-0">Matn 14 pt oddiy shrift bilan yoziladi. Abzats kenglik bo'yicha tekislanadi, birinchi qator chekinishi – 1 sm. Jurnalda ikki turdagi maqolalar chop etiladi va ular IMRAD strukturasi asosida rasmiylashtirilishi lozim.</p>
+        </section>
+        <section class="mb-8">
+          <h4 class="text-lg font-semibold mb-3">1. Original Research Article (IMRAD strukturasi)</h4>
+          <p class="mb-4"><strong>Original Research Article</strong> (original ilmiy maqola) — muallif tomonidan ilk bor o'tkazilgan empirik tadqiqot natijalariga asoslangan maqola. Ya'ni muallif ma'lumotlarni mustaqil yig'adi, tahlil qiladi va xulosa chiqaradi. U quyidagi bo'limlar va strukturadan iborat bo'lishi kerak (IMRAD tarkibiy bo'limlari nomlari TO'LIQ BOSH HARFLARDA yoziladi):</p>
+          <p class="mb-2"><strong>INTRODUCTION (KIRISH)</strong></p>
+          <p class="mb-3">Mazkur bo'lim ilmiy muammoni asoslaydi. Unda quyidagi jihatlar aks etishi lozim:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>tadqiqot mavzusining dolzarbligi;</li>
+            <li>ilmiy muammoning qo'yilishi;</li>
+            <li>mavjud tadqiqotlar bo'yicha qisqa sharh;</li>
+            <li>ilmiy bo'shliqni aniqlash (research gap);</li>
+            <li>tadqiqotning maqsadi va vazifalari;</li>
+            <li>gipoteza (mavjud bo'lsa).</li>
+          </ul>
+          <p class="mb-4"><em>→ Natija: mazkur tadqiqot zarurligini asoslash.</em></p>
+          <p class="mb-2"><strong>METHODS (TADQIQOT METODLARI)</strong></p>
+          <p class="mb-3">Tadqiqotning takrorlanuvchanligini ta'minlovchi asosiy bo'lim. Unda quyidagilar yoritilishi lozim:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>tadqiqot dizayni (eksperimental, korrelyatsion, korpus tahlili va boshq.);</li>
+            <li>tadqiqot obyekti va predmeti;</li>
+            <li>ma'lumot yig'ish metodlari: so'rovnoma; intervyu; kuzatish; matn/korpus tahlili;</li>
+            <li>tanlanma tavsifi: hajmi; parametrlari;</li>
+            <li>tahlil metodlari: statistik (SPSS, R va boshqalar); lingvistik/kognitiv;</li>
+            <li>ishonchlilik va validlik masalalari.</li>
+          </ul>
+          <p class="mb-4"><em>→ Natija: tadqiqotni to'liq qayta takrorlash imkoniyati.</em></p>
+          <p class="mb-2"><strong>RESULTS (NATIJALAR)</strong></p>
+          <p class="mb-3">Bu yerda faqat faktik ma'lumotlar interpretatsiyasiz taqdim etiladi. Quyidagilar yoritilishi lozim:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>asosiy empirik natijalar;</li>
+            <li>jadval, grafik va diagrammalar (mavjud bo'lsa);</li>
+            <li>statistik ko'rsatkichlar;</li>
+            <li>aniqlangan qonuniyatlar.</li>
+          </ul>
+          <p class="mb-4"><em>→ Muhim: faqat "nima natija olindi?" savoliga javob.</em></p>
+          <p class="mb-2"><strong>DISCUSSION (MUNOZARA)</strong></p>
+          <p class="mb-3">Olingan natijalarni talqin qilish. Quyidagilar yoritilishi lozim:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>natijalarni izohlash;</li>
+            <li>oldingi tadqiqotlar bilan taqqoslash;</li>
+            <li>gipotezaning tasdiqlanishi yoki rad etilishi;</li>
+            <li>nazariy ahamiyati;</li>
+            <li>amaliy ahamiyati;</li>
+            <li>tadqiqot cheklovlari;</li>
+            <li>keyingi tadqiqot istiqbollari.</li>
+          </ul>
+          <p class="mb-4"><em>→ Bu yerda ishning ilmiy qiymati ochib beriladi.</em></p>
+          <p class="mb-2"><strong>CONCLUSION (XULOSA)</strong> (IMRAD tarkibiga kirmaydi, lekin majburiy)</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>yakuniy xulosalar;</li>
+            <li>ilmiy yangilik;</li>
+            <li>qisqa umumlashtirish;</li>
+            <li>iqtiboslarsiz.</li>
+          </ul>
+        </section>
+        <section class="mb-8">
+          <h4 class="text-lg font-semibold mb-3">2. Review Article (IMRAD strukturasi)</h4>
+          <p class="mb-4"><strong>Review Article</strong> (sharh ilmiy maqola yoki tahliliy maqola) — muayyan ilmiy yo'nalish bo'yicha avval chop etilgan tadqiqotlarni tizimli tahlil qilish, taqqoslash va umumlashtirishni o'z ichiga olgan maqola. Ya'ni, muallif yangi empirik ma'lumotlar yig'maydi, balki mavjud ilmiy ishlar asosida nazariy va metodologik xulosalar chiqaradi. U quyidagi bo'limlar va strukturadan iborat bo'lishi kerak (IMRAD tarkibiy bo'limlari nomlari TO'LIQ BOSH HARFLARDA yoziladi):</p>
+          <p class="mb-2"><strong>INTRODUCTION (KIRISH)</strong></p>
+          <p class="mb-3">Unda quyidagilar yoritilishi lozim:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>ilmiy yo'nalishning dolzarbligi;</li>
+            <li>sharh zarurligini asoslash;</li>
+            <li>muammoning qo'yilishi;</li>
+            <li>sharhning maqsadi.</li>
+          </ul>
+          <p class="mb-4"><em>→ Ilmiy bo'shliqni ko'rsatish majburiy.</em></p>
+          <p class="mb-2"><strong>METHODS (TADQIQOT METODLARI)</strong></p>
+          <p class="mb-3">Ko'pincha e'tibordan chetda qoladi, lekin majburiy hisoblanadi. Unda quyidagilar yoritilishi lozim:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>manbalarni tanlash mezonlari: vaqt oralig'i; ma'lumotlar bazalari (Scopus, Web of Science va boshqalar);</li>
+            <li>qidiruv strategiyasi (kalit so'zlar);</li>
+            <li>kiritish/chiqarib tashlash mezonlari;</li>
+            <li>tahlil metodlari: tematik tahlil; meta-tahlil (mavjud bo'lsa).</li>
+          </ul>
+          <p class="mb-4"><em>→ Sharhning ilmiy asoslanganligini ta'minlaydi.</em></p>
+          <p class="mb-2"><strong>RESULTS (NATIJALAR)</strong></p>
+          <p class="mb-3">Bu yerda empirik ma'lumotlar emas, balki adabiyotlar tahlili natijalari taqdim etiladi. Quyidagilar yoritilishi lozim:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>asosiy ilmiy yondashuvlar;</li>
+            <li>nazariy maktablar;</li>
+            <li>tadqiqotlardagi qarama-qarshiliklar;</li>
+            <li>zamonaviy tendensiyalar;</li>
+            <li>taqqoslovchi jadvallar.</li>
+          </ul>
+          <p class="mb-4"><em>→ Mavzu bo'yicha "ilmiy manzara" shakllantiriladi.</em></p>
+          <p class="mb-2"><strong>DISCUSSION (MUNOZARA)</strong></p>
+          <p class="mb-3">Asosiy analitik bo'lim. Unda quyidagilar yoritilishi lozim:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>adabiyotlar asosida umumlashtirilgan xulosalar;</li>
+            <li>mavjud yondashuvlarni baholash;</li>
+            <li>ilmiy bo'shliqlarni aniqlash;</li>
+            <li>muammoli jihatlar;</li>
+            <li>keyingi tadqiqot istiqbollari.</li>
+          </ul>
+          <p class="mb-2"><strong>CONCLUSION (XULOSA)</strong> (IMRAD tarkibiga kirmaydi, lekin majburiy)</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>yakuniy umumlashtirishlar;</li>
+            <li>nazariy xulosalar;</li>
+            <li>tavsiyalar;</li>
+            <li>iqtiboslarsiz.</li>
+          </ul>
+        </section>
+        <section class="mb-8">
+          <h4 class="text-lg font-semibold mb-3">Rasmlar, formulalar va jadvallar</h4>
+          <p class="mb-4">Rasmlar Corel Draw grafik muharririda yoki MS Office dasturlaridan birida tayyorlangan holatda bajariladi. Grafiklar, rasmlar va fotosuratlar matnga ular birinchi marta tilga olingandan keyin joylashtiriladi. Taqdim etiladigan elektron variantda har bir rasm, fotosurat, grafik va boshqalar tahririyatga alohida fayl ko'rinishida ham topshirilishi lozim. Illyustratsiyalar, jadvallar va formulalarni sahifa kengligi bo'ylab joylashtirishga ruxsat etiladi. Illyustratsiya nomi (12 pt, oddiy) ularning ostida markaz bo'yicha, tartib raqami bilan "Rasm" so'zidan keyin (12 pt, qalin) beriladi. Agar matnda bitta rasm bo'lsa, raqam qo'yilmaydi.</p>
+          <p class="mb-4">Formulalar MS Equation yoki Math Type formulalar muharriri yordamida yoziladi. Formula markazga joylashtiriladi, uning tartib raqami dumaloq qavs ichida o'ng tomonda beriladi (o'ng tomon bo'yicha tekislash qo'llaniladi). Agar maqolada bitta formula bo'lsa, u raqamlanmaydi.</p>
+          <p class="mb-0">"Jadval" so'zi tartib raqami bilan jadvaldan oldin o'ng tomonda joylashtiriladi. Keyingi qatorda jadval nomi beriladi (markaz bo'yicha, abzatssiz va bo'g'inlarga ajratilmasdan), oxirida nuqta qo'yilmaydi. Jadvaldan keyin 1 interval qoldiriladi. Agar maqolada bitta jadval bo'lsa, u raqamlanmaydi.</p>
+        </section>
+        <section class="mb-8">
+          <h4 class="text-lg font-semibold mb-3">Havolalar va adabiyotlar ro'yxati</h4>
+          <p class="mb-4">Matn ichida manbalarga havolalar muallif familiyasi, nashr yili va iqtibos keltirilgan sahifa ko'rsatilgan holda kvadrat qavs ichida beriladi [Ivanov, 1990: 25], ikki muallif bo'lsa [Toshmatov &amp; Azizova, 2023: 45], uch va undan ortiq muallif bo'lsa [Toshmatov va boshq., 2025: 56].</p>
+          <p class="mb-4">Maqolada kamida 30 ta, ko'pi bilan 60 ta manbadan foydalanish lozim. Shu bilan birga, keltirilgan har bir manbaga maqola matnida belgilangan tartibda albatta havola berilishi shart. Adabiyotlar ro'yxatining har ikki variantida ham manbalar soni bir xil bo'lishi kerak.</p>
+          <p class="mb-4">Muallif maqolada keltirilgan iqtiboslarning aniqligi va manbalarga havolalarni to'g'ri rasmiylashtirilishi uchun javobgar hisoblanadi.</p>
+          <p class="mb-4">Maqola matnidagi misollar kursivda, qo'shtirnoqsiz beriladi. Misol manbalari nomlari, muallif familiyalari (initsiallari bilan) dumaloq qavs ichida beriladi, sahifalar ko'rsatiladi: <em>Shu orada hujraga bir chol kirib ul ham mehmonlar bilan so'rashib chiqdi</em> (Qodiriy A. "O'tkan kunlar", 73).</p>
+          <p class="mb-4">Adabiyotlar ro'yxati maqola matnidan keyin alifbo tartibida FOYDALANILGAN ADABIYOTLAR / LITERATURA va REFERENCES so'zlaridan so'ng beriladi (oxirida nuqta yoki ikki nuqta qo'yilmaydi). Shrift – 14 pt, qalin. Adabiyotlar ro'yxati APA (6th) formatida rasmiylashtiriladi. O'z ishlariga havolalar umumiy manbalar sonining uchdan bir qismidan oshmasligi lozim.</p>
+          <p class="mb-4">RUS TILIDAGI MANBALAR BGN (Board of Geographic Names) dasturi yordamida http://www.translit.ru saytida avtomatik transliteratsiya qilinishi va rus tilidagi tavsifdan keyin transliteratsiya qilingan varianti keltirilishi lozim.</p>
+          <p class="mb-2"><strong>LITERATURA</strong></p>
+          <ul class="list-disc list-inside space-y-1 mb-4">
+            <li>1. Abramyan, L., Barker, A., Belkov, P. (2004). Sovremennyye tendentsii v antropologicheskikh issledovaniyakh. <em>Antropologicheskiy forum</em>, 1, 6–101.</li>
+            <li>2. Agapkin, I.I. (2018). Ideya «kosmo-psikho-logosa» v tvorcheskom nasledii G.D. Gacheva. <em>Vestnik Russkoy khristianskoy gumanitarnoy akademii</em>, 19(2), 261–268.</li>
+            <li>3. Baryshnikov, P.N. (2010). <em>Mif i metafora: lingvofilosofskiy podkhod</em>. Sankt-Peterburg: Aleteyya.</li>
+            <li>4. Gumbol'dt, fon V. (2000). <em>Izbrannyye trudy po yazykoznaniyu</em> (2-ye izd.). Moskva: Progress.</li>
+          </ul>
+          <p class="mb-3">Foydalanilgan adabiyotlar ro'yxati maqola ingliz tilida yozilmagan bo'lsa, ikki variantda keltiriladi:</p>
           <ul class="list-disc list-inside space-y-1">
-            <li>Original tadqiqot maqola (Original Research Article)</li>
-            <li>Sharh maqola (Review Article)</li>
+            <li>birinchi ro'yxat – to'liq lotin yozuvida (bunda rus tilidagi manbalar lotin transliteratsiyasida beriladi);</li>
+            <li>ikkinchi ro'yxat – to'liq ingliz tilida beriladi, bunda original tili ingliz tilida bo'lmagan manbalar oxirida ularning asliyat tili qavs ichida ko'rsatiladi, masalan: (in Russian), (in Uzbek) va h.k.z.</li>
           </ul>
         </section>
-
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Ochiqlik</h4>
-          <p class="mb-4">Jurnalning Open Select dasturi orqali siz mazkur jurnalda ochiqlik huquqi asosidagi ilmiy-metodik maqolangizni nashr qilish imkoniyatiga ega bo'lasiz. “Ochiqlik” siyosati maqolangiz chop etilgandan so'ng uning darhol onlayn rejimda mavjud bo'lishini ta'minlaydi.</p>
-          <p class="mb-0">Bu tadqiqotingizning keng miqyosda ko'rilishi, o'quvchilarining soni va ta'sir doirasining ortishiga zamin yaratadi. Maqolangizga ochiqlik huquqini berish uchun sizdan maqola nashr qilish to'lovini amalga oshirishingiz so'raladi va bu xarajatlar ko'pincha muassasangiz yoki moliyachi tomonidan qoplanishi mumkin.</p>
-        </section>
-
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Ekspertizadan o'tkazish va etika talablari</h4>
-          <p class="mb-4"><strong>“Filologiya masalalari”</strong> elektron ilmiy-metodik jurnali nashriyoti ekspertlar bahosining yaxlitligiga sodiqdir va qo'lyozmalarni tekshirish jarayonlarining eng yuqori standartlarini qo'llab-quvvatlaydi.</p>
-          <p class="mb-0">Maqolangiz muharrir tomonidan yaroqliligi baholangandan so'ng, u ikkita mustaqil, anonim taqrizchilar tomonidan ikki marta anonim tekshiruvdan o'tadi. Tekshiruv davomida nimani kutish mumkinligi haqida ko'proq bilib oling va nashr etikasi bo'yicha ko'rsatmalarimizni o'qing.</p>
-        </section>
-
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Qo'lyozmangizni tayyorlash</h4>
-          <p class="mb-3 font-semibold">Maqola uchun umumiy talablar</p>
-          <ul class="list-disc list-inside space-y-2">
-            <li>Quyidagi elementlar qat'iy ketma-ketlikda yozilishi kerak: sarlavha 3 tilda (o'zbek, rus va ingliz); annotatsiya va kalit so'zlar ham 3 tilda; asosiy matn IMRAD tartibida - INTRODUCTION, METHODS, RESULTS AND DISCUSSION; (minnatdorchilik, manfaatlar deklaratsiyasi, tavsiyalar - ixtiyoriy); ilovalar; sarlavhalar bilan jadvallar (alohida sahifalarda); raqamlar; kerakli hollarda rasm taglavhalari (ro'yxat shaklida).</li>
-            <li>Annotatsiya 3 tilda (o'zbek, rus va ingliz) 250-300 ta so'zdan iborat bo'lib, tadqiqot maqsadi, yangiligi, usullari, asosiy natijalari va xulosalarini aks ettirishi kerak.</li>
-            <li>Kalit so'zlar 3 tilda (o'zbek, rus va ingliz) 8-10 tadan oshmasligi lozim.</li>
-            <li>Asosiy matn kirishdan xulosagacha 4000-7000 ta so'zdan iborat bo'lishi kerak (annotatsiya va kalit so'zlar bu hisobga kirmaydi).</li>
-            <li>Foydalanilgan adabiyotlar 30-60 ta bo'lishi, lotin alifbosida va ingliz tilidagi tarjimasi (agar qo'lyozma ingliz tilida bo'lmasa) bilan berilishi lozim.</li>
+          <h4 class="text-lg font-semibold mb-3">III. Qo'lyozmalarni taqrizdan o'tkazish tartibi</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li>1. Kelib tushgan qo'lyozma dastlab texnik tekshiruvdan o'tkaziladi, so'ng antiplagiat tekshiruvi amalga oshiriladi va belgilangan talablarga muvofiqligi aniqlangach, taqrizga yuboriladi. Taqrizchilarning ism-familiyalari qo'lyozma mualliflariga ma'lum qilinmaydi. O'z navbatida, mualliflarga ham taqrizchilarning ism-familiyalari oshkor qilinmaydi.</li>
+            <li>2. Tahririyat tijorat asosida buyurtma maqolalarni chop etmaydi va muallif tomonidan ko'rsatilgan nashr muddatlari bo'yicha majburiyat olmaydi. Tahririyat qo'lyozmaga zarur tahririy tuzatishlar va qisqartirishlar kiritish huquqini o'zida saqlab qoladi.</li>
+            <li>3. Agar qo'lyozma qayta ishlash uchun muallifga yuborilsa, tegishli o'zgartirishlar kiritilgandan so'ng u qayta taqrizdan o'tkazish uchun yana ekspertga taqdim etiladi. Agar takroriy taqriz natijasida ham maqolani qayta ishlash zarur deb topilsa, jarayon ijobiy natija olinguncha davom ettiriladi.</li>
+            <li>4. Tahrir hay'ati tomonidan qayta ishlashga yuborilgan maqolalar yangi kelib tushgan material sifatida ko'rib chiqiladi va ular qayta ko'rib chiqilayotgan paytdagi son uchun qabul qilinadi. Plagiat aniqlangan maqolalar zarur tuzatishlar kiritilishi uchun muallifga qaytariladi hamda qaytadan antiplagiat tekshiruvidan o'tkaziladi. Muallif bilan hamkorlik originallik darajasi kamida 80% ga yetguncha davom ettiriladi.</li>
+            <li>5. Ijobiy taqriz olingandan so'ng tahririyat qo'lyozmani jurnalda chop etish imkoniyati yuzasidan qaror qabul qiladi.</li>
+            <li>6. DIQQAT! Qo'lyozmalar bilan ishlashning barcha bosqichlarida, shuningdek mualliflar bilan muloqotda ekspert va tahririyat elektron pochtadan foydalanadi. Mualliflar elektron manzilni to'g'ri ko'rsatishlari va uning o'zgarishi haqida o'z vaqtida xabar berishlari shart. Agar maqolaning bir nechta muallifi bo'lsa, yozishmalar ulardan biri – "korrespondent muallif" bilan olib boriladi.</li>
+            <li>7. Tahririyat maqola bo'yicha qabul qilingan qarorlar, taqrizchilarning e'tirozlari, shuningdek maqolalarni taqdim etish, rasmiylashtirish, taqrizdan o'tkazish va nashr etish tartibiga oid boshqa masalalar yuzasidan mualliflar bilan munozaraga kirishmaydi. Maqola bo'yicha xulosa tahririyatning jamoaviy qarori hisoblanadi.</li>
+            <li>8. Taqrizdan o'tgan qo'lyozmalar qaytarilmaydi.</li>
+            <li>9. Ilmiy va faktik xatolar, shuningdek annotatsiya tarjimasining sifati uchun muallif(lar) javobgar hisoblanadi. Bunday holatlarda muallif(lar) zarur tuzatishlar kiritilgan va asosli ma'lumotlar ilova qilingan holda qo'lyozmani qayta ekspertga taqdim etadi.</li>
+            <li>10. Maketga jiddiy o'zgartirishlar kiritishga yo'l qo'yilmaydi. Muallif maqolani nashr etishdan voz kechish huquqiga ega, biroq taqriz uchun to'lov majburiy hisoblanadi.</li>
+            <li>11. Maqola muallifining ilmiy qarashlari va baholari tahririyat pozitsiyasini aks ettirmasligi mumkin.</li>
+            <li>12. Tahririyat mualliflardan ilmiy munozara etikasi qoidalariga rioya qilishni, asossiz baholardan hamda belgilangan qoidalar va ekspert xulosalariga nisbatan noo'rin fikrlar bildirishdan tiyilishni so'raydi.</li>
           </ul>
         </section>
-
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Maqola turlari</h4>
-
-          <div class="space-y-5">
-            <div>
-              <h5 class="font-semibold mb-2">1. Original Research Article (original ilmiy maqola)</h5>
-              <p class="mb-3">Muallif tomonidan ilk bor o'tkazilgan empirik tadqiqot natijalariga asoslangan maqola. Muallif ma'lumotlarni mustaqil yig'adi, tahlil qiladi va xulosa chiqaradi. IMRAD tarkibiy bo'limlari nomlari <strong>TO'LIQ BOSH HARFLARDA</strong> yoziladi.</p>
-
-              <p class="mb-2 font-semibold">INTRODUCTION (KIRISH)</p>
-              <ul class="list-disc list-inside space-y-1 mb-2">
-                <li>tadqiqot mavzusining dolzarbligi</li>
-                <li>ilmiy muammoning qo'yilishi</li>
-                <li>mavjud tadqiqotlar bo'yicha qisqa sharh</li>
-                <li>ilmiy bo'shliqni aniqlash (research gap)</li>
-                <li>tadqiqotning maqsad va vazifalari</li>
-                <li>gipoteza (mavjud bo'lsa)</li>
-              </ul>
-              <p class="mb-3"><strong>Natija:</strong> mazkur tadqiqot zarurligini asoslash.</p>
-
-              <p class="mb-2 font-semibold">METHODS (TADQIQOT METODLARI)</p>
-              <ul class="list-disc list-inside space-y-1 mb-2">
-                <li>tadqiqot dizayni (eksperimental, korrelyatsion, korpus tahlili va boshqalar)</li>
-                <li>tadqiqot obyekti va predmeti</li>
-                <li>ma'lumot yig'ish metodlari: so'rovnoma, intervyu, kuzatish, matn/korpus tahlili</li>
-                <li>tanlanma tavsifi: hajmi va parametrlari</li>
-                <li>tahlil metodlari: statistik (SPSS, R va boshqalar), lingvistik/kognitiv</li>
-                <li>ishonchlilik va validlik masalalari</li>
-              </ul>
-              <p class="mb-3"><strong>Natija:</strong> tadqiqotni to'liq qayta takrorlash imkoniyati.</p>
-
-              <p class="mb-2 font-semibold">RESULTS (NATIJALAR)</p>
-              <ul class="list-disc list-inside space-y-1 mb-2">
-                <li>asosiy empirik natijalar</li>
-                <li>jadval, grafik va diagrammalar (mavjud bo'lsa)</li>
-                <li>statistik ko'rsatkichlar</li>
-                <li>aniqlangan qonuniyatlar</li>
-              </ul>
-              <p class="mb-3"><strong>Muhim:</strong> faqat "nima natija olindi?" savoliga javob.</p>
-
-              <p class="mb-2 font-semibold">DISCUSSION (MUNOZARA)</p>
-              <ul class="list-disc list-inside space-y-1 mb-2">
-                <li>natijalarni izohlash</li>
-                <li>oldingi tadqiqotlar bilan taqqoslash</li>
-                <li>gipotezaning tasdiqlanishi yoki rad etilishi</li>
-                <li>nazariy ahamiyati</li>
-                <li>amaliy ahamiyati</li>
-                <li>tadqiqot cheklovlari</li>
-                <li>keyingi tadqiqot istiqbollari</li>
-              </ul>
-              <p class="mb-3">Bu yerda ishning ilmiy qiymati ochib beriladi.</p>
-
-              <p class="mb-2 font-semibold">CONCLUSION (XULOSA)</p>
-              <p class="mb-2">(IMRAD tarkibiga kirmaydi, lekin majburiy)</p>
-              <ul class="list-disc list-inside space-y-1">
-                <li>yakuniy xulosalar</li>
-                <li>ilmiy yangilik</li>
-                <li>qisqa umumlashtirish</li>
-                <li>iqtiboslarsiz</li>
-              </ul>
-            </div>
-
-            <div>
-              <h5 class="font-semibold mb-2">2. Review Article (sharh ilmiy maqola)</h5>
-              <p class="mb-3">Muayyan ilmiy yo'nalish bo'yicha avval chop etilgan tadqiqotlarni tizimli tahlil qilish, taqqoslash va umumlashtirishni o'z ichiga olgan maqola. Muallif yangi empirik ma'lumotlar yig'maydi, balki mavjud ilmiy ishlar asosida nazariy va metodologik xulosalar chiqaradi.</p>
-
-              <p class="mb-2 font-semibold">INTRODUCTION (KIRISH)</p>
-              <ul class="list-disc list-inside space-y-1 mb-2">
-                <li>ilmiy yo'nalishning dolzarbligi</li>
-                <li>sharh zarurligini asoslash</li>
-                <li>muammoning qo'yilishi</li>
-                <li>sharhning maqsadi</li>
-              </ul>
-              <p class="mb-3">Ilmiy bo'shliqni ko'rsatish majburiy.</p>
-
-              <p class="mb-2 font-semibold">METHODS (TADQIQOT METODLAR)</p>
-              <p class="mb-2">Ko'pincha e'tibordan chetda qoladi, lekin majburiy hisoblanadi.</p>
-              <ul class="list-disc list-inside space-y-1 mb-2">
-                <li>manbalarni tanlash mezonlari: vaqt oralig'i, ma'lumotlar bazalari (Scopus, Web of Science va boshqalar)</li>
-                <li>qidiruv strategiyasi (kalit so'zlar)</li>
-                <li>kiritish/chiqarib tashlash mezonlari</li>
-                <li>tahlil metodlari: tematik tahlil, meta-tahlil (mavjud bo'lsa)</li>
-              </ul>
-              <p class="mb-3">Sharhning ilmiy asoslanganligini ta'minlaydi.</p>
-
-              <p class="mb-2 font-semibold">RESULTS (NATIJALAR)</p>
-              <p class="mb-2">Bu yerda empirik ma'lumotlar emas, balki adabiyotlar tahlili natijalari taqdim etiladi.</p>
-              <ul class="list-disc list-inside space-y-1 mb-2">
-                <li>asosiy ilmiy yondashuvlar</li>
-                <li>nazariy maktablar</li>
-                <li>tadqiqotlardagi qarama-qarshiliklar</li>
-                <li>zamonaviy tendensiyalar</li>
-                <li>taqqoslovchi jadvallar</li>
-              </ul>
-              <p class="mb-3">Mavzu bo'yicha "ilmiy manzara" shakllantiriladi.</p>
-
-              <p class="mb-2 font-semibold">DISCUSSION (MUNOZARA)</p>
-              <p class="mb-2">Asosiy analitik bo'lim.</p>
-              <ul class="list-disc list-inside space-y-1 mb-3">
-                <li>adabiyotlar asosida umumlashtirilgan xulosalar</li>
-                <li>mavjud yondashuvlarni baholash</li>
-                <li>ilmiy bo'shliqlarni aniqlash</li>
-                <li>muammoli jihatlar</li>
-                <li>keyingi tadqiqot istiqbollari</li>
-              </ul>
-
-              <p class="mb-2 font-semibold">CONCLUSION (XULOSA)</p>
-              <p class="mb-2">(IMRAD tarkibiga kirmaydi, lekin majburiy)</p>
-              <ul class="list-disc list-inside space-y-1">
-                <li>yakuniy umumlashtirishlar</li>
-                <li>nazariy xulosalar</li>
-                <li>tavsiyalar</li>
-                <li>iqtiboslarsiz</li>
-              </ul>
-            </div>
-          </div>
+          <h4 class="text-lg font-semibold mb-3">IV. Jurnal siyosati</h4>
+          <p class="mb-2"><strong>Jurnalning ilmiy-metodik maqolalarni tayyorlashda muallif(lar) tomonidan sun'iy intellekt texnologiyalaridan foydalanish bo'yicha siyosati</strong></p>
+          <p class="mb-4">Muallif(lar) maqola tayyorlash jarayonida sun'iy intellekt texnologiyalaridan foydalanish holatlarini ochiq ko'rsatishlari shart. Sun'iy intellekt vositalari muallif sifatida tan olinmaydi va maqola mazmuni uchun to'liq javobgarlik muallif(lar) zimmasida bo'ladi.</p>
+          <p class="mb-4">Sun'iy intellektdan tilni tahrirlash, tarjima va stilistik yaxshilash maqsadida foydalanishga ruxsat etiladi. Sun'iy intellekt yordamida ilmiy natijalar va tahliliy xulosalarni yaratish, shuningdek ishonchsiz ma'lumotlar va soxta manbalarni keltirish qat'iyan man etiladi.</p>
+          <p class="mb-4">DIQQAT! Jurnalga taqdim etiladigan maqola(lar)da quyidagi bayonot albatta bo'lishi kerak. Masalan:</p>
+          <p class="mb-4"><em>"Mazkur maqolani tayyorlashda sun'iy intellekt vositalaridan faqat tilni tahrirlash va stilistik yaxshilash maqsadida foydalanildi. Ilmiy mazmun, tahlil va xulosalar muallifga tegishli".</em></p>
+          <p class="mb-3">Agar sun'iy intellektdan foydalanilmagan bo'lsa:</p>
+          <p class="mb-0"><em>"Muallif ushbu maqolani tayyorlashda sun'iy intellekt vositalaridan foydalanmadi".</em></p>
         </section>
-
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Formatsiz topshirish</h4>
-          <p class="mb-4">Mualliflar o'z qo'lyozmalarini har qanday ilmiy formatda yoki tartibda taqdim etishlari mumkin. Qo'lyozmalar bitta yoki bir nechta fayl shaklida taqdim etilishi, bular Word (DOC yoki DOCX) fayllari bo'lishi mumkin. Tasvirlar va jadvallar matn ichida joylashtirilishi yoki alohida hujjatlar sifatida taqdim etilishi mumkin. Rasmlar tushunilishini ta'minlash uchun yetarli aniqlikda bo'lishi kerak.</p>
-          <ul class="list-disc list-inside space-y-2 mb-4">
-            <li>Qat'iy formatlash talablari mavjud emas, lekin barcha qo'lyozmalar uning dastlabki baholanishi uchun zarur bo'lgan muhim elementlarni o'z ichiga olishi kerak: annotatsiya, muallif haqidagi asosiy ma'lumotlar (I.F.Sh., lavozim, ilmiy daraja, elektron pochta, telefon raqami 3 tilda), tasvirlar, jadval va ilovalar. Qo'shimcha ma'lumotlar qo'lyozma qabul qilinganidan keyin so'ralishi mumkin.</li>
-            <li>Foydalanilgan adabiyotlar ro'yxati APA (American Psychological Association) uslubida tartibga solingan holda yuborilishi lozim.</li>
-          </ul>
-          <p class="mb-0">E'tibor bering, asl nusxaning fayl formatidan qat'iy nazar, maqolaning tahrirlanadigan versiyasi qayta ko'rib chiqish bosqichida taqdim etilishi kerak.</p>
-        </section>
-
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Tekshirish ro'yxati: nimalarni o'z ichiga olishi kerak?</h4>
-          <ol class="list-decimal list-inside space-y-3">
-            <li><strong>Muallif haqidagi tafsilotlar.</strong> Iltimos, ro'yxatdagi barcha mualliflar “Filologiya masalalari” elektron ilmiy-metodik jurnalining mualliflik mezonlariga mos kelishiga ishonch hosil qiling. Barcha mualliflar qo'lyozmaning muqova sahifasida o'zlarining to'liq ism-shariflari, lavozimlari, ilmiy darajalari, elektron pochta, telefon raqamlarini ko'rsatishlari kerak. Agar mavjud bo'lsa, ORCID, Google Scholar va Scopus havolalarini ham qo'shing. Agar nomlari ko'rsatilgan hammualliflardan birortasi o'zaro ko'rib chiqish jarayonida a'zolikni o'zgartirsa, yangi kerakli mualliflar izoh sifatida ko'rsatilishi mumkin. E'tibor bering, maqolangiz nashr qilinganidan keyin mazkur tafsilotlarga hech qanday o'zgartirish kiritib bo'lmaydi.</li>
-            <li><strong>Tasvirlar.</strong> Rasmlar yuqori sifatli bo'lishi kerak (chiziqli tasvir uchun 1200 dpi, kulrang rang uchun 600 dpi va rangli uchun 300 dpi, to'g'ri o'lchamda). Rasmlar jurnal tahririyati tomonidan tanlangan fayl formatlaridan birida taqdim etilishi kerak: EPS, PS, JPEG, TIFF yoki Microsoft Word (DOC yoki DOCX) fayllari Wordda chizilgan rasmlar uchun qabul qilinadi.</li>
-            <li><strong>Jadvallar.</strong> Jadvallar matndagi narsalarni takrorlashdan ko'ra yangi ma'lumotlarni taqdim etishi kerak. O'quvchilar jadvalni matnga murojaat qilmasdan sharhlay olishlari kerak. Iltimos, tahrirlanadigan fayllarni taqdim eting.</li>
-            <li><strong>Tenglamalar.</strong> Agar siz qo'lyozmangizni Word hujjati sifatida topshirayotgan bo'lsangiz, tenglamalarni tahrirlash mumkinligiga ishonch hosil qiling.</li>
-          </ol>
-        </section>
-
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Uchinchi tomon materiallaridan foydalanish</h4>
-          <p class="mb-4">Maqolada uchinchi tomon materiallaridan qayta foydalanish uchun kerakli ruxsatni olishingiz kerak. Matnning qisqacha parchalari va boshqa ayrim turdagi materiallardan rasmiy ruxsatisiz tanqid va ko'rib chiqish maqsadida cheklangan miqdorda foydalanishga odatda ruxsat etiladi.</p>
-          <p class="mb-0">Maqolangizga mualliflik huquqi sizga tegishli bo'lmagan va ushbu norasmiy shartnoma bilan ta'minlanmagan har qanday materialni kiritmoqchi bo'lsangiz, yuborishdan oldin mualliflik huquqi egasidan yozma ruxsat olishingiz kerak bo'ladi.</p>
-        </section>
-
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Qo'lyozmangizni topshirish</h4>
-          <p class="mb-4">Ushbu jurnal topshirish jarayonini boshqarish uchun maxsus portaldan foydalanadi. Taqdimot portali sizga “Filologiya masalalari” elektron ilmiy-metodik jurnali portfeli bo'ylab yuborilgan xabarlaringizni bir joyda ko'rish imkonini beradi. Qo'lyozmangizni yuborish uchun bu yerni bosing.</p>
-          <p class="mb-4">Esda tutingki, “Filologiya masalalari” elektron ilmiy-metodik jurnali nashriyoti dastlabki texnik talablarga javob bergan qo'lyozmalarni tekshirish uchun antiplagiat.ru dan foydalanadi. Qo'lyozmangizni «Filologiya masalalari» elektron ilmiy-metodik jurnali tahririyatiga yuborish orqali siz ekspertiza va taqrizlash jarayonlarida originallikni tekshirishga rozilik bildirasiz.</p>
-          <p class="mb-0">Qabul qilingandan so'ng, qabul qilingan qo'lyozma nusxasini saqlashingizni tavsiya qilamiz.</p>
-        </section>
-
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Nashr to'lovi</h4>
-          <p class="mb-0">“Filologiya masalalari” elektron ilmiy-metodik jurnalida bir yilda bir marta maqola nashr qilish narxi O'zbekiston Respublikasi fuqarolari uchun <strong>600 000 (olti yuz ming) so'm</strong>. Boshqa mualliflar uchun esa <strong>100 (yuz) AQSH dollari</strong>ni tashkil qiladi.</p>
-        </section>
-
         <section>
-          <h4 class="text-lg font-semibold mb-3">Mualliflik huquqi imkoniyatlari</h4>
-          <p class="mb-4">Mualliflik huquqi sizga asl materialingizni himoya qilish va maqolangizdan boshqalarning ruxsatingizsiz foydalanishining oldini olish imkoniyatini beradi. “Filologiya masalalari” elektron ilmiy-metodik jurnali turli xil litsenziyalar va qayta foydalanish imkoniyatlarini taklif etadi, shu jumladan ochiq foydalanish uchun nashr qilish uchun Creative Commons lisenziyalari.</p>
-          <p class="mb-0">Agar sizda biron bir savol yuzaga kelsa, iltimos biz bilan bog'laning: <a href="mailto:philologymatters@uzswlu.uz" class="text-fmmain hover:underline">philologymatters@uzswlu.uz</a>.</p>
+          <h4 class="text-lg font-semibold mb-3">V. Mualliflik huquqlari</h4>
+          <p class="mb-4">Qo'lyozmalarni tahririyatga taqdim etishda mualliflar "Filologiya masalalari" jurnalida elektron va/yoki bosma shaklda gonorarsiz chop etilishiga rozilik bildiradilar. Mazkur jurnalda nashr etilgan taqdirda mualliflar o'z maqolalariga bo'lgan mualliflik huquqlarini O'zbekiston davlat jahon tillari universitetiga topshiradilar. Nashrga qabul qilingan maqolalar mualliflari mualliflik shartnomasini tuzadilar. Shartnomaning to'liq matni jurnal saytining "Mualliflar uchun" bo'limida mavjud.</p>
+          <p class="mb-0">Mualliflar o'z materiallaridan keyingi nashrlarida foydalanish huquqiga ega va bunda "Filologiya masalalari" jurnalida chop etilganiga havola berilishi lozim. Bundan tashqari, O'zbekiston Respublikasining 2019-yil 2-iyuldagi "Shaxsga doir ma'lumotlar to'g'risida"gi O'RQ-547-son Qonuniga muvofiq, o'z maqolalarini chop etayotgan mualliflar O'zbekiston davlat jahon tillari universitetiga taqdim etilgan shaxsiy ma'lumotlarini qayta ishlashga rozilik bildiradilar, jumladan, ularni yig'ish, tizimlashtirish, jamlash, saqlash, aniqlashtirish (yangilash, o'zgartirish), foydalanish va yo'q qilish. Mazkur rozilik muallif(lar)ning shaxsiy skanerlangan imzosi bilan tasdiqlanadi va nashr uchun yuborilayotgan materiallar bilan birga taqdim etiladi. Ushbu rozilik muallif(lar) tomonidan noma'lum muddatga beriladi va yozma ravishda xabarnoma yuborish orqali bekor qilinishi mumkin.</p>
         </section>
         ''',
         'content_ru': '''
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Инструкции для авторов</h4>
-          <p class="mb-4">Благодарим вас за выбор электронного научно-методического журнала <strong>«Вопросы филологии»</strong> для публикации вашей рукописи. Настоящие инструкции разработаны для корректной организации процессов двойного слепого рецензирования, редакционной подготовки и публикации.</p>
-          <p class="mb-0">Пожалуйста, внимательно ознакомьтесь с требованиями, чтобы рукопись полностью соответствовала стандартам журнала.</p>
+          <h4 class="text-lg font-semibold mb-3">I. Подготовка статьи к публикации</h4>
+          <p class="mb-4">Статья отправляется через официальный веб-сайт журнала: <a href="https://philmatt.uzswlu.uz/" class="text-fmmain hover:underline">https://philmatt.uzswlu.uz/</a>. Каждый вариант направляется отдельным файлом. Первый вариант статьи со сведениями об авторе (авторах) – фамилия, имя, организация, адрес электронной почты, должен быть сохранён под фамилией автора: <strong>Фамилия_статья.docx</strong>; второй вариант статьи (без сведений об авторе): <strong>Статья.docx</strong>. Во втором варианте в ссылках на собственные работы автора вместо фамилии, имени и отчества используется слово «автор».</p>
+          <p class="mb-4">Представляемая статья не должна быть ранее опубликована в других изданиях и должна содержать результаты оригинального исследования автора, с отражением её научной новизны, актуальности, теоретической и практической значимости работы.</p>
+          <p class="mb-4">Статьи, прошедшие техническую экспертизу, проверяются в программах antiplag.uz или turnitin.com. К редакционной обработке допускаются материалы с уровнем оригинальности выше 80%.</p>
+          <p class="mb-4">Редактирование статьи осуществляется на основе double blind peer review (двустороннего слепого рецензирования). Статья, получившая положительное заключение рецензентов, направляется эксперту для подготовки к следующему этапу.</p>
+          <p class="mb-0">В целях приведения статьи в соответствие с требованиями журнала автору оказывается содействие со стороны эксперта журнала. Редакция журнала ориентирована на публикацию статьи и осуществляет конструктивное сотрудничество с автором до получения положительного заключения. Взаимодействие автора и редактора осуществляется через эксперта.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">О журнале</h4>
-          <p class="mb-4"><strong>«Вопросы филологии»</strong> - электронный научно-методический журнал, публикующий оригинальные и качественные исследования.</p>
-          <p class="mb-4">Журнал принимает статьи на всех языках. Поддерживаются следующие типы публикаций:</p>
-          <ul class="list-disc list-inside space-y-1">
-            <li>Original Research Article (оригинальная исследовательская статья)</li>
-            <li>Review Article (обзорная статья)</li>
+          <h4 class="text-lg font-semibold mb-3">II. Техническое оформление статьи</h4>
+          <p class="mb-4">Объём статьи должен составлять 4000–7000 слов (для докторантов, самостоятельных соискателей и профессорско-преподавательского состава) и 2500–3000 слов (для магистрантов). Статья представляется в формате DOCX, оформляется шрифтом Times New Roman с межстрочным интервалом 1,5 и полями по 2 см со всех сторон.</p>
+          <p class="mb-4">В верхней части страницы по центру размещается название статьи – заголовок, набранный ПРОПИСНЫМИ ПОЛУЖИРНЫМИ БУКВАМИ размером 14 pt, без абзацного отступа. Точка в конце заголовка не ставится. Название статьи приводится на узбекском, английском и русском языках (а также на языке статьи).</p>
+          <p class="mb-4">После названия статьи указываются имя, отчество и фамилия автора (авторов) на узбекском, английском и русском языках (а также на языке статьи) полужирным шрифтом размером 14 pt. Количество авторов одной статьи не должно превышать трёх.</p>
+          <p class="mb-4">На следующей строке указываются полное наименование места работы автора (авторов), город и страна, а на строке ниже – адрес электронной почты корреспондирующего автора (14 pt) (информация предоставляется на узбекском, английском и русском языках (а также на языке статьи)). Если авторы работают в разных организациях, для каждого автора отдельно указывается соответствующая аффилиация. Указывается только основное место работы или учёбы автора (авторов). После этого приводится ORCID ID автора (авторов). Сведения об авторе (авторах) на каждом языке представляются отдельно.</p>
+          <p class="mb-4">На следующей строке размещается аннотация статьи. В аннотации должны быть представлены актуальность исследования, цель и задачи работы, методы исследования, основные результаты и выводы. Объём аннотации составляет 250–300 слов для докторантов, самостоятельных исследователей и профессорско-преподавательского состава и 150–200 слов для магистрантов на узбекском, английском и русском языках (а также на языке статьи). Аннотация оформляется полужирным шрифтом размером 14 pt, с отступами по 2 см слева и справа, выравниванием по ширине и абзацным отступом первой строки 1 см. После аннотации оставляется межстрочный интервал 1,5.</p>
+          <p class="mb-4">Под аннотацией приводятся 8–10 ключевых слов для докторантов, самостоятельных исследователей и профессорско-преподавательского состава и 6–8 ключевых слов для магистрантов либо понятий, отражающих тему исследования и выполняющих функцию поиска соответствующей информации. Ключевые слова оформляются шрифтом размером 14 pt, с отступами по 2 см слева и справа и выравниванием по ширине. После ключевых слов оставляется межстрочный интервал 1,5.</p>
+          <p class="mb-0">Основной текст статьи оформляется обычным шрифтом размером 14 pt. Текст выравнивается по ширине, абзацный отступ первой строки составляет 1 см. В журнале публикуются статьи двух типов, которые должны быть оформлены в соответствии со структурой IMRAD.</p>
+        </section>
+        <section class="mb-8">
+          <h4 class="text-lg font-semibold mb-3">1. Original Research Article (структура IMRAD)</h4>
+          <p class="mb-4"><strong>Original Research Article</strong> (оригинальная научная статья) – статья, основанная на результатах эмпирического исследования, впервые проведённого автором. Иными словами, автор самостоятельно осуществляет сбор данных, их анализ и формулирует выводы. Статья должна включать следующие разделы и быть оформлена в соответствии со следующей структурой (названия структурных разделов IMRAD указываются ПРОПИСНЫМИ БУКВАМИ):</p>
+          <p class="mb-2"><strong>INTRODUCTION (ВВЕДЕНИЕ)</strong></p>
+          <p class="mb-3">Данный раздел посвящён обоснованию научной проблемы. В нём должны быть отражены:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>актуальность темы исследования;</li>
+            <li>постановка научной проблемы;</li>
+            <li>краткий обзор существующих исследований;</li>
+            <li>выявление научного пробела (research gap);</li>
+            <li>цель и задачи исследования;</li>
+            <li>гипотеза (при наличии).</li>
+          </ul>
+          <p class="mb-4"><em>→ Результат: обоснование необходимости проведения данного исследования.</em></p>
+          <p class="mb-2"><strong>METHODS (МЕТОДЫ)</strong></p>
+          <p class="mb-3">Основной раздел, в котором подробно описывается процесс проведения исследования. В данном разделе должны быть отражены:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>дизайн исследования (экспериментальный, корреляционный, корпусный анализ и др.);</li>
+            <li>объект и предмет исследования;</li>
+            <li>методы сбора данных: анкетирование; интервью; наблюдение; анализ текста / корпуса;</li>
+            <li>характеристика выборки: объём; параметры;</li>
+            <li>методы анализа: статистические (SPSS, R и др.); лингвистические / когнитивные;</li>
+            <li>вопросы надёжности и валидности исследования.</li>
+          </ul>
+          <p class="mb-4"><em>→ Результат: возможность полного повторного проведения исследования.</em></p>
+          <p class="mb-2"><strong>RESULTS (РЕЗУЛЬТАТЫ)</strong></p>
+          <p class="mb-3">В данном разделе представляются только фактические данные без их интерпретации. В разделе должны быть отражены:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>основные эмпирические результаты;</li>
+            <li>таблицы, графики и диаграммы (при наличии);</li>
+            <li>статистические показатели;</li>
+            <li>выявленные закономерности.</li>
+          </ul>
+          <p class="mb-4"><em>→ Важно: данный раздел должен отвечать только на вопрос «Какие результаты были получены?».</em></p>
+          <p class="mb-2"><strong>DISCUSSION (ОБСУЖДЕНИЕ)</strong></p>
+          <p class="mb-3">В данном разделе осуществляется интерпретация полученных результатов. В разделе должны быть отражены:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>интерпретация результатов;</li>
+            <li>сопоставление с предыдущими исследованиями;</li>
+            <li>подтверждение или опровержение гипотезы;</li>
+            <li>теоретическая значимость;</li>
+            <li>практическая значимость;</li>
+            <li>ограничения исследования;</li>
+            <li>перспективы дальнейших исследований.</li>
+          </ul>
+          <p class="mb-4"><em>→ В данном разделе раскрывается научная значимость исследования.</em></p>
+          <p class="mb-2"><strong>CONCLUSION (ВЫВОДЫ)</strong> (не входит в структуру IMRAD, но является обязательным разделом)</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>итоговые выводы;</li>
+            <li>научная новизна исследования;</li>
+            <li>краткое обобщение результатов;</li>
+            <li>без цитирования.</li>
           </ul>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Открытый доступ (Open Access)</h4>
-          <p class="mb-4">Через программу Open Select авторы могут публиковать статьи в режиме открытого доступа. Это обеспечивает немедленную онлайн-доступность публикации, расширяет аудиторию и повышает научное влияние работы.</p>
-          <p class="mb-0">При выборе открытого доступа взимается публикационный сбор. Во многих случаях эти расходы могут покрываться организацией автора или финансирующей стороной.</p>
+          <h4 class="text-lg font-semibold mb-3">2. Review Article (структура IMRAD)</h4>
+          <p class="mb-4"><strong>Review Article</strong> (обзорная научная статья или аналитическая статья) – статья, включающая системный анализ, сопоставление и обобщение ранее опубликованных исследований по определённому научному направлению. Иными словами, автор не собирает новые эмпирические данные, а формулирует теоретические и методологические выводы на основе существующих научных работ. Статья должна включать следующие разделы и быть оформлена в соответствии со следующей структурой (названия структурных разделов IMRAD указываются ПРОПИСНЫМИ БУКВАМИ):</p>
+          <p class="mb-2"><strong>INTRODUCTION (ВВЕДЕНИЕ)</strong></p>
+          <p class="mb-3">В данном разделе должны быть отражены:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>актуальность научного направления;</li>
+            <li>обоснование необходимости обзорного исследования;</li>
+            <li>постановка проблемы;</li>
+            <li>цель обзора.</li>
+          </ul>
+          <p class="mb-4"><em>→ Обязательным является указание недостаточно изученных аспектов проблемы.</em></p>
+          <p class="mb-2"><strong>METHODS (МЕТОДЫ)</strong></p>
+          <p class="mb-3">В разделе должны быть отражены:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>критерии отбора источников: временной период; базы данных (Scopus, Web of Science и др.);</li>
+            <li>стратегия поиска (ключевые слова);</li>
+            <li>критерии включения и исключения источников;</li>
+            <li>методы анализа: тематический анализ; метаанализ (при наличии).</li>
+          </ul>
+          <p class="mb-4"><em>→ Данный раздел обеспечивает научную обоснованность статьи.</em></p>
+          <p class="mb-2"><strong>RESULTS (РЕЗУЛЬТАТЫ)</strong></p>
+          <p class="mb-3">В данном разделе представляются не эмпирические данные, а результаты анализа научной литературы. В разделе должны быть отражены:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>основные научные подходы;</li>
+            <li>теоретические школы;</li>
+            <li>противоречия в исследованиях;</li>
+            <li>современные тенденции;</li>
+            <li>сравнительные таблицы.</li>
+          </ul>
+          <p class="mb-4"><em>→ В данном разделе формируется целостная научная картина по рассматриваемой теме.</em></p>
+          <p class="mb-2"><strong>DISCUSSION (ОБСУЖДЕНИЕ)</strong></p>
+          <p class="mb-3">Основной аналитический раздел. В разделе должны быть отражены:</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>обобщённые выводы на основе анализа литературы;</li>
+            <li>оценка существующих подходов;</li>
+            <li>выявление недостаточно изученных аспектов;</li>
+            <li>проблемные вопросы;</li>
+            <li>перспективы дальнейших исследований.</li>
+          </ul>
+          <p class="mb-2"><strong>CONCLUSION (ВЫВОДЫ)</strong> (не входит в структуру IMRAD, но является обязательным разделом)</p>
+          <ul class="list-disc list-inside space-y-1 mb-3">
+            <li>итоговые обобщения;</li>
+            <li>теоретические выводы;</li>
+            <li>рекомендации;</li>
+            <li>без цитирования.</li>
+          </ul>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Рецензирование и требования этики</h4>
-          <p class="mb-4">Издательство журнала <strong>«Вопросы филологии»</strong> придерживается высоких стандартов научной экспертизы и публикационной этики.</p>
-          <p class="mb-0">После первичной редакционной проверки рукопись направляется двум независимым анонимным рецензентам и проходит процедуру <strong>двойного слепого рецензирования</strong>. Авторы обязаны соблюдать принципы публикационной этики на всех этапах.</p>
+          <h4 class="text-lg font-semibold mb-3">Рисунки, формулы и таблицы</h4>
+          <p class="mb-4">Рисунки выполняются в графическом редакторе Corel Draw или в одной из программ MS Office. Графики, рисунки и фотографии размещаются в тексте после их первого упоминания. В электронной версии статьи каждый рисунок, фотография, график и другие иллюстративные материалы дополнительно представляются в редакцию отдельным файлом. Допускается размещение иллюстраций, таблиц и формул по ширине страницы. Название иллюстрации приводится под ней по центру страницы: после слова «Рисунок» (12 pt, полужирный шрифт) указывается её порядковый номер, затем – название иллюстрации (12 pt, обычный шрифт). Если в статье имеется только один рисунок, он не нумеруется.</p>
+          <p class="mb-4">Формулы оформляются с использованием редакторов формул MS Equation или MathType. Формула размещается по центру страницы, её порядковый номер указывается справа в круглых скобках (с выравниванием по правому краю). Если в статье приводится только одна формула, она не нумеруется.</p>
+          <p class="mb-0">Слово «Таблица» с порядковым номером размещается над таблицей с выравниванием по правому краю. На следующей строке приводится название таблицы (по центру, без абзацного отступа и без переносов), точка в конце названия не ставится. После таблицы оставляется один интервал. Если в статье имеется только одна таблица, она не нумеруется.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Подготовка рукописи</h4>
-          <p class="mb-4">Рукопись должна быть оформлена в четкой последовательности:</p>
+          <h4 class="text-lg font-semibold mb-3">Ссылки и список литературы</h4>
+          <p class="mb-4">Внутритекстовые ссылки на источники оформляются в квадратных скобках с указанием фамилии автора, года издания и страницы цитирования: [Ivanov, 1990: 25]; при двух авторах – [Toshmatov &amp; Azizova, 2023: 45]; при трёх и более авторах – [Toshmatov и др., 2025: 56].</p>
+          <p class="mb-4">В статье должно быть использовано не менее 30 и не более 60 источников. При этом на каждый источник, включённый в список литературы, в тексте статьи обязательно должна быть дана соответствующая внутритекстовая ссылка. В обоих вариантах списка литературы количество источников должно совпадать.</p>
+          <p class="mb-4">Внутритекстовые ссылки на источники на иностранных языках должны приводиться на языке публикации статьи. Список литературы также оформляется на языке оригинального издания источников.</p>
+          <p class="mb-4">Автор несёт ответственность за точность приведённых цитат и правильность оформления ссылок на источники.</p>
+          <p class="mb-4">Примеры в тексте статьи приводятся курсивом, без кавычек. Источники примеров, фамилии авторов (с инициалами) указываются в круглых скобках с обозначением страниц: <em>На дворе стоял тихий летний вечер, наполненный запахом свежескошенной травы</em> (Тургенев И.С. «Отцы и дети», с. 47). В статье на английском языке примеры на русском языке приводятся в оригинале и сопровождаются дословным (interlinear) переводом на английский язык.</p>
+          <p class="mb-4">Список литературы размещается после основного текста статьи в алфавитном порядке после заголовков FOYDALANILGAN ADABIYOTLAR / LITERATURA и REFERENCES (точка или двоеточие в конце заголовков не ставятся). Шрифт 14 pt, полужирный. Список литературы оформляется в формате APA. Ссылки на собственные работы автора не должны превышать одной трети от общего количества источников.</p>
+          <p class="mb-4">Источники на русском языке должны быть автоматически транслитерированы с использованием системы BGN (Board of Geographic Names) на сайте translit.ru.</p>
+          <p class="mb-2"><strong>LITERATURA</strong></p>
           <ul class="list-disc list-inside space-y-1 mb-4">
-            <li>Заголовок на 3 языках: узбекском, русском и английском.</li>
-            <li>Аннотация и ключевые слова на 3 языках: узбекском, русском и английском.</li>
-            <li>Основной текст в порядке IMRAD: <strong>INTRODUCTION</strong>, <strong>METHODS</strong>, <strong>RESULTS</strong>, <strong>DISCUSSION</strong>.</li>
-            <li>Опционально: благодарности, декларация интересов, рекомендации.</li>
-            <li>Приложения.</li>
-            <li>Таблицы с заголовками (при необходимости на отдельных страницах).</li>
-            <li>Рисунки и, при необходимости, отдельный список подписей к рисункам.</li>
+            <li>1. Abramyan, L., Barker, A., Belkov, P. (2004). Sovremennyye tendentsii v antropologicheskikh issledovaniyakh. <em>Antropologicheskiy forum</em>, 1, 6–101.</li>
+            <li>2. Agapkin, I.I. (2018). Ideya «kosmo-psikho-logosa» v tvorcheskom nasledii G.D. Gacheva. <em>Vestnik Russkoy khristianskoy gumanitarnoy akademii</em>, 19(2), 261–268.</li>
+            <li>3. Baryshnikov, P.N. (2010). <em>Mif i metafora: lingvofilosofskiy podkhod</em>. Sankt-Peterburg: Aleteyya.</li>
+            <li>4. Gumbol'dt, fon V. (2000). <em>Izbrannyye trudy po yazykoznaniyu</em> (2-ye izd.). Moskva: Progress.</li>
           </ul>
+          <p class="mb-3">Если статья написана не на английском языке, список использованной литературы приводится в двух вариантах:</p>
           <ul class="list-disc list-inside space-y-1">
-            <li>Аннотация: 250-300 слов на каждом языке с отражением цели, новизны, методов, основных результатов и выводов.</li>
-            <li>Ключевые слова: не более 8-10 на каждом языке.</li>
-            <li>Объем основного текста (от введения до заключения): 4000-7000 слов (без аннотации и ключевых слов).</li>
-            <li>Список литературы: 30-60 источников в латинице, с английским переводом библиографических данных при необходимости для неанглоязычных рукописей.</li>
+            <li>первый список – полностью на латинице (при этом источники на русском языке приводятся в латинской транслитерации);</li>
+            <li>второй список – полностью на английском языке; при этом в конце источников, оригинал которых опубликован не на английском языке, в скобках указывается язык оригинала, например: (in Russian), (in Uzbek) и т.д.</li>
           </ul>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Типы статей</h4>
-          <div class="space-y-4">
-            <div>
-              <h5 class="font-semibold mb-2">1. Original Research Article (оригинальная научная статья)</h5>
-              <p class="mb-3">Статья, основанная на результатах самостоятельно проведенного эмпирического исследования. Названия разделов IMRAD указываются <strong>ПРОПИСНЫМИ БУКВАМИ</strong>.</p>
-              <ul class="list-disc list-inside space-y-2">
-                <li><strong>INTRODUCTION (ВВЕДЕНИЕ):</strong> актуальность темы, постановка научной проблемы, краткий обзор литературы, выявление научного пробела (research gap), цели и задачи, гипотеза (при наличии).</li>
-                <li><strong>METHODS (МЕТОДЫ ИССЛЕДОВАНИЯ):</strong> дизайн исследования, объект и предмет, методы сбора данных (опрос, интервью, наблюдение, текстовый/корпусный анализ), описание выборки (объем и параметры), методы анализа (SPSS, R, лингвистические/когнитивные), надежность и валидность.</li>
-                <li><strong>RESULTS (РЕЗУЛЬТАТЫ):</strong> только фактические результаты, таблицы/графики/диаграммы (при наличии), статистические показатели, выявленные закономерности.</li>
-                <li><strong>DISCUSSION (ОБСУЖДЕНИЕ):</strong> интерпретация результатов, сопоставление с предыдущими исследованиями, подтверждение или опровержение гипотезы, теоретическая и практическая значимость, ограничения и перспективы дальнейших исследований.</li>
-                <li><strong>CONCLUSION (ЗАКЛЮЧЕНИЕ)</strong> (вне IMRAD, но обязательно): итоговые выводы, научная новизна, краткое обобщение, без цитирования.</li>
-              </ul>
-            </div>
-            <div>
-              <h5 class="font-semibold mb-2">2. Review Article (обзорная статья)</h5>
-              <p class="mb-3">Статья, включающая системный анализ, сопоставление и обобщение ранее опубликованных исследований по определенному научному направлению. Сбор новых эмпирических данных не требуется.</p>
-              <ul class="list-disc list-inside space-y-2">
-                <li><strong>INTRODUCTION (ВВЕДЕНИЕ):</strong> актуальность направления, обоснование необходимости обзора, постановка проблемы, цель обзора и обязательное указание научного пробела.</li>
-                <li><strong>METHODS (МЕТОДЫ ИССЛЕДОВАНИЯ):</strong> критерии отбора источников, временной диапазон, базы данных (Scopus, Web of Science и др.), поисковая стратегия (ключевые слова), критерии включения/исключения, методы анализа (тематический анализ, мета-анализ при наличии).</li>
-                <li><strong>RESULTS (РЕЗУЛЬТАТЫ):</strong> основные научные подходы, теоретические школы, противоречия в исследованиях, современные тенденции, сравнительные таблицы.</li>
-                <li><strong>DISCUSSION (ОБСУЖДЕНИЕ):</strong> обобщенные выводы по литературе, оценка существующих подходов, выявление научных пробелов, проблемные аспекты, перспективы дальнейших исследований.</li>
-                <li><strong>CONCLUSION (ЗАКЛЮЧЕНИЕ)</strong> (вне IMRAD, но обязательно): итоговые обобщения, теоретические выводы, рекомендации, без цитирования.</li>
-              </ul>
-            </div>
-          </div>
+          <h4 class="text-lg font-semibold mb-3">III. Порядок рецензирования статей</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li>1. Поступившая статья первоначально проходит техническую проверку, затем проверяется на антиплагиат и, после установления её соответствия установленным требованиям, направляется на рецензирование. Сведения о рецензентах не сообщаются автору статьи. В свою очередь, рецензентам также не раскрываются сведения об авторах.</li>
+            <li>2. Редакция не публикует заказные статьи на коммерческой основе и не гарантирует публикацию статьи в сроки, указанные автором. Редакция оставляет за собой право вносить в статью необходимые редакторские исправления и сокращения.</li>
+            <li>3. Если статья направляется автору на доработку, после внесения необходимых изменений она повторно передаётся редактору для рецензирования. Если по результатам повторного рецензирования статья снова требует доработки, данный процесс продолжается до получения положительного заключения.</li>
+            <li>4. Статьи, направленные редакционной коллегией на доработку, рассматриваются как вновь поступившие материалы и принимаются к рассмотрению для того номера, в период подготовки которого они были повторно представлены. Статьи, в которых выявлен плагиат, возвращаются автору для внесения необходимых исправлений и повторно проходят проверку на антиплагиат. Сотрудничество с автором продолжается до достижения уровня оригинальности не менее 80 %.</li>
+            <li>5. После получения положительной рецензии редакция принимает решение о возможности публикации статьи в журнале.</li>
+            <li>6. ВНИМАНИЕ! На всех этапах работы со статьями, а также при взаимодействии с авторами эксперт и редакция используют электронную почту. Авторы должны правильно указывать адрес электронной почты и своевременно сообщать о его изменении. Если статья подготовлена в соавторстве, переписка ведётся с одним из авторов – «корреспондирующим автором».</li>
+            <li>7. Редакция не рассматривает обращения авторов по поводу принятых решений в отношении статьи, замечаний рецензентов, а также иных вопросов, связанных с порядком представления, оформления, рецензирования и публикации статей. Заключение по статье является коллегиальным решением редакции.</li>
+            <li>8. Статьи, прошедшие рецензирование, возврату не подлежат.</li>
+            <li>9. Автор (авторы) несёт ответственность за научные и фактические ошибки, а также за качество перевода аннотации. В подобных случаях автор (авторы) повторно представляет(ют) статью эксперту с внесёнными исправлениями и приложением обоснованных пояснений.</li>
+            <li>10. После вёрстки статьи внесение существенных изменений не допускается. Автор имеет право отказаться от публикации статьи, однако оплата за рецензирование является обязательной.</li>
+            <li>11. Научные взгляды автора статьи могут не совпадать с позицией редакции.</li>
+            <li>12. Редакция просит авторов соблюдать нормы этики научной дискуссии, воздерживаться от необоснованных оценочных суждений, а также от некорректных высказываний в адрес установленных правил и экспертных заключений.</li>
+          </ul>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Подача без жесткого форматирования</h4>
-          <p class="mb-4">На первичном этапе авторы могут подавать рукописи в любом научном формате или структуре. Подача возможна одним или несколькими файлами, обычно в формате Word (DOC или DOCX). Таблицы и рисунки могут быть встроены в текст или приложены отдельно.</p>
-          <p class="mb-4">Жесткие требования к оформлению на первом этапе отсутствуют, однако рукопись должна содержать ключевые элементы для первичной оценки: аннотацию, основные сведения об авторе (Ф.И.О., должность, ученая степень, email, телефон на 3 языках), рисунки, таблицы и приложения.</p>
-          <p class="mb-0">Список литературы необходимо оформить по стандарту <strong>APA</strong>. Независимо от исходного формата файла, на этапе доработки должна быть предоставлена редактируемая версия.</p>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Услуги редактирования</h4>
-          <p class="mb-4">Издательство журнала <strong>«Вопросы филологии»</strong> предоставляет дополнительные редакционные услуги для повышения качества рукописи перед подачей.</p>
-          <p class="mb-0">Услуги могут включать языковую редактуру (в том числе английского текста), исправление орфографии и грамматики, а также техническое форматирование. Для уточнения перечня услуг и стоимости свяжитесь с редакцией.</p>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Проверочный список: что должно быть включено</h4>
-          <ol class="list-decimal list-inside space-y-3">
-            <li><strong>Сведения об авторах:</strong> все указанные авторы должны соответствовать критериям авторства журнала. На титульной странице обязательно указываются полные Ф.И.О., должность, ученая степень, email, телефон. При наличии добавьте ссылки ORCID, Google Scholar и Scopus. Важно: после публикации изменение этих данных не допускается.</li>
-            <li><strong>Иллюстрации:</strong> изображения должны быть высокого качества (1200 dpi для штриховой графики, 600 dpi для полутоновых изображений, 300 dpi для цветных). Допустимые форматы: EPS, PS, JPEG, TIFF или Word (DOC/DOCX для рисунков, созданных в Word).</li>
-            <li><strong>Таблицы:</strong> таблицы должны дополнять текст, а не дублировать его; они должны быть понятны без обращения к основному тексту. Предоставляйте редактируемые файлы таблиц.</li>
-            <li><strong>Формулы:</strong> при подаче рукописи в Word формулы должны оставаться редактируемыми.</li>
-          </ol>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Использование материалов третьих лиц</h4>
-          <p class="mb-4">Для повторного использования материалов третьих лиц необходимо получить соответствующие разрешения. В отдельных случаях допускается ограниченное использование коротких фрагментов текста для критического анализа без формального разрешения.</p>
-          <p class="mb-0">Если в статье используются материалы, авторские права на которые вам не принадлежат и которые не подпадают под исключения, до подачи рукописи требуется письменное разрешение правообладателя.</p>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Подача рукописи</h4>
-          <p class="mb-4">Журнал использует специальный портал для управления процессом подачи и сопровождения рукописей. Через портал можно отслеживать все отправленные материалы в едином интерфейсе.</p>
-          <p class="mb-4">Рукописи, прошедшие первичные технические требования, проверяются на оригинальность с помощью <strong>antiplagiat.ru</strong>. Отправляя рукопись, вы подтверждаете согласие на проверку оригинальности в рамках рецензирования и редакционной обработки.</p>
-          <p class="mb-0">После принятия статьи рекомендуется сохранить копию принятой версии рукописи.</p>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Плата за публикацию</h4>
-          <p class="mb-0">Стоимость публикации одной статьи в журнале <strong>«Вопросы филологии»</strong> один раз в год составляет <strong>600 000 сумов</strong> для граждан Республики Узбекистан и <strong>100 долларов США</strong> для остальных авторов.</p>
+          <h4 class="text-lg font-semibold mb-3">IV. Политика журнала</h4>
+          <p class="mb-2"><strong>Политика журнала в отношении применения искусственного интеллекта при подготовке научно-методических статей</strong></p>
+          <p class="mb-4">Автор (авторы) обязаны открыто указывать случаи использования искусственного интеллекта в процессе подготовки статьи. Искусственный интеллект не может указываться в качестве автора статьи, а полная ответственность за содержание статьи возлагается на автора (авторов).</p>
+          <p class="mb-4">Допускается использование искусственного интеллекта в целях языкового редактирования, перевода и стилистического улучшения текста. Категорически запрещается использование искусственного интеллекта для создания научных результатов и аналитических выводов, а также приведение недостоверных сведений и фиктивных источников.</p>
+          <p class="mb-4">ВНИМАНИЕ! В статье, представляемой в журнал, обязательно должно содержаться следующее заявление. Например:</p>
+          <p class="mb-4"><em>«При подготовке данной статьи средства искусственного интеллекта использовались исключительно в целях языкового редактирования и стилистического улучшения текста. Научное содержание, анализ и выводы принадлежат автору».</em></p>
+          <p class="mb-3">Если искусственный интеллект не использовался:</p>
+          <p class="mb-0"><em>«Автор не использовал искусственный интеллект при подготовке данной статьи».</em></p>
         </section>
         <section>
-          <h4 class="text-lg font-semibold mb-3">Авторские права и лицензирование</h4>
-          <p class="mb-4">Авторское право защищает ваш оригинальный материал и предотвращает несанкционированное использование статьи. Журнал предлагает различные варианты лицензирования и повторного использования, включая лицензии <strong>Creative Commons</strong> для публикаций в открытом доступе.</p>
-          <p class="mb-0">По вопросам обращайтесь: <a href="mailto:philologymatters@uzswlu.uz" class="text-fmmain hover:underline">philologymatters@uzswlu.uz</a>.</p>
+          <h4 class="text-lg font-semibold mb-3">V. Авторские права</h4>
+          <p class="mb-4">Направляя статью в редакцию, авторы выражают согласие на её публикацию в журнале «Вопросы филологии» в электронной форме без выплаты гонорара. В случае публикации статьи в данном журнале авторы передают авторские права на свои статьи Узбекскому государственному университету мировых языков. Авторы статей, принятых к публикации, заключают авторский договор. Полный текст договора размещён в разделе «Авторам» на сайте журнала.</p>
+          <p class="mb-0">Авторы сохраняют право использовать свои материалы в последующих публикациях при обязательном указании ссылки на публикацию в журнале «Вопросы филологии». Кроме того, в соответствии с Законом Республики Узбекистан «О персональных данных» № ЗРУ-547 от 2 июля 2019 года авторы, публикующие свои статьи, выражают согласие Узбекскому государственному университету мировых языков на обработку предоставленных персональных данных, включая их сбор, систематизацию, накопление, хранение, уточнение (обновление, изменение), использование и уничтожение. Данное согласие подтверждается личной сканированной подписью автора (авторов) и предоставляется вместе с материалами, направляемыми для публикации. Настоящее согласие предоставляется автором (авторами) на неопределённый срок и может быть отозвано путём направления письменного уведомления.</p>
         </section>
         '''
     },
@@ -1015,163 +1043,215 @@ PAGES_DATA = {
         ''',
         'content_ru': '''
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Обзор редакционной политики</h4>
-          <p class="mb-4">Ниже приведены правила электронного научно-методического журнала <strong>«Вопросы филологии»</strong>. Перед отправкой статьи внимательно ознакомьтесь с полной редакционной политикой.</p>
-          <p class="mb-0">Журнал придерживается международных принципов публикационной этики, включая рекомендации COPE.</p>
+          <p class="mb-4">К электронному научно-методическому журналу <strong>«Вопросы филологии»</strong> применяются следующие правила.</p>
+          <p class="mb-0">Пожалуйста, внимательно ознакомьтесь с этими правилами перед отправкой статьи, чтобы убедиться, что вы правильно выполнили все требования.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Аффилиация</h4>
-          <p class="mb-3">Для указания места, где исследование было одобрено, поддержано и/или выполнено, необходимо предоставить все релевантные сведения:</p>
+          <h4 class="text-lg font-semibold mb-3">Аффилиации</h4>
+          <p class="mb-3">Для всех авторов и соавторов необходимо указать все соответствующие аффилиации, идентифицирующие учреждение (учреждения), в котором (которых) было одобрено, поддержано и/или проведено исследование или научная работа, включая:</p>
+          <ul class="list-disc list-inside space-y-1 mb-4">
+            <li>полные фамилии и имена авторов (на узбекском, русском и английском языках);</li>
+            <li>ученые степени, звания и должности авторов (на узбекском, русском и английском языках);</li>
+            <li>название региона/страны проживания авторов (на узбекском, русском и английском языках);</li>
+            <li>адреса электронной почты авторов;</li>
+            <li>идентификаторы ORCID авторов;</li>
+            <li>номера телефонов авторов.</li>
+          </ul>
+          <p class="mb-2">При наличии авторы также должны предоставить:</p>
           <ul class="list-disc list-inside space-y-1">
-            <li>Ф.И.О. авторов на 3 языках (узбекский, русский, английский).</li>
-            <li>Ученая степень, звание и должность на 3 языках.</li>
-            <li>Регион/страна проживания на 3 языках.</li>
-            <li>Адреса электронной почты и телефоны.</li>
-            <li>ORCID iD.</li>
-            <li>При наличии: ссылки на Google Scholar и Scopus.</li>
+            <li>ссылки на свои профили в Google Scholar и Scopus.</li>
           </ul>
         </section>
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Апелляции и жалобы</h4>
-          <p class="mb-4">Журнал следует рекомендациям COPE при рассмотрении апелляций на решения редакторов и жалоб на редакционное управление процессом рецензирования. Апелляции рассматриваются при наличии аргументов, доказательств или новой информации.</p>
-          <p class="mb-0">По вопросам редакционного процесса обращайтесь в редакцию. Рекомендуется ознакомиться с полными руководствами (Приложение 9 и Приложение 10).</p>
+          <p class="mb-4">Электронный научно-методический журнал «Вопросы филологии» принимает жалобы на решения редакторов и на редакционное управление процессом публикации журнала в соответствии с рекомендациями Комитета по публикационной этике (Committee on Publication Ethics, COPE).</p>
+          <p class="mb-4">Редакция электронного научно-методического журнала «Вопросы филологии» руководствуется рекомендациями Комитета по публикационной этике (COPE) в отношении апелляций на решения редакции журнала и жалоб на редакционное управление процессом рецензирования.</p>
+          <p class="mb-4">Мы приветствуем обоснованные апелляции на решения редактора. Однако вам необходимо будет предоставить веские доказательства или новые данные/информацию в ответ на замечания редактора и рецензентов.</p>
+          <p class="mb-4">Если Вы как автор желаете высказать замечания по вопросам редакционной политики журнала, пожалуйста, свяжитесь с нами и выберите тему «Другое».</p>
+          <p class="mb-0">Ознакомьтесь с полным руководством электронного научно-методического журнала «Вопросы филологии» по обжалованию рецензирования и жалобам авторов.</p>
         </section>
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Авторство</h4>
-          <p class="mb-3">Указание авторов является ключевым механизмом признания вклада и обеспечения ответственности за целостность научного содержания.</p>
-          <p class="mb-3">Каждый автор должен соответствовать всем критериям:</p>
+          <p class="mb-4">Указание имен авторов в статье является важным механизмом признания заслуг тех, кто внес значительный вклад в работу. Это также обеспечивает прозрачность для тех, кто несет ответственность за целостность содержания.</p>
+          <p class="mb-3">Авторы, указанные в статье, должны соответствовать всем следующим критериям:</p>
           <ol class="list-decimal list-inside space-y-2">
-            <li>Существенный вклад в концепцию, дизайн, выполнение исследования, сбор, анализ и интерпретацию данных.</li>
-            <li>Подготовка текста статьи или ее существенная критическая переработка.</li>
-            <li>Совместное решение о подаче рукописи в журнал.</li>
-            <li>Одобрение всех версий рукописи, включая доработанные и финальную принятую версию.</li>
+            <li>внесли значительный вклад в представленную работу, будь то в разработке концепции, планировании, реализации, сборе данных, анализе и интерпретации результатов исследования, либо во всех этих областях;</li>
+            <li>участвовали в составлении, написании, существенной доработке или критическом рецензировании рукописи;</li>
+            <li>согласились с выбором журнала, в который будет отправлена статья;</li>
+            <li>ознакомились и согласовали все версии статьи до подачи, в процессе редактирования, окончательную версию, принятую к публикации, а также любые существенные изменения, внесенные на этапе корректуры;</li>
+            <li>согласились взять на себя ответственность и нести ответственность за содержание статьи, а также разделять ответственность за решение любых вопросов, возникающих в отношении точности или целостности опубликованной работы.</li>
           </ol>
         </section>
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Определение авторства</h4>
-          <p class="mb-4">Решение о составе и порядке авторов является общей ответственностью всех участников исследования.</p>
-          <p class="mb-0">Редактор не выступает арбитром в неурегулированных спорах об авторстве. Такие вопросы передаются в соответствующие организации. Авторам следует изучить руководство по авторству, изменениям авторства, благодарностям, языковой/переводческой поддержке и политике изменения имени автора.</p>
+          <p class="mb-4">Определение того, кто должен быть указан в качестве авторов, и порядка их перечисления является коллективной ответственностью всех лиц, выполнивших работу.</p>
+          <p class="mb-4">Редактор журнала не принимает решения о порядке указания авторов и не может выступать арбитром в спорах об авторстве. В случае возникновения неразрешенных споров между авторами, учреждению (учреждениям), в котором (которых) была выполнена работа, будет предложено провести расследование.</p>
+          <p class="mb-3">Ознакомьтесь с нашим руководством по определению авторства, в котором содержится подробная информация по следующим вопросам:</p>
+          <ul class="list-disc list-inside space-y-1">
+            <li>Авторы, контактирующие с редакцией;</li>
+            <li>Изменения в авторстве;</li>
+            <li>Помощь научных редакторов или переводчиков;</li>
+            <li>Указание на использование ИИ;</li>
+            <li>Помощь в проведении экспериментов и анализе данных;</li>
+            <li>Благодарности;</li>
+            <li>Политика изменения имени автора.</li>
+          </ul>
         </section>
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Цитирование</h4>
-          <p class="mb-4">Все утверждения должны подкрепляться релевантной, актуальной и рецензируемой литературой. Чрезмерное самоцитирование и согласованные практики цитирования, направленные на манипуляцию, запрещены.</p>
-          <p class="mb-4">Для обзорных и дискуссионных работ требуется объективный и сбалансированный анализ текущего состояния исследований без предвзятости к отдельным группам, организациям или журналам.</p>
-          <p class="mb-0">При сомнениях в оформлении ссылок обращайтесь в редакцию и используйте полное руководство по цитированию.</p>
+          <p class="mb-4">В научных статьях должны цитироваться актуальные, своевременные и проверенные источники (прошедшие экспертную оценку, где это уместно) для подтверждения любых утверждений, сделанных в статье.</p>
+          <p class="mb-4">Необходимо избегать чрезмерных и неуместных самоцитирований или предварительных договоренностей между группами авторов о взаимном цитировании работ друг друга, так как это может рассматриваться как форма недобросовестного поведения, называемая манипуляцией цитированием. Ознакомьтесь с рекомендациями COPE по манипуляции цитированием.</p>
+          <p class="mb-4">Если вы являетесь автором статьи, не относящейся к научным исследованиям (например, рецензии или мнения), вы должны убедиться в достоверности приведенных ссылок и объективно и сбалансированно оценить текущее состояние исследований или научной работы по данной теме. Ваши материалы не должны быть предвзятыми по отношению к какой-либо исследовательской группе, организации или журналу.</p>
+          <p class="mb-4">Если вы являетесь автором неисследовательской статьи (например, Обзора), вам следует убедиться, что все цитируемые источники являются актуальными и что рукопись представляет объективный и сбалансированный обзор текущего состояния исследований или научной работы в данной области. Ваши ссылки не должны быть предвзятыми в отношении конкретной исследовательской группы, организации или журнала.</p>
+          <p class="mb-4">Если вы не уверены, как правильно цитировать источник, рекомендуем обратиться за консультацией в редакцию журнала.</p>
+          <p class="mb-0">Пожалуйста, ознакомьтесь с полным руководством по цитированию электронного научно-методического журнала «Вопросы филологии», включая рекомендации по источникам, которые следует включить в список литературы вашей рукописи.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Конкурирующие интересы</h4>
-          <p class="mb-4">Авторы и соавторы обязаны раскрывать все конкурирующие интересы, связанные с рукописью или потенциально воспринимаемые как связанные.</p>
-          <ul class="list-disc list-inside space-y-1">
-            <li>Интересы могут быть финансовыми и нефинансовыми.</li>
-            <li>К ним относятся коммерческие, юридические, профессиональные и личные связи.</li>
-            <li>Даже потенциально воспринимаемые конфликты должны быть раскрыты ради прозрачности.</li>
+          <h4 class="text-lg font-semibold mb-3">Конфликт интересов</h4>
+          <p class="mb-3">Вы и все ваши соавторы обязаны заявлять о любых конфликтах интересов, имеющих отношение к статье или которые могут быть восприняты как имеющие к ней отношение.</p>
+          <ul class="list-disc list-inside space-y-1 mb-4">
+            <li>Конфликт интересов может возникнуть в том случае, если у вас (или у вашего работодателя, спонсора, семьи или друзей) имеются финансовые, коммерческие, юридические или профессиональные отношения с другими организациями или с людьми, работающими в них, которые могут повлиять на исследование или интерпретацию его результатов.</li>
+            <li>Конфликт интересов может носить как финансовый, так и нефинансовый характер. Для обеспечения прозрачности вы также должны заявить о любых связях, которые могут быть восприняты другими как конфликт интересов.</li>
           </ul>
+          <p class="mb-0">Пожалуйста, ознакомьтесь с нашим руководством по конфликту интересов. В нем приведены примеры как финансового, так и нефинансового конфликта интересов.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Исправления, выражения обеспокоенности и отзыв</h4>
-          <p class="mb-4">Любые постпубликационные изменения вносятся после редакционной и этической проверки в соответствии с принципами COPE.</p>
-          <p class="mb-0">При необходимости публикуется официальное уведомление (исправление, выражение обеспокоенности, отзыв статьи или, в редких случаях, удаление), связанное с исходной публикацией.</p>
+          <h4 class="text-lg font-semibold mb-3">Исправления, выражения озабоченности и отзывы</h4>
+          <p class="mb-4">Иногда после публикации статьи может возникнуть необходимость внести изменения в окончательную версию (Version of Record, VoR). Это будет сделано после тщательного рассмотрения редактором при поддержке редакционного коллектива электронного научно-методического журнала «Вопросы филологии», чтобы гарантировать, что все необходимые изменения внесены в соответствии с рекомендациями Комитета по публикационной этике (COPE).</p>
+          <p class="mb-4">Любые необходимые изменения будут сопровождаться уведомлением после публикации, которое будет постоянно связано с исходной статьей. Это может быть в форме уведомления об исправлении, выражения озабоченности, отзыва и, в редких случаях, удаления. Цель этого механизма внесения постоянных и прозрачных изменений заключается в обеспечении целостности научной документации.</p>
+          <p class="mb-0">Ознакомьтесь с нашей полной политикой в отношении исправлений, отзывов и обновлений опубликованных статей.</p>
         </section>
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Доступность и хранение данных</h4>
-          <p class="mb-0">Журнал применяет политику обмена данными и ожидает от авторов заявление о доступности данных, связанных со статьей, а также их надлежащее хранение.</p>
+          <p class="mb-3"><strong>Политика обмена данными</strong></p>
+          <p class="mb-4">Вы планируете подать свою статью в электронный научно-методический журнал «Вопросы филологии» и у вас есть пакет документов, связанных с вашей работой? В данном журнале существует политика обмена информацией, определяющая, каким образом следует обмениваться информацией, связанной с вашей статьей. Руководство для понимания политики обмена данными журнала подробно ознакомит вас с деталями и шагами, которые вам необходимо выполнить в качестве участника этого процесса.</p>
+          <p class="mb-3"><strong>Хранилище данных</strong></p>
+          <p class="mb-4">Хранилище данных – это хранилище, в котором исследователи могут размещать данные, связанные с их исследованиями. Если вы являетесь автором и стремитесь соблюдать политику журнала в отношении обмена данными, вам необходимо выбрать подходящее хранилище для ваших данных.</p>
+          <p class="mb-0">Ознакомьтесь с нашим руководством по выбору хранилища данных, в котором представлены некоторые универсальные варианты хранилищ, которые вы можете рассмотреть для хранения и обмена данными ваших исследований.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Политика обмена данными и репозитории</h4>
-          <p class="mb-4">Если работа сопровождается набором данных, авторы должны соблюдать требования журнала по обмену данными и выбору репозитория.</p>
-          <p class="mb-0">Репозиторий данных - это цифровое пространство для хранения и распространения исследовательских данных. Выбор репозитория должен соответствовать тематике исследования и требованиям к доступу/сохранности.</p>
+          <h4 class="text-lg font-semibold mb-3">Индивидуальные компьютерные коды, программные инструменты и математические алгоритмы</h4>
+          <p class="mb-0">Для обеспечения полноценной оценки представленных материалов вы должны предоставить по запросу редакторов и/или рецензентов любые пользовательские компьютерные коды, программные инструменты или алгоритмы, которые были использованы для получения результатов и выводов, представленных в вашей рукописи.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Код, программные средства и алгоритмы</h4>
-          <p class="mb-0">По запросу редактора и/или рецензентов авторы обязаны предоставить специализированный код, программные инструменты и алгоритмы, использованные для получения результатов и выводов.</p>
+          <h4 class="text-lg font-semibold mb-3">Обозначения территорий</h4>
+          <p class="mb-4">Электронный научно-методический журнал «Вопросы филологии» уважает решения своих авторов относительно обозначения территорий в публикуемых материалах.</p>
+          <p class="mb-4">Политика журнала заключается в том, чтобы занимать нейтральную позицию в отношении территориальных споров или юрисдикционных претензий в публикуемом контенте, включая карты и указания на принадлежность к организациям.</p>
+          <p class="mb-0">Если журнал принадлежит и издается от имени общества или иной третьей стороны, редакция журнала будет учитывать степень, в которой политика данного общества или третьей стороны может отличаться в этом вопросе.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Территориальные обозначения</h4>
-          <p class="mb-0">Журнал сохраняет нейтралитет в отношении территориальных и юрисдикционных заявлений в опубликованном контенте, включая карты и институциональные аффилиации.</p>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Кодекс редакторской этики</h4>
-          <p class="mb-4">Редакторы отвечают за качество публикаций, целостность двойного слепого рецензирования и поддержку авторов и рецензентов.</p>
-          <p class="mb-0">Кодекс редакционного поведения журнала определяет минимальные стандарты для обеспечения надежного и качественного научного контента.</p>
+          <h4 class="text-lg font-semibold mb-3">Кодекс поведения редактора</h4>
+          <p class="mb-4">Электронный научно-методический журнал «Вопросы филологии» предоставляет платформу для надежных и высококачественных исследований, оцениваемых ведущими учеными и экспертами со всего мира. Редактор журнала играет ключевую роль в продвижении знаний в соответствующих областях исследований. Он делает это путем:</p>
+          <ul class="list-none space-y-1 mb-4">
+            <li>&#10003; поддержания и повышения качества статей, публикуемых в журнале, а также обеспечения честности и объективности процесса рецензирования;</li>
+            <li>&#10003; поддержки авторов и рецензентов журнала;</li>
+            <li>&#10003; поддержки и укрепления репутации журнала в сотрудничестве с редакционной коллегией.</li>
+          </ul>
+          <p class="mb-0">В целях поддержки этой роли Кодекс профессиональной этики редакции электронного научно-методического журнала «Вопросы филологии» устанавливает необходимые стандарты для редакторов журнала, которые несут ответственность за принятие решений относительно содержания журнала, чтобы помочь обеспечить публикацию в наших журналах качественного и достоверного контента.</p>
         </section>
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Финансирование</h4>
-          <p class="mb-4">Авторы обязаны раскрывать все источники финансирования, связанные с исследованием, представленным в статье.</p>
+          <p class="mb-4">Электронный научно-методический журнал «Вопросы филологии» требует от авторов декларировать все источники финансовой поддержки, которые способствовали покрытию расходов на исследования, связанных с работами, представленными в их статьях. Примеры таких источников финансирования включают:</p>
           <ul class="list-disc list-inside space-y-1 mb-4">
-            <li>Внутренние источники: поддержка организации, работодателя, гранты и иные формы финансирования.</li>
-            <li>Внешние источники: фонды, некоммерческие/коммерческие организации, государственные структуры и т.д.</li>
-            <li>Финансирование проведения исследования, анализа, языкового редактирования, перевода, научного письма и поездок.</li>
+            <li>внутренние средства, гранты и другие формы финансовой поддержки, предоставляемые учреждениями авторов, их работодателями или аффилированными организациями;</li>
+            <li>внешние средства, полученные от благотворительных или некоммерческих организаций, частных фондов, коммерческих компаний (например, технологических или фармацевтических компаний), аналитических центров, групп по защите интересов, исследовательских ассоциаций и государственных органов.</li>
           </ul>
-          <p class="mb-4">Финансовое заявление должно содержать полное наименование финансирующей организации, номер гранта и, по возможности, получателя гранта. Активная роль спонсора в исследовании дополнительно отражается в декларации конкурирующих интересов.</p>
-          <p class="mb-0">Если финансирование отсутствовало, это следует явно указать. Сокрытие финансирования или существенные неточности могут привести к исправлению или отзыву статьи.</p>
+          <p class="mb-4">Декларация о финансировании позволяет авторам выразить признательность спонсорам и способствует прозрачности, особенно в тех случаях, когда спонсор может играть дополнительные роли или вносить вклад в исследование. Эти вклады также необходимо более подробно описать в декларации о конфликте интересов.</p>
+          <p class="mb-3">Авторы должны декларировать финансовую поддержку, использованную для следующих целей (не исключая иные цели, не перечисленные ниже):</p>
+          <ul class="list-disc list-inside space-y-1 mb-4">
+            <li>Финансирование, использованное для покрытия расходов, связанных с проведением исследования (например, расходы на оборудование или реагенты, использованные в исследовании) и/или анализом результатов;</li>
+            <li>Внешняя помощь или финансирование, использованные для проведения экспериментов, сравнений и/или анализа данных, представленных в рукописи. Финансирование, использованное для оплаты услуг сторонних организаций или внешней помощи в проведении экспериментов, сборе и/или анализе данных, о которых сообщается в статье. Информацию об авторстве и признании внешней поддержки можно найти здесь;</li>
+            <li>Дополнительное финансирование, использованное для оплаты услуг по редактированию текста, услуг переводчиков или помощи в написании научных работ. Наши правила в отношении авторства и указания поддержки можно найти здесь;</li>
+            <li>Финансирование поездок, необходимое для реализации исследовательского проекта.</li>
+          </ul>
+          <p class="mb-4">Авторы должны указывать только те источники финансирования и гранты, которые имеют непосредственное отношение к работе, представленной в их статье. Если финансирование для описанной работы не предоставлялось, авторам рекомендуется указать, что финансирование не получалось. Это обеспечивает прозрачность и позволяет избежать подозрений в наличии незадекларированной финансовой поддержки.</p>
+          <p class="mb-4">Любое заявление о финансировании должно содержать полное название финансирующей организации, номер(а) гранта и, по возможности, имя лица или название исследовательской группы, которой был предоставлен данный грант. Как указано выше, если финансирующая сторона также играла активную роль в процессе исследования, например, в сборе или анализе данных, это должно быть четко указано в заявлении о конфликте интересов.</p>
+          <p class="mb-0">Авторы должны быть готовы предоставить в редакцию документацию о финансировании и дополнительную информацию по запросу (в том числе, при необходимости, информацию о средствах, использованных для оплаты сборов за подачу и публикацию). Обращаем ваше внимание на то, что нераскрытие информации о финансировании в некоторых случаях может рассматриваться как форма недобросовестного научного поведения и может привести к принятию корректирующих мер для обеспечения достоверности научной публикации. В случае выявления неточностей или отсутствия ключевой информации в заявлении о финансировании может потребоваться публикация уведомлений об исправлениях или отзыве (в зависимости от ситуации) в отношении опубликованных статей.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Этика автора</h4>
-          <p class="mb-4">Журнал не допускает давление, запугивание или иные формы принуждения в отношении авторов, редакторов, рецензентов, сотрудников или поставщиков услуг.</p>
-          <p class="mb-0">Редакция работает в атмосфере взаимного уважения и при необходимости взаимодействует со специалистами по этике и праву. Исследователям, столкнувшимся с онлайн-давлением, рекомендуется пользоваться соответствующими рекомендациями журнала.</p>
+          <h4 class="text-lg font-semibold mb-3">Публикационная этика автора</h4>
+          <p class="mb-4">Электронный научно-методический журнал «Вопросы филологии» не допускает никаких форм домогательств, запугивания или неправомерного давления в отношении авторов, редакторов, рецензентов, сотрудников редакции или поставщиков.</p>
+          <p class="mb-4">Редакция стремится поддерживать профессиональную среду, основанную на взаимном уважении, и будет сотрудничать с работниками издательства, ответственными за вопросы этики, а также с юридическими представителями для решения любых случаев домогательств.</p>
+          <p class="mb-0">Рекомендации для исследователей, подвергающихся притеснениям. Как исследователь, вы должны быть готовы к тому, что ваша работа может привлечь внимание общественности и стать предметом тщательного изучения со стороны общественности, политиков и правозащитных групп. Однако исследователи, работающие над резонансными или спорными темами, могут также сталкиваться с буллингом в Интернете. Чтобы помочь исследователям справиться с такими проблемами, электронный научно-методический журнал «Вопросы филологии» рекомендует ознакомиться с его руководством по реагированию на притеснения и преследования в социальных сетях.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Изображения и иллюстрации</h4>
-          <p class="mb-0">Иллюстративные материалы следует использовать только при наличии научной ценности и прямой связи с результатами исследования. Декоративный или нерелевантный визуальный контент не рекомендуется.</p>
+          <h4 class="text-lg font-semibold mb-3">Изображения и рисунки</h4>
+          <p class="mb-4">Вы должны включать изображения и иллюстрации в свою статью только в том случае, если они имеют отношение к описываемой работе и представляют ценность для нее. Пожалуйста, избегайте включения визуальных материалов, которые не вносят вклад в научное содержание статьи.</p>
+          <p class="mb-0">Для получения дополнительных рекомендаций ознакомьтесь с политикой журнала в отношении изображений и иллюстраций.</p>
         </section>
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Использование материалов третьих лиц</h4>
-          <p class="mb-4">Авторы несут ответственность за получение разрешений на использование защищенных авторским правом материалов третьих лиц (тексты, таблицы, иллюстрации, фото, аудио, видео, скриншоты, ноты и приложения).</p>
-          <p class="mb-0">Ограниченное цитирование в целях критики/обзора может быть допустимо в отдельных случаях, но для иного использования требуется письменное разрешение правообладателя до подачи рукописи.</p>
+          <p class="mb-4">В соответствии с гарантиями, предусмотренными в Договоре о публикации статей, заключаемом вами с электронным научно-методическим журналом «Вопросы филологии», вы обязаны получить необходимое письменное разрешение на включение в свою статью материалов, права на которые принадлежат третьим лицам. К таким материалам могут относиться, в частности, тексты, иллюстрации, таблицы, аудио- или видеоматериалы, кадры из фильмов, скриншоты, нотные записи и любые дополнительные материалы.</p>
+          <p class="mb-0">Ознакомьтесь с руководством журнала по использованию материалов третьих лиц в вашей статье, включая ответы на часто задаваемые вопросы о получении разрешения на воспроизведение произведений, защищенных авторским правом.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Разрешение на публикацию идентифицируемого или защищенного контента</h4>
-          <p class="mb-4">Контент, позволяющий идентифицировать участников исследования (фото, видео, аудио, 3D-модели и т.д.), публикуется только при наличии информированного согласия участников или их законных представителей.</p>
-          <p class="mb-0">Если требуются дополнительные разрешения от сообществ, архивов или иных правообладателей, авторы должны оформить их до подачи рукописи.</p>
+          <h4 class="text-lg font-semibold mb-3">Получение разрешения на публикацию идентифицируемого или защищенного контента</h4>
+          <p class="mb-4">Контент (например, фотографии, видео- или аудиозаписи, 3D-модели, иллюстрации и т. д.), который может раскрыть личность пациентов, участников или субъектов исследования, может быть включен только в том случае, если они (или родители/опекуны, если они несовершеннолетние или считаются неспособными дать информированное согласие, или ближайшие родственники, если участники умерли) дали согласие на публикацию.</p>
+          <p class="mb-0">Если какой-либо контент данного типа был получен от сообществ, где требуются дополнительные разрешения (например, от старейшины или лидера общины коренного населения), или из защищенного источника (например, из музейных коллекций), авторы должны получить необходимые разрешения на использование до подачи рукописи. Для получения более подробной информации прочитайте полную политику журнала по использованию изображений и иллюстраций.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Нарушения и недобросовестная практика</h4>
-          <p class="mb-3">Журнал серьезно относится ко всем видам нарушений и применяет процедуры, согласованные с COPE, для защиты целостности научной записи.</p>
-          <p class="mb-3">Примеры (не ограничиваясь):</p>
-          <ul class="list-disc list-inside space-y-1">
-            <li>Неверное указание аффилиации.</li>
-            <li>Нарушение авторских прав и использование материалов без разрешения.</li>
-            <li>Манипуляции цитированием.</li>
-            <li>Дублирующая подача/публикация.</li>
-            <li>Фальсификация или манипуляция изображениями и данными.</li>
-            <li>Манипуляция процессом рецензирования.</li>
-            <li>Плагиат и самоплагиат (text recycling).</li>
-            <li>Нераскрытые конкурирующие интересы.</li>
-            <li>Неэтичное проведение исследования.</li>
+          <h4 class="text-lg font-semibold mb-3">Нарушения</h4>
+          <p class="mb-3">Электронный научно-методический журнал «Вопросы филологии» серьезно относится ко всем формам недобросовестного поведения и примет все необходимые меры в соответствии с руководящими принципами COPE для защиты целостности научной документации.</p>
+          <p class="mb-3">Примеры недобросовестного поведения включают, но не ограничиваются:</p>
+          <ul class="list-disc list-inside space-y-1 mb-4">
+            <li>Ложные сведения об аффилиации;</li>
+            <li>Нарушение авторских прав/использование материалов третьих лиц без соответствующего разрешения;</li>
+            <li>Манипуляции с цитированием;</li>
+            <li>Повторная подача/публикация;</li>
+            <li>«Этический демпинг» (снижение этических стандартов);</li>
+            <li>Манипулирование изображениями или данными/фальсификация;</li>
+            <li>Манипулирование процессом рецензирования;</li>
+            <li>Плагиат;</li>
+            <li>Повторное использование текста/самоплагиат;</li>
+            <li>Нераскрытые конфликты интересов;</li>
+            <li>Неэтичные методы проведения исследований.</li>
           </ul>
+          <p class="mb-0">Ознакомьтесь с полным текстом политики, чтобы узнать больше о перечисленных выше видах неправомерных действий.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Двойное слепое рецензирование</h4>
-          <p class="mb-4">Рукописи проходят строгую экспертизу в формате двойного слепого рецензирования в соответствии с требованиями журнала и рекомендациями COPE.</p>
-          <p class="mb-4">Обычно статья направляется как минимум двум независимым рецензентам. Редактор учитывает рецензии, но окончательное решение принимает самостоятельно.</p>
-          <p class="mb-0">Журнал не принимает предложения авторов по кандидатам в рецензенты.</p>
-        </section>
-        <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Конфиденциальность рецензирования</h4>
-          <p class="mb-4">На всех этапах рецензирования и принятия редакционных решений должна соблюдаться конфиденциальность и целостность процесса в соответствии с требованиями защиты данных, включая применимые принципы GDPR.</p>
-          <p class="mb-0">Рецензенты обязаны раскрывать потенциальные конкурирующие интересы до подачи отчета. При этических расследованиях информация раскрывается только уполномоченным сторонам в необходимом объеме.</p>
+          <h4 class="text-lg font-semibold mb-3">Рецензирование</h4>
+          <p class="mb-4">Статьи, представленные в электронный научно-методический журнал «Вопросы филологии», включая черновые версии, проходят тщательное рецензирование. Журнал следует рекомендациям COPE для рецензентов. В этом отношении может быть полезно руководство для понимания процесса двойного слепого рецензирования.</p>
+          <p class="mb-4">Электронный научно-методический журнал «Вопросы филологии» публикует на главной странице журнала заявление, описывающее модель рецензирования, используемую журналом. Каждая научная статья, как правило, требует оценки как минимум двумя независимыми рецензентами. Цели и сфера деятельности журнала содержат подробную информацию о его политике двойного слепого рецензирования.</p>
+          <p class="mb-4">При принятии решения редактор учитывает детали комментариев рецензентов, а также их общие рекомендации; однако окончательная ответственность за принятие или отклонение рукописи лежит на редакторе.</p>
+          <p class="mb-4">В соответствии с Этическими рекомендациями COPE для новых редакторов, редакторы обязаны передавать на рассмотрение члену редакционной коллегии или приглашенному редактору все рукописи, которые они не могут рассмотреть беспристрастно (например, если они являются авторами представленной рукописи).</p>
+          <p class="mb-4">Обращаем ваше внимание на то, что электронный научно-методический журнал «Вопросы филологии» не допускает, чтобы авторы предлагали кандидатуры рецензентов для своих рукописей.</p>
+          <p class="mb-3"><strong>Конфиденциальность рецензирования</strong></p>
+          <p class="mb-4">Обязательным требованием является соблюдение конфиденциальности и целостности процесса рецензирования и принятия редакционных решений на всех этапах в соответствии с нормами защиты данных, включая GDPR (Общий регламент по защите данных). Приглашенный рецензент должен заявить о любых конфликтах интересов до подачи своего отчета о рецензии в журнал. Если рецензент желает привлечь коллегу в качестве сорецензента для статьи, необходимо получить предварительное одобрение от редакции до начала рецензирования рукописи, а при подаче отчета о рецензии в редакцию необходимо указать полное имя коллеги, его принадлежность к организации и любые соответствующие конфликты интересов.</p>
+          <p class="mb-0">В процессе расследования этического запроса представленная рукопись, автор, рецензент и любые другие вовлеченные лица (включая информаторов) будут рассматриваться конфиденциально. В ходе расследования редактору может потребоваться поделиться соответствующей информацией с третьими сторонами, такими как комитеты по этике или учреждения авторов.</p>
         </section>
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Плагиат</h4>
-          <p class="mb-4">Журнал строго относится к плагиату во всех форматах (цифровых и печатных), включая текст, идеи, изображения и иные материалы, используемые без надлежащего указания источника.</p>
-          <p class="mb-0">Во всех случаях авторы обязаны корректно ссылаться на первоисточники.</p>
+          <p class="mb-4">Доверие и честность относятся к числу наиболее ценных принципов в научном рецензируемом издательстве. По этой причине электронный научно-методический журнал «Вопросы филологии» очень серьезно относится к проблеме плагиата.</p>
+          <p class="mb-4">Для журнала «Вопросы филологии» плагиат включает в себя несанкционированное использование информации, изображений, слов или идей, взятых из любых материалов, опубликованных в электронной или печатной форме. Любое прямое или косвенное использование таких материалов должно быть должным образом указано во всех случаях. Вы должны всегда приводить соответствующие цитаты и четко указывать источник.</p>
+          <p class="mb-0">Пожалуйста, ознакомьтесь с политикой журнала в отношении плагиата и рекомендациями для авторов, чтобы узнать, что является плагиатом (а что нет) и как его избежать.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Препринты и предварительные версии</h4>
-          <p class="mb-4">Журнал поддерживает ответственное распространение ранних версий научных работ. Размещение авторской версии рукописи на некоммерческом сервере препринтов не считается дублирующей публикацией.</p>
-          <p class="mb-0">После публикации статьи авторы могут распространять разрешенные версии в соответствии с правилами журнала.</p>
+          <h4 class="text-lg font-semibold mb-3">Препринты, серверы препринтов и раннее опубликование научных работ</h4>
+          <p class="mb-4">Электронный научно-методический журнал «Вопросы филологии» поддерживает необходимость обмена авторами ранними версиями своих работ до публикации по результатам рецензирования. Авторам предоставляется несколько вариантов обмена окончательной версией своей опубликованной статьи.</p>
+          <p class="mb-3"><strong>Препринты и серверы препринтов</strong></p>
+          <p class="mb-4">Препринт, также известный как авторский оригинал рукописи (AOM), представляет собой версию вашей статьи до ее подачи в журнал для рецензирования. Серверы препринтов – это онлайн-репозитории, которые позволяют размещать раннюю версию вашей научной статьи в Интернете.</p>
+          <p class="mb-0">Если вы загрузите свой AOM на некоммерческий сервер препринтов, вы сможете впоследствии подать рукопись в электронный научно-методический журнал «Вопросы филологии». Журнал не считает публикацию на сервере препринтов дублированием публикации, и это не повлияет на рассмотрение вашей работы к публикации.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Продвижение опубликованной статьи</h4>
-          <p class="mb-0">Авторам рекомендуется распространять публикации через научные каналы с соблюдением правил версионности и корректного цитирования.</p>
+          <h4 class="text-lg font-semibold mb-3">Распространение опубликованной статьи</h4>
+          <p class="mb-4">Если вы опубликовали статью в электронном научно-методическом журнале «Вопросы филологии», вы можете поделиться ею с коллегами и единомышленниками через различные каналы и платформы.</p>
+          <p class="mb-0">Ознакомьтесь с нашим руководством по распространению ваших работ.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Этика исследования и согласие</h4>
-          <p class="mb-0">Все исследования, публикуемые в журнале, должны соответствовать международным и локальным этическим требованиям, включая надлежащее информированное согласие и необходимые одобрения.</p>
+          <h4 class="text-lg font-semibold mb-3">Этика исследований и согласие</h4>
+          <p class="mb-0">Все исследования, публикуемые в электронном научно-методическом журнале «Вопросы филологии», должны быть проведены в соответствии с международными и местными руководящими принципами, обеспечивающими этическое проведение исследований.</p>
+        </section>
+        <section class="mb-8">
+          <h4 class="text-lg font-semibold mb-3">Стандарты представления результатов</h4>
+          <p class="mb-4">Результаты исследований должны излагаться таким образом, чтобы обеспечить их прозрачность, проверяемость и воспроизводимость. В связи с этим авторам рекомендуется предоставлять исчерпывающие описания обоснования исследования, его протокола, методологии и анализа.</p>
+          <p class="mb-0">Чтобы помочь авторам в этом процессе, было разработано несколько основанных на консенсусе рекомендаций по представлению результатов, специфичных для конкретных типов исследований, и мы рекомендуем вам использовать их в качестве руководства перед подачей рукописи.</p>
         </section>
         <section>
-          <h4 class="text-lg font-semibold mb-3">Стандарты отчетности</h4>
-          <p class="mb-0">Рукописи должны содержать достаточное описание обоснования, протокола, методологии и анализа для проверки и воспроизводимости результатов. Перед подачей рекомендуется использовать профильные руководства по отчетности.</p>
+          <h4 class="text-lg font-semibold mb-3">Использование материалов третьих лиц</h4>
+          <p class="mb-4">Вы должны получить необходимое разрешение на повторное использование материалов третьих лиц, включенных в вашу статью. К таким материалам могут относиться, в том числе, текст, иллюстрации, фотографии, таблицы, наборы данных, аудио- и видеоматериалы, кадры из фильмов, скриншоты и нотные записи.</p>
+          <p class="mb-4">Краткий отрывок текста и некоторые другие категории материалов, как правило, могут использоваться в ограниченных объемах для критики или рецензии без официального разрешения. Однако, если вы желаете включить в свою рукопись какие-либо материалы, на которые у вас нет авторских прав и которые не подпадают под такие исключения, вам необходимо получить письменное разрешение от владельца авторских прав до подачи рукописи.</p>
+          <p class="mb-4">Дополнительные ресурсы по вопросам авторского права доступны на нашем веб-сайте в подробном разделе «Часто задаваемые вопросы», где освещаются такие темы, как цитаты и скриншоты из X (бывший Twitter), старинные картины, перерисованные изображения и производные материалы, защищенные авторским правом, цитаты из стихов или песен, а также рекомендации по использованию стороннего контента в статьях с открытым доступом.</p>
+          <p class="mb-0">Узнайте больше о том, как запросить разрешение на воспроизведение произведений, защищенных авторским правом.</p>
         </section>
         '''
     },
@@ -1347,7 +1427,7 @@ PAGES_DATA = {
     'aims_scope': {
         'title': 'Aims and Scope',
         'title_uz': 'Maqsadlari va qamrovi',
-        'title_ru': 'Цели и задачи',
+        'title_ru': 'Цели и сфера деятельности',
         'content': '''
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">Aims and Scope</h4>
@@ -1391,19 +1471,17 @@ PAGES_DATA = {
         ''',
         'content_ru': '''
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Цели и охват</h4>
-          <p class="mb-0">Журнал посвящен теоретическим и прикладным исследованиям в области филологии и лингвистики и продвигает современные научные подходы в этих сферах.</p>
+          <h4 class="text-lg font-semibold mb-3">Цели и сфера деятельности</h4>
+          <p class="mb-4">Электронный научно-методический журнал «Вопросы филологии» поддерживает публикацию результатов исследований, проводимых во всем мире, которые способствуют развитию знаний, теории и методологии на стыке филологии (10.00.00) и педагогики (13.00.00). Журнал уделяет особое внимание роли языка и другим филологическим вопросам в контексте педагогических задач, связанных с изучением, преподаванием и освоением первого (родного), второго и иностранных языков в мире.</p>
+          <p class="mb-4">Журнал публикует исследования, направленные на предоставление научному сообществу возможностей для распространения результатов оригинальных исследований; привлечение внимания к актуальным и новым направлениям в филологических и педагогических науках; содействие научному обмену и сотрудничеству между узбекскими и зарубежными филологами; представление результатов исследований и конструктивных идей, актуальных как для Узбекистана, так и для международного научного сообщества, включая инновационные подходы к преподаванию филологических дисциплин; а также ознакомление читателей с современными тенденциями, теориями и их практическим применением, разработанными в Узбекистане, странах СНГ и более широком международном научном сообществе. Журнал также публикует оригинальные междисциплинарные исследования, посвященные широкому спектру актуальных филологических и педагогических вопросов, раскрывающих взаимодействие между языком, культурой, познанием и коммуникацией.</p>
+          <p class="mb-4"><strong>«Вопросы филологии»</strong> поощряет исследования, интегрирующие теории и методологии всех традиций филологии и педагогики для изучения любых аспектов языкового образования. Области, изучаемые на стыке филологии и педагогики, включают, помимо прочего, лингвистику, литературоведение, переводоведение, журналистику, методику преподавания, педагогику и психологию.</p>
+          <p class="mb-4"><strong>«Вопросы филологии»</strong> – журнал, ориентированный на оригинальные исследования. Хотя статьи могут иметь практические и политические последствия для образования, они должны быть основаны на тщательном исследовании и демонстрировать прочную концептуальную основу как в анализе, так и в дискуссии. Журнал приветствует экспериментальные исследования, обзорные статьи, практические отчеты и исследовательские проекты, охватывающие различные области филологии и смежных дисциплин, опирающиеся на дисциплинарные и междисциплинарные исследовательские традиции, отражающие принципиальное применение качественных, количественных или смешанных методологических парадигм. К ним могут относиться, например, прикладные исследования, этнографическая полевая работа, экспериментальные и квазиэкспериментальные исследования, а также связанные с ними формы научного поиска. Статьи, представляемые в журнал, должны быть актуальными и доступными для международной аудитории.</p>
+          <p class="mb-0">Статьи, посвященные всем аспектам филологии и педагогических наук, могут быть сосредоточены на любой стране, обществе, образовательном контексте или языке мира. Сюда входят исследования, связанные с преподаванием первого и второго языка, погружением в языковую среду, контент-ориентированным языковым обучением, билингвизмом/мультилингвизмом и средами обучения. Однако языковая и образовательная компетентность не ограничиваются исключительно современным образованием в области иностранных языков (таких как современные иностранные языки или английский как иностранный).</p>
         </section>
         <section>
-          <h4 class="text-lg font-semibold mb-3">Основные направления</h4>
-          <ul class="list-disc list-inside space-y-1">
-            <li>Общее и сопоставительное языкознание</li>
-            <li>Прикладная лингвистика и переводоведение</li>
-            <li>Литературоведение и анализ текста</li>
-            <li>Исследования дискурса и прагматики</li>
-            <li>Методика преподавания языка</li>
-            <li>Корпусная и цифровая лингвистика</li>
-          </ul>
+          <h4 class="text-lg font-semibold mb-3">Политика двойного слепого рецензирования</h4>
+          <p class="mb-4">Все научные статьи, представленные в этот журнал, проходят тщательную оценку в ходе первоначального редакционного отбора, за которым следует процесс двойного слепого рецензирования.</p>
+          <p class="mb-0">Инструкции по подаче рукописи см. в разделе <a href="/page/author_instructions" class="text-fmmain hover:underline">«Руководство для авторов»</a>.</p>
         </section>
         '''
     },
@@ -1454,15 +1532,27 @@ PAGES_DATA = {
         'content_ru': '''
         <section class="mb-8">
           <h4 class="text-lg font-semibold mb-3">О журнале</h4>
-          <p class="mb-0">Журнал специализируется на публикации научных статей по филологии, лингвистике и литературоведению. Его цель - продвигать современные исследовательские подходы и расширять академическое сотрудничество.</p>
+          <p class="mb-4">Научно-методический журнал <strong>«Вопросы филологии»</strong>, основанный Министерством высшего и среднего специального образования Республики Узбекистан и Узбекским государственным университетом мировых языков, издается ежеквартально с 2002 года (зарегистрирован как печатное издание 19 декабря 2002 года, свидетельство № 80). Журнал был перерегистрирован 2 февраля 2007 года (свидетельство № 0222).</p>
+          <p class="mb-4">25 апреля 2007 года журналу был присвоен международный ISSN-номер (ISSN: 1994-4233) Международным центром ISSN в Париже.</p>
+          <p class="mb-4">В соответствии с Постановлением № 214/2 Президиума Высшей аттестационной комиссии при Кабинете министров Республики Узбекистан от 20 марта 2015 года журнал «Вопросы филологии» был включен в перечень ведущих научных журналов, рекомендованных для публикации результатов докторских диссертаций в области 10.00.00 – Филологические науки. Кроме того, Постановлением № 219/5 от 22 декабря 2015 года журнал был также признан для публикаций в области 13.00.00 – Педагогические науки.</p>
+          <p class="mb-4">С 2019 года журнал зарегистрирован в международном Фонде цифровых идентификаторов объектов (DOI) в США, и каждой опубликованной статье присвоен уникальный DOI с префиксом 10.36078.</p>
+          <p class="mb-4">С 2019 года по настоящее время журнал сохраняет высокий импакт-фактор согласно международной базе данных Scientific Journal Impact Factor (SJIF).</p>
+          <p class="mb-4">14 июля 2020 года журнал был официально зарегистрирован в качестве электронного журнала Агентством по информации и массовым коммуникациям при Администрации Президента Республики Узбекистан (свидетельство № 1089) и получил электронный ISSN-сертификат E-ISSN: 2181-1237.</p>
+          <p class="mb-4">В соответствии с Постановлением № 283/7.1 Президиума Высшей аттестационной комиссии от 30 июля 2020 года статьи, опубликованные на английском языке в журнале, приравнены к публикациям в международных научных журналах.</p>
+          <p class="mb-4">25 января 2021 года журнал был индексирован в международной научной базе данных Directory of Research Journals Indexing (DRJI).</p>
+          <p class="mb-4">22 октября 2021 года журнал был индексирован в международной научной базе данных Advanced Sciences Index (ASI).</p>
+          <p class="mb-0">В соответствии с приказом ректора Узбекского государственного университета мировых языков № 179 от 20 июня 2022 года введена обязательная процедура регулярной проверки статей, представляемых в электронный научно-методический журнал «Вопросы филологии», на плагиат с использованием антиплагиатного программного обеспечения.</p>
         </section>
         <section class="mb-8">
-          <h4 class="text-lg font-semibold mb-3">Для кого предназначен журнал</h4>
-          <p class="mb-0">Журнал предназначен для преподавателей, исследователей, докторантов и специалистов, интересующихся данной областью.</p>
-        </section>
-        <section>
-          <h4 class="text-lg font-semibold mb-3">Издательская политика</h4>
-          <p class="mb-0">Статьи отбираются на основе научного рецензирования. Надежность представленных данных и точность приведенных источников являются важнейшими критериями.</p>
+          <h4 class="text-lg font-semibold mb-3">Индексирование</h4>
+          <ul class="list-disc list-inside space-y-2">
+            <li>Международный центр ISSN</li>
+            <li>Идентификаторы цифровых объектов (DOI)</li>
+            <li>Импакт-фактор научного журнала (SJIF)</li>
+            <li>E-ISSN: 2181-1237</li>
+            <li>Каталог индексируемых научных журналов (DRJI)</li>
+            <li>Индекс передовых наук (ASI)</li>
+          </ul>
         </section>
         '''
     },

@@ -600,7 +600,8 @@ def test_editorial_policy_seed_content_is_english():
 
     assert 'Affiliations' in seed_payload['content']
     assert 'Peer review' in seed_payload['content']
-    assert 'Обзор редакционной политики' in seed_payload['content_ru']
+    assert 'Аффилиации' in seed_payload['content_ru']
+    assert 'Рецензирование' in seed_payload['content_ru']
 
 
 def test_dashboard_profile_document_labels_follow_selected_language(monkeypatch):
