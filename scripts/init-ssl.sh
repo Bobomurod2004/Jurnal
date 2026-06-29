@@ -2,11 +2,16 @@
 # SSL Certificate Setup Script for Let's Encrypt
 # Run this ONCE on the production server to obtain initial SSL certificates
 #
-# Usage: ./scripts/init-ssl.sh philmatt.uzswlu.uz your@email.com
+# Usage: sudo ./scripts/init-ssl.sh your-domain.tld your@email.com
 
 set -e
 
-DOMAIN=${1:-"philmatt.uzswlu.uz"}
+if [ $# -lt 1 ]; then
+    echo "Usage: sudo ./scripts/init-ssl.sh your-domain.tld your@email.com"
+    exit 1
+fi
+
+DOMAIN="$1"
 EMAIL=${2:-"admin@$DOMAIN"}
 
 echo "=========================================="
@@ -14,6 +19,9 @@ echo " SSL Certificate Setup"
 echo " Domain: $DOMAIN"
 echo " Email:  $EMAIL"
 echo "=========================================="
+
+mkdir -p /var/www/certbot/.well-known/acme-challenge
+mkdir -p /etc/nginx/certs
 
 # Check if certificate already exists on this server
 if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
@@ -33,7 +41,7 @@ fi
 
 # Step 1: Start nginx with HTTP-only config first
 echo ""
-echo "[1/4] Preparing temporary HTTP-only nginx config..."
+echo "[1/5] Preparing temporary HTTP-only nginx config..."
 
 # Create temporary nginx config for ACME challenge only
 cat > /tmp/nginx_temp.conf << 'NGINX_CONF'
@@ -63,12 +71,12 @@ sed -i "s/DOMAIN_PLACEHOLDER/$DOMAIN/g" /tmp/nginx_temp.conf
 cp ./nginx/nginx.conf ./nginx/nginx.conf.bak
 cp /tmp/nginx_temp.conf ./nginx/nginx.conf
 
-echo "[2/4] Starting services with temporary config..."
+echo "[2/5] Starting services with temporary config..."
 docker compose up -d nginx
 
 sleep 5
 
-echo "[3/4] Obtaining SSL certificate from Let's Encrypt..."
+echo "[3/5] Obtaining SSL certificate from Let's Encrypt..."
 certbot certonly \
     --webroot \
     --webroot-path=/var/www/certbot \
@@ -78,7 +86,13 @@ certbot certonly \
     -d "$DOMAIN" \
     -d "www.$DOMAIN"
 
-echo "[4/4] Restoring production nginx config with SSL..."
+echo "[4/5] Copying certificate into /etc/nginx/certs/..."
+cp -L "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" /etc/nginx/certs/fullchain.pem
+cp -L "/etc/letsencrypt/live/$DOMAIN/privkey.pem" /etc/nginx/certs/privkey.pem
+chmod 644 /etc/nginx/certs/fullchain.pem
+chmod 600 /etc/nginx/certs/privkey.pem
+
+echo "[5/5] Restoring production nginx config with SSL..."
 cp ./nginx/nginx.conf.bak ./nginx/nginx.conf
 rm -f ./nginx/nginx.conf.bak
 
@@ -90,6 +104,6 @@ echo "=========================================="
 echo " SSL Setup Complete!"
 echo " https://$DOMAIN should now work"
 echo ""
-echo " Auto-renewal is handled by the certbot"
-echo " container in docker-compose.yml"
+echo "Note: configure host-side certbot renewal"
+echo "and refresh /etc/nginx/certs/{fullchain.pem,privkey.pem} after renewals."
 echo "=========================================="

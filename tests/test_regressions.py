@@ -431,6 +431,38 @@ def test_article_html_sanitizer_formats_plain_text_as_paragraphs():
     assert cleaned == '<p>Birinchi satr<br>Ikkinchi satr</p><p>Uchinchi satr</p>'
 
 
+def test_page_html_sanitizer_keeps_layout_markup_but_strips_unsafe():
+    from fmadmin.routes import web as fm_web
+
+    raw = (
+        '<section class="mb-8"><h4 class="text-lg font-semibold mb-3">Hi</h4>'
+        '<p class="mb-4">Text <strong>bold</strong></p>'
+        '<div class="grid" onclick="evil()">d</div>'
+        '<script>alert(1)</script>'
+        '<a href="javascript:alert(1)">x</a></section>'
+    )
+    cleaned = fm_web._sanitize_page_html(raw)
+
+    # Layout markup the public templates rely on is preserved.
+    assert '<section class="mb-8">' in cleaned
+    assert 'class="text-lg font-semibold mb-3"' in cleaned
+    assert '<div class="grid">' in cleaned
+    # Unsafe markup is stripped.
+    assert '<script' not in cleaned
+    assert 'onclick=' not in cleaned
+    assert 'javascript:' not in cleaned
+
+
+def test_article_html_sanitizer_still_strips_class_and_layout_tags():
+    from fmadmin.routes import web as fm_web
+
+    cleaned = fm_web._sanitize_article_block_html('<section class="x"><p class="y">hi</p></section>')
+
+    assert 'class=' not in cleaned
+    assert '<section' not in cleaned
+    assert '<p>hi</p>' in cleaned
+
+
 def test_ensure_issue_columns_force_syncs_toc_column_when_runtime_sync_disabled(monkeypatch):
     from fmadmin.routes import web as fm_web
 

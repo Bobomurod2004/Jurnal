@@ -8,9 +8,8 @@
 website/
 ├── mainweb/           # Основной сайт (Flask + Tailwind)
 ├── fmadmin/           # Админ-панель (Flask)
-├── static/            # Общие статические файлы
+├── monitoring/        # Grafana / Loki / Promtail provisioning
 ├── nginx/             # Конфигурация Nginx
-├── db_backup.sql      # Резервная копия БД
 ├── docker-compose.yml # Оркестрация контейнеров
 ├── Dockerfile         # Образ для Flask-приложений
 └── requirements.txt   # Python зависимости
@@ -58,6 +57,8 @@ cd /path/to/website
 # 2. Запустить local development окружение
 docker compose -f docker-compose.local.yml up --build
 ```
+
+`docker-compose.local.yml` теперь тоже использует одноразовый `db-init`, поэтому локальная БД поднимается из `db_schema.sql` + миграций + baseline seed данных без зависимости от внешнего `db_backup.sql`.
 
 Local URLs:
 
@@ -238,11 +239,30 @@ docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
 ```
 
 Grafana UI:
-- http://your-domain:3000
+- `http://127.0.0.1:3000` on the server host
 - user: `${GRAFANA_ADMIN_USER}`
 - pass: `${GRAFANA_ADMIN_PASSWORD}`
 
-Logs from `mainweb` and `fmadmin` are shipped to Loki automatically.
+Logs from `mainweb` and `fmadmin` are shipped to Loki automatically. A default provisioned dashboard named `Journal Observability` is loaded on first start.
+
+Recommended remote access:
+
+```bash
+ssh -L 3000:127.0.0.1:3000 user@your-server
+```
+
+Then open `http://127.0.0.1:3000` locally in your browser.
+
+If you use the bundled Docker Nginx profile with HTTPS, place certificates on the server host as:
+
+- `/etc/nginx/certs/fullchain.pem`
+- `/etc/nginx/certs/privkey.pem`
+
+The helper below can obtain and copy them into that location:
+
+```bash
+sudo ./scripts/init-ssl.sh your-domain.tld your@email.com
+```
 
 ### Production email test
 
@@ -260,6 +280,8 @@ python mainweb/scripts/send_test_email.py your-email@example.com
 | PostgreSQL | 5432 | База данных |
 | mainweb | 127.0.0.1:5000 | Flask (доступ для host Nginx) |
 | fmadmin | 127.0.0.1:5001 | Flask (доступ для host Nginx) |
+| Grafana | 127.0.0.1:3000 | UI для логов и наблюдаемости |
+| Loki | 127.0.0.1:3100 | backend для хранения логов |
 
 ## 📦 Управление
 

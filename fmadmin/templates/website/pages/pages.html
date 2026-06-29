@@ -1,0 +1,55 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">Sahifalar</h2>
+    </div>
+    <div class="col-auto ms-auto d-print-none">
+      <a href="{{ url_for('page_edit', page_id=0) }}" class="btn btn-primary">{{ t("admin_btn_add") }}</a>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="table-responsive">
+    <table class="table card-table table-hover">
+      <thead>
+        <tr>
+          <th>{{ t("admin_label_title") }}</th>
+          <th>Alias</th>
+          <th class="w-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pages_list %}
+        <tr>
+          <td class="align-middle">
+            <div>{{ p.title_uz or p.title or p.alias }}</div>
+          </td>
+          <td class="align-middle">
+            <code>{{ p.alias }}</code>
+          </td>
+          <td class="align-middle">
+            <a href="{{ url_for('page_edit', page_id=p.id) }}"
+              class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1">
+              {{ t("admin_btn_edit") }}
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="3" class="text-secondary text-center py-4">—</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{% endblock %}

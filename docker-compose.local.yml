@@ -19,7 +19,6 @@ services:
       POSTGRES_PASSWORD: "1"
     volumes:
       - postgres_data_local:/var/lib/postgresql/data
-      - ./db_backup.sql:/docker-entrypoint-initdb.d/01-restore.sql:ro
     ports:
       - "5434:5432"
     healthcheck:
@@ -27,6 +26,43 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - journal_local
+
+  db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: journal_db_init_local
+    restart: "no"
+    environment:
+      - FLASK_ENV=development
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=1
+      - DB_NAME=journal2
+      - SECRET_KEY=local-dev-secret-key
+      - FMADMIN_SECRET_KEY=local-fmadmin-secret-key
+      - TRANSLATION_SYNC_TOKEN=local-translation-sync-token
+      - SAVE_PATH=/var/www/journal/
+      - PAGES_SYNC_MODE=${PAGES_SYNC_MODE:-only-missing}
+      - SUPERADMIN_EMAIL=${SUPERADMIN_EMAIL:-}
+      - SUPERADMIN_NAME=${SUPERADMIN_NAME:-Super Admin}
+      - SUPERADMIN_PASSWORD=${SUPERADMIN_PASSWORD:-}
+    volumes:
+      - ./db_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./translations_seed.sql:/docker-entrypoint-initdb.d/02-translations.sql:ro
+      - ./migrations:/app/migrations:ro
+      - ./mainweb:/app/mainweb
+      - ./fmadmin:/app/fmadmin
+      - ./shared:/app/shared
+      - ./scripts:/app/scripts:ro
+    working_dir: /app
+    command: bash /app/scripts/init-db.sh
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - journal_local
 
@@ -99,6 +135,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       mailpit:
         condition: service_started
     ports:
@@ -154,6 +192,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       mailpit:
         condition: service_started
     ports:

@@ -109,6 +109,15 @@ Yangi UI matn qo'shganda hardcode qilmang — yuqoridagi usullardan biriga qo'sh
 - Ommaviy sahifa: `/editorial` — rahbariyat (featured guruhlar) turg'un kartalar, qolgan guruhlar harakatlanuvchi (marquee) lentada; har guruhning rang temasi `EDITORIAL_GROUP_THEMES` da
 - Admin: fmadmin → `templates/website/editorial/`
 
+## Statik sahifalar (CMS) — `pages`
+
+Navbardagi axborot sahifalari (`submission_guidelines`, `aims_scope`, `journal_info`, ...) DB'dagi `pages` jadvalida saqlanadi va **fmadmin → "Sahifalar"** (`/fmadmin/website/pages`) orqali CKEditor bilan tahrirlanadi.
+
+- **Boshlang'ich kontent (seed):** `mainweb/content/pages/<alias>/` — har sahifa alohida papka: `meta.json` (sarlavhalar) + `content.{en,uz,ru}.html`. Tartib: `_order.txt`. Loader: `mainweb/content/pages/__init__.py` (`load_pages()`).
+- **DB'ga seed:** `mainweb/scripts/update_pages.py` (faqat loader'dan o'qiydi, kontent saqlamaydi). `init-db.sh` deploy'da chaqiradi; default `PAGES_SYNC_MODE=only-missing` — **mavjud (admin tahrirlagan) sahifalarni o'chirmaydi**. `overwrite` esa hammasini seed'ga qaytaradi (ehtiyot bo'ling).
+- **Public oqim:** `app__page_alias` (`/page/<alias>`) → `_ensure_seed_page()` — **DB-first**: DB'da bo'lsa o'sha, bo'lmasa seed'dan avtomatik insert qiladi. Yangi sahifa qo'shish = yangi papka + `_order.txt`.
+- **XSS:** admin HTML kontenti `_sanitize_page_html()` (fmadmin web.py) orqali tozalanadi — `section/div/class` saqlanadi, `script/style/iframe/on*/javascript:` olib tashlanadi. Maqola bloklari uchun esa `_sanitize_article_block_html()` (tor whitelist).
+
 ## Submission workflow (fmadmin)
 
 Texnik tekshiruv → Anti-plagiat → Peer review → Muharrir ko'rib chiqish → To'lov → Nashr.

@@ -676,12 +676,22 @@ ARTICLE_HTML_ALLOWED_ATTRS = {
 
 
 class _ArticleHTMLSanitizer(HTMLParser):
-    """Keep semantic content and drop noisy/unsafe Word-style inline markup."""
+    """Keep semantic content and drop noisy/unsafe Word-style inline markup.
 
-    def __init__(self):
+    The allowed tags/attributes default to the article whitelist but can be
+    overridden so the same engine can sanitize other HTML (e.g. static pages).
+    """
+
+    def __init__(self, allowed_tags=None, allowed_attrs=None, void_tags=None,
+                 strip_content_tags=None, allowed_protocols=None):
         super().__init__(convert_charrefs=False)
         self._chunks = []
         self._ignore_depth = 0
+        self.allowed_tags = ARTICLE_HTML_ALLOWED_TAGS if allowed_tags is None else allowed_tags
+        self.allowed_attrs = ARTICLE_HTML_ALLOWED_ATTRS if allowed_attrs is None else allowed_attrs
+        self.void_tags = ARTICLE_HTML_VOID_TAGS if void_tags is None else void_tags
+        self.strip_content_tags = ARTICLE_HTML_STRIP_CONTENT_TAGS if strip_content_tags is None else strip_content_tags
+        self.allowed_protocols = ARTICLE_HTML_ALLOWED_PROTOCOLS if allowed_protocols is None else allowed_protocols
 
     @property
     def html(self):
@@ -697,13 +707,13 @@ class _ArticleHTMLSanitizer(HTMLParser):
         if value.startswith(('#', '/', './', '../', '//')):
             return value
         parsed = urlparse(value)
-        if parsed.scheme and parsed.scheme.lower() not in ARTICLE_HTML_ALLOWED_PROTOCOLS:
+        if parsed.scheme and parsed.scheme.lower() not in self.allowed_protocols:
             return ''
         return value
 
     def _sanitize_attrs(self, tag, attrs):
-        allowed = set(ARTICLE_HTML_ALLOWED_ATTRS.get('*', set()))
-        allowed.update(ARTICLE_HTML_ALLOWED_ATTRS.get(tag, set()))
+        allowed = set(self.allowed_attrs.get('*', set()))
+        allowed.update(self.allowed_attrs.get(tag, set()))
         cleaned = []
 
         for name, value in attrs:
@@ -758,14 +768,14 @@ class _ArticleHTMLSanitizer(HTMLParser):
     def handle_starttag(self, tag, attrs):
         normalized_tag = (tag or '').lower()
         if self._ignore_depth:
-            if normalized_tag in ARTICLE_HTML_STRIP_CONTENT_TAGS:
+            if normalized_tag in self.strip_content_tags:
                 self._ignore_depth += 1
             return
 
-        if normalized_tag in ARTICLE_HTML_STRIP_CONTENT_TAGS:
+        if normalized_tag in self.strip_content_tags:
             self._ignore_depth = 1
             return
-        if normalized_tag not in ARTICLE_HTML_ALLOWED_TAGS:
+        if normalized_tag not in self.allowed_tags:
             return
 
         cleaned_attrs = self._sanitize_attrs(normalized_tag, attrs)
@@ -773,7 +783,7 @@ class _ArticleHTMLSanitizer(HTMLParser):
 
     def handle_startendtag(self, tag, attrs):
         normalized_tag = (tag or '').lower()
-        if normalized_tag in ARTICLE_HTML_VOID_TAGS:
+        if normalized_tag in self.void_tags:
             self.handle_starttag(normalized_tag, attrs)
             return
         self.handle_starttag(normalized_tag, attrs)
@@ -782,10 +792,10 @@ class _ArticleHTMLSanitizer(HTMLParser):
     def handle_endtag(self, tag):
         normalized_tag = (tag or '').lower()
         if self._ignore_depth:
-            if normalized_tag in ARTICLE_HTML_STRIP_CONTENT_TAGS:
+            if normalized_tag in self.strip_content_tags:
                 self._ignore_depth -= 1
             return
-        if normalized_tag in ARTICLE_HTML_ALLOWED_TAGS and normalized_tag not in ARTICLE_HTML_VOID_TAGS:
+        if normalized_tag in self.allowed_tags and normalized_tag not in self.void_tags:
             self._chunks.append(f'</{normalized_tag}>')
 
     def handle_data(self, data):
@@ -851,6 +861,33 @@ def _sanitize_article_block_html(raw_html):
     if cleaned and not has_block_tag:
         cleaned = f'<p>{cleaned}</p>'
     return cleaned
+
+
+# Static pages rely on layout markup (section/div) and Tailwind ``class`` values,
+# so they use a slightly wider whitelist than article blocks. Script/style/iframe,
+# event handlers and javascript: URLs are still stripped.
+PAGE_HTML_ALLOWED_TAGS = ARTICLE_HTML_ALLOWED_TAGS | {'section', 'div', 'span'}
+PAGE_HTML_ALLOWED_ATTRS = {
+    **ARTICLE_HTML_ALLOWED_ATTRS,
+    '*': ARTICLE_HTML_ALLOWED_ATTRS.get('*', set()) | {'class'},
+}
+
+
+def _sanitize_page_html(raw_html):
+    """Sanitize editor-supplied HTML for static (CMS) pages."""
+    source = str(raw_html or '').strip()
+    if not source:
+        return ''
+
+    sanitizer = _ArticleHTMLSanitizer(
+        allowed_tags=PAGE_HTML_ALLOWED_TAGS,
+        allowed_attrs=PAGE_HTML_ALLOWED_ATTRS,
+    )
+    sanitizer.feed(source)
+    sanitizer.close()
+    cleaned = sanitizer.html
+    cleaned = re.sub(r'(<br\s*/?>\s*){3,}', '<br><br>', cleaned, flags=re.IGNORECASE)
+    return cleaned.strip()
 
 
 def _safe_internal_redirect(target, fallback_endpoint):
@@ -8044,6 +8081,104 @@ def news_edit(news_id):
         'cover_image': ''
     }
     return render_template('website/news/news_edit.html', news_id=news_id, news=news)
+
+
+# ----- Static pages (CMS) ---------------------------------------------------
+# Page content is seeded from mainweb/content/pages/ and managed here. The
+# public site (mainweb) reads these rows from the ``pages`` table.
+
+PAGE_EMPTY = {
+    'id': 0, 'alias': '',
+    'title': '', 'title_ru': '', 'title_uz': '',
+    'content': '', 'content_ru': '', 'content_uz': '',
+}
+
+# Rows in the ``pages`` table that are NOT plain editable content pages, so they
+# are hidden from the editor list to keep it clean:
+#  - redirect-only legacy aliases (they just forward to other sections);
+#  - dynamic pages rendered from other data (e.g. ``news_calls`` lists news and
+#    announcements), where editing the stored page content has no effect.
+NON_EDITABLE_PAGE_ALIASES = {
+    'all_issues', 'special_issues', 'current_issue', 'latest_articles',
+    'editorial_board', 'collections', 'most_read_articles', 'most_cited_articles',
+    'news_calls',
+}
+
+
+@bp.route('/fmadmin/website/pages')
+@is_superadmin_required
+def pages():
+    pages_list = db.pages.all().order_by('alias').exec() or []
+    pages_list = [p for p in pages_list
+                  if (p.get('alias') or '') not in NON_EDITABLE_PAGE_ALIASES]
+    return render_template('website/pages/pages.html', pages_list=pages_list)
+
+
+@bp.route('/fmadmin/website/pages/edit/<int:page_id>', methods=['GET', 'POST'])
+@is_superadmin_required
+def page_edit(page_id):
+    if request.method == 'POST':
+        alias = _clean_text(request.form.get('alias')).lower()
+        title = (request.form.get('title_en') or '').strip()
+        title_ru = (request.form.get('title_ru') or '').strip()
+        title_uz = (request.form.get('title_uz') or '').strip()
+        content = _sanitize_page_html(request.form.get('content_en'))
+        content_ru = _sanitize_page_html(request.form.get('content_ru'))
+        content_uz = _sanitize_page_html(request.form.get('content_uz'))
+        current_time = int(time.time())
+
+        # Alias is only set/validated when creating; existing pages keep theirs
+        # so navbar links never break.
+        if page_id == 0:
+            if not alias or not re.fullmatch(r'[a-z0-9_]+', alias):
+                flash(_msg_text(
+                    "Alias faqat kichik lotin harflari, raqamlar va pastki chiziqdan iborat bo'lishi kerak",
+                    'Псевдоним может содержать только строчные латинские буквы, цифры и подчёркивания',
+                    'Alias may only contain lowercase letters, digits and underscores'), 'danger')
+                return redirect(url_for('page_edit', page_id=0))
+            if db.pages.all().equal(alias=alias).exec():
+                flash(_msg_text('Bu alias allaqachon mavjud', 'Такой псевдоним уже существует',
+                                'This alias already exists'), 'danger')
+                return redirect(url_for('page_edit', page_id=0))
+
+        if not title:
+            flash(_msg_text('Sarlavha (en) majburiy', 'Заголовок (en) обязателен',
+                            'Title (en) is required'), 'danger')
+            return redirect(url_for('page_edit', page_id=page_id))
+
+        if page_id == 0:
+            new_rows = db.pages.add(
+                alias=alias,
+                title=title, title_ru=title_ru, title_uz=title_uz,
+                content=content, content_ru=content_ru, content_uz=content_uz,
+                last_update=current_time, created_at=current_time,
+            ).exec()
+            new_id = page_id
+            if isinstance(new_rows, list) and new_rows:
+                new_id = new_rows[0].get('id', page_id)
+            elif isinstance(new_rows, dict):
+                new_id = new_rows.get('id', page_id)
+            flash(_msg_text('Sahifa yaratildi', 'Страница создана', 'Page created'), 'success')
+            return redirect(url_for('page_edit', page_id=new_id))
+
+        _res = db.pages.all().equal(id=page_id).update(
+            title=title, title_ru=title_ru, title_uz=title_uz,
+            content=content, content_ru=content_ru, content_uz=content_uz,
+            last_update=current_time,
+        ).exec()
+        if _res:
+            flash(_msg_text('Sahifa saqlandi', 'Страница сохранена', 'Page saved'), 'success')
+        else:
+            flash(_msg_text('Sahifani saqlashda xatolik', 'Ошибка при сохранении страницы',
+                            'Failed to save page'), 'danger')
+        return redirect(url_for('page_edit', page_id=page_id))
+
+    page = db.pages.all().equal(id=page_id).exec()
+    if not page and page_id != 0:
+        return _msg_text('Sahifa topilmadi', 'Страница не найдена', 'Page not found'), 404
+    page = page[0] if page else dict(PAGE_EMPTY)
+    return render_template('website/pages/page_edit.html', page_id=page_id, page=page)
+
 
 @bp.route('/fmadmin/website/announcements/edit/<int:announcement_id>', methods=['GET', 'POST'])
 @is_superadmin_required

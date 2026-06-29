@@ -241,7 +241,7 @@ section.mt-6.overflow-hidden::before {
 }
 
 .info-page-title {
-    max-width: 16ch;
+    max-width: none;
     font-family: var(--font-serif), Georgia, serif;
     font-size: clamp(2rem, 4vw, 3.25rem);
     font-weight: 800;
@@ -349,7 +349,7 @@ section.mt-6.overflow-hidden::before {
     color: #334155;
     font-size: 1.02rem;
     line-height: 1.82;
-    text-align: justify;
+    text-align: left;
 }
 
 .info-page-content p:first-of-type {

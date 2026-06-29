@@ -136,6 +136,7 @@ services:
       - ./fmadmin/dist:/var/www/fmadmin/dist:ro
       - ./fmadmin/static:/var/www/fmadmin/static:ro
       - uploads_data:/var/www/journal/static/uploads:ro
+      - /var/www/certbot:/var/www/certbot:ro
       - /etc/nginx/certs:/etc/nginx/certs:ro
     depends_on:
       mainweb:

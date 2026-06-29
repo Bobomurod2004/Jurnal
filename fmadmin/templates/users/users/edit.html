@@ -476,12 +476,31 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         const roleSelect = document.getElementById('rolename_select');
-        const roleCheckboxes = document.querySelectorAll('.role-checkbox');
+        const roleCheckboxes = Array.from(document.querySelectorAll('.role-checkbox'));
+        const ROLE_PRIORITY = ['superadmin', 'admin', 'editor', 'user'];
+
+        function highestCheckedRole() {
+            const checked = roleCheckboxes.filter(node => node.checked).map(node => node.value);
+            for (const role of ROLE_PRIORITY) {
+                if (checked.includes(role)) return role;
+            }
+            return 'user';
+        }
+
         if (roleSelect) {
             roleSelect.addEventListener('change', toggleRoleDependentFields);
         }
         roleCheckboxes.forEach(function (checkbox) {
-            checkbox.addEventListener('change', toggleRoleDependentFields);
+            checkbox.addEventListener('change', function () {
+                // When the user unchecks the role that is currently the primary
+                // one (e.g. "superadmin"), demote the primary to the next highest
+                // checked role so the role is actually removed instead of being
+                // re-applied by the sync below.
+                if (roleSelect && !this.checked && this.value === roleSelect.value) {
+                    roleSelect.value = highestCheckedRole();
+                }
+                toggleRoleDependentFields();
+            });
         });
         toggleRoleDependentFields();
     });

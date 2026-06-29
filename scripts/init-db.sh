@@ -94,7 +94,9 @@ echo "Seeding baseline data..."
 python3 mainweb/scripts/seed_baseline_data.py
 
 echo "Ensuring baseline static pages..."
-PAGES_SYNC_MODE="${PAGES_SYNC_MODE:-overwrite}"
+# Default to only-missing so editor changes made in fmadmin survive redeploys.
+# Set PAGES_SYNC_MODE=overwrite to force-reset all pages back to the seed content.
+PAGES_SYNC_MODE="${PAGES_SYNC_MODE:-only-missing}"
 case "${PAGES_SYNC_MODE}" in
     overwrite|update)
         echo "Page sync mode: ${PAGES_SYNC_MODE} (updating existing page content)"

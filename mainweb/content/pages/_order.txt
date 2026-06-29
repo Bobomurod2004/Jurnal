@@ -1,0 +1,13 @@
+# Static page display order (one alias per line)
+submission_guidelines
+author_instructions
+editorial_policy
+site_editing_services
+journal_metrics
+aims_scope
+journal_info
+news_calls
+conferences
+for_uzgumya_researchers
+for_all_researchers
+masters_subscription

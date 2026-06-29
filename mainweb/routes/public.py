@@ -1872,8 +1872,8 @@ def _youtube_embed_url(raw_url):
 @lru_cache(maxsize=1)
 def _seed_pages_data():
     try:
-        from scripts.update_pages import PAGES_DATA
-        return dict(PAGES_DATA)
+        from content.pages import load_pages
+        return dict(load_pages())
     except Exception as exc:
         logger.warning("Unable to load static pages seed data: %s", exc)
         return {}
@@ -3029,7 +3029,7 @@ def _author_guideline_download_section(lang):
 
 
 def _render_journal_info_page():
-    page = _seed_page_payload('journal_info')
+    page = _ensure_seed_page('journal_info')
     if not page:
         flash('Page not found', 'error')
         return redirect(url_for('app__index'))
@@ -3073,11 +3073,38 @@ def _render_journal_info_page():
     return render_template('mainweb/page.html', page=page, show_toc=True)
 
 
+def _render_news_calls_page():
+    """Dynamic 'News & Calls' page: published news + announcements as cards."""
+    page = max(request.args.get('page', 1, type=int) or 1, 1)
+    per_page = 12
+
+    items = dbc.news.get(status='published').exec() or []
+    items.sort(key=lambda row: _parse_int(row.get('published_at')) or 0, reverse=True)
+    for item in items:
+        translate(item)
+
+    total_results = len(items)
+    total_pages = max((total_results + per_page - 1) // per_page, 1)
+    page = min(page, total_pages)
+    start = (page - 1) * per_page
+    page_items = items[start:start + per_page]
+    pagination = _SimplePagination(page, total_pages)
+
+    return render_template(
+        'mainweb/news_calls.html',
+        items=page_items,
+        pagination=pagination,
+    )
+
+
 def app__page_alias(alias):
     page_alias = _clean_text(alias).lower()
 
     if page_alias == 'payment_guide':
         return redirect(url_for('app__payment_guide'))
+
+    if page_alias == 'news_calls':
+        return _render_news_calls_page()
 
     if page_alias == 'journal_info':
         return _render_journal_info_page()
@@ -3087,7 +3114,7 @@ def app__page_alias(alias):
         endpoint, endpoint_kwargs = redirected
         return redirect(url_for(endpoint, **endpoint_kwargs))
 
-    page = _seed_page_payload(page_alias)
+    page = _ensure_seed_page(page_alias)
     if not page:
         flash('Page not found', 'error')
         return redirect(url_for('app__index'))

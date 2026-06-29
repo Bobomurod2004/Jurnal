@@ -1,0 +1,81 @@
+{% extends 'basic.html' %}
+
+{% block title %}{{ t('news_and_announcements') }} - {{ t('website_title') }}{% endblock %}
+
+{% block content %}
+    {% include 'components/headers/main_header.html' %}
+    {% include 'components/headers/page_header.html' %}
+
+    <div class="container mx-auto mt-8 px-4">
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold mb-2">{{ t('news_and_announcements') }}</h1>
+            <p class="text-gray-600">{{ t('news_page_description') }}</p>
+        </div>
+
+        {% if items %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for item in items %}
+            <a href="{{ url_for('app__news_detail', news_id=item.id) }}"
+               class="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-lg">
+                <div class="relative aspect-[16/9] w-full overflow-hidden bg-gray-100">
+                    {% if item.cover_image %}
+                    <img src="{{ item.cover_image }}" alt="{{ item.title }}"
+                         loading="lazy"
+                         class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105">
+                    {% else %}
+                    <div class="flex h-full w-full items-center justify-center
+                                {% if item.type == 'news' %}bg-gradient-to-br from-blue-50 to-blue-100{% else %}bg-gradient-to-br from-green-50 to-green-100{% endif %}">
+                        <iconify-icon
+                            icon="{% if item.type == 'news' %}tabler:news{% else %}tabler:speakerphone{% endif %}"
+                            class="text-5xl {% if item.type == 'news' %}text-blue-300{% else %}text-green-300{% endif %}"></iconify-icon>
+                    </div>
+                    {% endif %}
+                    <span class="absolute left-3 top-3 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold
+                        {% if item.type == 'news' %}bg-blue-600 text-white{% else %}bg-green-600 text-white{% endif %}">
+                        {% if item.type == 'news' %}{{ t('news') }}{% else %}{{ t('announcement') }}{% endif %}
+                    </span>
+                </div>
+
+                <div class="flex flex-1 flex-col p-4">
+                    <time class="mb-2 text-xs text-gray-500">{{ item.published_at|timestamp_to_date }}</time>
+                    <h2 class="mb-3 line-clamp-2 text-lg font-semibold text-gray-900 group-hover:text-green-600 transition-colors">
+                        {{ item.title }}
+                    </h2>
+                    <span class="mt-auto inline-flex items-center text-sm font-medium text-green-600">
+                        {{ t('read_more') }} →
+                    </span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+
+        {% if pagination.pages > 1 %}
+        <div class="mt-10 flex items-center justify-center gap-2">
+            {% if pagination.has_prev %}
+            <a href="{{ url_for('app__page_alias', alias='news_calls', page=pagination.prev_num) }}"
+               class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50">←</a>
+            {% endif %}
+            {% for page_num in pagination.iter_pages() %}
+                {% if page_num %}
+                <a href="{{ url_for('app__page_alias', alias='news_calls', page=page_num) }}"
+                   class="rounded-md border px-3 py-2 text-sm font-medium {% if page_num == pagination.page %}border-green-600 bg-green-600 text-white{% else %}border-gray-300 bg-white text-gray-500 hover:bg-gray-50{% endif %}">{{ page_num }}</a>
+                {% else %}
+                <span class="px-2 text-gray-400">…</span>
+                {% endif %}
+            {% endfor %}
+            {% if pagination.has_next %}
+            <a href="{{ url_for('app__page_alias', alias='news_calls', page=pagination.next_num) }}"
+               class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50">→</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="py-16 text-center">
+            <div class="mb-4 text-6xl text-gray-300">📰</div>
+            <h3 class="mb-2 text-lg font-medium text-gray-900">{{ t('no_items_available') }}</h3>
+            <p class="text-gray-500">{{ t('no_items_description') }}</p>
+        </div>
+        {% endif %}
+    </div>
+{% endblock %}

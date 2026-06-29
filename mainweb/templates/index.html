@@ -525,13 +525,25 @@
 
                 <div id="news-tab" class="news-tab-content space-y-3">
                     {% for news in news_items %}
-                    <div class="article-card group">
-                        <div class="flex items-center gap-2 text-xs mb-2 text-gray-400">
-                            <iconify-icon icon="solar:calendar-line-duotone" class="text-sm"></iconify-icon>
-                            {{ news.published_at|timestamp_to_date }}
+                    <div class="article-card group flex items-start gap-3">
+                        <a href="{{ url_for('app__news_detail', news_id=news.id) }}" class="shrink-0">
+                            {% if news.cover_image %}
+                            <img src="{{ news.cover_image }}" alt="{{ news.title }}" loading="lazy"
+                                class="h-16 w-16 rounded-lg object-cover border border-gray-200">
+                            {% else %}
+                            <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-gradient-to-br from-blue-50 to-blue-100">
+                                <iconify-icon icon="tabler:news" class="text-2xl text-blue-300"></iconify-icon>
+                            </div>
+                            {% endif %}
+                        </a>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 text-xs mb-1 text-gray-400">
+                                <iconify-icon icon="solar:calendar-line-duotone" class="text-sm"></iconify-icon>
+                                {{ news.published_at|timestamp_to_date }}
+                            </div>
+                            <a href="{{ url_for('app__news_detail', news_id=news.id) }}"
+                                class="font-semibold text-gray-900 hover:text-fmmain transition-colors leading-snug line-clamp-2">{{ news.title }}</a>
                         </div>
-                        <a href="{{ url_for('app__news_detail', news_id=news.id) }}"
-                            class="font-semibold text-gray-900 hover:text-fmmain transition-colors leading-snug">{{ news.title }}</a>
                     </div>
                     {% endfor %}
                     {% if not news_items %}
@@ -544,13 +556,25 @@
 
                 <div id="announcements-tab" class="news-tab-content hidden space-y-3">
                     {% for announcement in announcements %}
-                    <div class="article-card group">
-                        <div class="flex items-center gap-2 text-xs mb-2 text-gray-400">
-                            <iconify-icon icon="solar:calendar-line-duotone" class="text-sm"></iconify-icon>
-                            {{ announcement.published_at|timestamp_to_date }}
+                    <div class="article-card group flex items-start gap-3">
+                        <a href="{{ url_for('app__news_detail', news_id=announcement.id) }}" class="shrink-0">
+                            {% if announcement.cover_image %}
+                            <img src="{{ announcement.cover_image }}" alt="{{ announcement.title }}" loading="lazy"
+                                class="h-16 w-16 rounded-lg object-cover border border-gray-200">
+                            {% else %}
+                            <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-gradient-to-br from-green-50 to-green-100">
+                                <iconify-icon icon="tabler:speakerphone" class="text-2xl text-green-300"></iconify-icon>
+                            </div>
+                            {% endif %}
+                        </a>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 text-xs mb-1 text-gray-400">
+                                <iconify-icon icon="solar:calendar-line-duotone" class="text-sm"></iconify-icon>
+                                {{ announcement.published_at|timestamp_to_date }}
+                            </div>
+                            <a href="{{ url_for('app__news_detail', news_id=announcement.id) }}"
+                                class="font-semibold text-gray-900 hover:text-fmmain transition-colors leading-snug line-clamp-2">{{ announcement.title }}</a>
                         </div>
-                        <a href="{{ url_for('app__news_detail', news_id=announcement.id) }}"
-                            class="font-semibold text-gray-900 hover:text-fmmain transition-colors leading-snug">{{ announcement.title }}</a>
                     </div>
                     {% endfor %}
                     {% if not announcements %}
