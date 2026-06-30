@@ -73,6 +73,59 @@
         <button type="submit" class="btn btn-primary">{{ t("admin_btn_save") }}</button>
       </div>
     </form>
+
+    {% if page.alias == 'author_instructions' and page_id != 0 %}
+    <!-- File Attachments Section -->
+    <hr class="my-4">
+    <h3 class="mb-3">Yuklanadigan fayllar</h3>
+
+    <div class="row">
+      {% for lang_code, lang_name in [('en', 'English'), ('uz', 'O\'zbekcha'), ('ru', 'Русský')] %}
+      <div class="col-md-4 mb-4">
+        <div class="card">
+          <div class="card-header">
+            <h4 class="card-title">{{ lang_name }}</h4>
+          </div>
+          <div class="card-body">
+            <!-- Upload Form -->
+            <form id="upload-form-{{ lang_code }}" class="mb-3" enctype="multipart/form-data">
+              <input type="hidden" name="lang" value="{{ lang_code }}">
+              <div class="mb-2">
+                <input type="file" class="form-control" name="file" accept=".pdf,.doc,.docx,.txt,.jpg,.png" required>
+              </div>
+              <button type="submit" class="btn btn-sm btn-primary w-100">
+                <i class="ti ti-upload"></i> Yuklash
+              </button>
+            </form>
+
+            <!-- Files List -->
+            <div id="files-list-{{ lang_code }}">
+              {% set files = page['attachments_' + lang_code + '_list'] or [] %}
+              {% if files %}
+                {% for file in files %}
+                <div class="d-flex align-items-center justify-content-between mb-2 p-2 border rounded">
+                  <div class="text-truncate flex-grow-1 me-2">
+                    <small>{{ file.name }}</small>
+                  </div>
+                  <button class="btn btn-sm btn-danger delete-file-btn"
+                          data-lang="{{ lang_code }}"
+                          data-path="{{ file.path }}"
+                          title="O'chirish">
+                    <i class="ti ti-trash"></i>
+                  </button>
+                </div>
+                {% endfor %}
+              {% else %}
+                <p class="text-muted small">Fayllar yo'q</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
   </div>
 </div>
 {% endblock %}
@@ -95,5 +148,70 @@
     });
   });
   setLang('all');
+
+  {% if page.alias == 'author_instructions' and page_id != 0 %}
+  // File upload handler
+  ['en', 'uz', 'ru'].forEach(function(lang) {
+    const form = document.getElementById('upload-form-' + lang);
+    if (!form) return;
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      const submitBtn = this.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Yuklanmoqda...';
+
+      fetch('{{ url_for("page_upload_attachment", page_id=page_id) }}', {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          location.reload();
+        } else {
+          alert('Xatolik: ' + (data.error || 'Noma\'lum xatolik'));
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="ti ti-upload"></i> Yuklash';
+        }
+      })
+      .catch(err => {
+        alert('Xatolik: ' + err.message);
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="ti ti-upload"></i> Yuklash';
+      });
+    });
+  });
+
+  // File delete handler
+  document.querySelectorAll('.delete-file-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (!confirm('Faylni o\'chirmoqchimisiz?')) return;
+
+      const lang = this.dataset.lang;
+      const path = this.dataset.path;
+
+      fetch('{{ url_for("page_delete_attachment", page_id=page_id) }}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'lang=' + encodeURIComponent(lang) + '&file_path=' + encodeURIComponent(path)
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          location.reload();
+        } else {
+          alert('Xatolik: ' + (data.error || 'Noma\'lum xatolik'));
+        }
+      })
+      .catch(err => {
+        alert('Xatolik: ' + err.message);
+      });
+    });
+  });
+  {% endif %}
 </script>
 {% endblock %}

@@ -1333,6 +1333,8 @@ def _build_user_create_data_from_registration(registration_payload):
         'last_online': current_time,
     }
     user_columns = set(dbc.columns.get('users', []))
+    if 'is_hidden' in user_columns:
+        create_data['is_hidden'] = False
     if 'oauth_provider' in user_columns:
         create_data['oauth_provider'] = None
     if 'oauth_sub' in user_columns:

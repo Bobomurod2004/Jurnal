@@ -267,3 +267,43 @@ def test_orcid_login_allows_existing_user_linked_via_author_profile(monkeypatch)
     assert result['id'] == 10
     assert result['oauth_provider'] == 'google'
     assert result['oauth_sub'] == 'google-sub-123'
+
+
+def test_registration_create_data_sets_is_hidden_false(monkeypatch):
+    """Regression: users.is_hidden is NOT NULL, but the connector inserts every
+    column explicitly (unset -> NULL). The email/password registration payload
+    must set is_hidden=False so the insert does not violate the constraint."""
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    fake_dbc = type('FakeDBC', (), {
+        'columns': {
+            'users': [
+                'id', 'name', 'second_name', 'father_name', 'email', 'password',
+                'country_id', 'rolename', 'is_blocked', 'is_hidden', 'is_notify',
+                'ui_language', 'accept_rules_time', 'register_time', 'created_at',
+                'last_online', 'oauth_provider', 'oauth_sub', 'oauth_email_verified',
+                'oauth_last_login_at', 'roles',
+            ],
+        },
+    })()
+
+    monkeypatch.setattr(mainweb_auth, 'dbc', fake_dbc)
+
+    payload = {
+        'first_name': 'Karijon',
+        'last_name': 'Abdurasulov',
+        'father_name': "Sadir o'g'li",
+        'email': 'karimov@example.com',
+        'password_hash': 'scrypt:hash',
+        'country_id': 267,
+        'is_notify': True,
+        'ui_language': 'uz',
+    }
+
+    with app.test_request_context('/register/verify'):
+        create_data = mainweb_auth._build_user_create_data_from_registration(payload)
+
+    assert create_data is not None
+    assert create_data['is_hidden'] is False
+    assert create_data['is_blocked'] is False

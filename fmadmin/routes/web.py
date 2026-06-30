@@ -7913,61 +7913,6 @@ def contact_info_settings():
     )
 
 
-@bp.route('/fmadmin/website/author-guidelines', methods=['GET', 'POST'])
-@is_superadmin_required
-def author_guideline_docs_settings():
-    """Manage the downloadable author-guideline documents (UZ / RU / EN).
-
-    Paths are stored in the ``settings`` table under the key
-    ``author_guideline_docs`` as JSON: ``{"uz": path, "ru": path, "en": path}``.
-    The public page /page/author_instructions renders download links for them.
-    """
-    doc_langs = [
-        ('uz', "O'zbekcha (Mualliflar uchun ko'rsatmalar)"),
-        ('ru', 'Русский (Требования к статьям)'),
-        ('en', 'English (Author Guidelines)'),
-    ]
-    allowed_exts = ['pdf', 'doc', 'docx']
-
-    def _load_docs():
-        try:
-            raw = _get_site_setting('author_guideline_docs', '')
-            if raw:
-                data = json.loads(raw)
-                if isinstance(data, dict):
-                    return {k: v for k, v in data.items() if isinstance(v, str) and v.strip()}
-        except Exception:
-            pass
-        return {}
-
-    if request.method == 'POST':
-        docs = _load_docs()
-        try:
-            for code, _label in doc_langs:
-                if request.form.get(f'remove_{code}'):
-                    docs.pop(code, None)
-                    continue
-                uploaded = request.files.get(f'doc_{code}')
-                if uploaded and uploaded.filename:
-                    docs[code] = save_file('author_guidelines', uploaded, allowed_exts)
-            ok = _set_site_setting('author_guideline_docs', json.dumps(docs, ensure_ascii=False))
-            if ok:
-                flash('Mualliflar uchun hujjatlar saqlandi', 'success')
-            else:
-                flash('Saqlashda xatolik yuz berdi', 'danger')
-        except ValueError as exc:
-            flash(str(exc), 'danger')
-        except Exception:
-            flash('Saqlashda xatolik yuz berdi', 'danger')
-        return redirect(url_for('author_guideline_docs_settings'))
-
-    return render_template(
-        'website/author_guidelines.html',
-        docs=_load_docs(),
-        doc_langs=doc_langs,
-        allowed_exts=allowed_exts,
-    )
-
 
 @bp.route('/fmadmin/website/payment-guide', methods=['GET', 'POST'])
 @is_superadmin_required
@@ -8091,6 +8036,7 @@ PAGE_EMPTY = {
     'id': 0, 'alias': '',
     'title': '', 'title_ru': '', 'title_uz': '',
     'content': '', 'content_ru': '', 'content_uz': '',
+    'attachments_en': '[]', 'attachments_uz': '[]', 'attachments_ru': '[]',
 }
 
 # Rows in the ``pages`` table that are NOT plain editable content pages, so they
@@ -8146,11 +8092,27 @@ def page_edit(page_id):
                             'Title (en) is required'), 'danger')
             return redirect(url_for('page_edit', page_id=page_id))
 
+        # Handle file attachments for author_instructions page
+        attachments_en = '[]'
+        attachments_uz = '[]'
+        attachments_ru = '[]'
+
+        if page_id != 0:
+            # Load existing attachments
+            existing_page = db.pages.all().equal(id=page_id).exec()
+            if existing_page:
+                attachments_en = existing_page[0].get('attachments_en') or '[]'
+                attachments_uz = existing_page[0].get('attachments_uz') or '[]'
+                attachments_ru = existing_page[0].get('attachments_ru') or '[]'
+
         if page_id == 0:
             new_rows = db.pages.add(
                 alias=alias,
                 title=title, title_ru=title_ru, title_uz=title_uz,
                 content=content, content_ru=content_ru, content_uz=content_uz,
+                attachments_en=attachments_en,
+                attachments_uz=attachments_uz,
+                attachments_ru=attachments_ru,
                 last_update=current_time, created_at=current_time,
             ).exec()
             new_id = page_id
@@ -8164,6 +8126,9 @@ def page_edit(page_id):
         _res = db.pages.all().equal(id=page_id).update(
             title=title, title_ru=title_ru, title_uz=title_uz,
             content=content, content_ru=content_ru, content_uz=content_uz,
+            attachments_en=attachments_en,
+            attachments_uz=attachments_uz,
+            attachments_ru=attachments_ru,
             last_update=current_time,
         ).exec()
         if _res:
@@ -8172,6 +8137,118 @@ def page_edit(page_id):
             flash(_msg_text('Sahifani saqlashda xatolik', 'Ошибка при сохранении страницы',
                             'Failed to save page'), 'danger')
         return redirect(url_for('page_edit', page_id=page_id))
+
+    page = db.pages.all().equal(id=page_id).exec()
+    if not page and page_id != 0:
+        return _msg_text('Sahifa topilmadi', 'Страница не найдена', 'Page not found'), 404
+    page = page[0] if page else dict(PAGE_EMPTY)
+
+    # Parse attachments JSON for template
+    for lang in ('en', 'uz', 'ru'):
+        attachment_key = f'attachments_{lang}'
+        try:
+            page[f'{attachment_key}_list'] = json.loads(page.get(attachment_key) or '[]')
+        except:
+            page[f'{attachment_key}_list'] = []
+
+    return render_template('website/pages/page_edit.html', page_id=page_id, page=page)
+
+
+@bp.route('/fmadmin/website/pages/<int:page_id>/upload-attachment', methods=['POST'])
+@is_superadmin_required
+def page_upload_attachment(page_id):
+    """Upload file attachment for a page (author_instructions)."""
+    lang = request.form.get('lang', 'en')
+    if lang not in ('en', 'uz', 'ru'):
+        return jsonify({'success': False, 'error': 'Invalid language'}), 400
+
+    page = db.pages.all().equal(id=page_id).exec()
+    if not page:
+        return jsonify({'success': False, 'error': 'Page not found'}), 404
+
+    page = page[0]
+
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'success': False, 'error': 'No file selected'}), 400
+
+    try:
+        # Save file
+        allowed_exts = ['.pdf', '.doc', '.docx', '.txt', '.jpg', '.png']
+        file_path = save_file('page_attachments', file, allowed_exts)
+
+        # Get current attachments
+        attachment_field = f'attachments_{lang}'
+        current_attachments_json = page.get(attachment_field) or '[]'
+        current_attachments = json.loads(current_attachments_json)
+
+        # Add new file
+        current_attachments.append({
+            'name': file.filename,
+            'path': file_path
+        })
+
+        # Update database
+        db.pages.all().equal(id=page_id).update(**{
+            attachment_field: json.dumps(current_attachments, ensure_ascii=False)
+        }).exec()
+
+        return jsonify({
+            'success': True,
+            'file': {
+                'name': file.filename,
+                'path': file_path
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/fmadmin/website/pages/<int:page_id>/delete-attachment', methods=['POST'])
+@is_superadmin_required
+def page_delete_attachment(page_id):
+    """Delete file attachment from a page."""
+    lang = request.form.get('lang', 'en')
+    file_path = request.form.get('file_path', '')
+
+    if lang not in ('en', 'uz', 'ru'):
+        return jsonify({'success': False, 'error': 'Invalid language'}), 400
+
+    page = db.pages.all().equal(id=page_id).exec()
+    if not page:
+        return jsonify({'success': False, 'error': 'Page not found'}), 404
+
+    page = page[0]
+
+    try:
+        # Get current attachments
+        attachment_field = f'attachments_{lang}'
+        current_attachments_json = page.get(attachment_field) or '[]'
+        current_attachments = json.loads(current_attachments_json)
+
+        # Remove file from list
+        updated_attachments = [f for f in current_attachments if f.get('path') != file_path]
+
+        # Delete physical file
+        try:
+            full_path = os.path.join(settings.SAVE_PATH, file_path.lstrip('/'))
+            if os.path.exists(full_path):
+                os.remove(full_path)
+        except Exception:
+            pass  # File might not exist, continue anyway
+
+        # Update database
+        db.pages.all().equal(id=page_id).update(**{
+            attachment_field: json.dumps(updated_attachments, ensure_ascii=False)
+        }).exec()
+
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
     page = db.pages.all().equal(id=page_id).exec()
     if not page and page_id != 0:

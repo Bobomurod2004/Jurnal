@@ -2950,42 +2950,7 @@ def _fetch_contact_social_links():
     return social_links
 
 
-def _fetch_author_guideline_docs():
-    """Return uploaded author-guideline document paths managed in fmadmin.
-
-    Stored in the ``settings`` table under the key ``author_guideline_docs``
-    as a JSON object: ``{"uz": "/static/uploads/...", "ru": "...", "en": "..."}``.
-    """
-    docs = {}
-    try:
-        rows = dbc.settings.get(k='author_guideline_docs').exec()
-        if rows and rows[0].get('v'):
-            data = json.loads(rows[0]['v'])
-            if isinstance(data, dict):
-                for lang_code in ('uz', 'ru', 'en'):
-                    value = data.get(lang_code)
-                    if isinstance(value, str) and value.strip():
-                        docs[lang_code] = value.strip()
-    except Exception:
-        pass
-    return docs
-
-
-# Labels for the author-guideline download links, keyed by document language.
-_AUTHOR_GUIDELINE_DOC_LABELS = {
-    'uz': "O'zbekcha (Mualliflar uchun ko'rsatmalar)",
-    'ru': 'Русский (Требования к статьям)',
-    'en': 'English (Author Guidelines)',
-}
-
-# ASCII-safe base filenames used for the downloaded file, keyed by document language.
-_AUTHOR_GUIDELINE_DOC_FILENAMES = {
-    'uz': 'Philology_Matters_Author_Guidelines_UZ',
-    'ru': 'Philology_Matters_Author_Guidelines_RU',
-    'en': 'Philology_Matters_Author_Guidelines_EN',
-}
-
-# Localized heading for the download section, keyed by the current UI language.
+# Localized heading for the download section
 _AUTHOR_GUIDELINE_DOWNLOAD_HEADING = {
     'uz': 'Hujjatlarni yuklab olish',
     'ru': 'Скачать документы',
@@ -2993,38 +2958,51 @@ _AUTHOR_GUIDELINE_DOWNLOAD_HEADING = {
 }
 
 
-def _author_guideline_download_section(lang):
-    """Build the HTML for the author-guideline downloads block, or '' if none."""
-    docs = _fetch_author_guideline_docs()
-    if not docs:
+def _build_attachments_section(attachments, lang):
+    """Build HTML section for page attachments (files)."""
+    if not attachments:
         return ''
 
+    heading = _AUTHOR_GUIDELINE_DOWNLOAD_HEADING.get(lang, _AUTHOR_GUIDELINE_DOWNLOAD_HEADING['en'])
+
     items_html = ''
-    for doc_lang in ('uz', 'ru', 'en'):
-        url = docs.get(doc_lang)
-        if not url:
-            continue
-        normalized_url = _normalize_public_upload_url(url) or url
+    for file_info in attachments:
+        file_name = escape(file_info.get('name', 'Download'))
+        file_path = file_info.get('path', '')
+
+        # Normalize URL
+        normalized_url = _normalize_public_upload_url(file_path) or file_path
         safe_url = escape(normalized_url)
-        label = escape(_AUTHOR_GUIDELINE_DOC_LABELS.get(doc_lang, doc_lang.upper()))
-        ext = normalized_url.rsplit('.', 1)[-1].lower() if '.' in normalized_url.rsplit('/', 1)[-1] else ''
-        base_name = _AUTHOR_GUIDELINE_DOC_FILENAMES.get(doc_lang, f'Author_Guidelines_{doc_lang.upper()}')
-        download_name = escape(f'{base_name}.{ext}' if ext else base_name)
+
+        # Determine icon based on file extension
+        ext = file_path.rsplit('.', 1)[-1].lower() if '.' in file_path else ''
+        icon_map = {
+            'pdf': 'tabler:file-type-pdf',
+            'doc': 'tabler:file-type-doc',
+            'docx': 'tabler:file-type-docx',
+            'txt': 'tabler:file-text',
+            'jpg': 'tabler:photo',
+            'jpeg': 'tabler:photo',
+            'png': 'tabler:photo',
+        }
+        icon = icon_map.get(ext, 'tabler:file')
+
         items_html += (
-            '<li>'
-            f'<a href="{safe_url}" download="{download_name}" class="text-fmmain hover:underline">'
-            f'<iconify-icon icon="tabler:file-type-pdf" class="align-middle"></iconify-icon> {label}</a>'
-            '</li>'
+            f'<div class="mb-2">'
+            f'<a href="{safe_url}" target="_blank" class="inline-flex items-center gap-2 text-fmmain hover:underline font-medium">'
+            f'<iconify-icon icon="{icon}" class="text-lg"></iconify-icon> {file_name}'
+            f'</a>'
+            f'</div>'
         )
+
     if not items_html:
         return ''
 
-    heading = escape(_AUTHOR_GUIDELINE_DOWNLOAD_HEADING.get(lang, _AUTHOR_GUIDELINE_DOWNLOAD_HEADING['en']))
     return (
-        '\n<section>'
-        f'<h4 class="text-lg font-semibold mb-3">{heading}</h4>'
-        f'<ul class="list-disc list-inside space-y-1">{items_html}</ul>'
-        '</section>'
+        '\n<div class="mt-8 p-6 bg-gray-50 border border-gray-200 rounded-lg">'
+        f'<h3 class="text-xl font-bold mb-4 text-gray-900">{escape(heading)}</h3>'
+        f'<div class="space-y-2">{items_html}</div>'
+        '</div>'
     )
 
 
@@ -3123,9 +3101,16 @@ def app__page_alias(alias):
     page = _apply_localized_content(page, ('title', 'content'), lang=lang)
 
     if page_alias == 'author_instructions':
-        download_section = _author_guideline_download_section(lang)
-        if download_section:
-            page['content'] = (page.get('content') or '').rstrip() + download_section
+        # Load attachments from database and display them
+        attachments_field = f'attachments_{lang}'
+        attachments_json = page.get(attachments_field) or '[]'
+        try:
+            attachments = json.loads(attachments_json)
+            if attachments:
+                download_section = _build_attachments_section(attachments, lang)
+                page['content'] = (page.get('content') or '').rstrip() + download_section
+        except (json.JSONDecodeError, Exception):
+            pass  # If JSON parsing fails, just skip attachments
 
     no_toc_aliases = {'author_instructions'}
     return render_template('mainweb/page.html', page=page, show_toc=(page_alias not in no_toc_aliases))
