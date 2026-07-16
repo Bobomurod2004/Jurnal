@@ -74,7 +74,7 @@
       </div>
     </form>
 
-    {% if page.alias == 'author_instructions' and page_id != 0 %}
+    {% if page.alias == 'submission_guidelines' and page_id != 0 %}
     <!-- File Attachments Section -->
     <hr class="my-4">
     <h3 class="mb-3">Yuklanadigan fayllar</h3>
@@ -149,7 +149,7 @@
   });
   setLang('all');
 
-  {% if page.alias == 'author_instructions' and page_id != 0 %}
+  {% if page.alias == 'submission_guidelines' and page_id != 0 %}
   // File upload handler
   ['en', 'uz', 'ru'].forEach(function(lang) {
     const form = document.getElementById('upload-form-' + lang);

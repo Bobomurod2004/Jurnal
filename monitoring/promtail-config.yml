@@ -27,9 +27,17 @@ scrape_configs:
           expressions:
             service: service
             version: version
+            level: level
+            logger: logger
             request_id: request_id
+            trace_id: trace_id
+            span_id: span_id
             method: method
+            route: route
             path: path
             status: status
             duration_ms: duration_ms
             user_id: user_id
+      - labels:
+          level:
+          logger:

@@ -337,6 +337,25 @@ ALTER SEQUENCE public.fix_classifications_id_seq OWNED BY public.fix_classificat
 
 
 --
+-- Name: home_gallery; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE IF NOT EXISTS public.home_gallery (
+    id BIGSERIAL PRIMARY KEY,
+    title text,
+    title_uz text,
+    title_ru text,
+    image_path text NOT NULL,
+    sort_order integer DEFAULT 0 NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at bigint,
+    updated_at bigint
+);
+
+
+ALTER TABLE public.home_gallery OWNER TO postgres;
+
+--
 -- TOC entry 229 (class 1259 OID 24719)
 -- Name: fix_country; Type: TABLE; Schema: public; Owner: postgres
 --
@@ -1171,7 +1190,7 @@ CREATE TABLE public.users (
     country_id integer,
     region text,
     rolename text DEFAULT 'user'::text,
-    is_blocked boolean DEFAULT false,
+    is_blocked boolean DEFAULT false NOT NULL,
     is_notify boolean DEFAULT false,
     accept_rules_time bigint,
     last_online bigint,
@@ -1181,7 +1200,16 @@ CREATE TABLE public.users (
     avatar text,
     subscription_end_date bigint,
     tariff_id integer,
-    editor_specialization text
+    editor_specialization text,
+    ui_language text,
+    roles text[],
+    is_hidden boolean DEFAULT false NOT NULL,
+    oauth_provider text,
+    oauth_sub text,
+    oauth_email_verified boolean,
+    oauth_last_login_at bigint,
+    admin_tracks text[],
+    editor_admin_id integer
 );
 
 

@@ -1,3 +1,4 @@
+# flake8: noqa
 EXTRA_STATIC_TRANSLATIONS = {
     'uz': {
         'academic_position': "Akademik lavozim",
@@ -64,6 +65,7 @@ EXTRA_STATIC_TRANSLATIONS = {
         'guides_desc': "Yuborish va foydalanish bo'yicha qo'llanmalar",
         'hide_password': "Parolni yashirish",
         'home_announcements_tab': "E'lonlar",
+        'home_gallery_title': "Foto ma'lumotlar",
         'home_more_from': "Yangiliklar va e'lonlar",
         'home_news_tab': "Yangiliklar",
         'home_submit_title': "Maqolangizni yuborishga tayyormisiz?",
@@ -268,6 +270,7 @@ EXTRA_STATIC_TRANSLATIONS = {
         'guides_desc': "Инструкции по подаче и использованию платформы",
         'hide_password': "Скрыть пароль",
         'home_announcements_tab': "Объявления",
+        'home_gallery_title': "Фотоматериалы",
         'home_more_from': "Новости и объявления",
         'home_news_tab': "Новости",
         'home_submit_title': "Готовы отправить свою статью?",
@@ -472,6 +475,7 @@ EXTRA_STATIC_TRANSLATIONS = {
         'guides_desc': "Guides for submission and platform usage",
         'hide_password': "Hide password",
         'home_announcements_tab': "Announcements",
+        'home_gallery_title': "Photo materials",
         'home_more_from': "News and announcements",
         'home_news_tab': "News",
         'home_submit_title': "Ready to submit your article?",

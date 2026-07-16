@@ -140,7 +140,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (service) (count_over_time({service=~\"${service:regex}\"} |= \"ERROR\" [5m]))",
+          "expr": "sum by (service) (count_over_time({service=~\"${service:regex}\", level=~\"ERROR|CRITICAL\"}[5m]))",
           "legendFormat": "{{service}}",
           "queryType": "range",
           "refId": "A"
@@ -285,7 +285,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Journal Observability",
+  "title": "Journal Logs",
   "uid": "journal-observability",
   "version": 1,
   "weekStart": ""

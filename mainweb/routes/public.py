@@ -2452,6 +2452,50 @@ def _load_public_editorial_members():
     return editorial_members or []
 
 
+def _load_home_gallery(lang=None):
+    """Active homepage gallery images with a language-resolved title."""
+    cursor = None
+    try:
+        cursor = dbc.conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, title, title_uz, title_ru, image_path
+            FROM home_gallery
+            WHERE is_active = TRUE AND COALESCE(image_path, '') <> ''
+            ORDER BY sort_order ASC, id ASC
+            """
+        )
+        columns = [desc[0] for desc in cursor.description]
+        rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        dbc.conn.commit()
+    except Exception:
+        # Table may not exist yet (migration pending) — the card is simply hidden.
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+        return []
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+    lang = lang or _current_lang_code()
+    items = []
+    for row in rows:
+        if lang == 'uz':
+            title = row.get('title_uz') or row.get('title') or row.get('title_ru')
+        elif lang == 'ru':
+            title = row.get('title_ru') or row.get('title') or row.get('title_uz')
+        else:
+            title = row.get('title') or row.get('title_uz') or row.get('title_ru')
+        items.append({
+            'id': row.get('id'),
+            'image_path': row.get('image_path'),
+            'title': _clean_text(title),
+        })
+    return items
+
+
 def _select_featured_editorial_member(editors):
     if not editors:
         return None
@@ -2873,6 +2917,7 @@ def app__index():
         news_items=news_items,
         announcements=announcements,
         editorial_members=editorial_members,
+        home_gallery=_load_home_gallery(current_lang),
         home_video_usage_embed=home_video_usage_embed,
         home_video_submission_embed=home_video_submission_embed,
         journal_stats=journal_stats,
@@ -3100,7 +3145,7 @@ def app__page_alias(alias):
     lang = _current_lang_code()
     page = _apply_localized_content(page, ('title', 'content'), lang=lang)
 
-    if page_alias == 'author_instructions':
+    if page_alias == 'submission_guidelines':
         # Load attachments from database and display them
         attachments_field = f'attachments_{lang}'
         attachments_json = page.get(attachments_field) or '[]'

@@ -3,6 +3,7 @@ import threading
 from flask import Flask, session
 
 from mainweb.routes import api as api_routes
+from mainweb.routes import auth as auth_routes
 from mainweb.routes import context as context_routes
 from mainweb.routes import dashboard as dashboard_routes
 from mainweb.routes import public as public_routes
@@ -946,3 +947,59 @@ def test_recent_issues_sidebar_shows_latest_three_in_order(monkeypatch):
     )[:3]
 
     assert [issue['id'] for issue in ordered] == [12, 11, 9]
+
+
+def _registration_payload():
+    return {
+        'first_name': 'Ali',
+        'last_name': 'Valiyev',
+        'father_name': '',
+        'email': 'ali@example.com',
+        'country_id': 1,
+        'password_hash': 'pbkdf2:fake-hash',
+        'is_notify': True,
+        'ui_language': 'uz',
+    }
+
+
+def test_registration_create_data_omits_ui_language_when_column_missing(monkeypatch):
+    # Production regression: users.ui_language is created only by the runtime
+    # schema sync (disabled in production), so inserting it unconditionally
+    # made dbc.users.add() raise and /register/verify respond with 500.
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    legacy_columns = [
+        'id', 'name', 'second_name', 'father_name', 'email', 'password',
+        'country_id', 'rolename', 'is_blocked', 'is_notify',
+        'accept_rules_time', 'register_time', 'created_at', 'last_online',
+    ]
+    fake_dbc = type('FakeDBC', (), {'columns': {'users': legacy_columns}})()
+    monkeypatch.setattr(auth_routes, 'dbc', fake_dbc)
+
+    with app.test_request_context('/register/verify'):
+        create_data = auth_routes._build_user_create_data_from_registration(_registration_payload())
+
+    assert create_data is not None
+    assert 'ui_language' not in create_data
+    assert 'roles' not in create_data
+
+
+def test_registration_create_data_includes_ui_language_when_column_exists(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    columns = [
+        'id', 'name', 'second_name', 'father_name', 'email', 'password',
+        'country_id', 'rolename', 'is_blocked', 'is_notify',
+        'accept_rules_time', 'register_time', 'created_at', 'last_online',
+        'ui_language',
+    ]
+    fake_dbc = type('FakeDBC', (), {'columns': {'users': columns}})()
+    monkeypatch.setattr(auth_routes, 'dbc', fake_dbc)
+
+    with app.test_request_context('/register/verify'):
+        create_data = auth_routes._build_user_create_data_from_registration(_registration_payload())
+
+    assert create_data is not None
+    assert create_data['ui_language'] == 'uz'

@@ -1,0 +1,102 @@
+groups:
+  - name: journal-platform
+    interval: 30s
+    rules:
+      - alert: JournalServiceDown
+        expr: up{job=~"mainweb|fmadmin|postgres-exporter|prometheus|grafana|loki|tempo|promtail|node-exporter|cadvisor|alertmanager"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Prometheus cannot scrape {{ $labels.job }} on {{ $labels.instance }} for more than 2 minutes."
+
+      - alert: JournalReadyCheckFailed
+        expr: probe_success{job="blackbox-http", instance=~"http://(mainweb|fmadmin).*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Application readiness probe failed"
+          description: "{{ $labels.instance }} has not passed the /readyz probe for 2 minutes."
+
+      - alert: JournalGrafanaStackEndpointFailed
+        expr: probe_success{job="blackbox-http", instance=~"http://(grafana|loki|tempo).*"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Observability backend endpoint failed"
+          description: "{{ $labels.instance }} failed its HTTP probe for more than 2 minutes."
+
+      - alert: JournalHighRequestLatency
+        expr: histogram_quantile(0.95, sum by (le, service) (rate(journal_http_request_duration_seconds_bucket{route!~"/metrics|/healthz|/readyz"}[5m]))) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request latency for {{ $labels.service }}"
+          description: "The p95 request latency for {{ $labels.service }} has been above 1.5 seconds for 10 minutes."
+
+      - alert: JournalHigh5xxRate
+        expr: sum by (service) (rate(journal_http_requests_total{status_code=~"5..", route!~"/metrics|/healthz|/readyz"}[5m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated 5xx rate for {{ $labels.service }}"
+          description: "{{ $labels.service }} is returning more than 0.2 server errors per second for 10 minutes."
+
+      - alert: JournalHostCpuHigh
+        expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 85
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "Host CPU usage has been above 85% for 15 minutes."
+
+      - alert: JournalHostMemoryHigh
+        expr: ((1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100) > 90
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Host memory usage has been above 90% for 15 minutes."
+
+      - alert: JournalHostDiskHigh
+        expr: (100 * (1 - (node_filesystem_avail_bytes{mountpoint="/", fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{mountpoint="/", fstype!~"tmpfs|overlay"}))) > 85
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High disk usage on {{ $labels.instance }}"
+          description: "Root filesystem usage has been above 85% for 15 minutes."
+
+      - alert: JournalPostgresUnavailable
+        expr: pg_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is unavailable"
+          description: "postgres_exporter reports pg_up=0 for {{ $labels.server }}."
+
+      - alert: JournalPostgresConnectionsHigh
+        expr: sum by (datname) (pg_stat_database_numbackends) > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High PostgreSQL connection count for {{ $labels.datname }}"
+          description: "The database {{ $labels.datname }} is using more than 100 active backend connections."
+
+      - alert: JournalEmailFailuresDetected
+        expr: sum by (app_name) (rate(journal_email_delivery_total{status="failed"}[15m])) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Email delivery failures detected in {{ $labels.app_name }}"
+          description: "At least one email delivery failure per second-window has been observed during the last 15 minutes."

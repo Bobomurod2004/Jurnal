@@ -1,10 +1,24 @@
 # flake8: noqa
 import os
+import sys
 import logging
 from flask import Flask, jsonify
 from flasgger import Swagger
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from shared.observability import (
+    attach_metrics_and_health,
+    bootstrap_telemetry_libraries,
+    configure_logging,
+    configure_tracing,
+    legacy_postgres_healthcheck,
+)
+
+bootstrap_telemetry_libraries()
+
 try:
     import mainweb.settings as settings
 except ImportError:
@@ -16,16 +30,6 @@ from utils.uploads import init_uploads
 from routes import auth, public, dashboard, api, context
 
 logger = logging.getLogger(__name__)
-
-def _configure_logging(app):
-    level_name = (settings.LOG_LEVEL or 'INFO').upper()
-    level = getattr(logging, level_name, logging.INFO)
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter('%(message)s'))
-    app.logger.handlers = []
-    app.logger.addHandler(handler)
-    app.logger.setLevel(level)
-    app.logger.propagate = False
 
 
 def _migrate_legacy_password_hashes():
@@ -56,7 +60,12 @@ def _migrate_legacy_password_hashes():
 
 def create_app():
     app = Flask(__name__)
-    _configure_logging(app)
+    configure_logging(
+        app,
+        service_name='mainweb',
+        version=settings.APP_VERSION,
+        level_name=settings.LOG_LEVEL,
+    )
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
     app.secret_key = settings.SECRET_KEY
     app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
@@ -66,6 +75,14 @@ def create_app():
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['SESSION_COOKIE_SECURE'] = bool(settings.IS_PRODUCTION)
     app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
+
+    attach_metrics_and_health(
+        app,
+        service_name='mainweb',
+        version=settings.APP_VERSION,
+        db_healthcheck=lambda: legacy_postgres_healthcheck(dbc),
+    )
+    configure_tracing(app, service_name='mainweb', version=settings.APP_VERSION)
 
     @app.get('/healthz')
     def healthz():

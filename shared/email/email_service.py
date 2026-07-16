@@ -20,6 +20,8 @@ from email.utils import formataddr
 from urllib.parse import urljoin
 from functools import lru_cache
 
+from shared.observability import record_email_delivery_metric
+
 logger = logging.getLogger(__name__)
 
 # Email validation regex
@@ -457,6 +459,7 @@ class EmailService:
                 )
 
             conn.commit()
+            record_email_delivery_metric(self.app_name, normalized_status)
             return True
 
         except Exception:

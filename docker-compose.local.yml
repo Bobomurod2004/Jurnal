@@ -119,13 +119,17 @@ services:
       - MAIL_FROM_NAME=${MAIL_FROM_NAME:-Philology Matters}
       - MAIL_REPLY_TO=${MAIL_REPLY_TO:-philologymatters@uzswlu.uz}
       - MAIL_CONTACT_RECIPIENTS=${MAIL_CONTACT_RECIPIENTS:-philologymatters@uzswlu.uz,philolm.uz@gmail.com}
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus-multiproc/mainweb
     volumes:
       - ./mainweb:/app/mainweb
       - ./shared:/app/shared
       - uploads_local:/var/www/journal/static/uploads
       - private_uploads_local:/var/www/journal/private_uploads
     working_dir: /app/mainweb
-    command: gunicorn --bind 0.0.0.0:5000 --workers 1 --threads 2 --timeout 180 --keep-alive 5 --reload --access-logfile - --error-logfile - run:app
+    command: >-
+      bash -lc "mkdir -p \"$$PROMETHEUS_MULTIPROC_DIR\" &&
+      rm -f \"$$PROMETHEUS_MULTIPROC_DIR\"/* &&
+      exec gunicorn --config /app/gunicorn.conf.py --bind 0.0.0.0:5000 --workers 1 --threads 2 --timeout 180 --keep-alive 5 --reload --access-logfile - --error-logfile - run:app"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5000/healthz || exit 1"]
       interval: 15s
@@ -176,13 +180,17 @@ services:
       - MAIL_FROM_NAME=${MAIL_FROM_NAME:-Philology Matters}
       - MAIL_REPLY_TO=${MAIL_REPLY_TO:-philologymatters@uzswlu.uz}
       - MAIL_CONTACT_RECIPIENTS=${MAIL_CONTACT_RECIPIENTS:-philologymatters@uzswlu.uz,philolm.uz@gmail.com}
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus-multiproc/fmadmin
     volumes:
       - ./fmadmin:/app/fmadmin
       - ./shared:/app/shared
       - uploads_local:/var/www/journal/static/uploads
       - private_uploads_local:/var/www/journal/private_uploads
     working_dir: /app/fmadmin
-    command: gunicorn --bind 0.0.0.0:5001 --workers 1 --threads 2 --timeout 180 --keep-alive 5 --reload --access-logfile - --error-logfile - run:app
+    command: >-
+      bash -lc "mkdir -p \"$$PROMETHEUS_MULTIPROC_DIR\" &&
+      rm -f \"$$PROMETHEUS_MULTIPROC_DIR\"/* &&
+      exec gunicorn --config /app/gunicorn.conf.py --bind 0.0.0.0:5001 --workers 1 --threads 2 --timeout 180 --keep-alive 5 --reload --access-logfile - --error-logfile - run:app"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5001/healthz || exit 1"]
       interval: 15s

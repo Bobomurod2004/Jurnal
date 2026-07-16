@@ -114,8 +114,8 @@
               <h4 class="m-0">{{ t('admin_submissions_section') }}</h4>
             </li>
 
-            {{ sidebar_link('submission_documents', 'ti-files', t('admin_documents'), ['submission_documents', 'serve_private_file']) }}
             {{ sidebar_link('submissions', 'ti-inbox', t('admin_submission_articles'), ['submissions', 'submission_detail', 'assign_editors', 'admin_decision']) }}
+            {{ sidebar_link('submission_documents', 'ti-files', t('admin_documents'), ['submission_documents', 'serve_private_file']) }}
             {% endif %}
 
             <!-- Назначения для редакторов и администраторов -->
@@ -145,29 +145,42 @@
             </li>
             {% endif %}
 
-            <!-- Разделы "Контент" и "Финансы" только для супер-админа -->
+            <!-- Разделы контента и финансов только для супер-админа -->
             {% if user_caps.can_manage_content %}
+            {% set _menu_lang = session.get('language') or 'uz' %}
+
             <li class="px-3 pt-4 pb-2 text-muted">
-              <h4 class="m-0">{{ t('admin_content') }}</h4>
+              <h4 class="m-0">{% if _menu_lang == 'ru' %}Контент журнала{% elif _menu_lang == 'en' %}Journal content{% else %}Jurnal kontenti{% endif %}</h4>
             </li>
 
             {{ sidebar_link('issues', 'ti-book-2', t('admin_issues'), ['issues', 'issue_edit']) }}
             {{ sidebar_link('articles', 'ti-article', t('admin_articles'), ['articles', 'article_edit', 'article_content']) }}
+
+            <li class="px-3 pt-4 pb-2 text-muted">
+              <h4 class="m-0">{% if _menu_lang == 'ru' %}Управление сайтом{% elif _menu_lang == 'en' %}Site management{% else %}Sayt boshqaruvi{% endif %}</h4>
+            </li>
+
+            {{ sidebar_link('pages', 'ti-files', 'Sahifalar', ['pages', 'page_edit']) }}
             {{ sidebar_link('news', 'ti-news', t('admin_news'), ['news', 'news_edit']) }}
             {{ sidebar_link('announcements', 'ti-speakerphone', t('admin_announcements'), ['announcements', 'announcement_edit']) }}
-            {{ sidebar_link('pages', 'ti-files', 'Sahifalar', ['pages', 'page_edit']) }}
-            {{ sidebar_link('tariffs', 'ti-tags', t('admin_tariffs'), ['tariffs']) }}
+            {{ sidebar_link('home_videos', 'ti-video', 'Bosh sahifa videolari', ['home_videos']) }}
+            {{ sidebar_link('home_gallery', 'ti-photo', 'Bosh sahifa rasmlari', ['home_gallery']) }}
+            {{ sidebar_link('contact_info_settings', 'ti-address-book', "Aloqa ma'lumotlari", ['contact_info_settings']) }}
             {{ sidebar_link('translations', 'ti-language', t('admin_translations'), ['translations']) }}
+
+            <li class="px-3 pt-4 pb-2 text-muted">
+              <h4 class="m-0">Email</h4>
+            </li>
+
             {{ sidebar_link('email_templates', 'ti-mail', 'Email shablonlar', ['email_templates', 'email_template_create', 'email_template_edit']) }}
             {{ sidebar_link('email_logs', 'ti-mail-forward', 'Email xabarlar', ['email_logs']) }}
-            {{ sidebar_link('home_videos', 'ti-video', 'Bosh sahifa videolari', ['home_videos']) }}
-            {{ sidebar_link('payment_guide_settings', 'ti-receipt', "To'lov yo'riqnomasi", ['payment_guide_settings']) }}
-            {{ sidebar_link('contact_info_settings', 'ti-address-book', "Aloqa ma'lumotlari", ['contact_info_settings']) }}
 
             <li class="px-3 pt-4 pb-2 text-muted">
               <h4 class="m-0">{{ t('admin_finance') }}</h4>
             </li>
 
+            {{ sidebar_link('tariffs', 'ti-tags', t('admin_tariffs'), ['tariffs']) }}
+            {{ sidebar_link('payment_guide_settings', 'ti-receipt', "To'lov yo'riqnomasi", ['payment_guide_settings']) }}
             {{ sidebar_link('payments', 'ti-credit-card', t('admin_payments'), ['payments', 'payment_edit']) }}
             {% endif %}
 

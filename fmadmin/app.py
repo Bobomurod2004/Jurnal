@@ -1,9 +1,23 @@
 import os
+import sys
 import logging
 from datetime import timedelta
 from flask import Flask, jsonify
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from shared.observability import (
+    attach_metrics_and_health,
+    bootstrap_telemetry_libraries,
+    configure_logging,
+    configure_tracing,
+    legacy_postgres_healthcheck,
+)
+
+bootstrap_telemetry_libraries()
+
 try:
     import fmadmin.settings as settings
 except ImportError:
@@ -15,16 +29,6 @@ from utils.filters import register_filters
 from routes import api, web
 
 logger = logging.getLogger(__name__)
-
-def _configure_logging(app):
-    level_name = (settings.LOG_LEVEL or 'INFO').upper()
-    level = getattr(logging, level_name, logging.INFO)
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter('%(message)s'))
-    app.logger.handlers = []
-    app.logger.addHandler(handler)
-    app.logger.setLevel(level)
-    app.logger.propagate = False
 
 
 def _migrate_legacy_password_hashes():
@@ -55,7 +59,12 @@ def _migrate_legacy_password_hashes():
 
 def create_app():
     app = Flask(__name__, static_folder='./dist/', static_url_path='/dist')
-    _configure_logging(app)
+    configure_logging(
+        app,
+        service_name='fmadmin',
+        version=settings.APP_VERSION,
+        level_name=settings.LOG_LEVEL,
+    )
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
     app.secret_key = settings.SECRET_KEY
     app.config['SESSION_COOKIE_NAME'] = 'fmadmin_session'
@@ -64,6 +73,14 @@ def create_app():
     app.config['SESSION_COOKIE_SECURE'] = bool(settings.IS_PRODUCTION)
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
     app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
+
+    attach_metrics_and_health(
+        app,
+        service_name='fmadmin',
+        version=settings.APP_VERSION,
+        db_healthcheck=lambda: legacy_postgres_healthcheck(db),
+    )
+    configure_tracing(app, service_name='fmadmin', version=settings.APP_VERSION)
 
     @app.get('/healthz')
     @app.get('/fmadmin/healthz')

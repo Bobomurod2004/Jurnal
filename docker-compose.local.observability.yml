@@ -1,65 +1,65 @@
 services:
   mainweb:
     environment:
-      OTEL_TRACING_ENABLED: ${OTEL_TRACING_ENABLED:-1}
+      OTEL_TRACING_ENABLED: "1"
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
-      OTEL_SERVICE_NAMESPACE: ${OTEL_SERVICE_NAMESPACE:-journal}
+      OTEL_SERVICE_NAMESPACE: journal
 
   fmadmin:
     environment:
-      OTEL_TRACING_ENABLED: ${OTEL_TRACING_ENABLED:-1}
+      OTEL_TRACING_ENABLED: "1"
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
-      OTEL_SERVICE_NAMESPACE: ${OTEL_SERVICE_NAMESPACE:-journal}
+      OTEL_SERVICE_NAMESPACE: journal
 
   prometheus:
     image: prom/prometheus:v3.13.0
-    container_name: journal_prometheus
+    container_name: journal_prometheus_local
     restart: unless-stopped
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=30d
+      - --storage.tsdb.retention.time=15d
       - --web.enable-lifecycle
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/prometheus-alert-rules.yml:/etc/prometheus/rules/journal-alerts.yml:ro
-      - prometheus_data:/prometheus
+      - prometheus_data_local:/prometheus
     ports:
-      - "127.0.0.1:9090:9090"
+      - "19090:9090"
     networks:
-      - journal_net
+      - journal_local
 
   alertmanager:
     image: prom/alertmanager:v0.33.0
-    container_name: journal_alertmanager
+    container_name: journal_alertmanager_local
     restart: unless-stopped
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
       - --storage.path=/alertmanager
     volumes:
       - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      - alertmanager_data:/alertmanager
+      - alertmanager_data_local:/alertmanager
     ports:
-      - "127.0.0.1:9093:9093"
+      - "19093:9093"
     networks:
-      - journal_net
+      - journal_local
 
   loki:
     image: grafana/loki:3.7.3
-    container_name: journal_loki
+    container_name: journal_loki_local
     restart: unless-stopped
     command: -config.file=/etc/loki/config.yml
     volumes:
       - ./monitoring/loki-config.yml:/etc/loki/config.yml:ro
-      - loki_data:/var/lib/loki
+      - loki_data_local:/var/lib/loki
     ports:
-      - "127.0.0.1:3100:3100"
+      - "13100:3100"
     networks:
-      - journal_net
+      - journal_local
 
   promtail:
     image: grafana/promtail:3.6.11
-    container_name: journal_promtail
+    container_name: journal_promtail_local
     restart: unless-stopped
     command: -config.file=/etc/promtail/config.yml
     volumes:
@@ -69,40 +69,40 @@ services:
     depends_on:
       - loki
     networks:
-      - journal_net
+      - journal_local
 
   tempo:
     image: grafana/tempo:3.0.2
-    container_name: journal_tempo
+    container_name: journal_tempo_local
     restart: unless-stopped
     command:
       - -config.file=/etc/tempo/config.yml
     volumes:
       - ./monitoring/tempo-config.yml:/etc/tempo/config.yml:ro
-      - tempo_data:/var/tempo
+      - tempo_data_local:/var/tempo
     ports:
-      - "127.0.0.1:3200:3200"
-      - "127.0.0.1:4317:4317"
-      - "127.0.0.1:4318:4318"
+      - "13200:3200"
+      - "14317:4317"
+      - "14318:4318"
     networks:
-      - journal_net
+      - journal_local
 
   node-exporter:
     image: prom/node-exporter:v1.11.1
-    container_name: journal_node_exporter
+    container_name: journal_node_exporter_local
     restart: unless-stopped
     command:
       - --path.rootfs=/host
     volumes:
       - /:/host:ro,rslave
     ports:
-      - "127.0.0.1:9100:9100"
+      - "19100:9100"
     networks:
-      - journal_net
+      - journal_local
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.55.1
-    container_name: journal_cadvisor
+    container_name: journal_cadvisor_local
     restart: unless-stopped
     privileged: true
     volumes:
@@ -112,71 +112,69 @@ services:
       - /var/lib/docker:/var/lib/docker:ro
       - /dev/disk:/dev/disk:ro
     ports:
-      - "127.0.0.1:8081:8080"
+      - "18081:8080"
     networks:
-      - journal_net
+      - journal_local
 
   postgres-exporter:
     image: quay.io/prometheuscommunity/postgres-exporter:v0.20.0
-    container_name: journal_postgres_exporter
+    container_name: journal_postgres_exporter_local
     restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable
+      DATA_SOURCE_NAME: postgresql://postgres:1@db:5432/journal2?sslmode=disable
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "127.0.0.1:9187:9187"
+      - "19187:9187"
     networks:
-      - journal_net
+      - journal_local
 
   blackbox-exporter:
     image: prom/blackbox-exporter:v0.28.0
-    container_name: journal_blackbox_exporter
+    container_name: journal_blackbox_exporter_local
     restart: unless-stopped
     command:
       - --config.file=/etc/blackbox_exporter/config.yml
     volumes:
       - ./monitoring/blackbox-config.yml:/etc/blackbox_exporter/config.yml:ro
     ports:
-      - "127.0.0.1:9115:9115"
+      - "19115:9115"
     networks:
-      - journal_net
+      - journal_local
 
   grafana:
     image: grafana/grafana:13.1.0
-    container_name: journal_grafana
+    container_name: journal_grafana_local
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env before starting Grafana}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-local-grafana-password}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
-      GF_SERVER_ROOT_URL: http://127.0.0.1:3000
+      GF_SERVER_ROOT_URL: http://localhost:13000
       DB_HOST: db
       DB_PORT: 5432
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
+      DB_USER: postgres
+      DB_PASSWORD: "1"
+      DB_NAME: journal2
     volumes:
-      - grafana_data:/var/lib/grafana
+      - grafana_data_local:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - "127.0.0.1:3000:3000"
+      - "13000:3000"
     depends_on:
       - loki
       - prometheus
       - tempo
       - alertmanager
     networks:
-      - journal_net
+      - journal_local
 
 volumes:
-  prometheus_data:
-  alertmanager_data:
-  loki_data:
-  tempo_data:
-  grafana_data:
+  prometheus_data_local:
+  alertmanager_data_local:
+  loki_data_local:
+  tempo_data_local:
+  grafana_data_local:

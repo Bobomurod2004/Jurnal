@@ -7811,6 +7811,199 @@ def home_videos():
     )
 
 
+HOME_GALLERY_TABLE_READY = False
+HOME_GALLERY_IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'gif']
+
+
+def _ensure_home_gallery_table():
+    global HOME_GALLERY_TABLE_READY
+    if HOME_GALLERY_TABLE_READY:
+        return True
+    cursor = None
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS home_gallery (
+                id BIGSERIAL PRIMARY KEY,
+                title text,
+                title_uz text,
+                title_ru text,
+                image_path text NOT NULL,
+                sort_order integer DEFAULT 0 NOT NULL,
+                is_active boolean DEFAULT true NOT NULL,
+                created_at bigint,
+                updated_at bigint
+            );
+            """
+        )
+        db.conn.commit()
+        HOME_GALLERY_TABLE_READY = True
+        return True
+    except Exception:
+        logger.exception('Unable to prepare home_gallery table')
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        return False
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+
+def _load_home_gallery_rows():
+    if not _ensure_home_gallery_table():
+        return []
+    cursor = None
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, title, title_uz, title_ru, image_path, sort_order, is_active, created_at
+            FROM home_gallery
+            ORDER BY sort_order ASC, id ASC
+            """
+        )
+        columns = [desc[0] for desc in cursor.description]
+        rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        db.conn.commit()
+        return rows
+    except Exception:
+        logger.exception('Unable to load home_gallery rows')
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        return []
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+
+@bp.route('/fmadmin/website/home-gallery', methods=['GET', 'POST'])
+@is_superadmin_required
+def home_gallery():
+    if request.method == 'POST':
+        if not _ensure_home_gallery_table():
+            flash('Jadvalni tayyorlashda xatolik yuz berdi', 'danger')
+            return redirect(url_for('home_gallery'))
+
+        image_file = request.files.get('image')
+        try:
+            image_path = save_file('home_gallery', image_file, HOME_GALLERY_IMAGE_EXTS)
+        except ValueError:
+            flash('Rasm tanlanmagan yoki format noto\'g\'ri (jpg, png, webp, gif)', 'danger')
+            return redirect(url_for('home_gallery'))
+
+        now_ts = int(time.time())
+        cursor = None
+        try:
+            cursor = db.conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO home_gallery (title, title_uz, title_ru, image_path, sort_order, is_active, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, TRUE, %s, %s)
+                """,
+                (
+                    _clean_text(request.form.get('title')) or None,
+                    _clean_text(request.form.get('title_uz')) or None,
+                    _clean_text(request.form.get('title_ru')) or None,
+                    image_path,
+                    _parse_int(request.form.get('sort_order')) or 0,
+                    now_ts,
+                    now_ts,
+                ),
+            )
+            db.conn.commit()
+            flash('Rasm qo\'shildi', 'success')
+        except Exception:
+            logger.exception('Unable to insert home_gallery row')
+            try:
+                db.conn.rollback()
+            except Exception:
+                pass
+            flash('Rasmni saqlashda xatolik yuz berdi', 'danger')
+        finally:
+            if cursor is not None:
+                cursor.close()
+        return redirect(url_for('home_gallery'))
+
+    return render_template('website/home_gallery.html', gallery_items=_load_home_gallery_rows())
+
+
+@bp.route('/fmadmin/website/home-gallery/<int:item_id>', methods=['POST'])
+@is_superadmin_required
+def home_gallery_update(item_id):
+    if not _ensure_home_gallery_table():
+        flash('Jadvalni tayyorlashda xatolik yuz berdi', 'danger')
+        return redirect(url_for('home_gallery'))
+
+    cursor = None
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute(
+            """
+            UPDATE home_gallery
+            SET title = %s,
+                title_uz = %s,
+                title_ru = %s,
+                sort_order = %s,
+                is_active = %s,
+                updated_at = %s
+            WHERE id = %s
+            """,
+            (
+                _clean_text(request.form.get('title')) or None,
+                _clean_text(request.form.get('title_uz')) or None,
+                _clean_text(request.form.get('title_ru')) or None,
+                _parse_int(request.form.get('sort_order')) or 0,
+                request.form.get('is_active') == '1',
+                int(time.time()),
+                item_id,
+            ),
+        )
+        db.conn.commit()
+        flash('O\'zgarishlar saqlandi', 'success')
+    except Exception:
+        logger.exception('Unable to update home_gallery row id=%s', item_id)
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        flash('Saqlashda xatolik yuz berdi', 'danger')
+    finally:
+        if cursor is not None:
+            cursor.close()
+    return redirect(url_for('home_gallery'))
+
+
+@bp.route('/fmadmin/website/home-gallery/<int:item_id>/delete', methods=['POST'])
+@is_superadmin_required
+def home_gallery_delete(item_id):
+    if not _ensure_home_gallery_table():
+        flash('Jadvalni tayyorlashda xatolik yuz berdi', 'danger')
+        return redirect(url_for('home_gallery'))
+
+    cursor = None
+    try:
+        cursor = db.conn.cursor()
+        cursor.execute("DELETE FROM home_gallery WHERE id = %s", (item_id,))
+        db.conn.commit()
+        flash('Rasm o\'chirildi', 'success')
+    except Exception:
+        logger.exception('Unable to delete home_gallery row id=%s', item_id)
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+        flash('O\'chirishda xatolik yuz berdi', 'danger')
+    finally:
+        if cursor is not None:
+            cursor.close()
+    return redirect(url_for('home_gallery'))
+
+
 @bp.route('/fmadmin/website/contact-info', methods=['GET', 'POST'])
 @is_superadmin_required
 def contact_info_settings():
@@ -8092,7 +8285,7 @@ def page_edit(page_id):
                             'Title (en) is required'), 'danger')
             return redirect(url_for('page_edit', page_id=page_id))
 
-        # Handle file attachments for author_instructions page
+        # Handle file attachments (submission_guidelines page)
         attachments_en = '[]'
         attachments_uz = '[]'
         attachments_ru = '[]'
@@ -8157,7 +8350,7 @@ def page_edit(page_id):
 @bp.route('/fmadmin/website/pages/<int:page_id>/upload-attachment', methods=['POST'])
 @is_superadmin_required
 def page_upload_attachment(page_id):
-    """Upload file attachment for a page (author_instructions)."""
+    """Upload file attachment for a page (submission_guidelines)."""
     lang = request.form.get('lang', 'en')
     if lang not in ('en', 'uz', 'ru'):
         return jsonify({'success': False, 'error': 'Invalid language'}), 400

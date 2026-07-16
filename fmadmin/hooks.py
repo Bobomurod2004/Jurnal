@@ -230,6 +230,7 @@ def register(app):
             'version': settings.APP_VERSION,
             'request_id': getattr(g, 'request_id', ''),
             'method': request.method,
+            'route': request.url_rule.rule if request.url_rule else '',
             'path': request.path,
             'status': response.status_code,
             'duration_ms': duration_ms,

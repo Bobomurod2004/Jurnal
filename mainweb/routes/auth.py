@@ -1326,13 +1326,14 @@ def _build_user_create_data_from_registration(registration_payload):
         'rolename': 'user',
         'is_blocked': False,
         'is_notify': is_notify,
-        'ui_language': ui_language,
         'accept_rules_time': current_time,
         'register_time': current_time,
         'created_at': current_time,
         'last_online': current_time,
     }
     user_columns = set(dbc.columns.get('users', []))
+    if 'ui_language' in user_columns:
+        create_data['ui_language'] = ui_language
     if 'is_hidden' in user_columns:
         create_data['is_hidden'] = False
     if 'oauth_provider' in user_columns:
@@ -2202,12 +2203,13 @@ def _create_or_update_google_user(profile, intent):
             'rolename': 'user',
             'is_blocked': False,
             'is_notify': False,
-            'ui_language': normalize_notification_language(session.get('language') or 'en', default='en'),
             'accept_rules_time': now_ts,
             'register_time': now_ts,
             'created_at': now_ts,
             'last_online': now_ts,
         }
+        if 'ui_language' in user_columns:
+            create_data['ui_language'] = normalize_notification_language(session.get('language') or 'en', default='en')
         if avatar_url and 'avatar' in user_columns:
             create_data['avatar'] = avatar_url
         if 'is_hidden' in user_columns:
@@ -2991,12 +2993,13 @@ def _create_or_update_orcid_user(profile, intent):
             'rolename': 'user',
             'is_blocked': False,
             'is_notify': False,
-            'ui_language': normalize_notification_language(session.get('language') or 'en', default='en'),
             'accept_rules_time': now_ts,
             'register_time': now_ts,
             'created_at': now_ts,
             'last_online': now_ts,
         }
+        if 'ui_language' in user_columns:
+            create_data['ui_language'] = normalize_notification_language(session.get('language') or 'en', default='en')
         if 'is_hidden' in user_columns:
             create_data['is_hidden'] = False
         if 'roles' in user_columns:
@@ -3430,35 +3433,45 @@ def app__register_verify():
             )
             return redirect(url_for('app__register'))
 
-        if action == 'resend':
-            resend_ok, resend_message, resend_category = _resend_registration_verification(pending_email)
+        try:
+            if action == 'resend':
+                resend_ok, resend_message, resend_category = _resend_registration_verification(pending_email)
+                flash(
+                    t('verification_code_resent')
+                    if resend_ok and t('verification_code_resent') != 'verification_code_resent'
+                    else resend_message,
+                    resend_category
+                )
+                return redirect(url_for('app__register_verify', email=pending_email))
+
+            verification_result = _verify_registration_code(
+                pending_email,
+                request.form.get('code', ''),
+            )
             flash(
-                t('verification_code_resent')
-                if resend_ok and t('verification_code_resent') != 'verification_code_resent'
-                else resend_message,
-                resend_category
+                t('email_verification_success')
+                if verification_result['ok'] and t('email_verification_success') != 'email_verification_success'
+                else verification_result['message'],
+                verification_result.get('category', 'error')
+            )
+            if not verification_result['ok']:
+                return redirect(url_for('app__register_verify', email=pending_email))
+
+            session.pop(PENDING_REGISTRATION_SESSION_KEY, None)
+            verified_user = verification_result['user']
+            _set_user_session(verified_user)
+            if verification_result.get('is_new_user'):
+                _send_registration_welcome_email(verified_user, is_google=False)
+            return redirect(url_for('app__dashboard_profile'))
+        except Exception:
+            current_app.logger.error(f"Registration verification error: {traceback.format_exc()}")
+            flash(
+                t('registration_failed')
+                if t('registration_failed') != 'registration_failed'
+                else 'Registration failed. Please try again.',
+                'error'
             )
             return redirect(url_for('app__register_verify', email=pending_email))
-
-        verification_result = _verify_registration_code(
-            pending_email,
-            request.form.get('code', ''),
-        )
-        flash(
-            t('email_verification_success')
-            if verification_result['ok'] and t('email_verification_success') != 'email_verification_success'
-            else verification_result['message'],
-            verification_result.get('category', 'error')
-        )
-        if not verification_result['ok']:
-            return redirect(url_for('app__register_verify', email=pending_email))
-
-        session.pop(PENDING_REGISTRATION_SESSION_KEY, None)
-        verified_user = verification_result['user']
-        _set_user_session(verified_user)
-        if verification_result.get('is_new_user'):
-            _send_registration_welcome_email(verified_user, is_google=False)
-        return redirect(url_for('app__dashboard_profile'))
 
     if not pending_email or not is_valid_email(pending_email):
         session.pop(PENDING_REGISTRATION_SESSION_KEY, None)

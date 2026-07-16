@@ -1,0 +1,133 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+
+<div class="page-header d-print-none mb-4">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">Bosh sahifa rasmlari</h2>
+      <div class="text-secondary">Bosh sahifaning o'ng panelida aylanib turadigan rasmlar galereyasi. Rasm bosilganda kattalashib ochiladi.</div>
+    </div>
+  </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="card mb-4">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="card-header">
+    <h3 class="card-title">Yangi rasm qo'shish</h3>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-12 col-lg-4">
+        <label class="form-label required">Rasm fayli</label>
+        <input type="file" class="form-control" name="image" accept=".jpg,.jpeg,.png,.webp,.gif" required>
+        <div class="form-hint">jpg, png, webp yoki gif</div>
+      </div>
+      <div class="col-12 col-lg-2">
+        <label class="form-label">Tartib raqami</label>
+        <input type="number" class="form-control" name="sort_order" value="0">
+        <div class="form-hint">Kichigi oldin chiqadi</div>
+      </div>
+      <div class="col-12 col-lg-6">
+        <div class="row g-2">
+          <div class="col-12">
+            <label class="form-label">Sarlavha (UZ)</label>
+            <input type="text" class="form-control" name="title_uz" maxlength="200">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Sarlavha (RU)</label>
+            <input type="text" class="form-control" name="title_ru" maxlength="200">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Sarlavha (EN)</label>
+            <input type="text" class="form-control" name="title" maxlength="200">
+          </div>
+        </div>
+        <div class="form-hint">Sarlavha ixtiyoriy — rasm ostida ko'rsatiladi.</div>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer text-end">
+    <button type="submit" class="btn btn-primary">Qo'shish</button>
+  </div>
+</form>
+
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Mavjud rasmlar ({{ gallery_items|length }})</h3>
+  </div>
+  {% if gallery_items %}
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr>
+          <th style="width: 90px;">Rasm</th>
+          <th>Sarlavhalar</th>
+          <th style="width: 110px;">Tartib</th>
+          <th style="width: 90px;">Faol</th>
+          <th class="text-end" style="width: 190px;">Amallar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in gallery_items %}
+        <tr>
+          <td>
+            <a href="{{ item.image_path }}" target="_blank" rel="noopener">
+              <img src="{{ item.image_path }}" alt="" class="rounded"
+                   style="width: 72px; height: 48px; object-fit: cover;">
+            </a>
+          </td>
+          <td>
+            <div class="row g-1">
+              <div class="col-12">
+                <input type="text" class="form-control form-control-sm" name="title_uz"
+                       form="gallery-form-{{ item.id }}" value="{{ item.title_uz or '' }}" placeholder="UZ" maxlength="200">
+              </div>
+              <div class="col-12">
+                <input type="text" class="form-control form-control-sm" name="title_ru"
+                       form="gallery-form-{{ item.id }}" value="{{ item.title_ru or '' }}" placeholder="RU" maxlength="200">
+              </div>
+              <div class="col-12">
+                <input type="text" class="form-control form-control-sm" name="title"
+                       form="gallery-form-{{ item.id }}" value="{{ item.title or '' }}" placeholder="EN" maxlength="200">
+              </div>
+            </div>
+          </td>
+          <td>
+            <input type="number" class="form-control form-control-sm" name="sort_order"
+                   form="gallery-form-{{ item.id }}" value="{{ item.sort_order or 0 }}">
+          </td>
+          <td>
+            <label class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" name="is_active" value="1"
+                     form="gallery-form-{{ item.id }}" {% if item.is_active %}checked{% endif %}>
+            </label>
+          </td>
+          <td class="text-end">
+            <form id="gallery-form-{{ item.id }}" method="post"
+                  action="{{ url_for('home_gallery_update', item_id=item.id) }}" class="d-inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="btn btn-sm btn-outline-primary">Saqlash</button>
+            </form>
+            <form method="post" action="{{ url_for('home_gallery_delete', item_id=item.id) }}" class="d-inline"
+                  onsubmit="return confirm('Rasmni o\'chirishni tasdiqlaysizmi?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger">O'chirish</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body">
+    <div class="empty">
+      <p class="empty-title">Hozircha rasm yo'q</p>
+      <p class="empty-subtitle text-secondary">Yuqoridagi forma orqali birinchi rasmni qo'shing — u bosh sahifada ko'rinadi.</p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -8,7 +8,7 @@
 website/
 ├── mainweb/           # Основной сайт (Flask + Tailwind)
 ├── fmadmin/           # Админ-панель (Flask)
-├── monitoring/        # Grafana / Loki / Promtail provisioning
+├── monitoring/        # Full observability stack provisioning
 ├── nginx/             # Конфигурация Nginx
 ├── docker-compose.yml # Оркестрация контейнеров
 ├── Dockerfile         # Образ для Flask-приложений
@@ -70,6 +70,22 @@ Local URLs:
 | Admin direct | http://localhost:5001/fmadmin/ |
 | Mailpit inbox | http://localhost:8025/ |
 | PostgreSQL | localhost:5434 |
+
+If you also want the full local observability stack:
+
+```bash
+docker compose -f docker-compose.local.yml -f docker-compose.local.observability.yml up -d --build
+```
+
+Local observability URLs:
+
+| Сервис | URL |
+|--------|-----|
+| Grafana | http://localhost:13000/ |
+| Prometheus | http://localhost:19090/ |
+| Alertmanager | http://localhost:19093/ |
+| Loki | http://localhost:13100/ |
+| Tempo | http://localhost:13200/ |
 
 ### Доступ
 
@@ -228,14 +244,29 @@ docker compose pull
 docker compose up -d
 ```
 
-## 📊 Logging / Grafana (Production)
+## 📊 Observability
 
-We provide an optional observability stack with **Grafana + Loki + Promtail**.
+The repository now includes a full observability stack:
+
+- `Grafana` for dashboards, Explore, traces, and alert visibility
+- `Prometheus` for metrics scraping and alert rule evaluation
+- `Alertmanager` for alert routing
+- `Loki + Promtail` for structured application logs
+- `Tempo` for traces
+- `node_exporter`, `cAdvisor`, `postgres_exporter`, and `blackbox_exporter` for host, container, database, and HTTP probe visibility
+
+Both Flask apps now expose:
+
+- `/healthz` for liveness
+- `/readyz` for readiness with database check
+- `/metrics` for Prometheus
+
+Full operator documentation lives in `[MONITORING.md](./MONITORING.md)`.
 
 Start it together with production services:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d --build
 ```
 
 Grafana UI:
@@ -243,15 +274,18 @@ Grafana UI:
 - user: `${GRAFANA_ADMIN_USER}`
 - pass: `${GRAFANA_ADMIN_PASSWORD}`
 
-Logs from `mainweb` and `fmadmin` are shipped to Loki automatically. A default provisioned dashboard named `Journal Observability` is loaded on first start.
+Provisioned dashboards:
+- `Journal Platform Overview`
+- `Journal Logs`
+- `Journal Business Overview`
 
 Recommended remote access:
 
 ```bash
-ssh -L 3000:127.0.0.1:3000 user@your-server
+ssh -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 -L 9093:127.0.0.1:9093 user@your-server
 ```
 
-Then open `http://127.0.0.1:3000` locally in your browser.
+Then open Grafana at `http://127.0.0.1:3000`, Prometheus at `http://127.0.0.1:9090`, or Alertmanager at `http://127.0.0.1:9093` locally in your browser.
 
 If you use the bundled Docker Nginx profile with HTTPS, place certificates on the server host as:
 
@@ -280,8 +314,17 @@ python mainweb/scripts/send_test_email.py your-email@example.com
 | PostgreSQL | 5432 | База данных |
 | mainweb | 127.0.0.1:5000 | Flask (доступ для host Nginx) |
 | fmadmin | 127.0.0.1:5001 | Flask (доступ для host Nginx) |
-| Grafana | 127.0.0.1:3000 | UI для логов и наблюдаемости |
-| Loki | 127.0.0.1:3100 | backend для хранения логов |
+| Grafana | 127.0.0.1:3000 | UI для дашбордов, логов, трассировок и алертов |
+| Prometheus | 127.0.0.1:9090 | Метрики и alert rules |
+| Alertmanager | 127.0.0.1:9093 | Маршрутизация алертов |
+| Loki | 127.0.0.1:3100 | Хранилище логов |
+| Tempo | 127.0.0.1:3200 | Хранилище трассировок |
+| Tempo OTLP gRPC | 127.0.0.1:4317 | Ingest endpoint |
+| Tempo OTLP HTTP | 127.0.0.1:4318 | Ingest endpoint |
+| node_exporter | 127.0.0.1:9100 | Метрики хоста |
+| cAdvisor | 127.0.0.1:8081 | Метрики контейнеров |
+| postgres_exporter | 127.0.0.1:9187 | Метрики PostgreSQL |
+| blackbox_exporter | 127.0.0.1:9115 | HTTP health/readiness probes |
 
 ## 📦 Управление
 
