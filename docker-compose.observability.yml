@@ -163,7 +163,7 @@ services:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - "127.0.0.1:3000:3000"
+      - "${GRAFANA_BIND_ADDR:-127.0.0.1}:3000:3000"
     depends_on:
       - loki
       - prometheus
