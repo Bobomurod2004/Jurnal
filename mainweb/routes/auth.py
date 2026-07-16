@@ -1295,9 +1295,9 @@ def _consume_email_verification(record_id):
 
 
 def _build_user_create_data_from_registration(registration_payload):
-    first_name = sanitize_input((registration_payload or {}).get('first_name', '').strip())
-    last_name = sanitize_input((registration_payload or {}).get('last_name', '').strip())
-    father_name = sanitize_input((registration_payload or {}).get('father_name', '').strip())
+    first_name = sanitize_input(((registration_payload or {}).get('first_name') or '').strip())
+    last_name = sanitize_input(((registration_payload or {}).get('last_name') or '').strip())
+    father_name = sanitize_input(((registration_payload or {}).get('father_name') or '').strip())
     email = ((registration_payload or {}).get('email') or '').strip().lower()
     password_hash = (registration_payload or {}).get('password_hash') or ''
     country_id = (registration_payload or {}).get('country_id')

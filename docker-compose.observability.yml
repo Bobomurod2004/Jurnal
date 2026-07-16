@@ -118,6 +118,11 @@ services:
     image: quay.io/prometheuscommunity/postgres-exporter:v0.20.0
     container_name: journal_postgres_exporter
     restart: unless-stopped
+    # Single-instance PostgreSQL: replication collectors only spam the DB log
+    # with "column slot_name does not exist" errors, so keep them off.
+    command:
+      - --no-collector.replication
+      - --no-collector.replication_slot
     environment:
       DATA_SOURCE_NAME: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable
     depends_on:

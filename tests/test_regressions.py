@@ -953,7 +953,10 @@ def _registration_payload():
     return {
         'first_name': 'Ali',
         'last_name': 'Valiyev',
-        'father_name': '',
+        # Stored as NULL in the pending-verification payload when the field is
+        # left blank; .get('father_name', '') then returns None, which crashed
+        # user creation with AttributeError before the `or ''` guard.
+        'father_name': None,
         'email': 'ali@example.com',
         'country_id': 1,
         'password_hash': 'pbkdf2:fake-hash',
