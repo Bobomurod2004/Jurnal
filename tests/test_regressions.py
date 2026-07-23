@@ -868,6 +868,36 @@ def test_country_iso_lookup_handles_apostrophe_variants():
     assert public_routes._country_iso_for_name('Uzbekistan') == 'uz'
 
 
+def test_country_catalog_resolves_flags_for_countries_outside_legacy_name_map(monkeypatch):
+    class FakeCountryQuery:
+        def get(self):
+            return self
+
+        def exec(self):
+            return [
+                {
+                    'name': 'Angola',
+                    'name_uz': 'Angola',
+                    'name_ru': 'Ангола',
+                    'country_code': 'ao',
+                },
+            ]
+
+    class FakeDatabase:
+        fix_country = FakeCountryQuery()
+
+    monkeypatch.setattr(public_routes, 'dbc', FakeDatabase())
+    monkeypatch.setattr(
+        public_routes,
+        '_country_catalog_cache',
+        {'lookup': {}, 'localized_names': {}},
+    )
+    monkeypatch.setattr(public_routes, '_country_catalog_cache_timestamp', 0.0)
+
+    assert public_routes._country_iso_for_name('Angola') == 'ao'
+    assert public_routes._country_localized_names_by_iso()['ao']['ru'] == 'Ангола'
+
+
 def test_bot_requests_do_not_increment_view_or_download_counters():
     app = Flask(__name__)
     app.secret_key = 'test'
@@ -1006,3 +1036,56 @@ def test_registration_create_data_includes_ui_language_when_column_exists(monkey
 
     assert create_data is not None
     assert create_data['ui_language'] == 'uz'
+
+
+def test_compute_revision_reentry_failed_technical_check_goes_to_pending():
+    # A submission that failed the technical check re-enters at 'pending',
+    # not all the way back to a blank draft.
+    existing = {'status': 'failed_technical_check'}
+    status, needs_editor = api_routes._compute_revision_reentry(existing)
+    assert (status, needs_editor) == ('pending', False)
+
+
+def test_compute_revision_reentry_revision_required_returns_to_same_editor():
+    # A revision requested after peer review (editor-requested, or a late
+    # admin objection) must go back to the SAME editor's queue via
+    # under_review, not restart from scratch -- the blind-review continuity
+    # guarantee.
+    existing = {'status': 'revision_required'}
+    status, needs_editor = api_routes._compute_revision_reentry(existing)
+    assert (status, needs_editor) == ('under_review', True)
+
+
+def test_compute_revision_reentry_missing_or_unknown_status_falls_back_conservatively():
+    # Legacy rows resubmitted before this feature existed have no reliable
+    # status -- the safest default is the earliest re-entry point, not
+    # skipping straight back into review.
+    status, needs_editor = api_routes._compute_revision_reentry({})
+    assert (status, needs_editor) == ('pending', False)
+
+    status, needs_editor = api_routes._compute_revision_reentry({'status': 'not_a_real_status'})
+    assert (status, needs_editor) == ('pending', False)
+
+
+def test_is_resubmittable_excludes_final_rejection():
+    assert api_routes.is_resubmittable('failed_technical_check') is True
+    assert api_routes.is_resubmittable('revision_required') is True
+    assert api_routes.is_resubmittable('rejected') is False
+    assert api_routes.is_resubmittable('published') is False
+
+
+def test_article_resubmit_route_was_removed_in_favor_of_in_place_revision():
+    # The old /api/article/resubmit endpoint used to create a brand-new,
+    # disconnected submission row on every resubmit, discarding all review
+    # history. It must stay gone -- resubmission now flows entirely through
+    # /api/article/submit (see _compute_revision_reentry above).
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    api_routes.register(app)
+
+    resubmit_rules = [rule for rule in app.url_map.iter_rules() if rule.rule == '/api/article/resubmit']
+    assert resubmit_rules == []
+
+    submit_rule = next(rule for rule in app.url_map.iter_rules() if rule.rule == '/api/article/submit')
+    assert 'POST' in submit_rule.methods

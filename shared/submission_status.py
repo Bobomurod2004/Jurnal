@@ -1,0 +1,161 @@
+"""Canonical submission status enum shared by mainweb and fmadmin.
+
+Single source of truth for the 11-stage editorial pipeline, replacing the
+old, drift-prone combination of `submissions.status` + `workflow_stage` +
+`editor_review_status` + `rejection_origin`. The status value alone now
+carries both "where in the pipeline" and "why" (e.g. `failed_technical_check`
+vs `revision_required` vs `rejected` are three distinct, resubmit-aware
+outcomes instead of one generic `rejected` + a separate origin flag).
+"""
+
+SUBMISSION_STATUSES = [
+    'pending',
+    'passed_technical_check',
+    'failed_technical_check',
+    'plagiarism_check',
+    'under_review',
+    'revision_required',
+    'recommended',
+    'payment_pending',
+    'in_layout',
+    'published',
+    'rejected',
+]
+
+SUBMISSION_STATUS_KEYS = set(SUBMISSION_STATUSES)
+
+SUBMISSION_STATUS_LABELS = {
+    'pending': {
+        'uz': "Kutilmoqda",
+        'ru': "Ожидает",
+        'en': "Pending",
+    },
+    'passed_technical_check': {
+        'uz': "Texnik tekshiruvdan o'tdi",
+        'ru': "Прошёл техническую проверку",
+        'en': "Passed technical check",
+    },
+    'failed_technical_check': {
+        'uz': "Texnik tekshiruvdan o'tmadi",
+        'ru': "Не прошёл техническую проверку",
+        'en': "Failed technical check",
+    },
+    'plagiarism_check': {
+        'uz': "Antiplagiat tekshiruvida",
+        'ru': "На проверке на плагиат",
+        'en': "Under plagiarism check",
+    },
+    'under_review': {
+        'uz': "Taqrizda",
+        'ru': "На рецензировании",
+        'en': "Under review",
+    },
+    'revision_required': {
+        'uz': "Tuzatish kutilmoqda",
+        'ru': "Ожидается доработка",
+        'en': "Revision required",
+    },
+    'recommended': {
+        'uz': "Nashrga tavsiya etildi",
+        'ru': "Рекомендовано к публикации",
+        'en': "Recommended for publication",
+    },
+    'payment_pending': {
+        'uz': "To'lov kutilmoqda",
+        'ru': "Ожидается оплата",
+        'en': "Payment pending",
+    },
+    'in_layout': {
+        'uz': "Sahifalanmoqda",
+        'ru': "Выполняется вёрстка",
+        'en': "In page layout",
+    },
+    'published': {
+        'uz': "Nashr etildi",
+        'ru': "Опубликовано",
+        'en': "Published",
+    },
+    'rejected': {
+        'uz': "Rad etildi",
+        'ru': "Отклонен",
+        'en': "Rejected",
+    },
+}
+
+# Tabler/Bootstrap badge tone (`bg-{tone}-lt`) per status.
+SUBMISSION_STATUS_BADGE_TONE = {
+    'pending': 'blue',
+    'passed_technical_check': 'teal',
+    'failed_technical_check': 'red',
+    'plagiarism_check': 'purple',
+    'under_review': 'orange',
+    'revision_required': 'yellow',
+    'recommended': 'indigo',
+    'payment_pending': 'orange',
+    'in_layout': 'cyan',
+    'published': 'green',
+    'rejected': 'red',
+}
+
+# Statuses from which the author is allowed to edit and resubmit the same
+# submission. `rejected` is deliberately excluded -- it is final.
+RESUBMITTABLE_STATUSES = {'failed_technical_check', 'revision_required'}
+
+# Statuses past which no further pipeline transition happens.
+TERMINAL_STATUSES = {'published', 'rejected'}
+
+# Entering any of these statuses requires the anti-plagiarism file to
+# already be uploaded and checked (mirrors the pre-existing gate that used
+# to be keyed off `workflow_stage`).
+STATUSES_REQUIRING_ANTIPLAGIARISM_FILE = {
+    'under_review', 'revision_required', 'recommended',
+    'payment_pending', 'in_layout', 'published',
+}
+
+# Setting the status to any of these requires a non-empty explanatory note,
+# since the author is being told something went wrong / needs action.
+STATUSES_REQUIRING_NOTE = {'failed_technical_check', 'revision_required', 'rejected'}
+
+# Only these transitions warrant an email ping (in addition to the in-app
+# notification, which fires for every status change). Keeps the author's
+# inbox to the moments that actually require attention or are worth
+# celebrating, instead of one email per internal pipeline step.
+EMAIL_NOTIFIED_STATUSES = {
+    'failed_technical_check', 'revision_required', 'payment_pending',
+    'published', 'rejected',
+}
+
+
+def _normalize_lang(lang):
+    normalized = str(lang or 'uz').strip().lower()
+    if normalized in {'uz', 'ru', 'en'}:
+        return normalized
+    return 'uz'
+
+
+def submission_status_label(status, lang='uz'):
+    normalized_lang = _normalize_lang(lang)
+    labels = SUBMISSION_STATUS_LABELS.get(status)
+    if not labels:
+        return status or ''
+    return labels.get(normalized_lang) or labels.get('uz') or status
+
+
+def is_resubmittable(status):
+    return status in RESUBMITTABLE_STATUSES
+
+
+def is_terminal(status):
+    return status in TERMINAL_STATUSES
+
+
+def requires_antiplagiarism_file(status):
+    return status in STATUSES_REQUIRING_ANTIPLAGIARISM_FILE
+
+
+def requires_note(status):
+    return status in STATUSES_REQUIRING_NOTE
+
+
+def should_email_on_status(status):
+    return status in EMAIL_NOTIFIED_STATUSES

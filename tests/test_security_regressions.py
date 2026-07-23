@@ -2,6 +2,7 @@ import os
 
 from flask import Flask, session
 
+from fmadmin.routes import messages as fmadmin_messages
 from fmadmin.routes import web as fmadmin_web
 from mainweb.routes import api as mainweb_api
 from mainweb.routes import auth as mainweb_auth
@@ -307,3 +308,82 @@ def test_registration_create_data_sets_is_hidden_false(monkeypatch):
     assert create_data is not None
     assert create_data['is_hidden'] is False
     assert create_data['is_blocked'] is False
+
+
+# --- submission chat thread isolation (blind peer review boundary) --------
+#
+# Stream A ('author_admin') and Stream B ('admin_editor') must never bleed
+# into each other. This is a security boundary, not just a UI filter: an
+# editor must never be able to read the author-facing thread, and one
+# editor must never read another editor's internal thread with the admin.
+
+_ASSIGNED_ADMIN_ID = 501
+_SUBMISSION_ID = 42
+_ASSIGNMENT_ID = 900
+_ASSIGNED_EDITOR_ID = 700
+_OTHER_EDITOR_ID = 701
+
+_SUPERADMIN = {'id': 1, 'rolename': 'superadmin'}
+_ASSIGNED_ADMIN = {'id': _ASSIGNED_ADMIN_ID, 'rolename': 'admin'}
+_OTHER_ADMIN = {'id': 502, 'rolename': 'admin'}
+_ASSIGNED_EDITOR = {'id': _ASSIGNED_EDITOR_ID, 'rolename': 'editor'}
+_OTHER_EDITOR = {'id': _OTHER_EDITOR_ID, 'rolename': 'editor'}
+_SUBMISSION = {'id': _SUBMISSION_ID, 'user_id': 999, 'assigned_admin_id': _ASSIGNED_ADMIN_ID}
+_ASSIGNMENT = {'id': _ASSIGNMENT_ID, 'submission_id': _SUBMISSION_ID, 'editor_id': _ASSIGNED_EDITOR_ID}
+
+
+def test_editor_cannot_view_author_admin_thread():
+    assert fmadmin_messages._can_view_message_thread(_ASSIGNED_EDITOR, _SUBMISSION, 'author_admin') is False
+
+
+def test_unassigned_admin_cannot_view_author_admin_thread():
+    assert fmadmin_messages._can_view_message_thread(_OTHER_ADMIN, _SUBMISSION, 'author_admin') is False
+
+
+def test_assigned_admin_can_view_author_admin_thread():
+    assert fmadmin_messages._can_view_message_thread(_ASSIGNED_ADMIN, _SUBMISSION, 'author_admin') is True
+
+
+def test_editor_cannot_view_another_editors_internal_thread():
+    assert fmadmin_messages._can_view_message_thread(
+        _OTHER_EDITOR, _SUBMISSION, 'admin_editor', assignment=_ASSIGNMENT
+    ) is False
+
+
+def test_assigned_editor_can_view_own_internal_thread():
+    assert fmadmin_messages._can_view_message_thread(
+        _ASSIGNED_EDITOR, _SUBMISSION, 'admin_editor', assignment=_ASSIGNMENT
+    ) is True
+
+
+def test_assigned_admin_can_view_internal_thread():
+    assert fmadmin_messages._can_view_message_thread(
+        _ASSIGNED_ADMIN, _SUBMISSION, 'admin_editor', assignment=_ASSIGNMENT
+    ) is True
+
+
+def test_superadmin_can_view_both_threads_unconditionally():
+    assert fmadmin_messages._can_view_message_thread(_SUPERADMIN, _SUBMISSION, 'author_admin') is True
+    assert fmadmin_messages._can_view_message_thread(
+        _SUPERADMIN, _SUBMISSION, 'admin_editor', assignment=_ASSIGNMENT
+    ) is True
+
+
+def test_stream_b_notification_never_targets_the_author():
+    # The submission dict carries a real user_id (999), but an editor's
+    # message must ping the assigned admin -- never the author.
+    target_user_id, target_role = fmadmin_messages._stream_b_notification_target(
+        'editor', _SUBMISSION, _ASSIGNMENT
+    )
+    assert target_user_id == _ASSIGNED_ADMIN_ID
+    assert target_role == 'admin'
+    assert target_user_id != _SUBMISSION['user_id']
+
+
+def test_stream_b_notification_admin_message_targets_the_editor():
+    target_user_id, target_role = fmadmin_messages._stream_b_notification_target(
+        'admin', _SUBMISSION, _ASSIGNMENT
+    )
+    assert target_user_id == _ASSIGNED_EDITOR_ID
+    assert target_role == 'editor'
+    assert target_user_id != _SUBMISSION['user_id']

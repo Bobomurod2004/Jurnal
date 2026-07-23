@@ -9,7 +9,10 @@ try:
 except ImportError:
     import settings
 from flask import current_app, flash, g, jsonify, redirect, request, session, url_for
+from extensions import dbc
 from utils.private_uploads import upload_access_url
+from shared.submission_status import SUBMISSION_STATUS_BADGE_TONE, is_resubmittable, submission_status_label
+from shared.audit import record_request_audit_event
 
 
 def register(app):
@@ -104,11 +107,15 @@ def register(app):
 
     @app.context_processor
     def inject_csrf():
+        current_lang = session.get('language') or 'en'
         return {
             'csrf_token': session.get('csrf_token', ''),
             'upload_access_url': upload_access_url,
             'asset_url': _asset_url,
             'asset_version': _static_asset_version,
+            'submission_status_label': lambda status, lang=None: submission_status_label(status, lang or current_lang),
+            'submission_status_badge_tone': lambda status: SUBMISSION_STATUS_BADGE_TONE.get(status, 'secondary'),
+            'is_resubmittable': is_resubmittable,
         }
 
     @app.after_request
@@ -142,4 +149,19 @@ def register(app):
             'user_id': session.get('user_id'),
         }
         current_app.logger.info(json.dumps(payload, ensure_ascii=False))
+        session_user = session.get('user') or {}
+        record_request_audit_event(
+            dbc,
+            service='mainweb',
+            request_id=payload['request_id'],
+            method=payload['method'],
+            route=payload['route'],
+            path=payload['path'],
+            status_code=payload['status'],
+            remote_addr=payload['remote_addr'],
+            user_agent=payload['user_agent'],
+            actor_id=payload['user_id'],
+            actor_role=session_user.get('rolename') or '',
+            is_admin=False,
+        )
         return response

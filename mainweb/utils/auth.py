@@ -91,6 +91,7 @@ def _expects_json_response():
 
 def _normalize_session_user(user_row):
     normalized_row = hydrate_user_roles(user_row)
+    normalized_row.pop('password', None)
     normalized = {}
     for key, value in normalized_row.items():
         if isinstance(value, str):

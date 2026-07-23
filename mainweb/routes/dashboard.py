@@ -20,6 +20,7 @@ from utils.auth import (
 from utils.notifications import apply_localized_notification_content, dashboard_notification_access_clause
 from utils.private_uploads import build_private_upload_ref, extract_private_upload_key, private_upload_abspath, upload_access_url
 from utils.uploads import allowed_file
+from shared.submission_status import SUBMISSION_STATUSES, is_resubmittable, submission_status_label
 
 
 SUBMISSION_TRACKS = {
@@ -46,16 +47,54 @@ SUBMISSION_TRACKS = {
     }
 }
 
+# Only the "happy path" statuses form the linear progress bar.
+# failed_technical_check / revision_required / rejected are alternate,
+# exceptional OUTCOMES at a decision point, not steps the article moves
+# through in sequence -- an article that failed technical check never also
+# "passed" it, so both can't be marked done on the same forward-moving bar.
 SUBMISSION_WORKFLOW_STEPS = [
-    ('waiting', 'workflow_stage_waiting', "Kutilmoqda"),
-    ('technical_check', 'workflow_stage_technical_check', "Texnik talablarga mos"),
-    ('anti_plagiarism', 'workflow_stage_anti_plagiarism', "Antiplagiatga tekshirish"),
-    ('in_review', 'workflow_stage_in_review', "Taqrizda"),
-    ('recommended', 'workflow_stage_recommended', "Nashrga tavsiya etildi"),
-    ('payment', 'workflow_stage_payment', "To'lov"),
-    ('published', 'workflow_stage_published', "Nashr qilindi")
+    key for key in SUBMISSION_STATUSES
+    if key not in ('failed_technical_check', 'revision_required', 'rejected')
 ]
-SUBMISSION_WORKFLOW_KEYS = {key for key, _, _ in SUBMISSION_WORKFLOW_STEPS}
+SUBMISSION_WORKFLOW_KEYS = set(SUBMISSION_WORKFLOW_STEPS)
+
+# Where a "something went wrong" status anchors on the happy-path bar: the
+# decision point it's blocking, shown as a red/blocked node instead of being
+# inserted as its own step.
+PROBLEM_STATUS_ANCHOR = {
+    'failed_technical_check': 'pending',
+    'revision_required': 'under_review',
+}
+
+PAYMENT_GUIDE_KEY = 'payment_guide_html'
+PAYMENT_GUIDE_QR_KEY = 'payment_guide_qr_image'
+
+
+def _get_site_setting_value(key):
+    try:
+        rows = dbc.settings.get(k=key).exec()
+    except Exception:
+        try:
+            dbc.conn.rollback()
+        except Exception:
+            pass
+        return ''
+    if not rows:
+        return ''
+    return (rows[0].get('v') or '').strip()
+
+
+def _get_payment_guide_html_for_lang(lang):
+    lang_text = (lang or '').strip().lower()
+    if lang_text in {'uz', 'ru', 'en'}:
+        localized = _get_site_setting_value(f"{PAYMENT_GUIDE_KEY}_{lang_text}")
+        if localized:
+            return localized
+    return _get_site_setting_value(PAYMENT_GUIDE_KEY)
+
+
+def _get_payment_guide_qr_image():
+    return _get_site_setting_value(PAYMENT_GUIDE_QR_KEY)
 TARIFF_CURRENCY_FIELDS = {
     'usd': 'price_usd',
     'uzs': 'price_uzs',
@@ -533,75 +572,60 @@ def _resolve_submission_track(track):
 
 
 def _resolve_submission_workflow_stage(submission):
-    explicit_stage = (submission.get('workflow_stage') or '').strip().lower()
-    if explicit_stage in SUBMISSION_WORKFLOW_KEYS or explicit_stage == 'rejected':
-        return explicit_stage
-
+    # `status` is the single canonical field now (shared/submission_status.py).
     status = (submission.get('status') or '').strip().lower()
-    editor_status = (submission.get('editor_review_status') or '').strip().lower()
-
-    if status == 'published':
-        return 'published'
-    if status == 'rejected':
-        return 'rejected'
-    if status in ('submitted', 'pending'):
-        return 'waiting'
-    if status in ('in_process', 'under_review'):
-        if editor_status in ('approved', 'reviewed'):
-            return 'recommended'
-        if editor_status in ('in_review', 'assigned'):
-            return 'in_review'
-        return 'technical_check'
-    if status == 'paid':
-        return 'payment'
-    if status == 'accepted':
-        return 'recommended'
-    return 'waiting'
-
-
-def _workflow_step_label(key, title_key, fallback):
-    translated = t(title_key)
-    if translated and translated != title_key:
-        return translated
-    return fallback
+    if status in SUBMISSION_WORKFLOW_KEYS or status == 'rejected' or status in PROBLEM_STATUS_ANCHOR:
+        return status
+    return 'pending'
 
 
 def _decorate_submission_with_workflow(submission):
     stage_key = _resolve_submission_workflow_stage(submission)
-    step_index = {key: idx for idx, (key, _, _) in enumerate(SUBMISSION_WORKFLOW_STEPS)}
-    current_index = step_index.get(stage_key, -1)
+    lang = session.get('language') or 'en'
+    step_index = {key: idx for idx, key in enumerate(SUBMISSION_WORKFLOW_STEPS)}
+
+    is_blocked = stage_key in PROBLEM_STATUS_ANCHOR
+    anchor_key = PROBLEM_STATUS_ANCHOR.get(stage_key, stage_key)
+    current_index = step_index.get(anchor_key, -1)
 
     steps = []
-    for idx, (key, title_key, fallback) in enumerate(SUBMISSION_WORKFLOW_STEPS):
-        label = _workflow_step_label(key, title_key, fallback)
+    for idx, key in enumerate(SUBMISSION_WORKFLOW_STEPS):
         if stage_key == 'rejected':
             state = 'pending'
         elif idx < current_index:
             state = 'done'
         elif idx == current_index:
-            state = 'current'
+            state = 'blocked' if is_blocked else 'current'
         else:
             state = 'pending'
         steps.append({
             'key': key,
-            'label': label,
+            'label': submission_status_label(key, lang),
             'state': state
         })
 
-    if stage_key == 'rejected':
-        stage_label = t('workflow_stage_rejected')
-        if stage_label == 'workflow_stage_rejected':
-            stage_label = 'Rad etilgan'
-    else:
-        stage_info = next((item for item in SUBMISSION_WORKFLOW_STEPS if item[0] == stage_key), None)
-        if stage_info:
-            stage_label = _workflow_step_label(*stage_info)
-        else:
-            stage_label = _workflow_step_label(*SUBMISSION_WORKFLOW_STEPS[0])
-
     submission['workflow_stage_key'] = stage_key
-    submission['workflow_stage_label'] = stage_label
+    submission['workflow_stage_label'] = submission_status_label(stage_key, lang)
     submission['workflow_steps'] = steps
+
+    if stage_key == 'payment_pending':
+        submission_id = submission.get('id')
+        try:
+            fee_payments = (
+                dbc.payments.get(payment_type='submission_fee')
+                .contains(ids=[submission_id])
+                .exec()
+            )
+        except Exception:
+            fee_payments = []
+        if fee_payments:
+            fee_payment = fee_payments[0]
+            submission['payment_id'] = fee_payment.get('id')
+            submission['payment_amount'] = fee_payment.get('amount')
+            submission['payment_currency'] = fee_payment.get('currency')
+            submission['payment_status'] = fee_payment.get('status')
+            submission['payment_proof'] = fee_payment.get('proof')
+
     return submission
 
 
@@ -941,7 +965,7 @@ def app__dashboard():
             published_count += 1
         elif stage == 'rejected':
             rejected_count += 1
-        elif stage == 'payment':
+        elif stage == 'payment_pending':
             payment_count += 1
             in_progress_count += 1
         else:
@@ -985,7 +1009,14 @@ def app__dashboard_articles():
         if author:
             author_profiles[author_id] = translate(author[0])
 
-    return render_template('dashboard/articles.html', submissions=submissions, author_profiles=author_profiles)
+    lang = session.get('language') or 'en'
+    return render_template(
+        'dashboard/articles.html',
+        submissions=submissions,
+        author_profiles=author_profiles,
+        payment_guide_html=_get_payment_guide_html_for_lang(lang),
+        payment_guide_qr_image=_get_payment_guide_qr_image()
+    )
 
 
 def app__dashboard_articles_delete(submission_id):

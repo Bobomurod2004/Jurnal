@@ -160,6 +160,7 @@ def _normalize_user_for_session(user_row):
     if not user_row:
         return {}
     hydrated_user = hydrate_user_roles(user_row)
+    hydrated_user.pop('password', None)
     normalized = {}
     for key, value in hydrated_user.items():
         if isinstance(value, str):
@@ -2202,7 +2203,7 @@ def _create_or_update_google_user(profile, intent):
             'country_id': None,
             'rolename': 'user',
             'is_blocked': False,
-            'is_notify': False,
+            'is_notify': True,
             'accept_rules_time': now_ts,
             'register_time': now_ts,
             'created_at': now_ts,
@@ -2992,7 +2993,7 @@ def _create_or_update_orcid_user(profile, intent):
             'country_id': resolved_country_id,
             'rolename': 'user',
             'is_blocked': False,
-            'is_notify': False,
+            'is_notify': True,
             'accept_rules_time': now_ts,
             'register_time': now_ts,
             'created_at': now_ts,
@@ -3250,7 +3251,8 @@ def app__login():
         try:
             _user = dbc.users.get(email=email).exec()
             if _user:
-                user = _normalize_user_for_session(_user[0])
+                raw_user = _user[0]
+                user = _normalize_user_for_session(raw_user)
 
                 if user.get('is_blocked') or user.get('is_hidden'):
                     _record_login_failure(email)
@@ -3258,7 +3260,9 @@ def app__login():
                     return redirect(login_redirect)
 
                 password_valid = False
-                stored_pw = user.get('password', '')
+                # Check against the raw DB row -- _normalize_user_for_session
+                # strips 'password' before this dict is ever put in session.
+                stored_pw = raw_user.get('password', '')
                 if stored_pw and stored_pw.startswith(('pbkdf2:', 'scrypt:')):
                     password_valid = check_password_hash(stored_pw, password)
                 elif stored_pw:
@@ -3318,7 +3322,6 @@ def app__register():
         password = request.form.get('password', '')
         password_confirm = request.form.get('password_confirm', '')
         agree_terms = request.form.get('agree_terms')
-        is_notify = request.form.get('is_notify')
 
         # Validate required fields
         if not all([first_name, last_name, email, email_confirm, password, password_confirm, country]):
@@ -3371,7 +3374,7 @@ def app__register():
                 'email': email,
                 'country_id': country_id,
                 'password_hash': generate_password_hash(password),
-                'is_notify': bool(is_notify),
+                'is_notify': True,
                 'ui_language': normalize_notification_language(session.get('language') or 'en', default='en'),
             }
             verification_sent, feedback_message = _create_or_refresh_registration_verification(registration_payload)

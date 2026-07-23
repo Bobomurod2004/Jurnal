@@ -1,0 +1,188 @@
+{% extends 'basic_dashboard.html' %}
+
+{% block title %}{{ t('messages') if t('messages') != 'messages' else 'Messages' }} - {{ t('website_title') }}{% endblock %}
+
+{% block dashboard_content %}
+<section class="pb-8">
+    <div class="mb-4 flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-semibold text-gray-900">{{ t('submission_messages_title') if t('submission_messages_title') != 'submission_messages_title' else 'Correspondence' }}</h1>
+            <p class="mt-1 text-sm text-gray-500">{{ submission.title or submission.title_en or ('ID: ' ~ submission.id) }}</p>
+        </div>
+        <a href="{{ url_for('app__dashboard_articles') }}" class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+            <iconify-icon icon="solar:arrow-left-bold-duotone" class="text-base"></iconify-icon>
+            {{ t('back') if t('back') != 'back' else 'Back' }}
+        </a>
+    </div>
+
+    <div class="rounded-xl border border-gray-200 bg-white shadow-xs">
+        <div id="message-list" class="flex h-[28rem] flex-col gap-3 overflow-y-auto p-4">
+            {% for message in messages %}
+                <div class="message-row flex {{ 'justify-end' if message.sender_role == 'author' else 'justify-start' }}" data-message-id="{{ message.id }}">
+                    <div class="max-w-[75%] rounded-lg px-3 py-2 text-sm {{ 'bg-blue-600 text-white' if message.sender_role == 'author' else 'bg-gray-100 text-gray-800' }}">
+                        <p class="whitespace-pre-wrap break-words">{{ message.body }}</p>
+                        <p class="mt-1 flex items-center justify-end gap-1 text-[11px] opacity-70">
+                            <span>{{ message.created_at|timestamp_to_date }}</span>
+                            {% if message.sender_user_id == current_user_id %}
+                                <span class="msg-tick" data-tick-for="{{ message.id }}">{{ '✓✓' if message.read else '✓' }}</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            {% else %}
+                <p class="m-auto text-sm text-gray-400">{{ t('no_messages_yet') if t('no_messages_yet') != 'no_messages_yet' else 'No messages yet' }}</p>
+            {% endfor %}
+        </div>
+        <form id="message-form" class="flex items-center gap-2 border-t border-gray-100 p-3">
+            <input
+                type="text"
+                id="message-input"
+                maxlength="4000"
+                class="flex-1 rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                placeholder="{{ t('write_a_message') if t('write_a_message') != 'write_a_message' else 'Write a message...' }}"
+                autocomplete="off"
+            >
+            <button type="submit" class="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+                <iconify-icon icon="solar:plain-2-bold-duotone" class="text-base"></iconify-icon>
+                {{ t('send') if t('send') != 'send' else 'Send' }}
+            </button>
+        </form>
+    </div>
+</section>
+{% endblock %}
+
+{% block dashboard_scripts %}
+<script>
+(function () {
+    const submissionId = {{ submission.id|tojson }};
+    const currentUserId = {{ session.get('user_id')|tojson }};
+    const listEl = document.getElementById('message-list');
+    const formEl = document.getElementById('message-form');
+    const inputEl = document.getElementById('message-input');
+    let lastMessageId = {{ (messages[-1].id if messages else 0)|tojson }};
+    const ticks = {};
+    document.querySelectorAll('[data-tick-for]').forEach(function (el) {
+        ticks[el.dataset.tickFor] = el;
+    });
+
+    function scrollToBottom() {
+        listEl.scrollTop = listEl.scrollHeight;
+    }
+    scrollToBottom();
+
+    function formatTimestamp(ts) {
+        try {
+            return new Date(ts * 1000).toLocaleString();
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function markTickRead(tickEl) {
+        tickEl.textContent = '✓✓';
+        tickEl.classList.add('text-sky-300');
+        tickEl.classList.remove('opacity-70');
+    }
+
+    function appendMessage(message) {
+        if (document.querySelector('[data-message-id="' + message.id + '"]')) {
+            return;
+        }
+        const isAuthor = message.sender_role === 'author';
+        const isMine = message.sender_user_id === currentUserId;
+        const row = document.createElement('div');
+        row.className = 'message-row flex ' + (isAuthor ? 'justify-end' : 'justify-start');
+        row.dataset.messageId = message.id;
+        const bubble = document.createElement('div');
+        bubble.className = 'max-w-[75%] rounded-lg px-3 py-2 text-sm ' + (isAuthor ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800');
+        const body = document.createElement('p');
+        body.className = 'whitespace-pre-wrap break-words';
+        body.textContent = message.body;
+        const meta = document.createElement('p');
+        meta.className = 'mt-1 flex items-center justify-end gap-1 text-[11px] opacity-70';
+        const time = document.createElement('span');
+        time.textContent = formatTimestamp(message.created_at);
+        meta.appendChild(time);
+        if (isMine) {
+            const tick = document.createElement('span');
+            tick.className = 'msg-tick';
+            tick.textContent = message.read ? '✓✓' : '✓';
+            if (message.read) {
+                tick.classList.add('text-sky-300');
+            }
+            meta.appendChild(tick);
+            ticks[message.id] = tick;
+        }
+        bubble.appendChild(body);
+        bubble.appendChild(meta);
+        row.appendChild(bubble);
+        listEl.appendChild(row);
+        lastMessageId = message.id;
+        scrollToBottom();
+    }
+
+    formEl.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const text = inputEl.value.trim();
+        if (!text) {
+            return;
+        }
+        inputEl.disabled = true;
+        try {
+            const response = await fetch('/api/submissions/' + submissionId + '/messages/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': window.csrfToken || '',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ message: text })
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Failed to send message');
+            }
+            appendMessage(result.message_obj);
+            inputEl.value = '';
+        } catch (error) {
+            alert((error && error.message) ? error.message : 'Failed to send message');
+        } finally {
+            inputEl.disabled = false;
+            inputEl.focus();
+        }
+    });
+
+    function connectStream() {
+        const source = new EventSource('/api/submissions/' + submissionId + '/messages/stream?after_id=' + lastMessageId);
+        source.addEventListener('message', function (event) {
+            try {
+                appendMessage(JSON.parse(event.data));
+            } catch (e) {
+                // ignore malformed frame
+            }
+        });
+        source.addEventListener('read', function (event) {
+            try {
+                const upToId = JSON.parse(event.data).up_to_id;
+                Object.keys(ticks).forEach(function (id) {
+                    if (parseInt(id, 10) <= upToId) {
+                        markTickRead(ticks[id]);
+                    }
+                });
+            } catch (e) {
+                // ignore malformed frame
+            }
+        });
+        source.onerror = function () {
+            // Our SSE handler closes the stream after MESSAGE_STREAM_MAX_SECONDS
+            // (self-cycling by design) and the connection can also drop on a
+            // proxy restart -- always reconnect from the latest message id,
+            // never the stale one captured at page load.
+            source.close();
+            setTimeout(connectStream, 2000);
+        };
+    }
+    connectStream();
+})();
+</script>
+{% endblock %}

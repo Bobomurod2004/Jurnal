@@ -7,6 +7,7 @@ import re
 import time
 import io
 import zipfile
+import threading
 from functools import lru_cache
 from urllib.parse import urlparse, parse_qs, unquote
 from flask import current_app, render_template, session, request, jsonify, flash, redirect, url_for, send_file, send_from_directory, abort, Response
@@ -491,6 +492,17 @@ for _country_name_raw, _country_iso_raw in COUNTRY_ISO_BY_NAME.items():
     if not _country_name_clean or not _country_iso_clean:
         continue
     COUNTRY_DISPLAY_BY_ISO.setdefault(_country_iso_clean, _country_name_clean)
+
+# The country catalogue is the source of truth for all selectable countries.
+# Keep a small cache so the homepage does not issue a query for every country
+# statistic, while still picking up catalogue edits shortly afterwards.
+COUNTRY_CATALOG_CACHE_TTL = 300
+_country_catalog_cache = {
+    'lookup': {},
+    'localized_names': {},
+}
+_country_catalog_cache_timestamp = 0.0
+_country_catalog_cache_lock = threading.Lock()
 
 
 def _parse_int(value):
@@ -1054,11 +1066,61 @@ def _normalize_country_name(value):
     return re.sub(r'\s+', ' ', _clean_text(value)).strip()
 
 
+def _country_catalog_data():
+    """Return ISO and localized-name lookups built from every catalogued country."""
+    global _country_catalog_cache, _country_catalog_cache_timestamp
+
+    now = time.monotonic()
+    with _country_catalog_cache_lock:
+        if now - _country_catalog_cache_timestamp < COUNTRY_CATALOG_CACHE_TTL:
+            return _country_catalog_cache
+
+        try:
+            countries = dbc.fix_country.get().exec() or []
+        except Exception:
+            try:
+                dbc.conn.rollback()
+            except Exception:
+                pass
+            return _country_catalog_cache
+
+        lookup = {}
+        localized_names = {}
+        for country in countries:
+            iso = _clean_text(country.get('country_code')).lower()
+            if not re.fullmatch(r'[a-z]{2}', iso):
+                continue
+
+            names = {
+                'en': _clean_text(country.get('name')),
+                'uz': _clean_text(country.get('name_uz')),
+                'ru': _clean_text(country.get('name_ru')),
+            }
+            localized_names[iso] = {
+                language: name for language, name in names.items() if name
+            }
+
+            for name in names.values():
+                normalized_name = _fold_apostrophes(_normalize_country_name(name)).lower()
+                if normalized_name:
+                    lookup[normalized_name] = iso
+
+        _country_catalog_cache = {
+            'lookup': lookup,
+            'localized_names': localized_names,
+        }
+        _country_catalog_cache_timestamp = now
+        return _country_catalog_cache
+
+
 def _country_iso_for_name(country_name):
     normalized_name = _fold_apostrophes(_normalize_country_name(country_name)).lower()
     if not normalized_name:
         return ''
-    return COUNTRY_ISO_LOOKUP.get(normalized_name, '')
+    return (
+        COUNTRY_ISO_LOOKUP.get(normalized_name)
+        or _country_catalog_data()['lookup'].get(normalized_name, '')
+    )
 
 
 def _country_code_to_flag(country_code):
@@ -1116,43 +1178,8 @@ def _is_other_country_bucket_key(value):
     return normalized in {UNKNOWN_COUNTRY_KEY, OTHER_COUNTRY_KEY}
 
 
-@lru_cache(maxsize=1)
 def _country_localized_names_by_iso():
-    localized = {}
-    try:
-        countries = dbc.fix_country.get().exec() or []
-    except Exception:
-        try:
-            dbc.conn.rollback()
-        except Exception:
-            pass
-        return localized
-
-    for country in countries:
-        name_en = _clean_text(country.get('name'))
-        name_uz = _clean_text(country.get('name_uz'))
-        name_ru = _clean_text(country.get('name_ru'))
-        iso = ''
-
-        for candidate_name in (name_en, name_uz, name_ru):
-            if not candidate_name:
-                continue
-            iso = _country_iso_for_name(candidate_name)
-            if iso:
-                break
-
-        if not iso:
-            continue
-
-        bucket = localized.setdefault(iso, {})
-        if name_en and not bucket.get('en'):
-            bucket['en'] = name_en
-        if name_uz and not bucket.get('uz'):
-            bucket['uz'] = name_uz
-        if name_ru and not bucket.get('ru'):
-            bucket['ru'] = name_ru
-
-    return localized
+    return _country_catalog_data()['localized_names']
 
 
 def _localized_country_display_name(iso_code, fallback_name='', lang=None):

@@ -153,18 +153,8 @@
                 <div class="datagrid-content">
                   {% if submission.status == 'draft' %}
                   <span class="badge bg-secondary-lt">Черновик</span>
-                  {% elif submission.status == 'submitted' %}
-                  <span class="badge bg-primary-lt">Подано</span>
-                  {% elif submission.status == 'in_process' %}
-                  <span class="badge bg-warning-lt">Jarayonda</span>
-                  {% elif submission.status == 'under_review' %}
-                  <span class="badge bg-warning-lt">На рассмотрении</span>
-                  {% elif submission.status == 'accepted' %}
-                  <span class="badge bg-success-lt">Принято</span>
-                  {% elif submission.status == 'rejected' %}
-                  <span class="badge bg-danger-lt">Отклонено</span>
                   {% else %}
-                  <span class="badge bg-secondary-lt">{{ submission.status }}</span>
+                  <span class="badge bg-{{ submission_status_badge_tone(submission.status) }}-lt">{{ submission_status_label(submission.status) }}</span>
                   {% endif %}
                 </div>
               </div>

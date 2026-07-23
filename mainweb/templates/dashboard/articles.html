@@ -128,6 +128,25 @@
             color: #64748b;
         }
 
+        .article-process-step.blocked .article-process-node {
+            border-color: #dc2626;
+            background: #ef4444;
+            color: #ffffff;
+        }
+
+        .article-process-blocked-mark {
+            font-size: 1.4rem;
+            line-height: 1;
+            font-weight: 800;
+        }
+
+        .article-process-blocked-label {
+            margin-top: 0.45rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #dc2626;
+        }
+
         .article-process-check {
             font-size: 1.6rem;
             line-height: 1;
@@ -186,7 +205,7 @@
         <div class="space-y-4">
             {% for submission in submissions %}
                 {% set co_author_ids = submission.sub_author_ids or submission.subauthor_ids or [] %}
-                <article class="article-row rounded-xl border border-gray-200 bg-white p-5 shadow-xs transition-all hover:shadow-sm {% if submission.status == 'rejected' %}ring-1 ring-red-100{% elif submission.status == 'draft' %}ring-1 ring-amber-100{% elif submission.status == 'published' %}ring-1 ring-green-100{% else %}ring-1 ring-blue-100{% endif %}">
+                <article class="article-row rounded-xl border border-gray-200 bg-white p-5 shadow-xs transition-all hover:shadow-sm {% if submission.status == 'rejected' or is_resubmittable(submission.status) %}ring-1 ring-red-100{% elif submission.status == 'draft' %}ring-1 ring-amber-100{% elif submission.status == 'published' %}ring-1 ring-green-100{% else %}ring-1 ring-blue-100{% endif %}">
                     <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div class="min-w-0">
                             <h2 class="text-lg font-semibold text-gray-900">{{ submission.title }}</h2>
@@ -211,9 +230,25 @@
                         </div>
 
 	                        <div class="shrink-0 text-left lg:text-right">
-	                            <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {% if submission.status == 'rejected' %}bg-red-100 text-red-700{% elif submission.status == 'draft' %}bg-amber-100 text-amber-800{% elif submission.status == 'published' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">
-	                                {{ t(submission.status) }}
+	                            {% set _tone = submission_status_badge_tone(submission.status) %}
+	                            <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold
+	                                {%- if submission.status == 'draft' %} bg-amber-100 text-amber-800
+	                                {%- elif _tone == 'red' %} bg-red-100 text-red-700
+	                                {%- elif _tone == 'green' %} bg-green-100 text-green-700
+	                                {%- elif _tone == 'blue' %} bg-blue-100 text-blue-700
+	                                {%- elif _tone == 'teal' %} bg-teal-100 text-teal-700
+	                                {%- elif _tone == 'purple' %} bg-purple-100 text-purple-700
+	                                {%- elif _tone == 'orange' %} bg-orange-100 text-orange-700
+	                                {%- elif _tone == 'yellow' %} bg-yellow-100 text-yellow-700
+	                                {%- elif _tone == 'indigo' %} bg-indigo-100 text-indigo-700
+	                                {%- elif _tone == 'cyan' %} bg-cyan-100 text-cyan-700
+	                                {%- else %} bg-gray-100 text-gray-700
+	                                {%- endif %}">
+	                                {% if submission.status == 'draft' %}{{ t('draft') }}{% else %}{{ submission_status_label(submission.status) }}{% endif %}
 	                            </span>
+	                            {% if submission.revision_number and submission.revision_number > 1 %}
+	                                <span class="ml-1 inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">{{ t('revision_number_short') }} {{ submission.revision_number }}</span>
+	                            {% endif %}
 	                            <p class="mt-2 text-xs text-gray-500">{{ t('created') }}: {{ submission.created_date|timestamp_to_date }}</p>
 	                            {% if submission.status != 'draft' %}
 	                                <p class="mt-1 text-xs text-gray-500">{{ t('updated') }}: {{ submission.updated_at|timestamp_to_date }}</p>
@@ -237,6 +272,8 @@
                                         <div class="article-process-node">
                                             {% if step.state == 'done' or (step.state == 'current' and step.key == 'published') %}
                                                 <span class="article-process-check">&#10003;</span>
+                                            {% elif step.state == 'blocked' %}
+                                                <span class="article-process-blocked-mark">&#10005;</span>
                                             {% elif step.state == 'current' %}
                                                 <span class="article-process-dots">
                                                     <i></i><i></i><i></i>
@@ -247,6 +284,8 @@
                                         </div>
                                         {% if step.state == 'current' and step.key != 'published' %}
                                             <p class="article-process-current">{{ t('in_process') if t('in_process') != 'in_process' else 'Jarayonda' }}</p>
+                                        {% elif step.state == 'blocked' %}
+                                            <p class="article-process-blocked-label">{{ submission.workflow_stage_label }}</p>
                                         {% endif %}
                                     </div>
                                 {% endfor %}
@@ -255,10 +294,68 @@
                         </div>
                     {% endif %}
 
-	                    {% if submission.status == 'rejected' and submission.notes %}
+	                    {% if (submission.status == 'rejected' or is_resubmittable(submission.status)) and submission.notes %}
 	                        <div class="mt-4 rounded-lg border border-red-100 bg-red-50/70 px-3 py-2">
 	                            <p class="text-xs font-semibold uppercase tracking-wide text-red-700">{{ t('reason') }}</p>
 	                            <p class="mt-1 text-sm text-red-800">{{ submission.notes }}</p>
+                        </div>
+                    {% endif %}
+
+                    {% if submission.workflow_stage_key == 'payment_pending' %}
+                        <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50/70 px-4 py-4">
+                            {% if submission.payment_status == 'pending' %}
+                                <div class="mb-3 flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">
+                                    <iconify-icon icon="solar:clock-circle-bold-duotone" class="text-base"></iconify-icon>
+                                    To'lov tasdiqnomasi tekshiruvda
+                                </div>
+                            {% endif %}
+
+                            {% if submission.payment_amount %}
+                                <p class="mb-3 text-sm font-semibold text-gray-800">
+                                    To'lov summasi: {{ submission.payment_amount }} {{ (submission.payment_currency or '').upper() }}
+                                </p>
+                            {% endif %}
+
+                            <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
+                                {% if payment_guide_qr_image %}
+                                    <div class="shrink-0">
+                                        <img src="{{ payment_guide_qr_image }}" alt="To'lov QR kodi" class="h-40 w-40 rounded-md border border-gray-200 object-contain bg-white">
+                                    </div>
+                                {% endif %}
+                                <div class="min-w-0 flex-1 text-sm text-gray-700">
+                                    {{ payment_guide_html|safe }}
+                                </div>
+                            </div>
+
+                            <div class="mt-4 flex flex-wrap items-center gap-2">
+                                <input
+                                    type="file"
+                                    id="payment_proof_file_{{ submission.id }}"
+                                    class="payment-proof-file-input hidden"
+                                    data-payment-id="{{ submission.payment_id }}"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                >
+                                <button
+                                    type="button"
+                                    class="upload-payment-proof inline-flex items-center justify-center gap-1.5 rounded-md border border-amber-300 bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-200"
+                                    data-payment-id="{{ submission.payment_id }}"
+                                    data-input-id="payment_proof_file_{{ submission.id }}"
+                                    {% if not submission.payment_id %}disabled{% endif %}
+                                >
+                                    <iconify-icon icon="solar:upload-bold-duotone" class="text-base"></iconify-icon>
+                                    {% if submission.payment_proof %}
+                                        To'lov tasdiqnomasini qayta yuklash
+                                    {% else %}
+                                        To'lov tasdiqnomasini yuklash
+                                    {% endif %}
+                                </button>
+                                {% if submission.payment_proof %}
+                                    <a href="{{ upload_access_url(submission.payment_proof) }}" target="_blank" class="inline-flex items-center justify-center gap-1.5 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                                        <iconify-icon icon="solar:file-download-bold-duotone" class="text-base"></iconify-icon>
+                                        Yuklangan tasdiqnoma
+                                    </a>
+                                {% endif %}
+                            </div>
                         </div>
                     {% endif %}
 
@@ -278,7 +375,7 @@
                                 {{ t('edit_article') }}
                             </a>
                         {% else %}
-                            {% if submission.workflow_stage_key == 'anti_plagiarism' %}
+                            {% if submission.workflow_stage_key == 'plagiarism_check' %}
                                 <input
                                     type="file"
                                     id="anti_plagiarism_file_{{ submission.id }}"
@@ -306,15 +403,24 @@
                                     </a>
                                 {% endif %}
                             {% endif %}
-                            {% if submission.status == 'rejected' %}
-                                <button
-                                    type="button"
-                                    class="resubmit-submission inline-flex items-center justify-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100"
-                                    data-submission-id="{{ submission.id }}"
+                            {% if is_resubmittable(submission.status) %}
+                                <a
+                                    href="{{ url_for('app__dashboard_new_article') }}?id={{ submission.id }}"
+                                    class="revise-submission inline-flex items-center justify-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100"
                                 >
                                     <iconify-icon icon="solar:restart-bold-duotone" class="text-base"></iconify-icon>
-                                    {{ t('resubmit_article') }}
-                                </button>
+                                    {{ t('revise_article') }}
+                                </a>
+                            {% endif %}
+                            <a href="{{ url_for('app__dashboard_submission_messages', submission_id=submission.id) }}" class="inline-flex items-center justify-center gap-1.5 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                                <iconify-icon icon="solar:chat-round-dots-bold-duotone" class="text-base"></iconify-icon>
+                                Admin bilan chat
+                            </a>
+                            {% if submission.status == 'published' and submission.published_url %}
+                                <a href="{{ submission.published_url }}" target="_blank" class="inline-flex items-center justify-center gap-1.5 rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">
+                                    <iconify-icon icon="solar:global-bold-duotone" class="text-base"></iconify-icon>
+                                    Nashr qilingan maqolani ko'rish
+                                </a>
                             {% endif %}
                             <a href="{{ url_for('app__dashboard_new_article') }}?id={{ submission.id }}&view=true" class="inline-flex items-center justify-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
                                 <iconify-icon icon="solar:eye-bold-duotone" class="text-base"></iconify-icon>
@@ -374,9 +480,7 @@
         failedToDeleteSubmission: '{{ t("failed_to_delete_submission") }}',
         tryAgain: '{{ t("try_again") }}',
         uploading: {{ (t("uploading") if t("uploading") != "uploading" else "Yuklanmoqda") | tojson }},
-        antiplagUploadFailed: {{ (t("upload_failed") if t("upload_failed") != "upload_failed" else "Yuklash muvaffaqiyatsiz tugadi") | tojson }},
-        resubmitting: {{ (t("resubmitting") if t("resubmitting") != "resubmitting" else "Qayta yuborilmoqda") | tojson }},
-        failedToResubmit: {{ (t("failed_to_resubmit_article") if t("failed_to_resubmit_article") != "failed_to_resubmit_article" else "Maqolani qayta yuborishda xatolik") | tojson }}
+        antiplagUploadFailed: {{ (t("upload_failed") if t("upload_failed") != "upload_failed" else "Yuklash muvaffaqiyatsiz tugadi") | tojson }}
     };
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -469,44 +573,6 @@
             }
         });
 
-        document.addEventListener('click', async function (event) {
-            const resubmitBtn = event.target.closest('.resubmit-submission');
-            if (!resubmitBtn) {
-                return;
-            }
-
-            const submissionId = resubmitBtn.dataset.submissionId;
-            if (!submissionId) {
-                return;
-            }
-
-            const originalLabel = resubmitBtn.innerHTML;
-            resubmitBtn.disabled = true;
-            resubmitBtn.innerHTML = '<iconify-icon icon="svg-spinners:90-ring" class="text-base"></iconify-icon> ' + TRANSLATIONS.resubmitting;
-
-            try {
-                const response = await fetch('/api/article/resubmit', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: JSON.stringify({ submission_id: submissionId })
-                });
-
-                const result = await response.json();
-                if (!response.ok || !result.success) {
-                    throw new Error(result.message || TRANSLATIONS.failedToResubmit);
-                }
-
-                window.location.href = '/dashboard/new_article?id=' + result.submission_id;
-            } catch (error) {
-                alert((error && error.message) ? error.message : (TRANSLATIONS.failedToResubmit + '. ' + TRANSLATIONS.tryAgain));
-                resubmitBtn.disabled = false;
-                resubmitBtn.innerHTML = originalLabel;
-            }
-        });
-
         document.addEventListener('change', async function (event) {
             const fileInput = event.target;
             if (!fileInput.classList.contains('anti-plagiarism-file-input')) {
@@ -533,6 +599,66 @@
                 formData.append('submission_id', submissionId);
 
                 const response = await fetch('/api/article/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.message || TRANSLATIONS.antiplagUploadFailed);
+                }
+                window.location.reload();
+            } catch (error) {
+                alert((error && error.message) ? error.message : TRANSLATIONS.antiplagUploadFailed);
+            } finally {
+                fileInput.value = '';
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = originalLabel;
+                }
+            }
+        });
+
+        document.addEventListener('click', function (event) {
+            const trigger = event.target.closest('.upload-payment-proof');
+            if (!trigger) {
+                return;
+            }
+
+            const inputId = trigger.dataset.inputId;
+            if (!inputId) {
+                return;
+            }
+            const fileInput = document.getElementById(inputId);
+            if (fileInput) {
+                fileInput.click();
+            }
+        });
+
+        document.addEventListener('change', async function (event) {
+            const fileInput = event.target;
+            if (!fileInput.classList.contains('payment-proof-file-input')) {
+                return;
+            }
+
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) {
+                return;
+            }
+
+            const paymentId = fileInput.dataset.paymentId;
+            const button = document.querySelector('.upload-payment-proof[data-payment-id="' + paymentId + '"]');
+            const originalLabel = button ? button.innerHTML : '';
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '<iconify-icon icon="svg-spinners:90-ring" class="text-base"></iconify-icon> ' + TRANSLATIONS.uploading;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('payment_proof', file);
+                formData.append('payment_id', paymentId);
+
+                const response = await fetch('/api/payment/submit_proof', {
                     method: 'POST',
                     body: formData
                 });

@@ -13,6 +13,8 @@ except ImportError:
 from utils.notifications import apply_localized_notification_content, role_notification_access_clause as build_role_notification_access_clause
 from utils.private_uploads import upload_access_url
 from utils.roles import hydrate_user_roles, primary_role, staff_roles_for_user, user_has_permission
+from shared.submission_status import SUBMISSION_STATUS_BADGE_TONE, submission_status_label
+from shared.audit import record_request_audit_event
 
 
 def _parse_int(value):
@@ -93,6 +95,11 @@ def register(app):
         public_routes = [
             '/fmadmin/login',
             '/fmadmin/logout',
+            '/healthz',
+            '/readyz',
+            '/metrics',
+            '/fmadmin/healthz',
+            '/fmadmin/readyz',
             '/dist/',
             '/static/',
             '/uploads/'
@@ -197,6 +204,7 @@ def register(app):
     @app.context_processor
     def inject_translate():
         notifications = _role_notifications_overview()
+        current_lang = session.get('language') or 'uz'
         return {
             't': t,
             'translate': translate,
@@ -204,7 +212,9 @@ def register(app):
             'upload_access_url': upload_access_url,
             'role_notifications_unread_count': notifications['count'],
             'role_notifications_preview': notifications['preview'],
-            'app_version': settings.APP_VERSION
+            'app_version': settings.APP_VERSION,
+            'submission_status_label': lambda status, lang=None: submission_status_label(status, lang or current_lang),
+            'submission_status_badge_tone': lambda status: SUBMISSION_STATUS_BADGE_TONE.get(status, 'secondary'),
         }
 
     @app.after_request
@@ -240,4 +250,18 @@ def register(app):
             'role': session_user.get('rolename'),
         }
         current_app.logger.info(json.dumps(payload, ensure_ascii=False))
+        record_request_audit_event(
+            db,
+            service='fmadmin',
+            request_id=payload['request_id'],
+            method=payload['method'],
+            route=payload['route'],
+            path=payload['path'],
+            status_code=payload['status'],
+            remote_addr=payload['remote_addr'],
+            user_agent=payload['user_agent'],
+            actor_id=payload['user_id'],
+            actor_role=payload['role'],
+            is_admin=True,
+        )
         return response

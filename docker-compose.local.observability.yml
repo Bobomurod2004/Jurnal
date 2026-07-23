@@ -44,6 +44,17 @@ services:
     networks:
       - journal_local
 
+  loki-init:
+    image: alpine:3.21
+    container_name: journal_loki_init_local
+    user: "0:0"
+    restart: "no"
+    command: >-
+      sh -c "mkdir -p /var/lib/loki/chunks /var/lib/loki/index /var/lib/loki/cache /var/lib/loki/compactor /var/lib/loki/wal &&
+      chown -R 10001:10001 /var/lib/loki"
+    volumes:
+      - loki_data_local:/var/lib/loki
+
   loki:
     image: grafana/loki:3.7.3
     container_name: journal_loki_local
@@ -52,6 +63,9 @@ services:
     volumes:
       - ./monitoring/loki-config.yml:/etc/loki/config.yml:ro
       - loki_data_local:/var/lib/loki
+    depends_on:
+      loki-init:
+        condition: service_completed_successfully
     ports:
       - "13100:3100"
     networks:

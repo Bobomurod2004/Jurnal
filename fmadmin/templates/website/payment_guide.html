@@ -10,7 +10,29 @@
   </div>
 </div>
 
-<form method="post" class="mt-4">
+<form method="post" class="mt-4" enctype="multipart/form-data">
+  <div class="card mb-4">
+    <div class="card-header">
+      <div class="card-title">To'lov QR kodi</div>
+    </div>
+    <div class="card-body">
+      <p class="text-secondary">Bank ilovasida skanerlash uchun statik QR kod rasmi. Barcha muallif uchun bitta umumiy rasm ishlatiladi.</p>
+      {% if qr_image %}
+      <div class="mb-3">
+        <img src="{{ qr_image }}" alt="To'lov QR kodi" style="max-width: 200px; border: 1px solid var(--tblr-border-color); border-radius: 4px;">
+        <div class="form-check mt-2">
+          <input class="form-check-input" type="checkbox" name="remove_qr_image" value="1" id="removeQrImage">
+          <label class="form-check-label" for="removeQrImage">Joriy QR rasmni o'chirish</label>
+        </div>
+      </div>
+      {% endif %}
+      <div class="mb-0">
+        <label class="form-label">{% if qr_image %}Yangi rasm yuklash (mavjudini almashtiradi){% else %}QR rasm yuklash{% endif %}</label>
+        <input type="file" class="form-control" name="qr_image" accept=".jpg,.jpeg,.png,.webp">
+      </div>
+    </div>
+  </div>
+
   <div class="card mb-4">
     <div class="card-header">
       <div class="card-title">O'zbekcha matn</div>

@@ -91,6 +91,11 @@ _EMAIL_DELIVERY_TOTAL = Counter(
     "Email delivery attempts recorded by application and outcome.",
     ["app_name", "status"],
 )
+_AUDIT_EVENTS_TOTAL = Counter(
+    "journal_audit_events_total",
+    "Security and operational audit events recorded by action and outcome.",
+    ["service", "action", "outcome"],
+)
 
 
 def _env_flag(name: str, default: bool = False) -> bool:
@@ -415,4 +420,12 @@ def record_email_delivery_metric(app_name: str, status: str) -> None:
     _EMAIL_DELIVERY_TOTAL.labels(
         app_name=normalized_app_name,
         status=normalized_status,
+    ).inc()
+
+
+def record_audit_event_metric(service: str, action: str, outcome: str) -> None:
+    _AUDIT_EVENTS_TOTAL.labels(
+        service=str(service or 'unknown').strip() or 'unknown',
+        action=str(action or 'unknown').strip() or 'unknown',
+        outcome=str(outcome or 'unknown').strip() or 'unknown',
     ).inc()

@@ -1,41 +1,13 @@
 # flake8: noqa
 import datetime
 from extensions import db
+from shared.submission_status import SUBMISSION_STATUSES, SUBMISSION_STATUS_LABELS, SUBMISSION_STATUS_BADGE_TONE
 
 
-WORKFLOW_STAGE_ORDER = [
-    'waiting',
-    'technical_check',
-    'anti_plagiarism',
-    'in_review',
-    'recommended',
-    'payment',
-    'published',
-    'rejected',
-]
+WORKFLOW_STAGE_ORDER = SUBMISSION_STATUSES
+WORKFLOW_STAGE_LABELS = {key: labels['uz'] for key, labels in SUBMISSION_STATUS_LABELS.items()}
 
-WORKFLOW_STAGE_LABELS = {
-    'waiting': "Kutilmoqda",
-    'technical_check': "Texnik tekshiruv",
-    'anti_plagiarism': "Antiplagiat",
-    'in_review': "Taqrizda",
-    'recommended': "Tavsiya etilgan",
-    'payment': "To'lov bosqichi",
-    'published': "Nashr qilingan",
-    'rejected': "Rad etilgan",
-}
-
-STATUS_ORDER = [
-    'submitted',
-    'pending',
-    'in_process',
-    'under_review',
-    'accepted',
-    'paid',
-    'published',
-    'rejected',
-]
-
+STATUS_ORDER = SUBMISSION_STATUSES
 ACTIVE_STATUS_SET = set(STATUS_ORDER) - {'published', 'rejected'}
 
 
@@ -62,6 +34,10 @@ def _normalize_workflow_stage(value):
     return stage if stage in WORKFLOW_STAGE_LABELS else ''
 
 
+def _status_badge_tone(status):
+    return SUBMISSION_STATUS_BADGE_TONE.get(status, 'secondary')
+
+
 def _truthy(value):
     if isinstance(value, bool):
         return value
@@ -79,29 +55,10 @@ def _safe_dt_from_ts(value):
 
 
 def _infer_workflow_stage(submission):
-    stage = _normalize_workflow_stage(submission.get('workflow_stage'))
-    if stage:
-        return stage
-
-    status = _normalize_status(submission.get('status'))
-    editor_status = _normalize_text(submission.get('editor_review_status'))
-    if status == 'published':
-        return 'published'
-    if status == 'rejected':
-        return 'rejected'
-    if status in {'submitted', 'pending'}:
-        return 'waiting'
-    if status in {'in_process', 'under_review'}:
-        if editor_status in {'approved', 'reviewed'}:
-            return 'recommended'
-        if editor_status in {'in_review', 'assigned'}:
-            return 'in_review'
-        return 'technical_check'
-    if status == 'paid':
-        return 'payment'
-    if status == 'accepted':
-        return 'recommended'
-    return 'waiting'
+    # `status` is the single canonical field now (shared/submission_status.py);
+    # kept as a thin resolver so callers below don't need to change.
+    stage = _normalize_workflow_stage(submission.get('status'))
+    return stage or 'pending'
 
 
 def _month_start(dt):
@@ -194,7 +151,7 @@ def get_dashboard_snapshot(months=6, recent_limit=6, top_limit=6, stale_days=14)
             if stage in stage_counts:
                 stage_counts[stage] += 1
             else:
-                stage_counts['waiting'] += 1
+                stage_counts['pending'] += 1
 
             created_dt = _safe_dt_from_ts(created_ts)
             if created_dt:
@@ -269,22 +226,12 @@ def get_dashboard_snapshot(months=6, recent_limit=6, top_limit=6, stale_days=14)
         status_chart_data = [status_counts.get(code, 0) for code in ordered_status_codes]
 
         workflow_cards = []
-        workflow_tones = {
-            'waiting': 'secondary',
-            'technical_check': 'azure',
-            'anti_plagiarism': 'yellow',
-            'in_review': 'orange',
-            'recommended': 'green',
-            'payment': 'blue',
-            'published': 'teal',
-            'rejected': 'red',
-        }
         for stage_key in WORKFLOW_STAGE_ORDER:
             workflow_cards.append({
                 'key': stage_key,
                 'label': WORKFLOW_STAGE_LABELS.get(stage_key, stage_key),
                 'count': stage_counts.get(stage_key, 0),
-                'tone': workflow_tones.get(stage_key, 'secondary'),
+                'tone': _status_badge_tone(stage_key),
             })
 
         recent_submissions_sorted = sorted(

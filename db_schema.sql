@@ -92,7 +92,8 @@ CREATE TABLE public.editor_assignments (
     editor_file text,
     reviewed_at bigint,
     created_at bigint DEFAULT EXTRACT(epoch FROM now()),
-    updated_at bigint DEFAULT EXTRACT(epoch FROM now())
+    updated_at bigint DEFAULT EXTRACT(epoch FROM now()),
+    revision_round integer DEFAULT 1 NOT NULL
 );
 
 
@@ -973,6 +974,13 @@ ALTER SEQUENCE public.settings_id_seq OWNED BY public.settings.id;
 -- Name: submissions; Type: TABLE; Schema: public; Owner: postgres
 --
 
+-- status now holds the single canonical 11-value enum from
+-- shared/submission_status.py (plus 'draft' for pre-submission rows).
+-- editor_review_status / rejection_origin / revision_allowed below are
+-- DEPRECATED as of migrations/versions/20260722_000001_consolidate_submission_status.sql
+-- -- application code no longer reads or writes them; kept only for a safe
+-- rollback window. workflow_stage (further below, added via a separate
+-- runtime-sync path, not this base schema) is deprecated the same way.
 CREATE TABLE public.submissions (
     id integer NOT NULL,
     user_id integer,
@@ -998,7 +1006,14 @@ CREATE TABLE public.submissions (
     file_anonymized text,
     created_date bigint,
     updated_at integer,
-    editor_review_status text DEFAULT 'not_assigned'::text
+    editor_review_status text DEFAULT 'not_assigned'::text,
+    revision_number integer DEFAULT 1 NOT NULL,
+    rejection_origin text,
+    rejected_at bigint,
+    rejected_by integer,
+    revision_allowed boolean DEFAULT true NOT NULL,
+    last_revision_submitted_at bigint,
+    published_url text
 );
 
 
@@ -1036,6 +1051,107 @@ ALTER SEQUENCE public.submissions_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.submissions_id_seq OWNED BY public.submissions.id;
+
+
+--
+-- Name: submission_revision_log; Type: TABLE; Schema: public; Owner: postgres
+-- Added by migrations/versions/20260721_000001_add_submission_revision_tracking.sql
+--
+
+CREATE TABLE public.submission_revision_log (
+    id integer NOT NULL,
+    submission_id integer NOT NULL,
+    revision_number integer NOT NULL,
+    rejection_origin text,
+    rejected_by integer,
+    rejected_at bigint,
+    rejection_notes text,
+    resubmitted_at bigint,
+    resubmitted_by integer,
+    created_at bigint DEFAULT EXTRACT(epoch FROM now())
+);
+
+ALTER TABLE public.submission_revision_log OWNER TO postgres;
+
+CREATE SEQUENCE public.submission_revision_log_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.submission_revision_log_id_seq OWNED BY public.submission_revision_log.id;
+
+
+--
+-- Name: submission_messages; Type: TABLE; Schema: public; Owner: postgres
+-- Added by migrations/versions/20260721_000002_add_submission_messages.sql
+-- Two isolated threads per submission: 'author_admin' (author <-> assigned
+-- admin) and 'admin_editor' (assigned admin <-> a specific editor, internal
+-- only -- the author must never be able to read this thread, to preserve
+-- blind peer review).
+--
+
+CREATE TABLE public.submission_messages (
+    id integer NOT NULL,
+    submission_id integer NOT NULL,
+    visibility_scope text NOT NULL,
+    editor_assignment_id integer,
+    sender_user_id integer NOT NULL,
+    sender_role text NOT NULL,
+    body text NOT NULL,
+    is_deleted boolean DEFAULT false NOT NULL,
+    created_at bigint DEFAULT EXTRACT(epoch FROM now()) NOT NULL,
+    CONSTRAINT chk_submission_messages_scope CHECK (
+        (visibility_scope = 'author_admin' AND editor_assignment_id IS NULL) OR
+        (visibility_scope = 'admin_editor' AND editor_assignment_id IS NOT NULL)
+    ),
+    CONSTRAINT chk_submission_messages_scope_value CHECK (
+        visibility_scope IN ('author_admin', 'admin_editor')
+    )
+);
+
+ALTER TABLE public.submission_messages OWNER TO postgres;
+
+CREATE SEQUENCE public.submission_messages_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.submission_messages_id_seq OWNED BY public.submission_messages.id;
+
+
+--
+-- Name: submission_message_reads; Type: TABLE; Schema: public; Owner: postgres
+-- Added by migrations/versions/20260721_000002_add_submission_messages.sql
+--
+
+CREATE TABLE public.submission_message_reads (
+    id integer NOT NULL,
+    submission_id integer NOT NULL,
+    visibility_scope text NOT NULL,
+    editor_assignment_id integer,
+    user_id integer NOT NULL,
+    last_read_message_id integer,
+    last_read_at bigint,
+    updated_at bigint
+);
+
+ALTER TABLE public.submission_message_reads OWNER TO postgres;
+
+CREATE SEQUENCE public.submission_message_reads_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.submission_message_reads_id_seq OWNED BY public.submission_message_reads.id;
 
 
 --
@@ -1390,6 +1506,27 @@ ALTER TABLE ONLY public.settings ALTER COLUMN id SET DEFAULT nextval('public.set
 --
 
 ALTER TABLE ONLY public.submissions ALTER COLUMN id SET DEFAULT nextval('public.submissions_id_seq'::regclass);
+
+
+--
+-- Name: submission_revision_log id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.submission_revision_log ALTER COLUMN id SET DEFAULT nextval('public.submission_revision_log_id_seq'::regclass);
+
+
+--
+-- Name: submission_messages id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.submission_messages ALTER COLUMN id SET DEFAULT nextval('public.submission_messages_id_seq'::regclass);
+
+
+--
+-- Name: submission_message_reads id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.submission_message_reads ALTER COLUMN id SET DEFAULT nextval('public.submission_message_reads_id_seq'::regclass);
 
 
 --
@@ -1987,6 +2124,36 @@ ALTER TABLE ONLY public.settings
 
 ALTER TABLE ONLY public.submissions
     ADD CONSTRAINT submissions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: submission_revision_log submission_revision_log_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.submission_revision_log
+    ADD CONSTRAINT submission_revision_log_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: submission_messages submission_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.submission_messages
+    ADD CONSTRAINT submission_messages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: submission_message_reads submission_message_reads_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.submission_message_reads
+    ADD CONSTRAINT submission_message_reads_pkey PRIMARY KEY (id);
+
+-- Expression index (not a plain UNIQUE constraint): editor_assignment_id is
+-- NULL for the author_admin scope, and NULL <> NULL under a plain UNIQUE
+-- constraint, so COALESCE(...,0) is required to actually dedupe that scope.
+CREATE UNIQUE INDEX uq_submission_message_reads_thread
+    ON public.submission_message_reads (submission_id, visibility_scope, COALESCE(editor_assignment_id, 0), user_id);
 
 
 --

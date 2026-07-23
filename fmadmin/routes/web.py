@@ -48,6 +48,18 @@ from shared.publication_metadata import (
     publication_metadata_field_labels,
     publication_metadata_options,
 )
+from shared.submission_status import (
+    SUBMISSION_STATUSES,
+    SUBMISSION_STATUS_KEYS,
+    SUBMISSION_STATUS_LABELS,
+    SUBMISSION_STATUS_BADGE_TONE,
+    RESUBMITTABLE_STATUSES,
+    TERMINAL_STATUSES,
+    STATUSES_REQUIRING_ANTIPLAGIARISM_FILE,
+    STATUSES_REQUIRING_NOTE,
+    EMAIL_NOTIFIED_STATUSES,
+    submission_status_label,
+)
 
 bp = Blueprint('fmadmin_web', __name__)
 logger = logging.getLogger(__name__)
@@ -60,24 +72,33 @@ LOGIN_RATE_LIMIT_SCOPE = 'fmadmin'
 LOGIN_RATE_LIMIT_TABLE = 'auth_login_rate_limits'
 LOGIN_RATE_LIMIT_STORAGE_READY = False
 
-WORKFLOW_STAGE_CHOICES = [
-    ('waiting', "Kutilmoqda"),
-    ('technical_check', "Texnik talablarga mos"),
-    ('anti_plagiarism', "Antiplagiatga tekshirish"),
-    ('in_review', "Taqrizda"),
-    ('recommended', "Nashrga tavsiya etildi"),
-    ('payment', "To'lov"),
-    ('published', "Nashr qilindi"),
-]
+# Single canonical status enum (shared/submission_status.py) replaces the old
+# separate status + workflow_stage + editor_review_status + rejection_origin
+# combination. Kept under the old names below only where templates/routes
+# still reference them, to minimize the diff surface of this refactor.
+def _submission_status_choices(lang='uz'):
+    return [(key, submission_status_label(key, lang)) for key in SUBMISSION_STATUSES]
+
+
+# uz-labeled defaults for call sites that build these before a request (or an
+# admin language) is available; prefer _submission_status_choices(_admin_language())
+# in route handlers so the dropdown matches the viewer's language.
+WORKFLOW_STAGE_CHOICES = _submission_status_choices('uz')
 WORKFLOW_STAGE_LABELS = {key: label for key, label in WORKFLOW_STAGE_CHOICES}
-WORKFLOW_STAGE_KEYS = set(WORKFLOW_STAGE_LABELS.keys()) | {'rejected'}
+WORKFLOW_STAGE_KEYS = SUBMISSION_STATUS_KEYS
 SUBMISSION_EXTRA_COLUMN_TYPES = {
     'workflow_stage': 'text',
     'assigned_admin_id': 'integer',
     'anti_plagiarism_file': 'text',
     'anti_plagiarism_checked_at': 'bigint',
     'anti_plagiarism_checked_by': 'integer',
-    'related_submission_id': 'integer'
+    'related_submission_id': 'integer',
+    'revision_number': 'integer DEFAULT 1',
+    'rejection_origin': 'text',
+    'rejected_at': 'bigint',
+    'rejected_by': 'integer',
+    'revision_allowed': 'boolean DEFAULT true',
+    'last_revision_submitted_at': 'bigint'
 }
 USER_EXTRA_COLUMN_TYPES = {
     'is_hidden': 'boolean',
@@ -98,7 +119,8 @@ EDITOR_ASSIGNMENT_EXTRA_COLUMN_TYPES = {
     'admin_decision': 'text',
     'admin_comment': 'text',
     'admin_decided_by': 'integer',
-    'admin_decided_at': 'bigint'
+    'admin_decided_at': 'bigint',
+    'revision_round': 'integer DEFAULT 1'
 }
 PUBLICATION_EXTRA_COLUMN_TYPES = dict(PUBLICATION_METADATA_COLUMN_TYPES)
 PUBLICATION_EXTRA_COLUMN_TYPES['page_range'] = 'text'
@@ -109,7 +131,7 @@ ISSUE_EXTRA_COLUMN_TYPES = {
 EDITOR_ASSIGNMENT_STATUS_VALUES = {'pending', 'in_review', 'reviewed', 'rejected'}
 EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES = {'pending', 'in_review'}
 EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES = {'reviewed', 'rejected'}
-EDITOR_ASSIGNMENT_ADMIN_DECISION_VALUES = {'pending', 'accepted', 'revision_requested'}
+EDITOR_ASSIGNMENT_ADMIN_DECISION_VALUES = {'pending', 'accepted', 'revision_requested', 'return_to_author'}
 ROLE_NOTIFICATION_LEVELS = {'info', 'success', 'warning', 'danger'}
 EDITOR_ASSIGNMENT_REMINDER_LEVEL_RANKS = {'': 0, '24h': 1, '6h': 2, '1h': 3}
 EDITOR_ASSIGNMENT_AUTOMATION_INTERVAL_SECONDS = 30
@@ -1181,6 +1203,54 @@ def _parse_amount(value):
         return None
 
 
+SUBMISSION_FEE_CURRENCIES = {'uzs', 'usd', 'rub'}
+
+
+def _create_or_update_submission_fee_payment(submission, amount, currency):
+    """Create (or update the amount on) the 'submission_fee' payment tied to
+    this submission, reusing the same `payments` table and superadmin-only
+    approval flow (payment_edit) already used for reader purchases
+    (subscription/issue/article) -- just a new payment_type value, no new
+    table or approval mechanism needed."""
+    submission_id = _parse_int((submission or {}).get('id'))
+    user_id = _parse_int((submission or {}).get('user_id'))
+    if submission_id is None or user_id is None:
+        return None
+
+    now_ts = int(datetime.datetime.now().timestamp())
+    try:
+        existing = (
+            db.payments.all()
+            .equal(payment_type='submission_fee', user_id=user_id)
+            .contains(ids=[submission_id])
+            .exec()
+        )
+    except Exception:
+        existing = []
+
+    if existing:
+        payment_id = _parse_int(existing[0].get('id'))
+        db.payments.all().equal(id=payment_id).update(
+            amount=amount,
+            currency=currency,
+        ).exec()
+        return payment_id
+
+    created = db.payments.add(
+        user_id=user_id,
+        status='unpaid',
+        currency=currency,
+        payment_type='submission_fee',
+        payment_date=None,
+        amount=amount,
+        ids=[submission_id],
+        proof=None,
+        note=None,
+        created_at=now_ts,
+    ).exec()
+    return _parse_int(created[0].get('id')) if created else None
+
+
 def _ensure_tariff_duration_column(default_days=30):
     if not settings.RUNTIME_SCHEMA_SYNC_ENABLED:
         return
@@ -1395,6 +1465,7 @@ HOME_VIDEO_SUBMISSION_KEY = 'home_video_submission_url'
 HOME_VIDEO_LANGS = ('uz', 'ru', 'en')
 PAYMENT_GUIDE_KEY = 'payment_guide_html'
 PAYMENT_GUIDE_LANGS = ('uz', 'ru', 'en')
+PAYMENT_GUIDE_QR_KEY = 'payment_guide_qr_image'
 
 
 def _home_video_key(base_key, lang):
@@ -2119,20 +2190,19 @@ def _refresh_submission_editor_review_status(submission_id):
         review_status = 'in_review'
 
     now_ts = int(datetime.datetime.now().timestamp())
-    update_data = {
-        'editor_review_status': review_status,
-        'updated_at': now_ts
-    }
+    update_data = {'updated_at': now_ts}
 
-    submission_status = _clean_text(submission.get('status')).lower()
+    new_status = None
     if review_status in {'assigned', 'in_review', 'reviewed'}:
-        update_data['workflow_stage'] = 'in_review'
-        if submission_status in {'submitted', 'pending'}:
-            update_data['status'] = 'in_process'
+        new_status = 'under_review'
     elif review_status == 'approved':
-        update_data['workflow_stage'] = 'recommended'
-        if submission_status in {'submitted', 'pending'}:
-            update_data['status'] = 'in_process'
+        new_status = 'recommended'
+
+    current_status = _clean_text(submission.get('status')).lower()
+    # Never clobber a final outcome (published/rejected) that may have been
+    # set after these assignments were last touched.
+    if new_status and current_status not in TERMINAL_STATUSES:
+        update_data['status'] = new_status
 
     db.submissions.all().equal(id=submission_id_int).update(**update_data).exec()
     return review_status
@@ -2982,29 +3052,13 @@ def _normalize_workflow_stage(stage):
 
 
 def _infer_workflow_stage(submission):
-    stage = _normalize_workflow_stage(submission.get('workflow_stage'))
-    if stage:
-        return stage
-
-    status = (submission.get('status') or '').strip().lower()
-    editor_status = (submission.get('editor_review_status') or '').strip().lower()
-    if status == 'published':
-        return 'published'
-    if status == 'rejected':
-        return 'rejected'
-    if status in ('submitted', 'pending'):
-        return 'waiting'
-    if status in ('in_process', 'under_review'):
-        if editor_status in ('approved', 'reviewed'):
-            return 'recommended'
-        if editor_status in ('in_review', 'assigned'):
-            return 'in_review'
-        return 'technical_check'
-    if status == 'paid':
-        return 'payment'
-    if status == 'accepted':
-        return 'recommended'
-    return 'waiting'
+    # `status` is now the single canonical field (see shared/submission_status.py);
+    # this function is kept as a thin resolver so existing callers don't need
+    # to change, with a legacy-row fallback for anything not yet migrated.
+    status = _normalize_workflow_stage(submission.get('status'))
+    if status:
+        return status
+    return 'pending'
 
 
 def _normalize_match_text(value):
@@ -4038,16 +4092,17 @@ def _msg_text(uz_text, ru_text=None, en_text=None):
     return uz_text
 
 
+# 'draft'/'submitted'/'in_process'/'accepted'/'paid' below are kept for
+# historical rows and for the 'payment' scope (paid/pending/unpaid) --
+# `submissions.status` itself only ever produces the canonical
+# SUBMISSION_STATUS_LABELS keys going forward (merged in below).
 STATUS_LABEL_TRANSLATIONS = {
     'draft': {'uz': 'Qoralama', 'ru': 'Черновик', 'en': 'Draft'},
     'submitted': {'uz': 'Yuborilgan', 'ru': 'Отправлено', 'en': 'Submitted'},
-    'pending': {'uz': 'Kutilmoqda', 'ru': 'Ожидает', 'en': 'Pending'},
     'in_process': {'uz': 'Jarayonda', 'ru': 'В процессе', 'en': 'In process'},
-    'under_review': {'uz': "Ko'rib chiqilmoqda", 'ru': 'На рассмотрении', 'en': 'Under review'},
     'accepted': {'uz': 'Qabul qilingan', 'ru': 'Принято', 'en': 'Accepted'},
-    'published': {'uz': 'Nashr qilindi', 'ru': 'Опубликовано', 'en': 'Published'},
-    'rejected': {'uz': 'Rad etilgan', 'ru': 'Отклонено', 'en': 'Rejected'},
-    'paid': {'uz': "To'lov qilingan", 'ru': 'Оплачено', 'en': 'Paid'}
+    'paid': {'uz': "To'lov qilingan", 'ru': 'Оплачено', 'en': 'Paid'},
+    **SUBMISSION_STATUS_LABELS,
 }
 
 WORKFLOW_STAGE_LABEL_TRANSLATIONS = {
@@ -4076,12 +4131,75 @@ def _workflow_stage_label_text(stage, lang='uz'):
     return WORKFLOW_STAGE_LABEL_TRANSLATIONS.get(key, {}).get(lang, key)
 
 
-def _status_stage_change_message(submission_title, new_status, new_stage):
-    return localized_texts(
-        f'"{submission_title}" yangilandi. Holat: {_status_label_text(new_status, "uz")}. Bosqich: {_workflow_stage_label_text(new_stage, "uz")}.',
-        f'"{submission_title}" обновлена. Статус: {_status_label_text(new_status, "ru")}. Этап: {_workflow_stage_label_text(new_stage, "ru")}.',
-        f'"{submission_title}" was updated. Status: {_status_label_text(new_status, "en")}. Stage: {_workflow_stage_label_text(new_stage, "en")}.',
-    )
+# Per-status author-facing notification content. 'published' and
+# 'plagiarism_check' have their own dedicated, more elaborate blocks in
+# submission_edit() (congratulations message / anti-plagiarism upload
+# request) and are not listed here.
+SUBMISSION_STATUS_NOTIFICATION_TITLES = {
+    'pending': localized_texts("Maqolangiz holati yangilandi", "Статус вашей статьи обновлён", "Your article status was updated"),
+    'passed_technical_check': localized_texts("Texnik tekshiruvdan o'tdingiz", "Пройдена техническая проверка", "Passed technical check"),
+    'failed_technical_check': localized_texts("Texnik tekshiruvdan o'tmadingiz", "Не пройдена техническая проверка", "Failed technical check"),
+    'under_review': localized_texts("Maqolangiz taqrizga yuborildi", "Ваша статья направлена на рецензирование", "Your article was sent for review"),
+    'revision_required': localized_texts("Maqolangizga tuzatish talab qilinadi", "Требуется доработка вашей статьи", "Revision required for your article"),
+    'recommended': localized_texts("Maqolangiz nashrga tavsiya etildi", "Ваша статья рекомендована к публикации", "Your article was recommended for publication"),
+    'payment_pending': localized_texts("To'lov kutilmoqda", "Ожидается оплата", "Payment pending"),
+    'in_layout': localized_texts("Maqolangiz sahifalanmoqda", "Ваша статья находится на вёрстке", "Your article is being laid out"),
+    'rejected': localized_texts("Maqolangiz rad etildi", "Ваша статья отклонена", "Your article was rejected"),
+}
+
+
+def _submission_status_notification_message(status, submission_title, notes=''):
+    note_suffix_uz = f' Izoh: {notes}' if notes else ''
+    note_suffix_ru = f' Комментарий: {notes}' if notes else ''
+    note_suffix_en = f' Note: {notes}' if notes else ''
+    messages = {
+        'pending': localized_texts(
+            f'"{submission_title}" holati yangilandi: {submission_status_label(status, "uz")}.',
+            f'Статус "{submission_title}" обновлён: {submission_status_label(status, "ru")}.',
+            f'"{submission_title}" status updated: {submission_status_label(status, "en")}.',
+        ),
+        'passed_technical_check': localized_texts(
+            f'"{submission_title}" texnik talablarga mos deb topildi.',
+            f'"{submission_title}" признана соответствующей техническим требованиям.',
+            f'"{submission_title}" passed the technical requirements check.',
+        ),
+        'failed_technical_check': localized_texts(
+            f'"{submission_title}" texnik talablarga mos emas.{note_suffix_uz}',
+            f'"{submission_title}" не соответствует техническим требованиям.{note_suffix_ru}',
+            f'"{submission_title}" does not meet the technical requirements.{note_suffix_en}',
+        ),
+        'under_review': localized_texts(
+            f'"{submission_title}" tahrirchi(lar) tomonidan ko\'rib chiqilmoqda.',
+            f'"{submission_title}" рассматривается редактором(ами).',
+            f'"{submission_title}" is being reviewed by the editor(s).',
+        ),
+        'revision_required': localized_texts(
+            f'"{submission_title}" bo\'yicha tuzatish talab qilinadi.{note_suffix_uz}',
+            f'По "{submission_title}" требуется доработка.{note_suffix_ru}',
+            f'"{submission_title}" requires revision.{note_suffix_en}',
+        ),
+        'recommended': localized_texts(
+            f'"{submission_title}" nashrga tavsiya etildi.',
+            f'"{submission_title}" рекомендована к публикации.',
+            f'"{submission_title}" was recommended for publication.',
+        ),
+        'payment_pending': localized_texts(
+            f'"{submission_title}" uchun nashr to\'lovini amalga oshiring.',
+            f'Пожалуйста, оплатите публикацию "{submission_title}".',
+            f'Please complete the publication payment for "{submission_title}".',
+        ),
+        'in_layout': localized_texts(
+            f'"{submission_title}" sahifalash bosqichida.',
+            f'"{submission_title}" находится на этапе вёрстки.',
+            f'"{submission_title}" is currently being laid out.',
+        ),
+        'rejected': localized_texts(
+            f'"{submission_title}" rad etildi.{note_suffix_uz}',
+            f'"{submission_title}" отклонена.{note_suffix_ru}',
+            f'"{submission_title}" was rejected.{note_suffix_en}',
+        ),
+    }
+    return messages.get(status)
 
 
 def _privileged_role(role_name):
@@ -4470,13 +4588,11 @@ def _status_badge_tone(status, scope='submission'):
     normalized = _clean_text(status).lower()
     mappings = {
         'submission': {
-            'published': 'green',
             'submitted': 'blue',
             'in_process': 'orange',
-            'rejected': 'red',
             'draft': 'secondary',
-            'under_review': 'yellow',
             'accepted': 'green',
+            **SUBMISSION_STATUS_BADGE_TONE,
         },
         'editor_review': {
             'approved': 'green',
@@ -4641,7 +4757,7 @@ def _build_user_360_snapshot(user_row, timeline_limit=24):
         key = _clean_text(row.get('review_status')).lower()
         submission_review_map[key] = _parse_int(row.get('count')) or 0
 
-    ordered_submission_statuses = ['submitted', 'in_process', 'published', 'rejected', 'draft']
+    ordered_submission_statuses = SUBMISSION_STATUSES + ['draft']
     extra_submission_statuses = sorted(
         [key for key in submission_status_map.keys() if key and key not in ordered_submission_statuses]
     )
@@ -4714,12 +4830,13 @@ def _build_user_360_snapshot(user_row, timeline_limit=24):
 
     snapshot['submission_stats']['total'] = sum(submission_status_map.values())
     snapshot['submission_stats']['published'] = submission_status_map.get('published', 0)
-    snapshot['submission_stats']['active'] = (
-        submission_status_map.get('submitted', 0)
-        + submission_status_map.get('in_process', 0)
-        + submission_status_map.get('under_review', 0)
-    )
     snapshot['submission_stats']['rejected'] = submission_status_map.get('rejected', 0)
+    snapshot['submission_stats']['active'] = (
+        snapshot['submission_stats']['total']
+        - submission_status_map.get('draft', 0)
+        - snapshot['submission_stats']['published']
+        - snapshot['submission_stats']['rejected']
+    )
 
     payment_status_rows = _query_rows_dicts(
         "SELECT COALESCE(status, '') AS status, COUNT(*)::int AS count, "
@@ -8129,6 +8246,16 @@ def payment_guide_settings():
         if fallback_value:
             ok_all = _set_site_setting(PAYMENT_GUIDE_KEY, fallback_value) and ok_all
 
+        if request.form.get('remove_qr_image') == '1':
+            ok_all = _set_site_setting(PAYMENT_GUIDE_QR_KEY, '') and ok_all
+        elif request.files.get('qr_image') and request.files['qr_image'].filename:
+            try:
+                qr_path = save_file('payment_qr', request.files['qr_image'], ['jpg', 'jpeg', 'png', 'webp'])
+                ok_all = _set_site_setting(PAYMENT_GUIDE_QR_KEY, qr_path) and ok_all
+            except ValueError as err:
+                flash(str(err), 'danger')
+                return redirect(url_for('payment_guide_settings'))
+
         if ok_all:
             flash("To'lov yo'riqnomasi saqlandi", "success")
         else:
@@ -8138,7 +8265,8 @@ def payment_guide_settings():
     return render_template(
         'website/payment_guide.html',
         guide_values=guide_values,
-        guide_defaults=guide_defaults
+        guide_defaults=guide_defaults,
+        qr_image=_get_site_setting(PAYMENT_GUIDE_QR_KEY)
     )
 
 @bp.route('/fmadmin/website/news/edit/<int:news_id>', methods=['GET', 'POST'])
@@ -8560,6 +8688,7 @@ def payments():
     tariff_ids = set()
     issue_ids = set()
     article_ids = set()
+    submission_fee_ids = set()
     for payment in payments_list:
         payment_type = _clean_text(payment.get('payment_type')).lower()
         ids = payment.get('ids') or []
@@ -8571,6 +8700,8 @@ def payments():
             issue_ids.add(ids[0])
         elif payment_type == 'article' and ids:
             article_ids.update(ids)
+        elif payment_type == 'submission_fee' and ids:
+            submission_fee_ids.add(ids[0])
 
     tariffs_map = {}
     if tariff_ids:
@@ -8586,6 +8717,11 @@ def payments():
     if article_ids:
         for item in db.publications.any(id=list(article_ids)).exec():
             articles_map[item['id']] = translate(item)
+
+    submissions_fee_map = {}
+    if submission_fee_ids:
+        for item in db.submissions.any(id=list(submission_fee_ids)).exec():
+            submissions_fee_map[item['id']] = item
 
     for payment in payments_list:
         payment_type = _clean_text(payment.get('payment_type')).lower()
@@ -8619,6 +8755,11 @@ def payments():
                 payment['item_label'] = label
             else:
                 payment['item_label'] = _msg_text("Maqola(lar)", "Статья(и)", "Article(s)")
+        elif payment_type == 'submission_fee':
+            payment['type_label'] = _msg_text("Nashr to'lovi", "Публикационный взнос", "Publication fee")
+            submission_id_for_fee = ids[0] if ids else None
+            fee_submission = submissions_fee_map.get(submission_id_for_fee)
+            payment['item_label'] = _submission_title(fee_submission) if fee_submission else (f"Ariza #{submission_id_for_fee}" if submission_id_for_fee else '-')
         else:
             payment['type_label'] = '-'
             payment['item_label'] = '-'
@@ -8636,6 +8777,8 @@ def payments():
 @is_superadmin_required
 def payment_edit():
     try:
+        current_user = get_current_user() or {}
+        actor_id = _parse_int(current_user.get('id'))
         _ensure_payment_snapshot_columns()
         payment_id = _parse_int(request.form.get('payment_id'))
         status = request.form.get('status')
@@ -8752,6 +8895,27 @@ def payment_edit():
                         updated_user_columns = [desc[0] for desc in cursor.description]
                         payment_user = dict(zip(updated_user_columns, updated_user_row))
 
+                submission_advanced_to_layout = None
+                if (
+                    status_changed
+                    and normalized_status == 'paid'
+                    and _clean_text(payment.get('payment_type')).lower() == 'submission_fee'
+                ):
+                    ids = payment.get('ids') or []
+                    fee_submission_id = ids[0] if isinstance(ids, (list, tuple)) and ids else None
+                    if fee_submission_id:
+                        cursor.execute("SELECT * FROM submissions WHERE id = %s FOR UPDATE", (fee_submission_id,))
+                        fee_submission_row = cursor.fetchone()
+                        if fee_submission_row:
+                            fee_submission_columns = [desc[0] for desc in cursor.description]
+                            fee_submission = dict(zip(fee_submission_columns, fee_submission_row))
+                            if _clean_text(fee_submission.get('status')).lower() == 'payment_pending':
+                                cursor.execute(
+                                    "UPDATE submissions SET status = %s, updated_at = %s WHERE id = %s",
+                                    ('in_layout', now_ts, fee_submission_id),
+                                )
+                                submission_advanced_to_layout = fee_submission
+
                 db.conn.commit()
             except Exception:
                 db.conn.rollback()
@@ -8798,6 +8962,20 @@ def payment_edit():
                 body_lines=body_lines,
                 cta_url='/dashboard/payments',
                 cta_label=localized_texts("To'lovlarni ochish", 'Открыть оплаты', 'Open payments'),
+            )
+
+        if submission_advanced_to_layout is not None:
+            fee_submission_title = _submission_title(submission_advanced_to_layout)
+            _create_role_notification(
+                target_user_id=payment_user.get('id') if payment_user else submission_advanced_to_layout.get('user_id'),
+                target_role='user',
+                title=SUBMISSION_STATUS_NOTIFICATION_TITLES.get('in_layout'),
+                message=_submission_status_notification_message('in_layout', fee_submission_title),
+                action_url='/dashboard/articles',
+                level='info',
+                event_type='submission_status_updated',
+                related_submission_id=_parse_int(submission_advanced_to_layout.get('id')),
+                actor_user_id=actor_id
             )
 
         return jsonify({'success': True})
@@ -8900,8 +9078,6 @@ def submissions():
     assigned_admin_filter = _parse_int(request.args.get('assigned_admin', '').strip())
     editor_id_filter = _parse_int(request.args.get('editor_id', '').strip())
     author_filter = _clean_text(request.args.get('author'))
-    workflow_filter = _clean_text(request.args.get('workflow_stage'))
-    review_filter = _clean_text(request.args.get('review_status'))
     created_from = _clean_text(request.args.get('created_from'))
     created_to = _clean_text(request.args.get('created_to'))
     created_from_ts = _parse_date_to_timestamp(created_from) if created_from else None
@@ -8923,8 +9099,6 @@ def submissions():
     title_filter_lower = title_filter.lower() if title_filter else ''
     author_filter_lower = author_filter.lower() if author_filter else ''
     normalized_track_filter = _normalize_admin_track(track_filter) if track_filter else ''
-    normalized_workflow_filter = workflow_filter.lower() if workflow_filter else ''
-    normalized_review_filter = review_filter.lower() if review_filter else ''
     user_id_filter_value = _parse_int(user_id_filter)
     submission_ids = [submission.get('id') for submission in submissions_rows if submission.get('id') is not None]
     assignment_rows = []
@@ -8970,15 +9144,6 @@ def submissions():
             author = authors_map.get(submission.get('main_author_id')) or {}
             author_name = _clean_text(author.get('name')).lower()
             if author_filter_lower not in author_name:
-                continue
-        if normalized_workflow_filter:
-            stage_key = _infer_workflow_stage(submission)
-            submission['workflow_stage'] = stage_key
-            if stage_key != normalized_workflow_filter:
-                continue
-        if normalized_review_filter:
-            review_status = _clean_text(submission.get('editor_review_status')).lower()
-            if review_status != normalized_review_filter:
                 continue
         if created_from_ts is not None or created_to_ts is not None:
             created_ts = _parse_int(submission.get('created_date'))
@@ -9051,8 +9216,6 @@ def submissions():
                          assigned_admin_filter=assigned_admin_filter,
                          editor_id_filter=editor_id_filter,
                          author_filter=author_filter,
-                         workflow_filter=workflow_filter,
-                         review_filter=review_filter,
                          created_from=created_from,
                          created_to=created_to,
                          users_map=users_map,
@@ -9061,7 +9224,7 @@ def submissions():
                          admin_track_choices=ADMIN_TRACK_CHOICES,
                          editor_options=editor_options,
                          current_user=current_user,
-                         workflow_stage_choices=WORKFLOW_STAGE_CHOICES,
+                         workflow_stage_choices=_submission_status_choices(_admin_language()),
                          workflow_stage_labels=WORKFLOW_STAGE_LABELS)
 
 @bp.route('/fmadmin/submissions/<int:submission_id>')
@@ -9088,7 +9251,20 @@ def submission_detail(submission_id):
     )
     submission['classification_items'] = classification_items
     submission['classification_groups'] = _group_submission_classifications(classification_items)
-    
+
+    try:
+        existing_fee_payment = (
+            db.payments.all()
+            .equal(payment_type='submission_fee')
+            .contains(ids=[submission_id])
+            .exec()
+        )
+    except Exception:
+        existing_fee_payment = []
+    if existing_fee_payment:
+        submission['payment_amount'] = existing_fee_payment[0].get('amount')
+        submission['payment_currency'] = existing_fee_payment[0].get('currency')
+
     # Получаем данные пользователя
     user = None
     if submission.get('user_id'):
@@ -9138,9 +9314,9 @@ def submission_detail(submission_id):
                          assigned_admin=assigned_admin,
                          submission_assignments=submission_assignments,
                          assignment_editors_map=assignment_editors_map,
-                         main_author=main_author, 
+                         main_author=main_author,
                          sub_authors=sub_authors,
-                         workflow_stage_choices=WORKFLOW_STAGE_CHOICES,
+                         workflow_stage_choices=_submission_status_choices(_admin_language()),
                          workflow_stage_labels=WORKFLOW_STAGE_LABELS)
 
 @bp.route('/fmadmin/submissions/documents')
@@ -9204,49 +9380,61 @@ def submission_edit():
         actor_id = _parse_int(current_user.get('id'))
         submission_id = request.form.get('submission_id')
         status = (request.form.get('status') or '').strip().lower()
-        workflow_stage = _normalize_workflow_stage(request.form.get('workflow_stage'))
         notes = request.form.get('notes', '')
 
         submission_id_int = _parse_int(submission_id)
-        if submission_id_int is None or not status:
+        if submission_id_int is None or status not in SUBMISSION_STATUS_KEYS:
             return jsonify({'success': False, 'error': 'Не все обязательные поля заполнены'})
 
-        if status == 'rejected' and not _clean_text(notes):
+        if status in STATUSES_REQUIRING_NOTE and not _clean_text(notes):
             return jsonify({
                 'success': False,
                 'error': _msg_text(
-                    "Rad etish sababi majburiy. Iltimos, izoh yozing.",
-                    "Причина отклонения обязательна. Пожалуйста, укажите комментарий.",
-                    "Rejection reason is required. Please add a note."
+                    "Sabab majburiy. Iltimos, izoh yozing.",
+                    "Причина обязательна. Пожалуйста, укажите комментарий.",
+                    "A reason is required. Please add a note."
                 )
             })
+
+        payment_amount = None
+        payment_currency = None
+        if status == 'payment_pending':
+            payment_amount = _parse_amount(request.form.get('payment_amount'))
+            payment_currency = _clean_text(request.form.get('payment_currency')).lower()
+            if payment_amount is None or payment_amount <= 0 or payment_currency not in SUBMISSION_FEE_CURRENCIES:
+                return jsonify({
+                    'success': False,
+                    'error': _msg_text(
+                        "To'lov summasi va valyutasini kiriting",
+                        "Укажите сумму и валюту платежа",
+                        "Enter the payment amount and currency"
+                    )
+                })
+
+        published_url = None
+        if status == 'published':
+            published_url = _clean_text(request.form.get('published_url'))
+            if not published_url:
+                return jsonify({
+                    'success': False,
+                    'error': _msg_text(
+                        "Nashr etilgan maqola manzilini (URL) kiriting",
+                        "Укажите адрес (URL) опубликованной статьи",
+                        "Enter the published article's URL"
+                    )
+                })
 
         submission_rows = db.submissions.all().equal(id=submission_id_int).exec()
         if not submission_rows:
             return jsonify({'success': False, 'error': 'Подача не найдена'})
         submission = submission_rows[0]
         old_status = _clean_text(submission.get('status')).lower()
-        old_stage = _normalize_workflow_stage(submission.get('workflow_stage')) or _infer_workflow_stage(submission)
         old_notes = _clean_text(submission.get('notes'))
         anti_plagiarism_file = _clean_text(submission.get('anti_plagiarism_file'))
         if not _can_access_submission(current_user, submission):
             return jsonify({'success': False, 'error': t('admin_error_no_access')})
 
-        if status == 'published':
-            workflow_stage = 'published'
-        elif status == 'rejected':
-            workflow_stage = 'rejected'
-        elif workflow_stage == 'published':
-            status = 'published'
-        elif workflow_stage == 'rejected':
-            status = 'rejected'
-        elif workflow_stage == 'anti_plagiarism' and status in {'submitted', 'pending'}:
-            status = 'in_process'
-        elif status == 'submitted' and not workflow_stage:
-            workflow_stage = 'waiting'
-
-        target_stage = workflow_stage or old_stage
-        if target_stage in {'in_review', 'recommended', 'payment', 'published'} and not anti_plagiarism_file:
+        if status in STATUSES_REQUIRING_ANTIPLAGIARISM_FILE and not anti_plagiarism_file:
             return jsonify({
                 'success': False,
                 'error': _msg_text(
@@ -9258,23 +9446,29 @@ def submission_edit():
 
         now_ts = int(datetime.datetime.now().timestamp())
 
-        # Обновляем подачу
         update_data = {
             'status': status,
             'notes': notes,
             'updated_at': now_ts
         }
-        if workflow_stage:
-            update_data['workflow_stage'] = workflow_stage
+
+        if status in STATUSES_REQUIRING_NOTE:
+            update_data['rejected_at'] = now_ts
+            update_data['rejected_by'] = actor_id
+
+        if status == 'published':
+            update_data['published_url'] = published_url
 
         result = db.submissions.all().equal(id=submission_id_int).update(**update_data).exec()
-        
+
+        if result and status == 'payment_pending':
+            _create_or_update_submission_fee_payment(submission, payment_amount, payment_currency)
+
         if result:
             new_status = _clean_text(status).lower()
-            new_stage = workflow_stage or old_stage
             new_notes = _clean_text(notes)
             publication_missing_for_web = (
-                (new_status == 'published' or new_stage == 'published')
+                new_status == 'published'
                 and not _has_publication_record_for_submission(submission)
             )
             if publication_missing_for_web:
@@ -9286,7 +9480,7 @@ def submission_edit():
                     ),
                     'warning'
                 )
-            entered_anti_plagiarism_stage = old_stage != 'anti_plagiarism' and new_stage == 'anti_plagiarism'
+            entered_plagiarism_check = old_status != 'plagiarism_check' and new_status == 'plagiarism_check'
             submission_title = _submission_title(submission)
             detail_url = url_for('submission_detail', submission_id=submission_id_int)
             author_url = '/dashboard/articles'
@@ -9297,12 +9491,17 @@ def submission_edit():
                 author_rows = db.users.all().equal(id=author_id).exec()
                 author_user = author_rows[0] if author_rows else None
 
-            status_or_stage_changed = old_status != new_status or old_stage != new_stage
+            status_changed = old_status != new_status
             notes_changed = old_notes != new_notes
-            if status_or_stage_changed or notes_changed:
+            # The dedicated "entered plagiarism_check" block below already
+            # sends a more specific, actionable notification -- skip the
+            # generic one here to avoid notifying the author twice for the
+            # same transition.
+            if (status_changed and not entered_plagiarism_check) or notes_changed:
                 changed_at_label = datetime.datetime.fromtimestamp(now_ts).strftime('%d.%m.%Y %H:%M')
-                if status_or_stage_changed:
-                    if new_status == 'published' or new_stage == 'published':
+                note_already_in_message = status_changed and new_status in STATUSES_REQUIRING_NOTE
+                if status_changed:
+                    if new_status == 'published':
                         notification_title = localized_texts(
                             "Tabriklaymiz! Maqolangiz nashr qilindi",
                             "Поздравляем! Ваша статья опубликована",
@@ -9313,20 +9512,19 @@ def submission_edit():
                             f'Ваша статья "{submission_title}" успешно опубликована.',
                             f'Your article "{submission_title}" was published successfully.',
                         )
-                        notification_event = 'submission_published'
                     else:
-                        notification_title = localized_texts(
+                        notification_title = SUBMISSION_STATUS_NOTIFICATION_TITLES.get(new_status) or localized_texts(
                             "Maqolangiz holati yangilandi",
                             "Статус вашей статьи обновлён",
                             "Your article status was updated"
                         )
-                        notification_message = _status_stage_change_message(
-                            submission_title,
-                            new_status,
-                            new_stage,
+                        notification_message = _submission_status_notification_message(
+                            new_status, submission_title, notes=new_notes if note_already_in_message else ''
                         )
-                        notification_event = 'submission_status_updated'
+                    notification_event = 'submission_published' if new_status == 'published' else 'submission_status_updated'
+                    author_target_url = (published_url or author_url) if new_status == 'published' else author_url
                 else:
+                    author_target_url = author_url
                     notification_title = localized_texts(
                         "Maqola izohi yangilandi",
                         "Комментарий к статье обновлён",
@@ -9345,38 +9543,35 @@ def submission_edit():
                         target_role='user',
                         title=notification_title,
                         message=notification_message,
-                        action_url=author_url,
+                        action_url=author_target_url,
                         level='info',
                         event_type=notification_event,
                         related_submission_id=submission_id_int,
                         actor_user_id=actor_id
                     )
-                    email_body_lines = []
-                    if entered_anti_plagiarism_stage:
-                        email_body_lines.append(
-                            _msg_text(
-                                "Iltimos, dashboard orqali antiplagiat hujjatini yuklang.",
-                                "Пожалуйста, загрузите антиплагиат-документ через личный кабинет.",
-                                "Please upload the anti-plagiarism document from your dashboard."
+                    if new_status in EMAIL_NOTIFIED_STATUSES or not status_changed:
+                        email_body_lines = []
+                        if new_notes and not note_already_in_message:
+                            email_body_lines.append(
+                                _msg_text(
+                                    f"Admin izohi: {new_notes}",
+                                    f"Комментарий администратора: {new_notes}",
+                                    f"Admin note: {new_notes}"
+                                )
                             )
-                        )
-                    elif new_notes:
-                        email_body_lines.append(
-                            _msg_text(
-                                f"Admin izohi: {new_notes}",
-                                f"Комментарий администратора: {new_notes}",
-                                f"Admin note: {new_notes}"
-                            )
-                        )
 
-                    _send_user_email(
-                        author_user,
-                        subject=notification_title,
-                        intro=notification_message,
-                        body_lines=email_body_lines,
-                        cta_url=author_url,
-                        cta_label=localized_texts("Dashboardga o'tish", 'Перейти в кабинет', 'Go to dashboard'),
-                    )
+                        _send_user_email(
+                            author_user,
+                            subject=notification_title,
+                            intro=notification_message,
+                            body_lines=email_body_lines,
+                            cta_url=author_target_url,
+                            cta_label=(
+                                localized_texts("Maqolani ko'rish", 'Посмотреть статью', 'View article')
+                                if new_status == 'published' and published_url
+                                else localized_texts("Dashboardga o'tish", 'Перейти в кабинет', 'Go to dashboard')
+                            ),
+                        )
 
                 if assigned_admin_id is not None and assigned_admin_id != actor_id:
                     _create_role_notification(
@@ -9403,7 +9598,7 @@ def submission_edit():
                     exclude_user_ids=[actor_id]
                 )
 
-            if entered_anti_plagiarism_stage:
+            if entered_plagiarism_check:
                 anti_plagiarism_text = localized_texts(
                     f"\"{submission_title}\" antiplagiat bosqichiga o'tdi. Antiplagiat hujjatini yuklang.",
                     f"\"{submission_title}\" переведена на этап антиплагиата. Загрузите антиплагиат-документ.",
@@ -9476,12 +9671,7 @@ def submissions_bulk_action():
     action = _clean_text(request.form.get('action')).lower()
     current_user = get_current_user() or {}
 
-    allowed_actions = {
-        'set_submitted': {'status': 'submitted', 'workflow_stage': 'waiting'},
-        'set_in_process': {'status': 'in_process', 'workflow_stage': 'technical_check'},
-        'set_published': {'status': 'published', 'workflow_stage': 'published'},
-        'set_rejected': {'status': 'rejected', 'workflow_stage': 'rejected'},
-    }
+    allowed_actions = {f'set_{key}': {'status': key} for key in SUBMISSION_STATUSES}
     if action not in allowed_actions:
         new_alert(_msg_text("Noma'lum amal", 'Неизвестное действие', 'Unknown action'), 'danger')
         return redirect(url_for('submissions'))
@@ -10647,9 +10837,45 @@ def assign_editors(submission_id):
                 update_payload['completion_reminder_level'] = ''
                 if existing_assignment.get('admin_decision') == 'revision_requested':
                     update_payload['admin_decision'] = 'pending'
-                if update_payload:
-                    db.editor_assignments.all().equal(id=existing_assignment.get('id')).update(**update_payload).exec()
-                    updated_count += 1
+
+                reactivated = False
+                if existing_assignment.get('status') in EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES:
+                    # Editor already submitted a review for this submission --
+                    # re-assigning them (e.g. after a revision round) must
+                    # reopen the assignment, or it stays stuck as
+                    # reviewed/rejected and the editor can no longer act on it.
+                    next_round = (_parse_int(existing_assignment.get('revision_round')) or 1) + 1
+                    update_payload['status'] = 'pending'
+                    update_payload['admin_decision'] = 'pending'
+                    update_payload['reviewed_at'] = None
+                    update_payload['accepted_at'] = None
+                    update_payload['revision_round'] = next_round
+                    reactivated = True
+
+                db.editor_assignments.all().equal(id=existing_assignment.get('id')).update(**update_payload).exec()
+                updated_count += 1
+
+                if reactivated:
+                    _create_role_notification(
+                        target_user_id=editor_id,
+                        target_role='editor',
+                        title=localized_texts(
+                            "Maqola qayta ko'rib chiqish uchun qayta yuborildi",
+                            "Статья повторно направлена на рецензирование",
+                            "Submission resent for review"
+                        ),
+                        message=localized_texts(
+                            f'"{submission.get("title") or submission_id}" maqolasi tuzatilgandan so\'ng sizga yana yuborildi',
+                            f'Статья "{submission.get("title") or submission_id}" снова направлена вам после доработки',
+                            f'Submission "{submission.get("title") or submission_id}" was sent to you again after revision'
+                        ),
+                        action_url=url_for('review_assignment', assignment_id=existing_assignment.get('id')),
+                        level='info',
+                        event_type='editor_assignment_reactivated',
+                        related_submission_id=submission_id,
+                        related_assignment_id=existing_assignment.get('id'),
+                        actor_user_id=current_user_id
+                    )
                 continue
 
             assignment_id = db.editor_assignments.add(
@@ -11006,7 +11232,7 @@ def assignment_admin_decision(assignment_id):
         return redirect(url_for('review_assignment', assignment_id=assignment_id))
 
     admin_decision = _normalize_assignment_admin_decision(request.form.get('admin_decision'))
-    if admin_decision not in {'accepted', 'revision_requested'}:
+    if admin_decision not in {'accepted', 'revision_requested', 'return_to_author'}:
         new_alert(
             _msg_text(
                 "Qarorni tanlang",
@@ -11018,6 +11244,16 @@ def assignment_admin_decision(assignment_id):
         return redirect(url_for('review_assignment', assignment_id=assignment_id))
 
     admin_comment = _clean_text(request.form.get('admin_comment'))
+
+    if admin_decision == 'return_to_author':
+        return _return_assignment_submission_to_author(
+            assignment=assignment,
+            submission=submission,
+            assignment_id=assignment_id,
+            admin_comment=admin_comment,
+            current_user_id=current_user_id,
+        )
+
     now_ts = int(datetime.datetime.now().timestamp())
 
     update_payload = {
@@ -11148,6 +11384,113 @@ def assignment_admin_decision(assignment_id):
             'success'
         )
     return redirect(url_for('review_assignment', assignment_id=assignment_id))
+
+
+def _return_assignment_submission_to_author(assignment, submission, assignment_id, admin_comment, current_user_id):
+    """Reject the submission back to the author using this editor's review as
+    grounds -- distinct from the 'revision_requested' decision above, which
+    sends the SAME review back to the editor to redo. This ends the editor's
+    task (their work stands) and starts the author-facing revision loop (see
+    `_compute_revision_reentry` in mainweb). Deliberately does NOT call
+    `_refresh_submission_editor_review_status` afterward -- that would
+    recompute workflow_stage from assignment statuses and could overwrite
+    the 'rejected' status set below."""
+    if not admin_comment:
+        new_alert(
+            _msg_text(
+                "Rad etish sababi majburiy. Iltimos, izoh yozing.",
+                "Причина отклонения обязательна. Пожалуйста, укажите комментарий.",
+                "Rejection reason is required. Please add a note."
+            ),
+            'danger'
+        )
+        return redirect(url_for('review_assignment', assignment_id=assignment_id))
+
+    now_ts = int(datetime.datetime.now().timestamp())
+    submission_id_int = _parse_int(assignment.get('submission_id'))
+
+    # Acknowledge the editor's work is done -- the objection is the admin's
+    # to raise with the author, not something the editor needs to redo.
+    db.editor_assignments.all().equal(id=assignment_id).update(
+        admin_decision='accepted',
+        admin_comment=admin_comment,
+        admin_decided_by=current_user_id,
+        admin_decided_at=now_ts,
+        updated_at=now_ts
+    ).exec()
+
+    db.submissions.all().equal(id=submission_id_int).update(
+        status='revision_required',
+        rejected_at=now_ts,
+        rejected_by=current_user_id,
+        notes=admin_comment,
+        updated_at=now_ts
+    ).exec()
+
+    submission_title = _submission_title(submission)
+    author_id = _parse_int(submission.get('user_id'))
+    if author_id is not None:
+        notification_title = localized_texts(
+            "Maqolangiz qayta ko'rib chiqish uchun qaytarildi",
+            "Ваша статья возвращена на доработку",
+            "Your submission was returned for revision"
+        )
+        notification_message = localized_texts(
+            f'"{submission_title}" bo\'yicha tahriz natijasiga ko\'ra tuzatish talab qilinadi. Sabab: {admin_comment}',
+            f'По результатам рецензии "{submission_title}" требуется доработка. Причина: {admin_comment}',
+            f'"{submission_title}" needs revision based on the review outcome. Reason: {admin_comment}'
+        )
+        _create_role_notification(
+            target_user_id=author_id,
+            target_role='user',
+            title=notification_title,
+            message=notification_message,
+            action_url='/dashboard/articles',
+            level='warning',
+            event_type='submission_returned_to_author',
+            related_submission_id=submission_id_int,
+            related_assignment_id=assignment_id,
+            actor_user_id=current_user_id
+        )
+        if 'revision_required' in EMAIL_NOTIFIED_STATUSES:
+            author_rows = db.users.all().equal(id=author_id).exec()
+            author_user = author_rows[0] if author_rows else None
+            _send_user_email(
+                author_user,
+                subject=notification_title,
+                intro=notification_message,
+                body_lines=[],
+                cta_url='/dashboard/articles',
+                cta_label=localized_texts("Dashboardga o'tish", 'Перейти в кабинет', 'Go to dashboard'),
+            )
+
+    _notify_role_users(
+        'superadmin',
+        title=localized_texts("Maqola muallifga qaytarildi", "Статья возвращена автору", "Submission returned to author"),
+        message=localized_texts(
+            f'"{submission_title}" tahriz natijasiga ko\'ra muallifga qaytarildi',
+            f'"{submission_title}" возвращена автору по результатам рецензии',
+            f'"{submission_title}" was returned to the author based on the review outcome'
+        ),
+        action_url=url_for('submission_detail', submission_id=submission_id_int),
+        level='warning',
+        event_type='submission_returned_to_author',
+        related_submission_id=submission_id_int,
+        related_assignment_id=assignment_id,
+        actor_user_id=current_user_id,
+        exclude_user_ids=[current_user_id]
+    )
+
+    new_alert(
+        _msg_text(
+            "Maqola muallifga tuzatish uchun qaytarildi",
+            "Статья возвращена автору на доработку",
+            "Submission was returned to the author for revision"
+        ),
+        'success'
+    )
+    return redirect(url_for('submission_detail', submission_id=submission_id_int))
+
 
 def register(app):
     app.register_blueprint(bp)

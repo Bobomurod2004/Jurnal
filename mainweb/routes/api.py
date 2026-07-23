@@ -25,6 +25,13 @@ from utils.private_uploads import build_private_upload_ref, private_upload_abspa
 from utils.roles import hydrate_user_roles, user_has_permission, user_has_role
 from utils.uploads import allowed_file
 from werkzeug.security import generate_password_hash, check_password_hash
+from shared.submission_status import (
+    SUBMISSION_STATUSES,
+    SUBMISSION_STATUS_KEYS,
+    RESUBMITTABLE_STATUSES,
+    STATUSES_REQUIRING_ANTIPLAGIARISM_FILE,
+    is_resubmittable,
+)
 
 
 SUBMISSION_TRACK_ABSTRACT_WORD_LIMITS = {
@@ -39,16 +46,10 @@ SUBMISSION_TRACK_WORD_COUNT_LIMITS = {
     'teacher': (4000, 7000)
 }
 
-SUBMISSION_WORKFLOW_STAGES = (
-    'waiting',
-    'technical_check',
-    'anti_plagiarism',
-    'in_review',
-    'recommended',
-    'payment',
-    'published',
-    'rejected'
-)
+# Kept under the old name for minimal diff -- now the single canonical
+# 11-value status enum (shared/submission_status.py) instead of the
+# separate status+workflow_stage combination.
+SUBMISSION_WORKFLOW_STAGES = tuple(SUBMISSION_STATUSES)
 
 SUBMISSION_EXTRA_COLUMN_TYPES = {
     'submission_track': 'text',
@@ -66,8 +67,16 @@ SUBMISSION_EXTRA_COLUMN_TYPES = {
     'anti_plagiarism_file': 'text',
     'anti_plagiarism_checked_at': 'bigint',
     'anti_plagiarism_checked_by': 'integer',
-    'related_submission_id': 'integer'
+    'related_submission_id': 'integer',
+    'revision_number': 'integer DEFAULT 1',
+    'rejection_origin': 'text',
+    'rejected_at': 'bigint',
+    'rejected_by': 'integer',
+    'revision_allowed': 'boolean DEFAULT true',
+    'last_revision_submitted_at': 'bigint'
 }
+
+EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES = {'reviewed', 'rejected'}
 
 USER_EXTRA_COLUMN_TYPES = {
     'admin_tracks': 'text[]',
@@ -2165,6 +2174,159 @@ def _filter_submission_payload(payload):
     return {key: value for key, value in payload.items() if key in SUBMISSION_COLUMNS}
 
 
+def _compute_revision_reentry(existing):
+    """Decide where a submission re-enters the pipeline once the author fixes
+    it and resubmits, based on its current (resubmittable) status -- the
+    status value alone now carries this, no separate rejection_origin needed.
+    Returns (status, needs_editor_reactivation)."""
+    current_status = str((existing or {}).get('status') or '').strip().lower()
+    if current_status == 'revision_required':
+        # An editor (or a late admin objection after review) asked for a fix --
+        # send it back to the SAME editor's queue rather than restarting review.
+        return 'under_review', True
+    # 'failed_technical_check' (or any unexpected/legacy value): safest,
+    # most conservative re-entry point -- redo the technical check. No need
+    # to clear anti_plagiarism_file: the upload flow already supports
+    # re-uploading while status=='plagiarism_check'.
+    return 'pending', False
+
+
+def _reactivate_editor_assignments_for_revision(submission_id):
+    """Reset this submission's already-reviewed editor assignments back to
+    'pending' with fresh deadlines, so the SAME reviewer(s) see the revised
+    manuscript -- preserving blind-review continuity across revision cycles."""
+    now_ts = int(time.time())
+    acceptance_deadline_at = now_ts + 24 * 60 * 60
+    completion_deadline_at = now_ts + 5 * 24 * 60 * 60
+
+    try:
+        assignment_rows = dbc.editor_assignments.get(submission_id=submission_id).any(
+            status=list(EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES)
+        ).exec()
+    except Exception:
+        logger.exception('Failed to load editor_assignments for revision reactivation, submission_id=%s', submission_id)
+        return []
+
+    reactivated_editor_ids = []
+    for assignment in assignment_rows:
+        assignment_id = _parse_int(assignment.get('id'))
+        if assignment_id is None:
+            continue
+        next_round = (_parse_int(assignment.get('revision_round')) or 1) + 1
+        try:
+            dbc.editor_assignments.get(id=assignment_id).update(
+                status='pending',
+                admin_decision='pending',
+                reviewed_at=None,
+                revision_round=next_round,
+                acceptance_deadline_at=acceptance_deadline_at,
+                completion_deadline_at=completion_deadline_at,
+                accepted_at=None,
+                acceptance_reminder_level='',
+                completion_reminder_level='',
+                updated_at=now_ts
+            ).exec()
+            editor_id = _parse_int(assignment.get('editor_id'))
+            if editor_id is not None:
+                reactivated_editor_ids.append(editor_id)
+        except Exception:
+            logger.exception('Failed to reactivate editor_assignment id=%s for revision', assignment_id)
+    return reactivated_editor_ids
+
+
+def _log_submission_revision(existing, actor_user_id, now_ts):
+    """Snapshot the pre-resubmit rejection state into submission_revision_log
+    before it gets cleared on the submission row -- this is the durable
+    audit trail of "who rejected it, why, and when it was fixed"."""
+    submission_id = _parse_int((existing or {}).get('id'))
+    if submission_id is None:
+        return
+    try:
+        dbc.submission_revision_log.add(
+            submission_id=submission_id,
+            revision_number=_parse_int((existing or {}).get('revision_number')) or 1,
+            rejection_origin=_clean_text((existing or {}).get('rejection_origin')) or None,
+            rejected_by=_parse_int((existing or {}).get('rejected_by')),
+            rejected_at=_parse_int((existing or {}).get('rejected_at')),
+            rejection_notes=_clean_text((existing or {}).get('notes')) or None,
+            resubmitted_at=now_ts,
+            resubmitted_by=_parse_int(actor_user_id),
+            created_at=now_ts
+        ).exec()
+    except Exception:
+        logger.exception('Failed to write submission_revision_log for submission_id=%s', submission_id)
+
+
+def _notify_submission_revision_resubmitted(submission, actor_user_id, reactivated_editor_ids):
+    submission_id = _parse_int((submission or {}).get('id'))
+    if submission_id is None:
+        return
+    title = _submission_title(submission)
+    action_url = f"/fmadmin/submissions/{submission_id}"
+
+    assigned_admin_id = _parse_int((submission or {}).get('assigned_admin_id'))
+    if assigned_admin_id is not None:
+        _create_role_notification(
+            target_user_id=assigned_admin_id,
+            target_role='admin',
+            title=localized_texts(
+                "Maqola tuzatilib qayta yuborildi",
+                "Статья исправлена и отправлена повторно",
+                "Submission was revised and resubmitted"
+            ),
+            message=localized_texts(
+                f'"{title}" muallif tomonidan tuzatilib qayta yuborildi',
+                f'Статья "{title}" исправлена автором и отправлена повторно',
+                f'"{title}" was fixed by the author and resubmitted'
+            ),
+            action_url=action_url,
+            level='info',
+            event_type='submission_revised',
+            related_submission_id=submission_id,
+            actor_user_id=actor_user_id
+        )
+
+    for editor_id in reactivated_editor_ids:
+        _create_role_notification(
+            target_user_id=editor_id,
+            target_role='editor',
+            title=localized_texts(
+                "Qayta ko'rib chiqilgan maqola",
+                "Пересмотренная статья",
+                "Revised submission"
+            ),
+            message=localized_texts(
+                f'"{title}" muallif tomonidan tuzatildi, qayta ko\'rib chiqishingiz kerak',
+                f'Статья "{title}" исправлена автором, требуется повторная рецензия',
+                f'"{title}" was revised by the author and needs another review'
+            ),
+            action_url='/fmadmin/editor-assignments',
+            level='info',
+            event_type='submission_revised',
+            related_submission_id=submission_id,
+            actor_user_id=actor_user_id
+        )
+
+    _notify_role_users(
+        'superadmin',
+        title=localized_texts(
+            "Maqola tuzatilib qayta yuborildi",
+            "Статья исправлена и отправлена повторно",
+            "Submission was revised and resubmitted"
+        ),
+        message=localized_texts(
+            f'"{title}" muallif tomonidan tuzatilib qayta yuborildi',
+            f'Статья "{title}" исправлена автором и отправлена повторно',
+            f'"{title}" was fixed by the author and resubmitted'
+        ),
+        action_url=action_url,
+        level='info',
+        event_type='submission_revised',
+        related_submission_id=submission_id,
+        actor_user_id=actor_user_id
+    )
+
+
 def _prepare_submission_payload(data, user_id, status, existing=None, is_new=False):
     existing = existing or {}
     now = int(time.time())
@@ -2183,17 +2345,9 @@ def _prepare_submission_payload(data, user_id, status, existing=None, is_new=Fal
     submission_track = _normalize_submission_track(_coalesce(data.get('submission_track'), existing.get('submission_track')))
     if submission_track is None:
         submission_track = _normalize_submission_track(existing.get('submission_track'))
-    workflow_stage = _normalize_workflow_stage(_coalesce(data.get('workflow_stage'), existing.get('workflow_stage')))
     keywords = _parse_text_list(_coalesce(data.get('keywords'), existing.get('keywords')))
     word_count_raw = _parse_int(_coalesce(data.get('word_count'), existing.get('word_count')))
     word_count = word_count_raw if word_count_raw is not None else 0
-
-    if status == 'submitted' and workflow_stage is None:
-        workflow_stage = 'waiting'
-    elif status == 'published':
-        workflow_stage = 'published'
-    elif status == 'rejected':
-        workflow_stage = 'rejected'
 
     title = _pick_primary_text(
         _coalesce(data.get('title'), existing.get('title')),
@@ -2234,7 +2388,6 @@ def _prepare_submission_payload(data, user_id, status, existing=None, is_new=Fal
         'file_anonymized': _to_submission_file(_coalesce(data.get('file_anonymized'), existing.get('file_anonymized'))),
         'updated_at': now,
         'submission_track': submission_track,
-        'workflow_stage': workflow_stage,
         'title_uz': title_uz,
         'title_ru': title_ru,
         'title_en': title_en,
@@ -2366,7 +2519,6 @@ def _merge_submission_for_response(saved_submission, source_payload):
     merged = dict(saved_submission or {})
     for key in (
         'submission_track',
-        'workflow_stage',
         'assigned_admin_id',
         'anti_plagiarism_file',
         'anti_plagiarism_checked_at',
@@ -2512,7 +2664,7 @@ def app__api_article_submit():
         submission_payload = _prepare_submission_payload(
             data=data,
             user_id=user_id,
-            status='submitted',
+            status='pending',
             existing=existing,
             is_new=not bool(existing)
         )
@@ -2533,11 +2685,30 @@ def app__api_article_submit():
             )
             submission_payload['assigned_admin_id'] = assigned_admin_id
 
+        now_ts = int(time.time())
+        is_revision = bool(existing) and is_resubmittable(str(existing.get('status') or '').strip().lower())
+        needs_editor_reactivation = False
+        if is_revision:
+            revision_status, needs_editor_reactivation = _compute_revision_reentry(existing)
+            submission_payload['status'] = revision_status
+            submission_payload['revision_number'] = (_parse_int(existing.get('revision_number')) or 1) + 1
+            submission_payload['rejected_at'] = None
+            submission_payload['rejected_by'] = None
+            submission_payload['last_revision_submitted_at'] = now_ts
+
         db_payload = _filter_submission_payload(submission_payload)
         if submission_id:
             updated = dbc.submissions.get(id=submission_id, user_id=user_id).update(**db_payload).exec()
             saved_submission = updated[0] if updated else dbc.submissions.get(id=submission_id, user_id=user_id).exec()[0]
-            _notify_submission_submitted(saved_submission, actor_user_id=user_id)
+            if is_revision:
+                _log_submission_revision(existing, actor_user_id=user_id, now_ts=now_ts)
+                reactivated_editor_ids = (
+                    _reactivate_editor_assignments_for_revision(submission_id)
+                    if needs_editor_reactivation else []
+                )
+                _notify_submission_revision_resubmitted(saved_submission, actor_user_id=user_id, reactivated_editor_ids=reactivated_editor_ids)
+            else:
+                _notify_submission_submitted(saved_submission, actor_user_id=user_id)
             response_payload = _submission_response_payload(_merge_submission_for_response(saved_submission, submission_payload))
             return jsonify({
                 'success': True,
@@ -2593,11 +2764,10 @@ def app__api_article_upload():
             if submission_id is None or submission is None:
                 return jsonify({'success': False, 'message': 'Submission not found'})
 
-            workflow_stage = _normalize_workflow_stage(submission.get('workflow_stage'))
-            if workflow_stage != 'anti_plagiarism':
+            if _clean_text(submission.get('status')).lower() != 'plagiarism_check':
                 return jsonify({
                     'success': False,
-                    'message': 'Anti-plagiarism document can only be uploaded in anti_plagiarism stage'
+                    'message': 'Anti-plagiarism document can only be uploaded during the plagiarism check stage'
                 })
 
         filename = secure_filename(file.filename)
@@ -2647,81 +2817,6 @@ def app__api_article_load(submission_id):
     response_payload = _submission_response_payload(submission)
     return jsonify({'success': True, **response_payload})
 
-
-def app__api_article_resubmit():
-    if not request.is_json:
-        return jsonify({'success': False, 'message': 'Invalid request format - JSON expected'})
-
-    data = request.get_json() or {}
-    user_id = session.get('user_id')
-    if not user_id:
-        return jsonify({'success': False, 'message': 'User not logged in'})
-
-    submission_id = _parse_int(data.get('submission_id'))
-    if submission_id is None:
-        return jsonify({'success': False, 'message': 'Submission not found'})
-
-    submission_rows = dbc.submissions.get(id=submission_id, user_id=user_id).exec()
-    if not submission_rows:
-        return jsonify({'success': False, 'message': 'Submission not found'})
-
-    submission = submission_rows[0]
-    status = _clean_text(submission.get('status'))
-    if (status or '').lower() != 'rejected':
-        return jsonify({'success': False, 'message': 'Only rejected submissions can be resubmitted'})
-
-    now_ts = int(time.time())
-    payload = {
-        'user_id': user_id,
-        'status': 'draft',
-        'title': submission.get('title'),
-        'abstract': submission.get('abstract'),
-        'keywords': submission.get('keywords'),
-        'classifications': submission.get('classifications'),
-        'is_special': submission.get('is_special'),
-        'is_dataset': submission.get('is_dataset'),
-        'check_copyright': submission.get('check_copyright'),
-        'check_ethical': submission.get('check_ethical'),
-        'check_consent': submission.get('check_consent'),
-        'check_acknowledgements': submission.get('check_acknowledgements'),
-        'is_used_previous': submission.get('is_used_previous'),
-        'word_count': submission.get('word_count'),
-        'is_corresponding_author': submission.get('is_corresponding_author'),
-        'main_author_id': submission.get('main_author_id'),
-        'sub_author_ids': submission.get('sub_author_ids'),
-        'is_competing_interests': submission.get('is_competing_interests'),
-        'file_authors': submission.get('file_authors'),
-        'file_anonymized': submission.get('file_anonymized'),
-        'submission_track': submission.get('submission_track'),
-        'title_uz': submission.get('title_uz'),
-        'title_ru': submission.get('title_ru'),
-        'title_en': submission.get('title_en'),
-        'title_other': submission.get('title_other'),
-        'abstract_uz': submission.get('abstract_uz'),
-        'abstract_ru': submission.get('abstract_ru'),
-        'abstract_en': submission.get('abstract_en'),
-        'abstract_other': submission.get('abstract_other'),
-        'other_language_name': submission.get('other_language_name'),
-        'notes': None,
-        'workflow_stage': None,
-        'assigned_admin_id': None,
-        'anti_plagiarism_file': None,
-        'anti_plagiarism_checked_at': None,
-        'anti_plagiarism_checked_by': None,
-        'editor_review_status': None,
-        'related_submission_id': submission_id,
-        'created_date': now_ts,
-        'updated_at': now_ts
-    }
-
-    db_payload = _filter_submission_payload(payload)
-    created = dbc.submissions.add(**db_payload).exec()
-    new_submission = created[0] if isinstance(created, list) and created else created
-    new_id = _parse_int((new_submission or {}).get('id'))
-    if new_id is None:
-        return jsonify({'success': False, 'message': 'Failed to create resubmission'})
-
-    return jsonify({'success': True, 'submission_id': new_id})
 
 def app__api_payment_submit_proof():
     user_id = session.get('user_id')
@@ -3301,7 +3396,6 @@ def register(app):
     app.add_url_rule('/api/article/submit', view_func=author_login_required(app__api_article_submit), methods=['POST'])
     app.add_url_rule('/api/article/upload', view_func=author_login_required(app__api_article_upload), methods=['POST'])
     app.add_url_rule('/api/article/load/<int:submission_id>', view_func=author_login_required(app__api_article_load))
-    app.add_url_rule('/api/article/resubmit', view_func=author_login_required(app__api_article_resubmit), methods=['POST'])
     app.add_url_rule('/api/payment/submit_proof', view_func=login_required(app__api_payment_submit_proof), methods=['POST'])
     app.add_url_rule('/api/payment/delete/<int:payment_id>', view_func=login_required(app__api_payment_delete), methods=['POST'])
     app.add_url_rule('/api/subscription/cancel', view_func=login_required(app__api_subscription_cancel), methods=['POST'])

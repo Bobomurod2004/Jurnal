@@ -37,35 +37,11 @@
                     <div class="col-sm-9">
                         {% if submission.status == 'draft' %}
                         <span class="badge bg-secondary-lt">{{ t("admin_status_draft") }}</span>
-                        {% elif submission.status == 'submitted' %}
-                        <span class="badge bg-primary-lt">{{ t("admin_status_submitted") if t("admin_status_submitted") != "admin_status_submitted" else "Yuborilgan" }}</span>
-                        {% elif submission.status == 'published' %}
-                        <span class="badge bg-success-lt">{{ t("admin_status_published") }}</span>
-                        {% elif submission.status == 'in_process' %}
-                        <span class="badge bg-warning-lt">{{ t("admin_status_in_process") }}</span>
-                        {% elif submission.status == 'rejected' %}
-                        <span class="badge bg-danger-lt">{{ t("admin_status_rejected") }}</span>
                         {% else %}
-                        <span class="badge bg-light">{{ submission.status or t("admin_label_not_specified") }}</span>
+                        <span class="badge bg-{{ submission_status_badge_tone(submission.status) }}-lt">{{ submission_status_label(submission.status) }}</span>
                         {% endif %}
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-sm-3">
-                        <strong>Jarayon:</strong>
-                    </div>
-                    <div class="col-sm-9">
-                        {% if submission.workflow_stage == 'published' %}
-                        <span class="badge bg-success-lt">{{ submission.workflow_stage_label }}</span>
-                        {% elif submission.workflow_stage == 'rejected' %}
-                        <span class="badge bg-danger-lt">Rad etilgan</span>
-                        {% elif submission.workflow_stage == 'recommended' %}
-                        <span class="badge bg-indigo-lt">{{ submission.workflow_stage_label }}</span>
-                        {% elif submission.workflow_stage == 'payment' %}
-                        <span class="badge bg-orange-lt">{{ submission.workflow_stage_label }}</span>
-                        {% else %}
-                        <span class="badge bg-blue-lt">{{ submission.workflow_stage_label }}</span>
+                        {% if submission.revision_number and submission.revision_number > 1 %}
+                        <span class="badge bg-secondary-lt ms-1">{{ t('revision_number_short') }} #{{ submission.revision_number }}</span>
                         {% endif %}
                     </div>
                 </div>
@@ -96,29 +72,6 @@
                     </div>
                     <div class="col-sm-9">
                         <span class="badge bg-blue-lt">{{ submission.submission_track_label }}</span>
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-sm-3">
-                        <strong>Tahriz holati:</strong>
-                    </div>
-                    <div class="col-sm-9">
-                        {% if submission.editor_review_status == 'not_assigned' %}
-                        <span class="badge bg-secondary-lt">{{ t("admin_review_status_not_assigned") }}</span>
-                        {% elif submission.editor_review_status == 'assigned' %}
-                        <span class="badge bg-warning-lt">{{ t("admin_review_status_assigned") }}</span>
-                        {% elif submission.editor_review_status == 'in_review' %}
-                        <span class="badge bg-info-lt">{{ t("admin_review_status_in_review") }}</span>
-                        {% elif submission.editor_review_status == 'reviewed' %}
-                        <span class="badge bg-primary-lt">{{ t("admin_review_status_reviewed") }}</span>
-                        {% elif submission.editor_review_status == 'approved' %}
-                        <span class="badge bg-success-lt">{{ t("admin_review_status_approved") }}</span>
-                        {% elif submission.editor_review_status == 'rejected' %}
-                        <span class="badge bg-danger-lt">{{ t("admin_review_status_rejected") }}</span>
-                        {% else %}
-                        <span class="badge bg-light">{{ submission.editor_review_status or t("admin_label_not_specified") }}</span>
-                        {% endif %}
                     </div>
                 </div>
 
@@ -207,7 +160,7 @@
             <div class="card-header">
                 <h3 class="card-title">Tahriz topshiriqlari</h3>
                 <div class="card-actions">
-                    {% if submission.file_anonymized and submission.anti_plagiarism_file and submission.status in ['submitted', 'in_process'] %}
+                    {% if submission.file_anonymized and submission.anti_plagiarism_file and submission.status in ['pending', 'passed_technical_check', 'plagiarism_check'] %}
                     <form method="post" action="{{ url_for('auto_assign_editor', submission_id=submission.id) }}" class="d-inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button type="submit" class="btn btn-sm btn-outline-secondary me-2">
@@ -321,27 +274,47 @@
 
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_status") }}</label>
-                        <select class="form-select" name="status" required>
-                            <option value="submitted" {% if submission.status=='submitted' %}selected{% endif %}>{{
-                                t("admin_status_submitted") if t("admin_status_submitted") != "admin_status_submitted" else "Yuborilgan" }}</option>
-                            <option value="in_process" {% if submission.status=='in_process' %}selected{% endif %}>{{
-                                t("admin_status_in_process") }}</option>
-                            <option value="published" {% if submission.status=='published' %}selected{% endif %}>{{
-                                t("admin_status_published") }}</option>
-                            <option value="rejected" {% if submission.status=='rejected' %}selected{% endif %}>{{
-                                t("admin_status_rejected") }}</option>
+                        <select class="form-select" name="status" id="submissionStatusSelect" required>
+                            {% for status_key, status_label in workflow_stage_choices %}
+                            <option value="{{ status_key }}" {% if submission.status==status_key %}selected{% endif %}>{{ status_label }}</option>
+                            {% endfor %}
                         </select>
+                        <small class="form-hint">"Texnik tekshiruvdan o'tmadi", "Tuzatish kutilmoqda" va "Rad etildi" uchun izoh majburiy.</small>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Jarayon bosqichi</label>
-                        <select class="form-select" name="workflow_stage">
-                            {% for stage_key, stage_label in workflow_stage_choices %}
-                            <option value="{{ stage_key }}" {% if submission.workflow_stage==stage_key %}selected{% endif %}>{{ stage_label }}</option>
-                            {% endfor %}
-                            <option value="rejected" {% if submission.workflow_stage=='rejected' %}selected{% endif %}>Rad etilgan</option>
-                        </select>
+                    <div class="row mb-3" id="paymentAmountFields" style="display: none;">
+                        <div class="col-6">
+                            <label class="form-label">To'lov summasi</label>
+                            <input type="text" class="form-control" name="payment_amount" value="{{ submission.payment_amount or '' }}" placeholder="masalan: 500000">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Valyuta</label>
+                            <select class="form-select" name="payment_currency">
+                                <option value="uzs" {% if submission.payment_currency=='uzs' %}selected{% endif %}>UZS</option>
+                                <option value="usd" {% if submission.payment_currency=='usd' %}selected{% endif %}>USD</option>
+                                <option value="rub" {% if submission.payment_currency=='rub' %}selected{% endif %}>RUB</option>
+                            </select>
+                        </div>
                     </div>
+                    <div class="mb-3" id="publishedUrlField" style="display: none;">
+                        <label class="form-label">Nashr etilgan maqola manzili (URL)</label>
+                        <input type="text" class="form-control" name="published_url" value="{{ submission.published_url or '' }}" placeholder="masalan: /article/123">
+                        <small class="form-hint">Avval Website → Articles bo'limida nashr yozuvini yarating, so'ng uning havolasini shu yerga qo'ying.</small>
+                    </div>
+
+                    <script>
+                        (function () {
+                            var statusSelect = document.getElementById('submissionStatusSelect');
+                            var amountFields = document.getElementById('paymentAmountFields');
+                            var publishedUrlField = document.getElementById('publishedUrlField');
+                            function toggleAmountFields() {
+                                amountFields.style.display = statusSelect.value === 'payment_pending' ? '' : 'none';
+                                publishedUrlField.style.display = statusSelect.value === 'published' ? '' : 'none';
+                            }
+                            statusSelect.addEventListener('change', toggleAmountFields);
+                            toggleAmountFields();
+                        })();
+                    </script>
 
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_admin_notes") }}</label>
@@ -434,6 +407,21 @@
                 <p><strong>{{ t("admin_authors_updated_at") }}:</strong> {{ submission.updated_at | timestamp_to_date }}
                 </p>
                 {% endif %}
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title">Muallif bilan yozishmalar</h3>
+            </div>
+            <div class="card-body p-0">
+                <div id="author-message-list" class="d-flex flex-column gap-2 p-3" style="height: 22rem; overflow-y: auto;"></div>
+                <form id="author-message-form" class="d-flex gap-2 border-top p-3">
+                    <input type="text" id="author-message-input" maxlength="4000" class="form-control" placeholder="Xabar yozing..." autocomplete="off">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="ti ti-send"></i>
+                    </button>
+                </form>
             </div>
         </div>
     </div>
@@ -562,5 +550,131 @@
             });
         }
     });
+</script>
+<script>
+(function () {
+    const submissionId = {{ submission.id|tojson }};
+    const currentUserId = {{ (session.get('fmadmin_user') or {}).get('id')|tojson }};
+    const listEl = document.getElementById('author-message-list');
+    const formEl = document.getElementById('author-message-form');
+    const inputEl = document.getElementById('author-message-input');
+    if (!listEl || !formEl || !inputEl) {
+        return;
+    }
+    let lastMessageId = 0;
+    const ticks = {};
+
+    function formatTimestamp(ts) {
+        try { return new Date(ts * 1000).toLocaleString(); } catch (e) { return ''; }
+    }
+
+    function markTickRead(tickEl) {
+        tickEl.textContent = '✓✓';
+        tickEl.style.opacity = '1';
+        tickEl.style.color = '#6ea8fe';
+    }
+
+    function appendMessage(message) {
+        if (document.querySelector('[data-author-message-id="' + message.id + '"]')) {
+            return;
+        }
+        const isAdminSide = message.sender_role !== 'user' && message.sender_role !== 'author';
+        const isMine = message.sender_user_id === currentUserId;
+        const row = document.createElement('div');
+        row.className = 'd-flex ' + (isAdminSide ? 'justify-content-end' : 'justify-content-start');
+        row.dataset.authorMessageId = message.id;
+        const bubble = document.createElement('div');
+        bubble.className = 'rounded p-2 ' + (isAdminSide ? 'bg-primary text-white' : 'bg-light');
+        bubble.style.maxWidth = '75%';
+        const body = document.createElement('div');
+        body.style.whiteSpace = 'pre-wrap';
+        body.style.wordBreak = 'break-word';
+        body.textContent = message.body;
+        const meta = document.createElement('div');
+        meta.className = 'small mt-1 d-flex align-items-center justify-content-end gap-1';
+        meta.style.opacity = '0.7';
+        const time = document.createElement('span');
+        time.textContent = formatTimestamp(message.created_at);
+        meta.appendChild(time);
+        if (isMine) {
+            const tick = document.createElement('span');
+            tick.textContent = message.read ? '✓✓' : '✓';
+            if (message.read) {
+                tick.style.color = '#6ea8fe';
+            }
+            meta.appendChild(tick);
+            ticks[message.id] = tick;
+        }
+        bubble.appendChild(body);
+        bubble.appendChild(meta);
+        row.appendChild(bubble);
+        listEl.appendChild(row);
+        lastMessageId = message.id;
+        listEl.scrollTop = listEl.scrollHeight;
+    }
+
+    fetch('/fmadmin/submissions/' + submissionId + '/messages')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) {
+                data.messages.forEach(appendMessage);
+            }
+        });
+
+    formEl.addEventListener('submit', function (event) {
+        event.preventDefault();
+        const text = inputEl.value.trim();
+        if (!text) {
+            return;
+        }
+        inputEl.disabled = true;
+        fetch('/fmadmin/submissions/' + submissionId + '/messages/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': window.csrfToken || '',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ message: text })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (result) {
+                if (!result.success) {
+                    throw new Error(result.message || 'Failed to send message');
+                }
+                appendMessage(result.message_obj);
+                inputEl.value = '';
+            })
+            .catch(function (error) {
+                alert((error && error.message) ? error.message : 'Failed to send message');
+            })
+            .finally(function () {
+                inputEl.disabled = false;
+                inputEl.focus();
+            });
+    });
+
+    function connectStream() {
+        const source = new EventSource('/fmadmin/submissions/' + submissionId + '/messages/stream?after_id=' + lastMessageId);
+        source.addEventListener('message', function (event) {
+            try { appendMessage(JSON.parse(event.data)); } catch (e) { /* ignore */ }
+        });
+        source.addEventListener('read', function (event) {
+            try {
+                const upToId = JSON.parse(event.data).up_to_id;
+                Object.keys(ticks).forEach(function (id) {
+                    if (parseInt(id, 10) <= upToId) {
+                        markTickRead(ticks[id]);
+                    }
+                });
+            } catch (e) { /* ignore */ }
+        });
+        source.onerror = function () {
+            source.close();
+            setTimeout(connectStream, 2000);
+        };
+    }
+    connectStream();
+})();
 </script>
 {% endblock %}

@@ -39,17 +39,14 @@
             <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="assigned-admin" checked> <span class="form-check-label">Biriktirilgan admin</span></label>
             <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="classification" checked> <span class="form-check-label">Tasniflar</span></label>
             <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="author" checked> <span class="form-check-label">Muallif</span></label>
-            <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="created-date" checked> <span class="form-check-label">Sana</span></label>
-            <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="workflow" checked> <span class="form-check-label">Jarayon</span></label>
-            <label class="form-check"><input class="form-check-input column-toggle" type="checkbox" data-col="review" checked> <span class="form-check-label">Review holati</span></label>
+            <label class="form-check"><input class="form-check-input column-toggle" type="checkbox" data-col="created-date" checked> <span class="form-check-label">Sana</span></label>
           </div>
         </div>
         <select class="form-select form-select-sm" name="action" style="max-width: 280px;" required>
           <option value="">Tanlanganlar bilan amal...</option>
-          <option value="set_submitted">Holat: Yuborilgan</option>
-          <option value="set_in_process">Holat: Jarayonda</option>
-          <option value="set_published">Holat: Nashr qilingan</option>
-          <option value="set_rejected">Holat: Rad etilgan</option>
+          {% for status_key, status_label in workflow_stage_choices %}
+          <option value="set_{{ status_key }}">Holat: {{ status_label }}</option>
+          {% endfor %}
         </select>
         <button type="submit" class="btn btn-sm btn-primary">Qo'llash</button>
         <span class="text-secondary small" id="bulk-selected-count">0 ta tanlandi</span>
@@ -73,8 +70,6 @@
           <th>{{ t("admin_label_status") }}</th>
           <th class="col-author">{{ t("admin_submissions_col_author") }}</th>
           <th class="col-created-date">{{ t("admin_submissions_col_date") }}</th>
-          <th class="col-workflow">Jarayon</th>
-          <th class="col-review">{{ t("admin_submissions_col_review_status") }}</th>
           <th>{{ t("admin_col_actions") }}</th>
         </tr>
         <tr class="bg-light">
@@ -123,10 +118,9 @@
           <th>
             <select class="form-select form-select-sm" name="status" form="submission-filters">
               <option value="">{{ t("admin_option_all_statuses") }}</option>
-              <option value="submitted" {% if status_filter=='submitted' %}selected{% endif %}>{{ t("admin_status_submitted") if t("admin_status_submitted") != "admin_status_submitted" else "Yuborilgan" }}</option>
-              <option value="in_process" {% if status_filter=='in_process' %}selected{% endif %}>{{ t("admin_status_in_process") }}</option>
-              <option value="published" {% if status_filter=='published' %}selected{% endif %}>{{ t("admin_status_published") }}</option>
-              <option value="rejected" {% if status_filter=='rejected' %}selected{% endif %}>{{ t("admin_status_rejected") }}</option>
+              {% for status_key, status_label in workflow_stage_choices %}
+              <option value="{{ status_key }}" {% if status_filter==status_key %}selected{% endif %}>{{ status_label }}</option>
+              {% endfor %}
             </select>
           </th>
           <th class="col-author">
@@ -140,26 +134,6 @@
               <input type="date" class="form-control form-control-sm" name="created_to"
                 value="{{ created_to }}" form="submission-filters">
             </div>
-          </th>
-          <th class="col-workflow">
-            <select class="form-select form-select-sm" name="workflow_stage" form="submission-filters">
-              <option value="">{{ t("admin_label_all") }}</option>
-              {% for stage_key, stage_label in workflow_stage_choices %}
-              <option value="{{ stage_key }}" {% if workflow_filter==stage_key %}selected{% endif %}>{{ stage_label }}</option>
-              {% endfor %}
-              <option value="rejected" {% if workflow_filter=='rejected' %}selected{% endif %}>Rad etilgan</option>
-            </select>
-          </th>
-          <th class="col-review">
-            <select class="form-select form-select-sm" name="review_status" form="submission-filters">
-              <option value="">{{ t("admin_label_all") }}</option>
-              <option value="not_assigned" {% if review_filter=='not_assigned' %}selected{% endif %}>{{ t("admin_review_status_not_assigned") }}</option>
-              <option value="assigned" {% if review_filter=='assigned' %}selected{% endif %}>{{ t("admin_review_status_assigned") }}</option>
-              <option value="in_review" {% if review_filter=='in_review' %}selected{% endif %}>{{ t("admin_review_status_in_review") }}</option>
-              <option value="reviewed" {% if review_filter=='reviewed' %}selected{% endif %}>{{ t("admin_review_status_reviewed") }}</option>
-              <option value="approved" {% if review_filter=='approved' %}selected{% endif %}>{{ t("admin_review_status_approved") }}</option>
-              <option value="rejected" {% if review_filter=='rejected' %}selected{% endif %}>{{ t("admin_review_status_rejected") }}</option>
-            </select>
           </th>
           <th></th>
         </tr>
@@ -205,16 +179,11 @@
           <td class="align-middle">
             {% if submission.status == 'draft' %}
             <span class="badge bg-secondary-lt">{{ t("admin_status_draft") }}</span>
-            {% elif submission.status == 'submitted' %}
-            <span class="badge bg-primary-lt">{{ t("admin_status_submitted") if t("admin_status_submitted") != "admin_status_submitted" else "Yuborilgan" }}</span>
-            {% elif submission.status == 'published' %}
-            <span class="badge bg-success-lt">{{ t("admin_status_published") }}</span>
-            {% elif submission.status == 'in_process' %}
-            <span class="badge bg-warning-lt">{{ t("admin_status_in_process") }}</span>
-            {% elif submission.status == 'rejected' %}
-            <span class="badge bg-danger-lt">{{ t("admin_status_rejected") }}</span>
             {% else %}
-            <span class="badge bg-light">{{ submission.status or t("admin_label_not_specified") }}</span>
+            <span class="badge bg-{{ submission_status_badge_tone(submission.status) }}-lt">{{ submission_status_label(submission.status) }}</span>
+            {% endif %}
+            {% if submission.revision_number and submission.revision_number > 1 %}
+            <span class="badge bg-secondary-lt">#{{ submission.revision_number }}</span>
             {% endif %}
           </td>
           <td class="align-middle col-author">
@@ -231,37 +200,6 @@
             {{ t("admin_label_not_specified") }}
             {% endif %}
           </td>
-          <td class="align-middle col-workflow">
-            {% if submission.workflow_stage == 'published' %}
-            <span class="badge bg-success-lt">{{ submission.workflow_stage_label }}</span>
-            {% elif submission.workflow_stage == 'rejected' %}
-            <span class="badge bg-danger-lt">Rad etilgan</span>
-            {% elif submission.workflow_stage == 'recommended' %}
-            <span class="badge bg-indigo-lt">{{ submission.workflow_stage_label }}</span>
-            {% elif submission.workflow_stage == 'payment' %}
-            <span class="badge bg-orange-lt">{{ submission.workflow_stage_label }}</span>
-            {% else %}
-            <span class="badge bg-blue-lt">{{ submission.workflow_stage_label }}</span>
-            {% endif %}
-          </td>
-          <td class="align-middle col-review">
-            {% if submission.editor_review_status == 'not_assigned' %}
-            <span class="badge bg-secondary-lt">{{ t("admin_review_status_not_assigned") }}</span>
-            {% elif submission.editor_review_status == 'assigned' %}
-            <span class="badge bg-warning-lt">{{ t("admin_review_status_assigned") }}</span>
-            {% elif submission.editor_review_status == 'in_review' %}
-            <span class="badge bg-info-lt">{{ t("admin_review_status_in_review") }}</span>
-            {% elif submission.editor_review_status == 'reviewed' %}
-            <span class="badge bg-success-lt">{{ t("admin_review_status_reviewed") }}</span>
-            {% elif submission.editor_review_status == 'approved' %}
-            <span class="badge bg-success-lt">{{ t("admin_review_status_approved") }}</span>
-            {% elif submission.editor_review_status == 'rejected' %}
-            <span class="badge bg-danger-lt">{{ t("admin_review_status_rejected") }}</span>
-            {% else %}
-            <span class="badge bg-light">{{ submission.editor_review_status or t("admin_review_status_not_assigned")
-              }}</span>
-            {% endif %}
-          </td>
           <td class="align-middle">
             <div class="btn-group" role="group">
               <a href="{{ url_for('submission_detail', submission_id=submission.id) }}"
@@ -271,11 +209,10 @@
               <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal"
                 data-bs-target="#editSubmissionModal" data-submission-id="{{ submission.id }}"
                 data-submission-status="{{ submission.status or '' }}"
-                data-submission-workflow-stage="{{ submission.workflow_stage or '' }}"
                 data-submission-notes="{{ submission.notes or '' }}">
                 <i class="ti ti-edit"></i>
               </button>
-              {% if submission.status in ['submitted', 'in_process'] and submission.file_anonymized %}
+              {% if submission.status in ['pending', 'passed_technical_check', 'plagiarism_check'] and submission.file_anonymized %}
               <a href="{{ url_for('assign_editors', submission_id=submission.id) }}"
                 class="btn btn-sm btn-outline-success">
                 <i class="ti ti-user-check"></i>
@@ -329,24 +266,14 @@
           <div class="mb-3">
             <label class="form-label">{{ t("admin_label_status") }}</label>
             <select class="form-select" id="submission_status" name="status" required>
-              <option value="submitted">{{ t("admin_status_submitted") if t("admin_status_submitted") != "admin_status_submitted" else "Yuborilgan" }}</option>
-              <option value="in_process">{{ t("admin_status_in_process") }}</option>
-              <option value="published">{{ t("admin_status_published") }}</option>
-              <option value="rejected">{{ t("admin_status_rejected") }}</option>
+              {% for status_key, status_label in workflow_stage_choices %}
+              <option value="{{ status_key }}">{{ status_label }}</option>
+              {% endfor %}
             </select>
             <div class="form-text mt-1">
-              <code>Published</code> bu yerda submission jarayoni holatini yangilaydi. Mainwebda ko'rsatish uchun <code>Website → Articles</code> bo'limida alohida publication yozuvi bo'lishi kerak.
+              <code>{{ submission_status_label('published') }}</code> bu yerda submission jarayoni holatini yangilaydi. Mainwebda ko'rsatish uchun <code>Website → Articles</code> bo'limida alohida publication yozuvi bo'lishi kerak.
+              "Texnik tekshiruvdan o'tmadi", "Tuzatish kutilmoqda" va "Rad etildi" uchun izoh majburiy.
             </div>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label">Jarayon bosqichi</label>
-            <select class="form-select" id="submission_workflow_stage" name="workflow_stage">
-              {% for stage_key, stage_label in workflow_stage_choices %}
-              <option value="{{ stage_key }}">{{ stage_label }}</option>
-              {% endfor %}
-              <option value="rejected">Rad etilgan</option>
-            </select>
           </div>
 
           <div class="mb-3">
@@ -466,13 +393,11 @@
 
         const submissionId = button.getAttribute('data-submission-id');
         const submissionStatus = button.getAttribute('data-submission-status');
-        const submissionWorkflowStage = button.getAttribute('data-submission-workflow-stage');
         const submissionNotes = button.getAttribute('data-submission-notes');
 
         // Заполняем форму
         document.getElementById('submission_id').value = submissionId;
         document.getElementById('submission_status').value = submissionStatus;
-        document.getElementById('submission_workflow_stage').value = submissionWorkflowStage || 'waiting';
         document.getElementById('submission_notes').value = submissionNotes;
       });
     }

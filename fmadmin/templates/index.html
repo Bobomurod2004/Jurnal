@@ -272,7 +272,7 @@
                 {% else %}
                 <span class="badge badge-soft-warning">{{ submission.age_days }} kun</span>
                 {% endif %}
-                <div class="item-subtitle mt-1">{{ submission.workflow_stage }}</div>
+                <div class="item-subtitle mt-1">{{ submission_status_label(submission.workflow_stage) }}</div>
               </div>
             </div>
           </div>
@@ -301,15 +301,7 @@
                 <div class="item-subtitle mt-1">{{ submission.author_name }}</div>
               </div>
               <div class="text-end">
-                {% if submission.status == 'published' %}
-                <span class="badge bg-green-lt">published</span>
-                {% elif submission.status == 'rejected' %}
-                <span class="badge bg-red-lt">rejected</span>
-                {% elif submission.status in ['under_review', 'in_process'] %}
-                <span class="badge bg-orange-lt">{{ submission.status }}</span>
-                {% else %}
-                <span class="badge bg-secondary-lt">{{ submission.status }}</span>
-                {% endif %}
+                <span class="badge bg-{{ submission_status_badge_tone(submission.status) }}-lt">{{ submission_status_label(submission.status) }}</span>
                 <div class="item-subtitle mt-1">{{ submission.created_at | timestamp_to_date if submission.created_at else '-' }}</div>
               </div>
             </div>

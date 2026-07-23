@@ -26,7 +26,7 @@ from extensions import db
 from modules.translate import init_translations
 from hooks import register as register_hooks
 from utils.filters import register_filters
-from routes import api, web
+from routes import api, web, messages
 
 logger = logging.getLogger(__name__)
 

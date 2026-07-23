@@ -123,10 +123,7 @@ UZ = {
     'email_confirm': 'E-pochtani tasdiqlash',
     'password_confirm': 'Parolni tasdiqlash',
     'agree_terms': 'Men shartlarga roziman',
-    'agree_notifications': 'Men kafedra resurslarini va takliflarini olishni xohlayman.',
     'register_info_1': '\'Filologiya masalalari\' elektron ilmiy-metodik jurnali siz uchun shaxsiy sahifa yaratish uchun bu yerda taqdim etilgan ma\'lumotlardan foydalanadi.',
-    'register_info_2': '\'Filologiya masalalari\' elektron ilmiy-metodik jurnali sizga tegishli mahsulotlar va xizmatlar haqida takliflar va ma\'lumotlarni yuborish uchun elektron pochta manzilingizdan foydalanmoqchi. Xususan, tahririyat sizni qiziqtirishi mumkin bo\'lgan kengroq ma\'lumotlarga kirish imkoniyatini taklif qilishi mumkin.',
-    'register_info_3': 'Siz istalgan vaqtda obunani bekor qilish tugmasini bosish orqali ushbu xabarlarni olishni to\'xtatishingiz mumkin. Batafsil ma\'lumotni Nashriyotning Maxfiylik siyosatidan topishingiz mumkin.',
     'back_to_login': 'Kirishga qaytish',
     'register_button': 'Ro\'yxatdan o\'tish',
 
@@ -687,10 +684,7 @@ RU = {
     'email_confirm': 'Подтвердите E-mail',
     'password_confirm': 'Подтвердите пароль',
     'agree_terms': 'Я согласен с условиями',
-    'agree_notifications': 'Я хочу получать ресурсы и предложения от кафедры.',
     'register_info_1': 'Электронный научно-методический журнал «Вопросы филологии» использует предоставленную здесь информацию для создания вашей персональной страницы.',
-    'register_info_2': 'Электронный научно-методический журнал «Вопросы филологии» также хочет использовать ваш адрес электронной почты для отправки вам предложений и информации о сопутствующих продуктах и услугах. В частности, Редакция может предложить доступ к более широкому кругу информации, которая может вас заинтересовать.',
-    'register_info_3': 'Вы можете отказаться от получения этих сообщений в любое время, нажав кнопку отписки. Дополнительную информацию можно найти в Политике конфиденциальности Издателя.',
     'back_to_login': 'Вернуться к входу',
     'register_button': 'Зарегистрироваться',
 
@@ -1232,8 +1226,6 @@ EN = {
     'agree_terms': 'I agree to the terms',
     'agree_notifications': 'I want to receive resources and offers from the department.',
     'register_info_1': 'The electronic scientific-methodological journal \'Philology Issues\' uses the information provided here to create a personal page for you.',
-    'register_info_2': 'Electronic scientific-methodological journal \'Philology Issues\' also wants to use your e-mail address to send you offers and information about related products and services. In particular, the Editorial Office can offer access to a wider range of information that may be of interest to you, including advice and resources on how to publish it.',
-    'register_info_3': 'You can opt out of receiving these communications at any time by clicking the unsubscribe button. More information can be found in the Publisher\'s Privacy Policy.',
     'back_to_login': 'Back to login',
     'register_button': 'Register',
 

@@ -32,6 +32,11 @@
   <div class="container-xl">
     <div class="row row-deck row-cards">
       <div class="col-md-8">
+        <!-- row-deck forces a bare col-md-8 into display:flex (for single-card
+             height stretching); with multiple stacked cards/forms as direct
+             children that lays them out side by side instead of stacked, so
+             everything below is wrapped in one plain block container. -->
+        <div>
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">Maqola ma'lumoti</h3>
@@ -76,6 +81,21 @@
               </div>
               {% endif %}
             </div>
+          </div>
+        </div>
+
+        <div class="card mt-3">
+          <div class="card-header">
+            <h3 class="card-title">Admin bilan ichki muhokama</h3>
+          </div>
+          <div class="card-body p-0">
+            <div id="assignment-message-list" class="d-flex flex-column gap-2 p-3" style="height: 18rem; overflow-y: auto;"></div>
+            <form id="assignment-message-form" class="d-flex gap-2 border-top p-3">
+              <input type="text" id="assignment-message-input" maxlength="4000" class="form-control" placeholder="Xabar yozing..." autocomplete="off">
+              <button type="submit" class="btn btn-primary">
+                <i class="ti ti-send"></i>
+              </button>
+            </form>
           </div>
         </div>
 
@@ -189,20 +209,6 @@
           </div>
           <div class="card-body">
             <div class="datagrid">
-              <div class="datagrid-item">
-                <div class="datagrid-title">Tahrirchi qarori</div>
-                <div class="datagrid-content">
-                  {% if assignment.status == 'reviewed' %}
-                  <span class="badge bg-success-lt">Nashrga tavsiya</span>
-                  {% elif assignment.status == 'rejected' %}
-                  <span class="badge bg-danger-lt">Rad etish tavsiyasi</span>
-                  {% elif assignment.status == 'in_review' %}
-                  <span class="badge bg-info-lt">Jarayonda</span>
-                  {% else %}
-                  <span class="badge bg-warning-lt">Kutilmoqda</span>
-                  {% endif %}
-                </div>
-              </div>
               {% if assignment.reviewed_at %}
               <div class="datagrid-item">
                 <div class="datagrid-title">Yuborilgan vaqti</div>
@@ -232,10 +238,11 @@
         {% endif %}
 
         {% if current_role in ['admin', 'superadmin'] and assignment.status in ['reviewed', 'rejected'] %}
-        <form method="POST" action="{{ url_for('assignment_admin_decision', assignment_id=assignment.id) }}">
+        <form method="POST" action="{{ url_for('assignment_admin_decision', assignment_id=assignment.id) }}"
+              onsubmit="return (this.admin_decision.value !== 'return_to_author') || confirm('Maqola muallifga tuzatish uchun qaytariladi. Davom etasizmi?');">
           <div class="card mt-3">
             <div class="card-header">
-              <h3 class="card-title">Admin qarori</h3>
+              <h3 class="card-title">Qaror</h3>
             </div>
             <div class="card-body">
               <div class="mb-3">
@@ -252,15 +259,23 @@
                     <input type="radio" name="admin_decision" value="revision_requested" class="form-selectgroup-input" {% if assignment.admin_decision == 'revision_requested' %}checked{% endif %}>
                     <span class="form-selectgroup-label">
                       <i class="ti ti-repeat text-warning me-1"></i>
-                      Qayta ishlashga yuborish
+                      Tahrirchiga qayta yuborish
+                    </span>
+                  </label>
+                  <label class="form-selectgroup-item">
+                    <input type="radio" name="admin_decision" value="return_to_author" class="form-selectgroup-input">
+                    <span class="form-selectgroup-label">
+                      <i class="ti ti-corner-up-left text-danger me-1"></i>
+                      Muallifga qaytarish
                     </span>
                   </label>
                 </div>
+                <small class="form-hint">"Tahrirchiga qayta yuborish" -- tahrirchi o'z xulosasini qayta ko'rib chiqadi. "Muallifga qaytarish" -- tahrirchi ishi yakunlangan hisoblanadi, maqola to'g'ridan-to'g'ri muallifga tuzatish uchun qaytariladi.</small>
               </div>
 
               <div class="mb-3">
-                <label class="form-label">Admin izohi</label>
-                <textarea class="form-control" name="admin_comment" rows="4" placeholder="Qabul sababini yoki qayta ishlash bo'yicha talablarni yozing">{{ assignment.admin_comment or '' }}</textarea>
+                <label class="form-label">Izoh</label>
+                <textarea class="form-control" name="admin_comment" rows="4" placeholder="Qarorga sabab yoki talablarni yozing (muallifga qaytarishda majburiy)">{{ assignment.admin_comment or '' }}</textarea>
               </div>
             </div>
             <div class="card-footer text-end">
@@ -272,6 +287,7 @@
           </div>
         </form>
         {% endif %}
+        </div>
       </div>
 
       <div class="col-md-4">
@@ -379,4 +395,129 @@
     </div>
   </div>
 </div>
+<script>
+(function () {
+    const assignmentId = {{ assignment.id|tojson }};
+    const currentUserId = {{ (session.get('fmadmin_user') or {}).get('id')|tojson }};
+    const listEl = document.getElementById('assignment-message-list');
+    const formEl = document.getElementById('assignment-message-form');
+    const inputEl = document.getElementById('assignment-message-input');
+    if (!listEl || !formEl || !inputEl) {
+        return;
+    }
+    let lastMessageId = 0;
+    const ticks = {};
+
+    function formatTimestamp(ts) {
+        try { return new Date(ts * 1000).toLocaleString(); } catch (e) { return ''; }
+    }
+
+    function markTickRead(tickEl) {
+        tickEl.textContent = '✓✓';
+        tickEl.style.opacity = '1';
+        tickEl.style.color = '#6ea8fe';
+    }
+
+    function appendMessage(message) {
+        if (document.querySelector('[data-assignment-message-id="' + message.id + '"]')) {
+            return;
+        }
+        const isMine = message.sender_user_id === currentUserId;
+        const row = document.createElement('div');
+        row.className = 'd-flex ' + (isMine ? 'justify-content-end' : 'justify-content-start');
+        row.dataset.assignmentMessageId = message.id;
+        const bubble = document.createElement('div');
+        bubble.className = 'rounded p-2 ' + (isMine ? 'bg-primary text-white' : 'bg-light');
+        bubble.style.maxWidth = '75%';
+        const body = document.createElement('div');
+        body.style.whiteSpace = 'pre-wrap';
+        body.style.wordBreak = 'break-word';
+        body.textContent = message.body;
+        const meta = document.createElement('div');
+        meta.className = 'small mt-1 d-flex align-items-center justify-content-end gap-1';
+        meta.style.opacity = '0.7';
+        const time = document.createElement('span');
+        time.textContent = formatTimestamp(message.created_at);
+        meta.appendChild(time);
+        if (isMine) {
+            const tick = document.createElement('span');
+            tick.textContent = message.read ? '✓✓' : '✓';
+            if (message.read) {
+                tick.style.color = '#6ea8fe';
+            }
+            meta.appendChild(tick);
+            ticks[message.id] = tick;
+        }
+        bubble.appendChild(body);
+        bubble.appendChild(meta);
+        row.appendChild(bubble);
+        listEl.appendChild(row);
+        lastMessageId = message.id;
+        listEl.scrollTop = listEl.scrollHeight;
+    }
+
+    fetch('/fmadmin/editor-assignments/' + assignmentId + '/messages')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) {
+                data.messages.forEach(appendMessage);
+            }
+        });
+
+    formEl.addEventListener('submit', function (event) {
+        event.preventDefault();
+        const text = inputEl.value.trim();
+        if (!text) {
+            return;
+        }
+        inputEl.disabled = true;
+        fetch('/fmadmin/editor-assignments/' + assignmentId + '/messages/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': window.csrfToken || '',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ message: text })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (result) {
+                if (!result.success) {
+                    throw new Error(result.message || 'Failed to send message');
+                }
+                appendMessage(result.message_obj);
+                inputEl.value = '';
+            })
+            .catch(function (error) {
+                alert((error && error.message) ? error.message : 'Failed to send message');
+            })
+            .finally(function () {
+                inputEl.disabled = false;
+                inputEl.focus();
+            });
+    });
+
+    function connectStream() {
+        const source = new EventSource('/fmadmin/editor-assignments/' + assignmentId + '/messages/stream?after_id=' + lastMessageId);
+        source.addEventListener('message', function (event) {
+            try { appendMessage(JSON.parse(event.data)); } catch (e) { /* ignore */ }
+        });
+        source.addEventListener('read', function (event) {
+            try {
+                const upToId = JSON.parse(event.data).up_to_id;
+                Object.keys(ticks).forEach(function (id) {
+                    if (parseInt(id, 10) <= upToId) {
+                        markTickRead(ticks[id]);
+                    }
+                });
+            } catch (e) { /* ignore */ }
+        });
+        source.onerror = function () {
+            source.close();
+            setTimeout(connectStream, 2000);
+        };
+    }
+    connectStream();
+})();
+</script>
 {% endblock %}

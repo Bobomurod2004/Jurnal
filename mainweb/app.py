@@ -27,7 +27,7 @@ import hooks
 from extensions import dbc
 from utils.filters import register_filters
 from utils.uploads import init_uploads
-from routes import auth, public, dashboard, api, context
+from routes import auth, public, dashboard, api, context, messages
 
 logger = logging.getLogger(__name__)
 
@@ -147,5 +147,6 @@ def create_app():
     public.register(app)
     dashboard.register(app)
     api.register(app)
+    messages.register(app)
 
     return app
