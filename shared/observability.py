@@ -80,6 +80,12 @@ _APP_INFO = Gauge(
     ["service", "version"],
     multiprocess_mode="max",
 )
+_API_ROUTE_INFO = Gauge(
+    "journal_api_route_info",
+    "Inventory of registered API routes; a value of 1 means the route is available.",
+    ["service", "method", "route"],
+    multiprocess_mode="max",
+)
 _DEPENDENCY_HEALTH = Gauge(
     "journal_dependency_health",
     "Dependency health state where 1=healthy and 0=unhealthy.",
@@ -412,6 +418,24 @@ def attach_metrics_and_health(
             _set_dependency_health(service_name, "database", db_ok)
         registry = _build_metrics_registry()
         return Response(generate_latest(registry), mimetype=CONTENT_TYPE_LATEST)
+
+
+def register_api_route_inventory(app, service_name: str) -> None:
+    """Expose every registered application API route, including unused routes.
+
+    Request counters only exist after a route receives traffic.  This inventory
+    lets Grafana distinguish an unused API (0 attempts) from a missing API.
+    """
+    for rule in app.url_map.iter_rules():
+        route = str(rule.rule or '')
+        if not (route.startswith('/api/') or route.startswith('/fmadmin/api/')):
+            continue
+        for method in sorted(set(rule.methods or ()) - {'HEAD', 'OPTIONS'}):
+            _API_ROUTE_INFO.labels(
+                service=service_name,
+                method=method,
+                route=route,
+            ).set(1)
 
 
 def record_email_delivery_metric(app_name: str, status: str) -> None:

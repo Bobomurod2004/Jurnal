@@ -14,6 +14,7 @@ from shared.observability import (
     configure_logging,
     configure_tracing,
     legacy_postgres_healthcheck,
+    register_api_route_inventory,
 )
 
 bootstrap_telemetry_libraries()
@@ -95,5 +96,6 @@ def create_app():
 
     web.register(app)
     api.register(app)
+    register_api_route_inventory(app, service_name='fmadmin')
 
     return app

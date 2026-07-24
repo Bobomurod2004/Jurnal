@@ -15,6 +15,7 @@ from shared.observability import (
     configure_logging,
     configure_tracing,
     legacy_postgres_healthcheck,
+    register_api_route_inventory,
 )
 
 bootstrap_telemetry_libraries()
@@ -148,5 +149,6 @@ def create_app():
     dashboard.register(app)
     api.register(app)
     messages.register(app)
+    register_api_route_inventory(app, service_name='mainweb')
 
     return app

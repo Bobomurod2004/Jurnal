@@ -61,6 +61,20 @@ def test_publication_recent_sort_key_ignores_legacy_publish_time_within_same_day
     assert [row['id'] for row in ordered] == [122, 121]
 
 
+def test_new_submission_payload_sets_revision_defaults_explicitly():
+    """New drafts must not rely on SQL DEFAULT values.
+
+    The connector sends omitted table columns as NULL, which bypasses a
+    PostgreSQL DEFAULT and violates submissions.revision_number NOT NULL.
+    """
+    payload = api_routes._prepare_submission_payload(
+        data={}, user_id=42, status='draft', is_new=True
+    )
+
+    assert payload['revision_number'] == 1
+    assert payload['revision_allowed'] is True
+
+
 def test_load_public_editorial_members_does_not_fallback_to_editor_users(monkeypatch):
     monkeypatch.setattr(public_routes, '_load_editorial_members', lambda: [])
 

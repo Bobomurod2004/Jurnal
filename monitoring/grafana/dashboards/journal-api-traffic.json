@@ -1,0 +1,98 @@
+{
+  "annotations": {"list": [{"builtIn": 1, "datasource": {"type": "grafana", "uid": "-- Grafana --"}, "enable": true, "hide": true, "name": "Annotations & Alerts", "type": "dashboard"}]},
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"noValue": "0", "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}, "id": 1,
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name"},
+      "targets": [{"expr": "sum(increase(journal_http_requests_total{service=~\"${service:regex}\",route!~\"/metrics|/healthz|/readyz\"}[$__range])) or vector(0)", "refId": "A"}],
+      "title": "API attempts (selected period)", "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"noValue": "0", "unit": "short", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 1}, {"color": "red", "value": 10}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}, "id": 2,
+      "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name"},
+      "targets": [{"expr": "sum(increase(journal_http_requests_total{service=~\"${service:regex}\",status_code=~\"4..\",route!~\"/metrics|/healthz|/readyz\"}[$__range])) or vector(0)", "refId": "A"}],
+      "title": "Client errors (4xx)", "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"noValue": "0", "unit": "short", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}, "id": 3,
+      "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name"},
+      "targets": [{"expr": "sum(increase(journal_http_requests_total{service=~\"${service:regex}\",status_code=~\"5..\",route!~\"/metrics|/healthz|/readyz\"}[$__range])) or vector(0)", "refId": "A"}],
+      "title": "Server errors (5xx)", "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"noValue": "0", "unit": "s"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}, "id": 4,
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name"},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(journal_http_request_duration_seconds_bucket{service=~\"${service:regex}\",route!~\"/metrics|/healthz|/readyz\"}[$__rate_interval]))) or vector(0)", "refId": "A"}],
+      "title": "p95 API response time", "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "never", "stacking": {"group": "A", "mode": "none"}}}, "overrides": []},
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 4}, "id": 5,
+      "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"expr": "sum by (service, method, route) (rate(journal_http_requests_total{service=~\"${service:regex}\",route=~\"${route:regex}\",route!~\"/metrics|/healthz|/readyz\"}[$__rate_interval]))", "legendFormat": "{{service}} {{method}} {{route}}", "refId": "A"}],
+      "title": "Each API endpoint — request rate", "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "bars", "fillOpacity": 35, "lineWidth": 1, "showPoints": "never", "stacking": {"group": "A", "mode": "normal"}}}, "overrides": []},
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 4}, "id": 6,
+      "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"expr": "sum by (service, status_code) (rate(journal_http_requests_total{service=~\"${service:regex}\",route=~\"${route:regex}\",route!~\"/metrics|/healthz|/readyz\"}[$__rate_interval]))", "legendFormat": "{{service}} HTTP {{status_code}}", "refId": "A"}],
+      "title": "HTTP status distribution", "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"custom": {"align": "auto", "cellOptions": {"type": "auto"}, "inspect": true}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 13}, "id": 7,
+      "options": {"cellHeight": "sm", "showHeader": true, "sortBy": [{"desc": true, "displayName": "Value"}]},
+      "targets": [{"expr": "sum by (service, method, route, status_code) (increase(journal_http_requests_total{service=~\"${service:regex}\",route=~\"${route:regex}\",route!~\"/metrics|/healthz|/readyz\"}[$__range]))", "format": "table", "instant": true, "refId": "A"}],
+      "title": "API route attempts and result codes", "transformations": [{"id": "labelsToFields", "options": {}}, {"id": "organize", "options": {"excludeByName": {"Time": true}, "indexByName": {}, "renameByName": {"Value": "Attempts"}}}], "type": "table"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "fillOpacity": 12, "lineWidth": 2, "showPoints": "never", "stacking": {"group": "A", "mode": "none"}}, "unit": "s"}, "overrides": []},
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 25}, "id": 8,
+      "options": {"legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"expr": "topk(15, histogram_quantile(0.95, sum by (le, service, method, route) (rate(journal_http_request_duration_seconds_bucket{service=~\"${service:regex}\",route=~\"${route:regex}\",route!~\"/metrics|/healthz|/readyz\"}[$__rate_interval]))))", "legendFormat": "{{service}} {{method}} {{route}}", "refId": "A"}],
+      "title": "Slowest API endpoints — p95", "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 25}, "id": 9,
+      "options": {"dedupStrategy": "none", "enableLogDetails": true, "showCommonLabels": true, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+      "targets": [{"expr": "{service=~\"${service:regex}\",level=~\"ERROR|CRITICAL\"}", "queryType": "range", "refId": "A"}],
+      "title": "Application errors from Loki", "type": "logs"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"custom": {"align": "auto", "cellOptions": {"type": "auto"}, "inspect": true}}, "overrides": []},
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 34}, "id": 10,
+      "options": {"cellHeight": "sm", "showHeader": true, "sortBy": [{"desc": false, "displayName": "route"}]},
+      "targets": [{"expr": "journal_api_route_info{service=~\"${service:regex}\",route=~\"${route:regex}\"}", "format": "table", "instant": true, "refId": "A"}],
+      "title": "Complete API inventory — includes endpoints with zero attempts", "transformations": [{"id": "labelsToFields", "options": {}}, {"id": "organize", "options": {"excludeByName": {"Time": true, "Value": true}, "indexByName": {}}}], "type": "table"
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 41,
+  "tags": ["journal", "api", "traffic", "operations"],
+  "templating": {"list": [
+    {"current": {"selected": true, "text": "All", "value": "$__all"}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "definition": "label_values(journal_api_route_info, service)", "includeAll": true, "label": "Service", "multi": true, "name": "service", "options": [], "query": {"query": "label_values(journal_api_route_info, service)", "refId": "Prometheus-service"}, "refresh": 2, "sort": 1, "type": "query"},
+    {"current": {"selected": true, "text": "All", "value": "$__all"}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "definition": "label_values(journal_api_route_info{service=~\"$service\"}, route)", "includeAll": true, "label": "API route", "multi": true, "name": "route", "options": [], "query": {"query": "label_values(journal_api_route_info{service=~\"$service\"}, route)", "refId": "Prometheus-route"}, "refresh": 2, "sort": 1, "type": "query"}
+  ]},
+  "time": {"from": "now-24h", "to": "now"},
+  "timezone": "browser",
+  "title": "Journal API Traffic & Status",
+  "uid": "journal-api-traffic",
+  "version": 1
+}

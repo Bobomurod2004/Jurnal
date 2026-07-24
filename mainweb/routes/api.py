@@ -2402,6 +2402,15 @@ def _prepare_submission_payload(data, user_id, status, existing=None, is_new=Fal
     if is_new and 'created_date' in SUBMISSION_COLUMNS:
         payload['created_date'] = now
 
+    # The database connector includes every table column in INSERT statements
+    # and supplies NULL for keys omitted from this payload.  PostgreSQL applies
+    # a column DEFAULT only when that column is omitted from INSERT, not when
+    # it is explicitly assigned NULL.  New drafts therefore must carry the
+    # revision defaults explicitly.
+    if is_new:
+        payload['revision_number'] = 1
+        payload['revision_allowed'] = True
+
     return payload
 
 
@@ -2639,7 +2648,12 @@ def app__api_article_save():
 
     except Exception:
         logger.exception('Failed to save draft for user_id=%s', user_id)
-        return jsonify({'success': False, 'message': 'Unable to save draft right now. Please try again.'})
+        # A JSON body alone still defaults to HTTP 200, which hides a real
+        # server failure from clients, reverse proxies and Grafana metrics.
+        return jsonify({
+            'success': False,
+            'message': 'Unable to save draft right now. Please try again.'
+        }), 500
 
 
 def app__api_article_submit():
@@ -2733,7 +2747,10 @@ def app__api_article_submit():
 
     except Exception:
         logger.exception('Failed to submit article for user_id=%s', user_id)
-        return jsonify({'success': False, 'message': 'Unable to submit article right now. Please try again.'})
+        return jsonify({
+            'success': False,
+            'message': 'Unable to submit article right now. Please try again.'
+        }), 500
 
 
 def app__api_article_upload():
