@@ -508,21 +508,11 @@
   (function () {
     const statusCodes = {{ status_chart.codes | default([], true) | tojson }};
     const statusData = {{ status_chart.data | default([], true) | tojson }};
-    const statusLabelMap = {
-      submitted: "Yuborilgan",
-      pending: "Kutilmoqda",
-      in_process: "Jarayonda",
-      under_review: "Ko'rib chiqilmoqda",
-      accepted: "Qabul qilingan",
-      paid: "To'langan",
-      published: "Nashr qilingan",
-      rejected: "Rad etilgan",
-      unknown: "Noma'lum"
-    };
-
-    const statusLabels = statusCodes.map(function (code) {
-      return statusLabelMap[code] || code;
-    });
+    // Labels come from shared/submission_status.py in the admin's language --
+    // the map that used to live here was hardcoded Uzbek and still listed the
+    // pre-consolidation status keys, so every newer status (payment_pending,
+    // in_layout, revision_required, ...) showed up as a raw code in the chart.
+    const statusLabels = {{ status_chart.labels | default([], true) | tojson }};
 
     const statusCtx = document.getElementById('statusChart');
     if (statusCtx) {

@@ -1245,6 +1245,34 @@ def test_sidebar_opens_the_group_of_the_current_page():
     assert 'class="collapse show" id="sidebar-group-finance"' not in html
 
 
+def test_dashboard_status_labels_cover_every_status_in_three_languages():
+    # The donut chart used to label statuses from a hardcoded Uzbek map in the
+    # template that still listed pre-consolidation keys, so newer statuses
+    # (failed_technical_check, payment_pending, in_layout, ...) rendered as
+    # raw codes. Labels now come from shared/submission_status.py -- which
+    # therefore has to stay complete in all three languages.
+    from fmadmin.services import stats as fmadmin_stats
+    from shared.submission_status import SUBMISSION_STATUSES, SUBMISSION_STATUS_LABELS
+
+    for status in SUBMISSION_STATUSES:
+        labels = SUBMISSION_STATUS_LABELS.get(status)
+        assert labels, f'{status} has no labels at all'
+        for lang in ('uz', 'ru', 'en'):
+            assert labels.get(lang), f'{status} is missing the {lang} label'
+            # No label may fall through to the raw status key.
+            assert fmadmin_stats._status_label(status, lang) != status
+
+
+def test_dashboard_status_label_falls_back_instead_of_showing_the_code():
+    from fmadmin.services import stats as fmadmin_stats
+
+    assert fmadmin_stats._status_label('published', 'ru') == 'Опубликовано'
+    # Unknown language falls back to Uzbek rather than to the bare code.
+    assert fmadmin_stats._status_label('published', 'de') == 'Nashr etildi'
+    # A legacy/unknown code still has to render something.
+    assert fmadmin_stats._status_label('legacy_code', 'en') == 'legacy_code'
+
+
 def test_saving_keeps_a_submission_that_already_left_draft():
     # Production regression: the submit button saves first and submits second,
     # and saving forced status='draft'. The submit step then re-read 'draft',

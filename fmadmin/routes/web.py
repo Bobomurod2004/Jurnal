@@ -4444,7 +4444,9 @@ def index():
     if current_user.get('rolename') == 'editor':
         return redirect(url_for('editor_dashboard'))
 
-    dashboard_snapshot = get_dashboard_snapshot(months=6, recent_limit=6, top_limit=6, stale_days=14)
+    dashboard_snapshot = get_dashboard_snapshot(
+        months=6, recent_limit=6, top_limit=6, stale_days=14, lang=_admin_language()
+    )
 
     return render_template(
         'index.html',

@@ -7,6 +7,20 @@ from shared.submission_status import SUBMISSION_STATUSES, SUBMISSION_STATUS_LABE
 WORKFLOW_STAGE_ORDER = SUBMISSION_STATUSES
 WORKFLOW_STAGE_LABELS = {key: labels['uz'] for key, labels in SUBMISSION_STATUS_LABELS.items()}
 
+
+def _status_label(code, lang='uz'):
+    """Human label for a status code in the viewer's language.
+
+    Unknown codes fall back to the raw key -- that is what used to leak into
+    the dashboard chart (`failed_technical_check`, `payment_pending`, ...)
+    because the labels lived in a hardcoded, half-stale JS map in the template
+    instead of coming from `shared/submission_status.py`.
+    """
+    labels = SUBMISSION_STATUS_LABELS.get(code)
+    if not labels:
+        return code
+    return labels.get(lang) or labels.get('uz') or code
+
 STATUS_ORDER = SUBMISSION_STATUSES
 ACTIVE_STATUS_SET = set(STATUS_ORDER) - {'published', 'rejected'}
 
@@ -102,7 +116,7 @@ def _load_all_dashboard_data():
     return submissions, publications, users, authors
 
 
-def get_dashboard_snapshot(months=6, recent_limit=6, top_limit=6, stale_days=14):
+def get_dashboard_snapshot(months=6, recent_limit=6, top_limit=6, stale_days=14, lang='uz'):
     try:
         now = datetime.datetime.now()
         now_ts = int(now.timestamp())
@@ -229,7 +243,7 @@ def get_dashboard_snapshot(months=6, recent_limit=6, top_limit=6, stale_days=14)
         for stage_key in WORKFLOW_STAGE_ORDER:
             workflow_cards.append({
                 'key': stage_key,
-                'label': WORKFLOW_STAGE_LABELS.get(stage_key, stage_key),
+                'label': _status_label(stage_key, lang),
                 'count': stage_counts.get(stage_key, 0),
                 'tone': _status_badge_tone(stage_key),
             })
@@ -300,6 +314,7 @@ def get_dashboard_snapshot(months=6, recent_limit=6, top_limit=6, stale_days=14)
 
         status_chart = {
             'codes': ordered_status_codes,
+            'labels': [_status_label(code, lang) for code in ordered_status_codes],
             'data': status_chart_data,
             'total': len(visible_submissions),
         }
@@ -331,7 +346,7 @@ def get_dashboard_snapshot(months=6, recent_limit=6, top_limit=6, stale_days=14)
                 'new_articles_30d': 0,
                 'generated_at': int(datetime.datetime.now().timestamp()),
             },
-            'status_chart': {'codes': [], 'data': [], 'total': 0},
+            'status_chart': {'codes': [], 'labels': [], 'data': [], 'total': 0},
             'timeline_chart': {'labels': [], 'submissions': [], 'published': []},
             'workflow_cards': [],
             'recent_submissions': [],
