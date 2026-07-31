@@ -11,7 +11,13 @@ except ImportError:
 from flask import current_app, flash, g, jsonify, redirect, request, session, url_for
 from extensions import dbc
 from utils.private_uploads import upload_access_url
-from shared.submission_status import SUBMISSION_STATUS_BADGE_TONE, is_resubmittable, submission_status_label
+from shared.submission_status import (
+    ANTIPLAGIARISM_STATUS_BADGE_TONE,
+    SUBMISSION_STATUS_BADGE_TONE,
+    anti_plagiarism_status_label,
+    is_resubmittable,
+    submission_status_label,
+)
 from shared.audit import record_request_audit_event
 
 
@@ -115,6 +121,8 @@ def register(app):
             'asset_version': _static_asset_version,
             'submission_status_label': lambda status, lang=None: submission_status_label(status, lang or current_lang),
             'submission_status_badge_tone': lambda status: SUBMISSION_STATUS_BADGE_TONE.get(status, 'secondary'),
+            'anti_plagiarism_status_label': lambda status, lang=None: anti_plagiarism_status_label(status, lang or current_lang),
+            'anti_plagiarism_status_badge_tone': lambda status: ANTIPLAGIARISM_STATUS_BADGE_TONE.get(status, 'secondary'),
             'is_resubmittable': is_resubmittable,
         }
 

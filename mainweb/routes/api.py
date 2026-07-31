@@ -67,6 +67,14 @@ SUBMISSION_EXTRA_COLUMN_TYPES = {
     'anti_plagiarism_file': 'text',
     'anti_plagiarism_checked_at': 'bigint',
     'anti_plagiarism_checked_by': 'integer',
+    'anti_plagiarism_uploaded_by_role': 'text',
+    'anti_plagiarism_status': "text DEFAULT 'pending'",
+    'anti_plagiarism_note': 'text',
+    'anti_plagiarism_resubmitted_at': 'bigint',
+    'editor_shared_file': 'text',
+    'editor_shared_file_note': 'text',
+    'editor_shared_file_at': 'bigint',
+    'revision_severity': "text DEFAULT 'major'",
     'related_submission_id': 'integer',
     'revision_number': 'integer DEFAULT 1',
     'rejection_origin': 'text',
@@ -1998,7 +2006,7 @@ def _notify_submission_submitted(submission, actor_user_id=None):
         )
 
 
-def _notify_submission_antiplagiarism_uploaded(submission, actor_user_id=None):
+def _notify_submission_antiplagiarism_uploaded(submission, actor_user_id=None, is_resubmission=False):
     submission_id = _parse_int((submission or {}).get('id'))
     if submission_id is None:
         return
@@ -2028,21 +2036,29 @@ def _notify_submission_antiplagiarism_uploaded(submission, actor_user_id=None):
             actor_user_id=actor_user_id_int
         )
 
-    message = localized_texts(
-        f'"{title}" uchun muallif antiplagiat hujjatini yukladi',
-        f'Автор загрузил антиплагиат-документ для "{title}"',
-        f'The author uploaded an anti-plagiarism document for "{title}"'
+    if is_resubmission:
+        message = localized_texts(
+            f'"{title}" uchun muallif TUZATILGAN antiplagiat hujjatini qayta yukladi. Qayta ko\'rib chiqing',
+            f'Автор загрузил ИСПРАВЛЕННЫЙ антиплагиат-документ для "{title}". Требуется повторная проверка',
+            f'The author re-uploaded a REVISED anti-plagiarism document for "{title}". Needs re-review'
+        )
+    else:
+        message = localized_texts(
+            f'"{title}" uchun muallif antiplagiat hujjatini yukladi',
+            f'Автор загрузил антиплагиат-документ для "{title}"',
+            f'The author uploaded an anti-plagiarism document for "{title}"'
+        )
+    admin_title = localized_texts(
+        "Antiplagiat hujjati qayta yuklandi" if is_resubmission else "Antiplagiat hujjati yuklandi",
+        "Антиплагиат-документ загружен повторно" if is_resubmission else "Антиплагиат-документ загружен",
+        "Anti-plagiarism document re-uploaded" if is_resubmission else "Anti-plagiarism document uploaded"
     )
     assigned_admin_id = _parse_int((submission or {}).get('assigned_admin_id'))
     if assigned_admin_id is not None:
         _create_role_notification(
             target_user_id=assigned_admin_id,
             target_role='admin',
-            title=localized_texts(
-                "Antiplagiat hujjati yuklandi",
-                "Антиплагиат-документ загружен",
-                "Anti-plagiarism document uploaded"
-            ),
+            title=admin_title,
             message=message,
             action_url=action_url,
             level='info',
@@ -2053,11 +2069,7 @@ def _notify_submission_antiplagiarism_uploaded(submission, actor_user_id=None):
     else:
         _notify_role_users(
             'admin',
-            title=localized_texts(
-                "Antiplagiat hujjati yuklandi",
-                "Антиплагиат-документ загружен",
-                "Anti-plagiarism document uploaded"
-            ),
+            title=admin_title,
             message=message,
             action_url=action_url,
             level='info',
@@ -2068,11 +2080,7 @@ def _notify_submission_antiplagiarism_uploaded(submission, actor_user_id=None):
 
     _notify_role_users(
         'superadmin',
-        title=localized_texts(
-            "Antiplagiat hujjati yuklandi",
-            "Антиплагиат-документ загружен",
-            "Anti-plagiarism document uploaded"
-        ),
+        title=admin_title,
         message=message,
         action_url=action_url,
         level='info',
@@ -2181,14 +2189,46 @@ def _compute_revision_reentry(existing):
     Returns (status, needs_editor_reactivation)."""
     current_status = str((existing or {}).get('status') or '').strip().lower()
     if current_status == 'revision_required':
-        # An editor (or a late admin objection after review) asked for a fix --
-        # send it back to the SAME editor's queue rather than restarting review.
-        return 'under_review', True
+        # 'minor' (see submissions.revision_severity, set by whoever opened
+        # this revision round): the fix goes straight back to the same
+        # admin/editor queue for a quick look, WITHOUT resetting editor
+        # assignments to 'pending' -- a full new review round for a small
+        # fix is exactly the "feels like starting from zero" complaint this
+        # distinction exists to avoid (matches the common "minor revision"
+        # vs "major revision" split used by real editorial workflows).
+        # 'major' (or missing/legacy) keeps the original full re-review.
+        severity = str((existing or {}).get('revision_severity') or 'major').strip().lower()
+        return 'under_review', severity != 'minor'
+    if current_status == 'antiplagiarism_failed':
+        # Author edited the manuscript itself (not just the checked-file
+        # re-upload, which has its own path in app__api_article_upload) --
+        # a fresh plagiarism check is warranted for the new content.
+        return 'plagiarism_check', False
     # 'failed_technical_check' (or any unexpected/legacy value): safest,
     # most conservative re-entry point -- redo the technical check. No need
     # to clear anti_plagiarism_file: the upload flow already supports
     # re-uploading while status=='plagiarism_check'.
     return 'pending', False
+
+
+def _resolve_latest_revision_round(submission_id, now_ts=None):
+    """Close out the open `submission_revision_rounds` entry for this
+    submission once the author resubmits -- so the author's history list
+    shows it as done instead of still "pending", and so it never gets
+    confused with a later, unrelated round (the bug that made the old single
+    mutable `editor_shared_file` field look stale after publication)."""
+    try:
+        rows = dbc.submission_revision_rounds.get(submission_id=submission_id).exec()
+    except Exception:
+        return
+    open_rounds = [row for row in rows if row.get('resolved_at') is None]
+    if not open_rounds:
+        return
+    latest = max(open_rounds, key=lambda row: _parse_int(row.get('round_number')) or 0)
+    latest_id = _parse_int(latest.get('id'))
+    if latest_id is None:
+        return
+    dbc.submission_revision_rounds.get(id=latest_id).update(resolved_at=now_ts or int(time.time())).exec()
 
 
 def _reactivate_editor_assignments_for_revision(submission_id):
@@ -2468,6 +2508,17 @@ def _validate_submission_for_submit(payload):
     if len(_parse_text_list(payload.get('classifications'))) < 3:
         errors.append('classifications')
 
+    # Both manuscript files are mandatory to submit: the anonymized copy is
+    # what blind review runs on (`_can_assign_editors` in fmadmin refuses to
+    # assign an editor without it), and the author copy is what gets laid out
+    # for publication. Only the drafting step may be missing them -- without
+    # this check a submission could reach the admin queue with no manuscript
+    # at all and get stuck there, unassignable.
+    if not _clean_text(payload.get('file_authors')):
+        errors.append('files')
+    if not _clean_text(payload.get('file_anonymized')):
+        errors.append('files')
+
     return list(dict.fromkeys(errors))
 
 
@@ -2591,6 +2642,24 @@ def app__api_getclassifications():
     return jsonify({'success': True, 'classifications': classifications})
 
 
+def _status_to_persist_on_save(existing):
+    """Status a draft-save must write for this row.
+
+    Saving may never knock a submission that already entered the pipeline back
+    to 'draft'. The submit button saves first and submits second, and the
+    submit step re-reads this status to decide whether this is a revision
+    (`is_resubmittable` -> `_compute_revision_reentry`). Forcing 'draft' here
+    made every resubmission look like a brand new submission: the revision
+    round stayed open in the author's history ("Kutilmoqda" forever),
+    `revision_number` never advanced, and the article re-entered the pipeline
+    at 'pending' instead of going back to the editor who asked for the fix.
+    """
+    existing_status = (_clean_text((existing or {}).get('status')) or '').lower()
+    if existing_status in ('', 'draft'):
+        return 'draft'
+    return existing_status
+
+
 def app__api_article_save():
     if not request.is_json:
         return jsonify({'success': False, 'message': 'Invalid request format - JSON expected'})
@@ -2613,7 +2682,7 @@ def app__api_article_save():
         submission_payload = _prepare_submission_payload(
             data=data,
             user_id=user_id,
-            status='draft',
+            status=_status_to_persist_on_save(existing),
             existing=existing,
             is_new=not bool(existing)
         )
@@ -2716,6 +2785,8 @@ def app__api_article_submit():
             saved_submission = updated[0] if updated else dbc.submissions.get(id=submission_id, user_id=user_id).exec()[0]
             if is_revision:
                 _log_submission_revision(existing, actor_user_id=user_id, now_ts=now_ts)
+                if str(existing.get('status') or '').strip().lower() == 'revision_required':
+                    _resolve_latest_revision_round(submission_id, now_ts=now_ts)
                 reactivated_editor_ids = (
                     _reactivate_editor_assignments_for_revision(submission_id)
                     if needs_editor_reactivation else []
@@ -2777,11 +2848,13 @@ def app__api_article_upload():
             if submission_rows:
                 submission = submission_rows[0]
 
+        submission_status = (_clean_text((submission or {}).get('status')) or '').lower()
+        is_antiplagiarism_resubmission = submission_status == 'antiplagiarism_failed'
         if file_type == 'anti_plagiarism':
             if submission_id is None or submission is None:
                 return jsonify({'success': False, 'message': 'Submission not found'})
 
-            if _clean_text(submission.get('status')).lower() != 'plagiarism_check':
+            if submission_status not in {'plagiarism_check', 'antiplagiarism_failed'}:
                 return jsonify({
                     'success': False,
                     'message': 'Anti-plagiarism document can only be uploaded during the plagiarism check stage'
@@ -2799,15 +2872,25 @@ def app__api_article_upload():
 
         if file_type == 'anti_plagiarism':
             now_ts = int(time.time())
-            dbc.submissions.get(id=submission_id, user_id=user_id).update(
-                anti_plagiarism_file=file_ref,
-                anti_plagiarism_checked_at=now_ts,
-                anti_plagiarism_checked_by=user_id,
-                updated_at=now_ts
-            ).exec()
+            update_payload = {
+                'anti_plagiarism_file': file_ref,
+                'anti_plagiarism_checked_at': now_ts,
+                'anti_plagiarism_checked_by': user_id,
+                'anti_plagiarism_uploaded_by_role': 'author',
+                'anti_plagiarism_status': 'pending',
+                'updated_at': now_ts,
+            }
+            if is_antiplagiarism_resubmission:
+                # Status stays 'antiplagiarism_failed' on purpose -- an admin
+                # must manually review the new file and move it forward
+                # (mirrors the rest of the pipeline's manual gate points).
+                update_payload['anti_plagiarism_resubmitted_at'] = now_ts
+            dbc.submissions.get(id=submission_id, user_id=user_id).update(**update_payload).exec()
             updated_rows = dbc.submissions.get(id=submission_id, user_id=user_id).exec()
             if updated_rows:
-                _notify_submission_antiplagiarism_uploaded(updated_rows[0], actor_user_id=user_id)
+                _notify_submission_antiplagiarism_uploaded(
+                    updated_rows[0], actor_user_id=user_id, is_resubmission=is_antiplagiarism_resubmission
+                )
 
         return jsonify({
             'success': True,

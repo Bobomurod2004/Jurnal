@@ -1,6 +1,8 @@
+import os
+import re
 import threading
 
-from flask import Flask, session
+from flask import Flask, render_template, session
 
 from mainweb.routes import api as api_routes
 from mainweb.routes import auth as auth_routes
@@ -1103,3 +1105,433 @@ def test_article_resubmit_route_was_removed_in_favor_of_in_place_revision():
 
     submit_rule = next(rule for rule in app.url_map.iter_rules() if rule.rule == '/api/article/submit')
     assert 'POST' in submit_rule.methods
+
+
+def _assignable_submission(**overrides):
+    submission = {
+        'id': 42,
+        'file_anonymized': 'uploads/anon-42.docx',
+        'anti_plagiarism_status': 'passed',
+        'status': 'plagiarism_check',
+    }
+    submission.update(overrides)
+    return submission
+
+
+def test_can_assign_editors_allows_under_review_so_a_replacement_editor_can_be_picked():
+    # Production regression: assigning the first editor flips the submission to
+    # `under_review`, and if that editor never opened the task the acceptance
+    # deadline expiry DELETES the assignment row while the submission stays
+    # `under_review`. The assign buttons used to be gated on the pre-review
+    # statuses only, so such submissions were stuck with zero editors and no
+    # way to assign anyone else.
+    assert fmadmin_web._can_assign_editors(_assignable_submission(status='under_review')) is True
+    assert fmadmin_web._can_assign_editors(_assignable_submission(status='pending')) is True
+    assert fmadmin_web._can_assign_editors(_assignable_submission(status='passed_technical_check')) is True
+    assert fmadmin_web._can_assign_editors(_assignable_submission(status='plagiarism_check')) is True
+
+
+def test_can_assign_editors_blocks_post_review_and_terminal_statuses():
+    for status in ('revision_required', 'recommended', 'payment_pending', 'in_layout', 'published', 'rejected'):
+        assert fmadmin_web._can_assign_editors(_assignable_submission(status=status)) is False, status
+
+
+def test_can_assign_editors_requires_anonymized_file_and_passed_antiplagiarism():
+    # Mirrors the server-side gate in the assign_editors POST handler, so the
+    # button never leads to a form that will immediately reject the admin.
+    assert fmadmin_web._can_assign_editors(_assignable_submission(file_anonymized='')) is False
+    assert fmadmin_web._can_assign_editors(_assignable_submission(file_anonymized=None)) is False
+    assert fmadmin_web._can_assign_editors(_assignable_submission(anti_plagiarism_status='pending')) is False
+    assert fmadmin_web._can_assign_editors(_assignable_submission(anti_plagiarism_status='failed')) is False
+    assert fmadmin_web._can_assign_editors({}) is False
+    assert fmadmin_web._can_assign_editors(None) is False
+
+
+def test_refresh_review_status_maps_no_assignments_to_no_status_change():
+    # `not_assigned` must not roll the submission back down the pipeline: the
+    # author's view would jump backwards every time an unopened assignment
+    # expired. `_can_assign_editors` covers the reassignment instead.
+    review_statuses_that_move_the_submission = {'assigned', 'in_review', 'reviewed', 'approved'}
+    assert 'not_assigned' not in review_statuses_that_move_the_submission
+
+
+def test_acceptance_deadline_ceiling_is_one_month():
+    # The admin picks the acceptance window (it is not a fixed 24h rule), but
+    # it may not exceed one month -- otherwise a submission sits in
+    # `under_review` for a whole cycle before expiry frees it for reassignment.
+    assert fmadmin_web.EDITOR_ASSIGNMENT_MAX_ACCEPTANCE_SECONDS == 30 * 24 * 60 * 60
+    assert fmadmin_web.EDITOR_ASSIGNMENT_DEFAULT_ACCEPTANCE_SECONDS < fmadmin_web.EDITOR_ASSIGNMENT_MAX_ACCEPTANCE_SECONDS
+    # Defaults must not collide -- acceptance and completion may never be equal.
+    assert (
+        fmadmin_web.EDITOR_ASSIGNMENT_DEFAULT_COMPLETION_SECONDS
+        > fmadmin_web.EDITOR_ASSIGNMENT_DEFAULT_ACCEPTANCE_SECONDS
+    )
+
+
+def test_cancel_editor_assignment_route_is_registered_as_post_only():
+    # Without this route an admin has to wait out the acceptance deadline --
+    # up to a month, now that the admin sets it -- before reassigning.
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    fmadmin_web.register(app)
+
+    rule = next(
+        rule for rule in app.url_map.iter_rules()
+        if rule.rule == '/fmadmin/editor-assignments/<int:assignment_id>/cancel'
+    )
+    assert 'POST' in rule.methods
+    assert 'GET' not in rule.methods
+
+
+def _fmadmin_template_app():
+    """Minimal app able to render fmadmin templates (no DB, stubbed globals)."""
+    from fmadmin.utils.filters import register_filters
+
+    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(root_dir, 'fmadmin', 'templates')
+    )
+    app.secret_key = 'test'
+    register_filters(app)
+    fmadmin_web.register(app)
+
+    @app.context_processor
+    def _stub_template_globals():
+        return {
+            't': lambda key, *args, **kwargs: key,
+            'csrf_token': 'test-token',
+            'role_notifications_unread_count': 0,
+            'role_notifications_preview': [],
+            'upload_access_url': lambda path: '/files/%s' % path,
+            'submission_status_label': lambda status, *args: str(status),
+            'submission_status_badge_tone': lambda status: 'blue',
+            'anti_plagiarism_status_label': lambda status: str(status),
+            'anti_plagiarism_status_badge_tone': lambda status: 'green',
+        }
+
+    return app
+
+
+def _render_sidebar(path):
+    app = _fmadmin_template_app()
+    with app.test_request_context(path):
+        session['fmadmin_user'] = {
+            'id': 1,
+            'name': 'Admin',
+            'rolename': 'superadmin',
+            'capabilities': {
+                'can_manage_users': True,
+                'can_manage_submissions': True,
+                'can_view_assignments': True,
+                'can_manage_content': True,
+            },
+        }
+        session['language'] = 'uz'
+        return render_template('basic.html')
+
+
+def test_sidebar_opens_the_group_of_the_current_page():
+    # request.endpoint always carries the blueprint prefix ('fmadmin_web.x'),
+    # while the sidebar's active_endpoints lists hold bare endpoint names.
+    # Comparing them unstripped left every collapsible group closed, so the
+    # admin landed on a page with no idea where in the menu they were.
+    html = _render_sidebar('/fmadmin/submissions')
+
+    assert 'class="collapse show" id="sidebar-group-submissions"' in html
+    # The other groups still render, just collapsed.
+    assert 'id="sidebar-group-finance"' in html
+    assert 'class="collapse show" id="sidebar-group-finance"' not in html
+
+
+def test_saving_keeps_a_submission_that_already_left_draft():
+    # Production regression: the submit button saves first and submits second,
+    # and saving forced status='draft'. The submit step then re-read 'draft',
+    # decided this was not a revision at all, and the whole revision loop was
+    # skipped -- the round stayed "Kutilmoqda" in the author's history,
+    # revision_number never advanced, and the article re-entered at 'pending'
+    # instead of returning to the editor who asked for the fix.
+    assert api_routes._status_to_persist_on_save({'status': 'revision_required'}) == 'revision_required'
+    assert api_routes._status_to_persist_on_save({'status': 'under_review'}) == 'under_review'
+    assert api_routes._status_to_persist_on_save({'status': 'published'}) == 'published'
+
+
+def test_saving_a_real_draft_still_saves_as_draft():
+    assert api_routes._status_to_persist_on_save({'status': 'draft'}) == 'draft'
+    assert api_routes._status_to_persist_on_save({'status': ''}) == 'draft'
+    assert api_routes._status_to_persist_on_save({}) == 'draft'
+    # A brand new submission has no row at all yet.
+    assert api_routes._status_to_persist_on_save(None) == 'draft'
+
+
+def test_revision_reentry_still_reads_revision_required_after_a_save():
+    # The pair that broke together: save preserves the status, so submit can
+    # still recognise the revision and send it back to review.
+    assert api_routes._compute_revision_reentry({'status': 'revision_required', 'revision_severity': 'minor'}) == ('under_review', False)
+    assert api_routes._compute_revision_reentry({'status': 'revision_required', 'revision_severity': 'major'}) == ('under_review', True)
+    # 'draft' is what the bug fed in -- it is not resubmittable at all, which
+    # is exactly why the revision branch never ran.
+    from shared.submission_status import is_resubmittable
+    assert is_resubmittable('draft') is False
+    assert is_resubmittable('revision_required') is True
+
+
+def _submit_errors(**overrides):
+    payload = {'file_authors': 'author.pdf', 'file_anonymized': 'blind.pdf'}
+    payload.update(overrides)
+    return api_routes._validate_submission_for_submit(payload)
+
+
+def test_submit_requires_both_manuscript_files():
+    # Neither file was checked on submit, so an article could land in the
+    # admin queue with no manuscript at all -- and with no anonymized copy it
+    # could never be assigned to an editor either (see _can_assign_editors),
+    # leaving it stuck with no way forward.
+    assert 'files' in _submit_errors(file_authors='')
+    assert 'files' in _submit_errors(file_anonymized='')
+    assert 'files' in _submit_errors(file_authors=None, file_anonymized=None)
+    assert 'files' in _submit_errors(file_authors='   ')
+
+
+def test_submit_accepts_a_submission_that_has_both_files():
+    assert 'files' not in _submit_errors()
+
+
+def test_draft_saving_still_works_without_files():
+    # Drafts are work in progress -- forcing the files there would block the
+    # author from saving anything before the manuscript is ready.
+    assert 'files' not in api_routes._validate_submission_for_draft({'title': 'Ish jarayonida'})
+
+
+class _FakeRoundsQuery:
+    def __init__(self, rows, filters):
+        self._rows = rows
+        self._filters = filters
+
+    def equal(self, **kwargs):
+        merged = dict(self._filters)
+        merged.update(kwargs)
+        return _FakeRoundsQuery(self._rows, merged)
+
+    def update(self, **kwargs):
+        for row in self._matched():
+            row.update(kwargs)
+        return self
+
+    def _matched(self):
+        return [
+            row for row in self._rows
+            if all(row.get(key) == value for key, value in self._filters.items())
+        ]
+
+    def exec(self):
+        return self._matched()
+
+
+class _FakeRoundsTable:
+    def __init__(self, rows):
+        self.rows = [dict(row) for row in rows]
+
+    def all(self):
+        return _FakeRoundsQuery(self.rows, {})
+
+
+def _rounds_db(rows):
+    return type('FakeDB', (), {'submission_revision_rounds': _FakeRoundsTable(rows)})()
+
+
+def test_open_revision_rounds_close_when_the_submission_leaves_revision(monkeypatch):
+    # Production regression: only the author's resubmit endpoint ever set
+    # resolved_at, so an admin moving the submission on by hand (the normal
+    # move once the fix arrives over chat) left the round "pending" in the
+    # author's history forever -- still showing next to a submission that had
+    # already reached payment_pending.
+    fake_db = _rounds_db([
+        {'id': 1, 'submission_id': 44, 'round_number': 1, 'resolved_at': None},
+        {'id': 2, 'submission_id': 44, 'round_number': 2, 'resolved_at': None},
+        {'id': 3, 'submission_id': 99, 'round_number': 1, 'resolved_at': None},
+    ])
+    monkeypatch.setattr(fmadmin_web, 'db', fake_db)
+
+    closed = fmadmin_web._resolve_open_revision_rounds(44, resolved_at=1785492723)
+
+    assert closed == 2
+    by_id = {row['id']: row for row in fake_db.submission_revision_rounds.rows}
+    assert by_id[1]['resolved_at'] == 1785492723
+    assert by_id[2]['resolved_at'] == 1785492723
+    # Another submission's round must not be touched.
+    assert by_id[3]['resolved_at'] is None
+
+
+def test_resolving_revision_rounds_leaves_already_closed_ones_alone(monkeypatch):
+    fake_db = _rounds_db([
+        {'id': 1, 'submission_id': 44, 'round_number': 1, 'resolved_at': 1700000000},
+    ])
+    monkeypatch.setattr(fmadmin_web, 'db', fake_db)
+
+    assert fmadmin_web._resolve_open_revision_rounds(44, resolved_at=1785492723) == 0
+    assert fake_db.submission_revision_rounds.rows[0]['resolved_at'] == 1700000000
+
+
+def _step_states(status):
+    steps = fmadmin_web._submission_workflow_steps({'status': status})
+    return {step['key']: step['state'] for step in steps}
+
+
+def test_workflow_steps_mark_everything_before_the_current_status_done():
+    states = _step_states('under_review')
+
+    assert states['pending'] == 'done'
+    assert states['passed_technical_check'] == 'done'
+    assert states['plagiarism_check'] == 'done'
+    assert states['under_review'] == 'current'
+    assert states['recommended'] == 'todo'
+    assert states['published'] == 'todo'
+
+
+def test_workflow_steps_flag_a_failed_check_instead_of_showing_progress():
+    # A failed technical check still *reached* the technical-check milestone --
+    # dropping it off the strip would make the page look like nothing happened.
+    states = _step_states('failed_technical_check')
+
+    assert states['pending'] == 'done'
+    assert states['passed_technical_check'] == 'halted'
+    assert states['plagiarism_check'] == 'todo'
+
+    # The connector line must not turn green past a halted step.
+    steps = fmadmin_web._submission_workflow_steps({'status': 'failed_technical_check'})
+    assert all(step['line_done'] is False for step in steps)
+
+
+def test_workflow_steps_keep_revision_required_on_the_review_milestone():
+    # `revision_required` is a loop back into review, not a stage of its own.
+    assert _step_states('revision_required')['under_review'] == 'current'
+
+
+def test_workflow_steps_claim_nothing_for_rejected_submissions():
+    # Rejection can happen at any point, so no milestone may be claimed as
+    # reached -- the status badge in the header carries that news instead.
+    assert set(_step_states('rejected').values()) == {'todo'}
+    assert set(_step_states('').values()) == {'todo'}
+
+
+def test_workflow_steps_cover_every_submission_status_or_leave_it_stageless():
+    # Guard against a new status silently disappearing from the strip: every
+    # status must either own a milestone or be a deliberate dead end.
+    from shared.submission_status import SUBMISSION_STATUSES
+
+    owned = set()
+    for _key, statuses in fmadmin_web.SUBMISSION_WORKFLOW_MILESTONES:
+        owned.update(statuses)
+
+    unmapped = set(SUBMISSION_STATUSES) - owned
+    assert unmapped == {'rejected'}
+
+
+def test_sidebar_links_are_highlighted_on_their_own_page():
+    html = _render_sidebar('/fmadmin/submissions')
+    assert 'aria-current="page"' in html
+
+    # The dashboard belongs to no group -- nothing should be expanded there.
+    home_html = _render_sidebar('/fmadmin/')
+    assert 'aria-current="page"' in home_html
+    assert 'class="collapse show"' not in home_html
+
+
+def _render_submissions_list(path, **overrides):
+    context = {
+        'submissions_list': [],
+        'page': 1,
+        'total_submissions': 0,
+        'total_pages': 1,
+        'pagination_query_string': '',
+        'submission_id_filter': None,
+        'status_filter': '',
+        'user_id_filter': '',
+        'title_filter': '',
+        'track_filter': '',
+        'assigned_admin_filter': None,
+        'editor_id_filter': None,
+        'author_filter': '',
+        'created_from': '',
+        'created_to': '',
+        'users_map': {},
+        'authors_map': {},
+        'admin_options': [],
+        'admin_track_choices': [],
+        'editor_options': [],
+        'current_user': {'id': 1},
+        'workflow_stage_choices': [
+            ('pending', 'Kutilmoqda'),
+            ('under_review', 'Taqrizda'),
+            ('published', 'Nashr etilgan'),
+        ],
+        'workflow_stage_labels': {},
+        'status_counts': {},
+        'status_counts_total': 0,
+    }
+    context.update(overrides)
+
+    app = _fmadmin_template_app()
+    with app.test_request_context(path):
+        session['fmadmin_user'] = {'id': 1, 'name': 'Admin', 'rolename': 'superadmin', 'capabilities': {}}
+        return render_template('submissions/list.html', **context)
+
+
+def _status_pills(html):
+    """(href, label, count) for each rendered status pill.
+
+    Scoped on purpose: the same status labels also appear in the bulk-action
+    select and the edit modal, so a plain substring check proves nothing.
+    """
+    pattern = (
+        r'<a href="([^"]+)" class="btn btn-sm fm-status-pill[^"]*">\s*'
+        r'(.*?)\s*<span class="fm-pill-count">(\d+)</span>'
+    )
+    return [
+        (href, label.strip(), int(count))
+        for href, label, count in re.findall(pattern, html, re.S)
+    ]
+
+
+def test_status_pills_only_show_statuses_that_actually_occur():
+    # All twelve statuses at once was the crowding this list is meant to fix;
+    # an empty status is noise the admin can never click into usefully.
+    pills = _status_pills(_render_submissions_list(
+        '/fmadmin/submissions',
+        status_counts={'pending': 3},
+        status_counts_total=3,
+    ))
+
+    labels = [label for _href, label, _count in pills]
+    assert labels == ['admin_option_all_statuses', 'Kutilmoqda']
+    assert pills[1][2] == 3
+
+
+def test_status_pills_keep_the_selected_status_even_at_zero():
+    # Otherwise picking a status whose only row was just moved away makes the
+    # active pill vanish and the admin cannot see what is filtering the list.
+    pills = _status_pills(_render_submissions_list(
+        '/fmadmin/submissions?status=published',
+        status_filter='published',
+        status_counts={'pending': 3},
+        status_counts_total=3,
+    ))
+
+    assert ('Nashr etilgan', 0) in [(label, count) for _href, label, count in pills]
+
+
+def test_status_pills_carry_the_other_filters_over():
+    pills = _status_pills(_render_submissions_list(
+        '/fmadmin/submissions?author=Aliyev&page=2',
+        author_filter='Aliyev',
+        status_counts={'pending': 1},
+        status_counts_total=1,
+    ))
+
+    hrefs = [href for href, _label, _count in pills]
+    assert 'status=pending&amp;author=Aliyev' in hrefs[1]
+    # Paging must reset when the status changes -- page 2 of the old filter
+    # is meaningless for the new one.
+    assert all('page=' not in href for href in hrefs)

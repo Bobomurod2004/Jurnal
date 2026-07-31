@@ -301,6 +301,34 @@
                         </div>
                     {% endif %}
 
+	                    {% if submission.revision_rounds %}
+	                        <div class="mt-4 space-y-2">
+	                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Tuzatishlar tarixi</p>
+	                            {% for round in submission.revision_rounds %}
+	                                <div class="rounded-lg border px-3 py-2 {{ 'border-amber-200 bg-amber-50/70' if not round.resolved_at else 'border-gray-100 bg-gray-50' }}">
+	                                    <div class="flex items-center justify-between gap-2">
+	                                        <span class="text-xs font-semibold text-gray-700">{{ round.round_number }}-tur &middot; {{ 'Kichik tuzatish' if round.severity == 'minor' else 'Katta tuzatish' }}</span>
+	                                        {% if round.resolved_at %}
+	                                            <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">Hal qilindi</span>
+	                                        {% else %}
+	                                            <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">Kutilmoqda</span>
+	                                        {% endif %}
+	                                    </div>
+	                                    {% if round.reason %}
+	                                        <p class="mt-1 text-sm text-gray-700">{{ round.reason }}</p>
+	                                    {% endif %}
+	                                    {% if round.editor_file_url %}
+	                                        <a href="{{ round.editor_file_url }}" target="_blank" class="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 hover:underline">
+	                                            <iconify-icon icon="solar:file-download-bold-duotone" class="text-base"></iconify-icon>
+	                                            Muharrir faylini yuklab olish
+	                                        </a>
+	                                    {% endif %}
+	                                    <p class="mt-1 text-[11px] text-gray-400">{{ round.opened_at | timestamp_to_date }}</p>
+	                                </div>
+	                            {% endfor %}
+                        </div>
+	                    {% endif %}
+
                     {% if submission.workflow_stage_key == 'payment_pending' %}
                         <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50/70 px-4 py-4">
                             {% if submission.payment_status == 'pending' %}
@@ -375,7 +403,7 @@
                                 {{ t('edit_article') }}
                             </a>
                         {% else %}
-                            {% if submission.workflow_stage_key == 'plagiarism_check' %}
+                            {% if submission.workflow_stage_key in ('plagiarism_check', 'antiplagiarism_failed') %}
                                 <input
                                     type="file"
                                     id="anti_plagiarism_file_{{ submission.id }}"
@@ -401,6 +429,16 @@
                                         <iconify-icon icon="solar:file-download-bold-duotone" class="text-base"></iconify-icon>
                                         Antiplagiat fayli
                                     </a>
+                                    <span class="inline-flex items-center text-xs text-gray-500">
+                                        {% if submission.anti_plagiarism_uploaded_by_role == 'admin' %}
+                                            (Administratsiya tomonidan yuklandi)
+                                        {% else %}
+                                            (Siz yukladingiz)
+                                        {% endif %}
+                                        {% if submission.anti_plagiarism_resubmitted_at %}
+                                            &middot; qayta yuklandi, ko'rib chiqilmoqda
+                                        {% endif %}
+                                    </span>
                                 {% endif %}
                             {% endif %}
                             {% if is_resubmittable(submission.status) %}

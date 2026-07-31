@@ -54,7 +54,7 @@ SUBMISSION_TRACKS = {
 # "passed" it, so both can't be marked done on the same forward-moving bar.
 SUBMISSION_WORKFLOW_STEPS = [
     key for key in SUBMISSION_STATUSES
-    if key not in ('failed_technical_check', 'revision_required', 'rejected')
+    if key not in ('failed_technical_check', 'revision_required', 'antiplagiarism_failed', 'rejected')
 ]
 SUBMISSION_WORKFLOW_KEYS = set(SUBMISSION_WORKFLOW_STEPS)
 
@@ -64,6 +64,7 @@ SUBMISSION_WORKFLOW_KEYS = set(SUBMISSION_WORKFLOW_STEPS)
 PROBLEM_STATUS_ANCHOR = {
     'failed_technical_check': 'pending',
     'revision_required': 'under_review',
+    'antiplagiarism_failed': 'plagiarism_check',
 }
 
 PAYMENT_GUIDE_KEY = 'payment_guide_html'
@@ -713,6 +714,24 @@ def _user_has_private_upload_record(user_id, storage_key):
         rows = dbc.submissions.get(user_id=user_id).exec()
         return any(_submission_has_private_file(row, storage_key) for row in rows)
 
+    if storage_key.startswith('messages/'):
+        # Chat attachments aren't stored on a per-user submissions column --
+        # authorize by checking the author_admin thread belongs to a
+        # submission this user owns, regardless of which side sent it.
+        ref = f'private://{storage_key}'
+        cursor = dbc.conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT sm.id FROM submission_messages sm "
+                "JOIN submissions s ON s.id = sm.submission_id "
+                "WHERE sm.visibility_scope = 'author_admin' AND sm.attachment_file = %s AND s.user_id = %s "
+                "LIMIT 1",
+                (ref, user_id)
+            )
+            return cursor.fetchone() is not None
+        finally:
+            cursor.close()
+
     return False
 
 
@@ -988,6 +1007,22 @@ def app__dashboard():
     )
 
 
+def _load_revision_rounds(submission_id):
+    """Per-round revision history for one submission, newest first -- the
+    author-facing replacement for the old single mutable `editor_shared_file`
+    field, which stayed visible forever (even past publication) since it had
+    no concept of "which round" or "already resolved"."""
+    try:
+        rows = dbc.submission_revision_rounds.get(submission_id=submission_id).exec()
+    except Exception:
+        return []
+    for row in rows:
+        editor_file = row.get('editor_file')
+        row['editor_file_url'] = upload_access_url(editor_file) if editor_file else None
+    rows.sort(key=lambda row: _parse_int(row.get('round_number')) or 0, reverse=True)
+    return rows
+
+
 def app__dashboard_articles():
     submissions = dbc.submissions.get().equal(user_id=session['user_id']).unequal(status='draft').order_by('id').exec()
     author_profiles = {}
@@ -997,6 +1032,7 @@ def app__dashboard_articles():
     for submission in submissions:
         translate(submission)
         _decorate_submission_with_workflow(submission)
+        submission['revision_rounds'] = _load_revision_rounds(submission.get('id'))
         if submission.get('main_author_id'):
             author_ids.add(submission['main_author_id'])
 

@@ -56,6 +56,35 @@
       color: var(--tblr-secondary);
       font-size: 0.82rem;
     }
+
+    .sidebar-group-chevron {
+      margin-left: auto;
+      font-size: 0.9rem;
+      transition: transform 0.18s ease;
+    }
+
+    /* Group headers read as section captions, not as clickable pages -- that is
+       what keeps the collapsed menu scannable. */
+    .sidebar-group-toggle .nav-link-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+    }
+
+    .navbar-vertical .nav-link.collapsed .sidebar-group-chevron {
+      transform: rotate(-90deg);
+    }
+
+    .sidebar-subnav {
+      padding-left: 1.75rem;
+    }
+
+    .sidebar-subnav .nav-link {
+      font-size: 0.86rem;
+      padding-top: 0.4rem;
+      padding-bottom: 0.4rem;
+    }
   </style>
 
 </head>
@@ -65,15 +94,33 @@
   {% set user_caps = fmadmin_user.capabilities if fmadmin_user and fmadmin_user.capabilities else {} %}
   {% macro sidebar_link(endpoint, icon, label, active_endpoints=None) -%}
   {% set active_list = active_endpoints if active_endpoints is not none else [endpoint] %}
-  {% set is_active = (request.endpoint or '') in active_list %}
+  {# request.endpoint carries the blueprint prefix (fmadmin_web.*), the lists below don't. #}
+  {% set is_active = (request.endpoint or '').split('.')[-1] in active_list %}
   <li class="nav-item">
-    <a class="nav-link d-flex justify-content-start align-items-center {% if is_active %}active{% endif %}"
+    <a class="nav-link d-flex justify-content-start align-items-center py-2 {% if is_active %}active{% endif %}"
       href="{{ url_for(endpoint) }}" {% if is_active %}aria-current="page"{% endif %}>
-      <i class="ti {{ icon }} fs-2 pe-2"></i>
+      <i class="ti {{ icon }} fs-3 pe-2"></i>
       <span class="nav-link-title">{{ label }}</span>
     </a>
   </li>
   {%- endmacro %}
+  {% macro sidebar_group(key, icon, label, active_endpoints) %}
+  {% set is_group_active = (request.endpoint or '').split('.')[-1] in active_endpoints %}
+  <li class="nav-item">
+    <a class="nav-link sidebar-group-toggle d-flex align-items-center {% if not is_group_active %}collapsed{% endif %}"
+      href="#sidebar-group-{{ key }}" data-bs-toggle="collapse" role="button"
+      aria-expanded="{{ 'true' if is_group_active else 'false' }}" aria-controls="sidebar-group-{{ key }}">
+      <i class="ti {{ icon }} fs-3 pe-2"></i>
+      <span class="nav-link-title flex-fill">{{ label }}</span>
+      <i class="ti ti-chevron-down fs-4 sidebar-group-chevron"></i>
+    </a>
+    <div class="collapse {% if is_group_active %}show{% endif %}" id="sidebar-group-{{ key }}">
+      <ul class="nav flex-column sidebar-subnav">
+        {{ caller() }}
+      </ul>
+    </div>
+  </li>
+  {% endmacro %}
   <div class="page">
     <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
       <div class="container-fluid">
@@ -95,93 +142,82 @@
 
             <!-- Раздел "Пользователи" только для супер-админа -->
             {% if user_caps.can_manage_users %}
-            <li class="px-3 pt-4 pb-2 text-muted">
-              <h4 class="m-0">{{ t('admin_users') }}</h4>
-            </li>
-
-            {{ sidebar_link('users', 'ti-users', t('admin_users'), ['users', 'user_edit']) }}
+            {% set _users_active = ['users', 'user_edit', 'authors', 'author_edit', 'editors', 'editor_edit', 'editorial_members', 'editorial_member_edit'] %}
+            {% call sidebar_group('users', 'ti-users', t('admin_users'), _users_active) %}
+            {{ sidebar_link('users', 'ti-user', t('admin_users'), ['users', 'user_edit']) }}
             {{ sidebar_link('authors', 'ti-id-badge-2', t('admin_authors'), ['authors', 'author_edit']) }}
             {{ sidebar_link('editors', 'ti-user-check', t('admin_editors'), ['editors', 'editor_edit']) }}
-
             {% set _lang = (session.get('language') or 'uz') %}
             {% set editorial_label = 'Редакционная коллегия' if _lang == 'ru' else ('Editorial Board' if _lang == 'en' else "Tahrir hay'ati") %}
             {{ sidebar_link('editorial_members', 'ti-users-group', editorial_label, ['editorial_members', 'editorial_member_edit']) }}
+            {% endcall %}
             {% endif %}
 
             <!-- Раздел "Подачи" только для администраторов -->
             {% if user_caps.can_manage_submissions %}
-            <li class="px-3 pt-4 pb-2 text-muted">
-              <h4 class="m-0">{{ t('admin_submissions_section') }}</h4>
-            </li>
-
-            {{ sidebar_link('submissions', 'ti-inbox', t('admin_submission_articles'), ['submissions', 'submission_detail', 'assign_editors', 'admin_decision']) }}
+            {% set _submissions_active = ['submissions', 'submission_detail', 'assign_editors', 'admin_decision', 'submission_documents', 'serve_private_file'] %}
+            {% call sidebar_group('submissions', 'ti-inbox', t('admin_submissions_section'), _submissions_active) %}
+            {{ sidebar_link('submissions', 'ti-file-text', t('admin_submission_articles'), ['submissions', 'submission_detail', 'assign_editors', 'admin_decision']) }}
             {{ sidebar_link('submission_documents', 'ti-files', t('admin_documents'), ['submission_documents', 'serve_private_file']) }}
+            {% endcall %}
             {% endif %}
 
             <!-- Назначения для редакторов и администраторов -->
             {% if user_caps.can_view_assignments %}
-            <li class="px-3 pt-4 pb-2 text-muted">
-              <h4 class="m-0">
-                {% if fmadmin_user and fmadmin_user.rolename == 'editor' %}
-                {{ t('admin_my_tasks') }}
-                {% else %}
-                {{ t('admin_editor_tasks') }}
-                {% endif %}
-              </h4>
-            </li>
-
+            {% set _assignments_label = t('admin_my_tasks') if fmadmin_user and fmadmin_user.rolename == 'editor' else t('admin_editor_tasks') %}
+            {% set _assignments_active = ['editor_assignments', 'review_assignment', 'role_notifications', 'role_notification_open', 'role_notification_read_all'] %}
+            {% call sidebar_group('assignments', 'ti-clipboard-check', _assignments_label, _assignments_active) %}
             {% set assignments_label = t('admin_my_assignments') if fmadmin_user and fmadmin_user.rolename == 'editor' else t('admin_assignments') %}
-            {{ sidebar_link('editor_assignments', 'ti-clipboard-check', assignments_label, ['editor_assignments', 'review_assignment']) }}
-
+            {{ sidebar_link('editor_assignments', 'ti-clipboard-list', assignments_label, ['editor_assignments', 'review_assignment']) }}
+            {% set _notifications_active = (request.endpoint or '').split('.')[-1] in ['role_notifications', 'role_notification_open', 'role_notification_read_all'] %}
             <li class="nav-item">
-              <a class="nav-link d-flex justify-content-start align-items-center {% if request.endpoint in ['role_notifications', 'role_notification_open', 'role_notification_read_all'] %}active{% endif %}"
-                href="{{ url_for('role_notifications') }}" {% if request.endpoint in ['role_notifications', 'role_notification_open', 'role_notification_read_all'] %}aria-current="page"{% endif %}>
-                <i class="ti ti-bell fs-2 pe-2"></i>
+              <a class="nav-link d-flex justify-content-start align-items-center py-2 {% if _notifications_active %}active{% endif %}"
+                href="{{ url_for('role_notifications') }}" {% if _notifications_active %}aria-current="page"{% endif %}>
+                <i class="ti ti-bell fs-3 pe-2"></i>
                 <span class="nav-link-title">Bildirishnomalar</span>
                 {% if role_notifications_unread_count %}
                 <span class="badge bg-danger ms-auto">{{ role_notifications_unread_count }}</span>
                 {% endif %}
               </a>
             </li>
+            {% endcall %}
             {% endif %}
 
             <!-- Разделы контента и финансов только для супер-админа -->
             {% if user_caps.can_manage_content %}
             {% set _menu_lang = session.get('language') or 'uz' %}
 
-            <li class="px-3 pt-4 pb-2 text-muted">
-              <h4 class="m-0">{% if _menu_lang == 'ru' %}Контент журнала{% elif _menu_lang == 'en' %}Journal content{% else %}Jurnal kontenti{% endif %}</h4>
-            </li>
-
+            {% set _content_label = 'Контент журнала' if _menu_lang == 'ru' else ('Journal content' if _menu_lang == 'en' else 'Jurnal kontenti') %}
+            {% set _content_active = ['issues', 'issue_edit', 'articles', 'article_edit', 'article_content'] %}
+            {% call sidebar_group('content', 'ti-article', _content_label, _content_active) %}
             {{ sidebar_link('issues', 'ti-book-2', t('admin_issues'), ['issues', 'issue_edit']) }}
             {{ sidebar_link('articles', 'ti-article', t('admin_articles'), ['articles', 'article_edit', 'article_content']) }}
+            {% endcall %}
 
-            <li class="px-3 pt-4 pb-2 text-muted">
-              <h4 class="m-0">{% if _menu_lang == 'ru' %}Управление сайтом{% elif _menu_lang == 'en' %}Site management{% else %}Sayt boshqaruvi{% endif %}</h4>
-            </li>
-
-            {{ sidebar_link('pages', 'ti-files', 'Sahifalar', ['pages', 'page_edit']) }}
+            {% set _site_label = 'Управление сайтом' if _menu_lang == 'ru' else ('Site management' if _menu_lang == 'en' else 'Sayt boshqaruvi') %}
+            {% set _site_active = ['pages', 'page_edit', 'news', 'news_edit', 'announcements', 'announcement_edit', 'home_videos', 'home_gallery', 'contact_info_settings', 'translations'] %}
+            {% call sidebar_group('site', 'ti-layout-grid', _site_label, _site_active) %}
+            {{ sidebar_link('pages', 'ti-file-description', 'Sahifalar', ['pages', 'page_edit']) }}
             {{ sidebar_link('news', 'ti-news', t('admin_news'), ['news', 'news_edit']) }}
             {{ sidebar_link('announcements', 'ti-speakerphone', t('admin_announcements'), ['announcements', 'announcement_edit']) }}
             {{ sidebar_link('home_videos', 'ti-video', 'Bosh sahifa videolari', ['home_videos']) }}
             {{ sidebar_link('home_gallery', 'ti-photo', 'Bosh sahifa rasmlari', ['home_gallery']) }}
             {{ sidebar_link('contact_info_settings', 'ti-address-book', "Aloqa ma'lumotlari", ['contact_info_settings']) }}
             {{ sidebar_link('translations', 'ti-language', t('admin_translations'), ['translations']) }}
+            {% endcall %}
 
-            <li class="px-3 pt-4 pb-2 text-muted">
-              <h4 class="m-0">Email</h4>
-            </li>
-
-            {{ sidebar_link('email_templates', 'ti-mail', 'Email shablonlar', ['email_templates', 'email_template_create', 'email_template_edit']) }}
+            {% set _email_active = ['email_templates', 'email_template_create', 'email_template_edit', 'email_logs'] %}
+            {% call sidebar_group('email', 'ti-mail', 'Email', _email_active) %}
+            {{ sidebar_link('email_templates', 'ti-mail-cog', 'Email shablonlar', ['email_templates', 'email_template_create', 'email_template_edit']) }}
             {{ sidebar_link('email_logs', 'ti-mail-forward', 'Email xabarlar', ['email_logs']) }}
+            {% endcall %}
 
-            <li class="px-3 pt-4 pb-2 text-muted">
-              <h4 class="m-0">{{ t('admin_finance') }}</h4>
-            </li>
-
+            {% set _finance_active = ['tariffs', 'payment_guide_settings', 'payments', 'payment_edit'] %}
+            {% call sidebar_group('finance', 'ti-cash', t('admin_finance'), _finance_active) %}
             {{ sidebar_link('tariffs', 'ti-tags', t('admin_tariffs'), ['tariffs']) }}
             {{ sidebar_link('payment_guide_settings', 'ti-receipt', "To'lov yo'riqnomasi", ['payment_guide_settings']) }}
             {{ sidebar_link('payments', 'ti-credit-card', t('admin_payments'), ['payments', 'payment_edit']) }}
+            {% endcall %}
             {% endif %}
 
           </ul>

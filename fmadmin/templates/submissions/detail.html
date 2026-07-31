@@ -2,50 +2,185 @@
 
 {% block content %}
 
+<style>
+  .submission-detail-page .card { border-radius: var(--tblr-border-radius-lg); }
+  .submission-detail-page .card + .card { margin-top: 1.25rem !important; }
+
+  .submission-detail-page .fm-eyebrow {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--tblr-secondary);
+  }
+
+  .submission-detail-page .fm-summary-value {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--tblr-body-color);
+    margin-top: 0.25rem;
+  }
+
+  /* Progress strip: one column per milestone, connector line drawn between
+     the dots so the whole pipeline reads left to right at a glance. */
+  .submission-detail-page .fm-steps {
+    display: flex;
+    align-items: flex-start;
+    min-width: 40rem;
+  }
+
+  .submission-detail-page .fm-step {
+    flex: 1 1 0;
+    display: flex;
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  .submission-detail-page .fm-step-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 0 0 auto;
+    width: 5.5rem;
+  }
+
+  .submission-detail-page .fm-step-dot {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: var(--tblr-bg-surface-secondary);
+    color: var(--tblr-secondary);
+    flex: 0 0 auto;
+  }
+
+  .submission-detail-page .fm-step-label {
+    font-size: 0.7rem;
+    line-height: 1.25;
+    text-align: center;
+    color: var(--tblr-secondary);
+  }
+
+  .submission-detail-page .fm-step-line {
+    flex: 1 1 auto;
+    height: 2px;
+    margin: 0.85rem 0.25rem 0;
+    background: var(--tblr-border-color);
+  }
+
+  .submission-detail-page .fm-step-done .fm-step-dot { background: var(--tblr-success); color: #fff; }
+  .submission-detail-page .fm-step-current .fm-step-dot { background: var(--tblr-dark); color: #fff; }
+  .submission-detail-page .fm-step-halted .fm-step-dot { background: var(--tblr-danger); color: #fff; }
+  .submission-detail-page .fm-step-done .fm-step-label,
+  .submission-detail-page .fm-step-current .fm-step-label,
+  .submission-detail-page .fm-step-halted .fm-step-label {
+    color: var(--tblr-body-color);
+    font-weight: 600;
+  }
+  .submission-detail-page .fm-step-line-done { background: var(--tblr-success); }
+</style>
+
+<div class="submission-detail-page">
 <div class="page-header d-print-none">
-    <div class="row align-items-center">
+    <div class="row align-items-start">
         <div class="col">
-            <h2 class="page-title">{{ t("admin_submissions_detail_title") }} {{ submission.id }}</h2>
-            <a href="{{ url_for('submissions') }}" class="">
+            <a href="{{ url_for('submissions') }}" class="d-inline-flex align-items-center gap-1 text-secondary text-decoration-none mb-2">
                 <i class="ti ti-arrow-left"></i>
                 {{ t("admin_btn_back_to_list") }}
             </a>
+            <div class="fm-eyebrow">{{ t("admin_submissions_detail_title") }} {{ submission.id }}</div>
+            <h2 class="page-title mt-1">{{ submission.title or t("admin_label_no_title") }}</h2>
+        </div>
+        <div class="col-auto">
+            {% if submission.status == 'draft' %}
+            <span class="badge bg-secondary-lt fs-6">{{ t("admin_status_draft") }}</span>
+            {% else %}
+            <span class="badge bg-{{ submission_status_badge_tone(submission.status) }}-lt fs-6">{{ submission_status_label(submission.status) }}</span>
+            {% endif %}
+            {% if submission.revision_number and submission.revision_number > 1 %}
+            <span class="badge bg-secondary-lt ms-1">{{ t('revision_number_short') }} #{{ submission.revision_number }}</span>
+            {% endif %}
         </div>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-8">
-        <div class="card">
+<div class="row g-3 mt-1">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card mt-0">
+            <div class="card-body py-3">
+                <div class="fm-eyebrow">{{ t("admin_label_main_author") }}</div>
+                <div class="fm-summary-value">{{ main_author.name if main_author else t("admin_label_not_specified") }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card mt-0">
+            <div class="card-body py-3">
+                <div class="fm-eyebrow">Yo'nalish</div>
+                <div class="fm-summary-value">{{ submission.submission_track_label }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card mt-0">
+            <div class="card-body py-3">
+                <div class="fm-eyebrow">Muharrir</div>
+                <div class="fm-summary-value">{{ submission.assigned_editors_label }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card mt-0">
+            <div class="card-body py-3">
+                <div class="fm-eyebrow">{{ t("admin_users_created_at") }}</div>
+                <div class="fm-summary-value">
+                    {% if submission.created_date %}{{ submission.created_date | timestamp_to_date }}{% else %}&mdash;{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h3 class="card-title mb-3">Jarayon bosqichi</h3>
+        <div class="overflow-x-auto">
+            <div class="fm-steps">
+                {% for step in workflow_steps %}
+                <div class="fm-step fm-step-{{ step.state }}">
+                    <div class="fm-step-body">
+                        <span class="fm-step-dot">
+                            {% if step.state == 'done' %}<i class="ti ti-check"></i>
+                            {% elif step.state == 'halted' %}<i class="ti ti-x"></i>
+                            {% else %}{{ step.index }}{% endif %}
+                        </span>
+                        <span class="fm-step-label">{{ step.label }}</span>
+                    </div>
+                    {% if not step.is_last %}
+                    <div class="fm-step-line {% if step.line_done %}fm-step-line-done{% endif %}"></div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1">
+    <div class="col-lg-8">
+        <div class="card mt-0">
             <div class="card-header">
                 <h3 class="card-title">{{ t("admin_section_basic_info") }}</h3>
             </div>
+            {# ID, status, title, track and the submitted date live in the page
+               header and the summary cards above -- repeating them here is what
+               made this card an unreadable wall of label/value rows. #}
             <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-sm-3">
-                        <strong>{{ t("admin_label_id") }}:</strong>
-                    </div>
-                    <div class="col-sm-9">
-                        {{ submission.id }}
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-sm-3">
-                        <strong>{{ t("admin_label_status") }}:</strong>
-                    </div>
-                    <div class="col-sm-9">
-                        {% if submission.status == 'draft' %}
-                        <span class="badge bg-secondary-lt">{{ t("admin_status_draft") }}</span>
-                        {% else %}
-                        <span class="badge bg-{{ submission_status_badge_tone(submission.status) }}-lt">{{ submission_status_label(submission.status) }}</span>
-                        {% endif %}
-                        {% if submission.revision_number and submission.revision_number > 1 %}
-                        <span class="badge bg-secondary-lt ms-1">{{ t('revision_number_short') }} #{{ submission.revision_number }}</span>
-                        {% endif %}
-                    </div>
-                </div>
-
                 <div class="row mb-3">
                     <div class="col-sm-3">
                         <strong>Antiplagiat:</strong>
@@ -55,23 +190,59 @@
                         <a href="{{ upload_access_url(submission.anti_plagiarism_file) }}" target="_blank" class="btn btn-sm btn-outline-primary">
                             <i class="ti ti-file"></i> Tekshirilgan fayl
                         </a>
-                        {% if submission.anti_plagiarism_checked_at %}
+                        <span class="badge bg-{{ anti_plagiarism_status_badge_tone(submission.anti_plagiarism_status) }}-lt ms-1">
+                            {{ anti_plagiarism_status_label(submission.anti_plagiarism_status) }}
+                        </span>
                         <div class="small text-secondary mt-1">
-                            Yangilangan: {{ submission.anti_plagiarism_checked_at | timestamp_to_date }}
+                            {% if submission.anti_plagiarism_uploaded_by_role == 'admin' %}
+                                Administratsiya tomonidan yuklangan
+                            {% else %}
+                                Muallif tomonidan yuklangan
+                            {% endif %}
+                            {% if submission.anti_plagiarism_checked_at %}
+                                &middot; {{ submission.anti_plagiarism_checked_at | timestamp_to_date }}
+                            {% endif %}
+                            {% if submission.anti_plagiarism_resubmitted_at %}
+                                <span class="text-warning">&middot; qayta yuklandi, natijani belgilang</span>
+                            {% endif %}
                         </div>
-                        {% endif %}
                         {% else %}
                         <span class="text-danger">Tekshiruv fayli hali yuklanmagan</span>
                         {% endif %}
-                    </div>
-                </div>
 
-                <div class="row mb-3">
-                    <div class="col-sm-3">
-                        <strong>Yo'nalish:</strong>
-                    </div>
-                    <div class="col-sm-9">
-                        <span class="badge bg-blue-lt">{{ submission.submission_track_label }}</span>
+                        <div class="mt-2 d-flex flex-wrap gap-2 align-items-start">
+                            <form method="post" action="{{ url_for('submission_anti_plagiarism_upload', submission_id=submission.id) }}" enctype="multipart/form-data" class="d-flex align-items-center gap-1">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="file" name="anti_plagiarism_file" accept=".pdf,.doc,.docx" required class="form-control form-control-sm" style="max-width: 220px;">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary text-nowrap">
+                                    <i class="ti ti-upload"></i> Fayl yuklash
+                                </button>
+                            </form>
+
+                            {% if submission.anti_plagiarism_file %}
+                            <form method="post" action="{{ url_for('submission_anti_plagiarism_result', submission_id=submission.id) }}" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="result" value="passed">
+                                <button type="submit" class="btn btn-sm btn-outline-success">
+                                    <i class="ti ti-check"></i> O'tdi
+                                </button>
+                            </form>
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="collapse" data-bs-target="#antiplagFailForm{{ submission.id }}">
+                                <i class="ti ti-x"></i> O'tmadi
+                            </button>
+                            {% endif %}
+                        </div>
+
+                        {% if submission.anti_plagiarism_file %}
+                        <div class="collapse mt-2" id="antiplagFailForm{{ submission.id }}">
+                            <form method="post" action="{{ url_for('submission_anti_plagiarism_result', submission_id=submission.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="result" value="failed">
+                                <textarea name="note" class="form-control form-control-sm mb-1" rows="2" placeholder="Antiplagiatdan o'tmagan sababi (majburiy)" required></textarea>
+                                <button type="submit" class="btn btn-sm btn-danger">Muallifga qaytarish</button>
+                            </form>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -85,15 +256,6 @@
                         {% else %}
                         <span class="text-muted">{{ t("admin_label_not_specified") }}</span>
                         {% endif %}
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-sm-3">
-                        <strong>{{ t("admin_submissions_col_title") }}:</strong>
-                    </div>
-                    <div class="col-sm-9">
-                        {{ submission.title or t("admin_label_not_specified") }}
                     </div>
                 </div>
 
@@ -145,12 +307,24 @@
                     </div>
                 </div>
 
-                <div class="row mb-3">
-                    <div class="col-sm-3">
-                        <strong>{{ t("admin_label_word_count") }}:</strong>
+                {# Word count and the timestamps read as one compact metrics
+                   strip; they used to be a full row plus a separate card. #}
+                <div class="d-flex flex-wrap gap-4 pt-2 border-top">
+                    <div class="pt-3">
+                        <div class="fm-eyebrow">{{ t("admin_label_word_count") }}</div>
+                        <div class="fm-summary-value">{{ submission.word_count or t("admin_label_not_specified") }}</div>
                     </div>
-                    <div class="col-sm-9">
-                        {{ submission.word_count or t("admin_label_not_specified") }}
+                    <div class="pt-3">
+                        <div class="fm-eyebrow">{{ t("admin_users_created_at") }}</div>
+                        <div class="fm-summary-value">
+                            {% if submission.created_date %}{{ submission.created_date | timestamp_to_date }}{% else %}&mdash;{% endif %}
+                        </div>
+                    </div>
+                    <div class="pt-3">
+                        <div class="fm-eyebrow">{{ t("admin_authors_updated_at") }}</div>
+                        <div class="fm-summary-value">
+                            {% if submission.updated_at %}{{ submission.updated_at | timestamp_to_date }}{% else %}&mdash;{% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -160,7 +334,7 @@
             <div class="card-header">
                 <h3 class="card-title">Tahriz topshiriqlari</h3>
                 <div class="card-actions">
-                    {% if submission.file_anonymized and submission.anti_plagiarism_file and submission.status in ['pending', 'passed_technical_check', 'plagiarism_check'] %}
+                    {% if can_assign_editors %}
                     <form method="post" action="{{ url_for('auto_assign_editor', submission_id=submission.id) }}" class="d-inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button type="submit" class="btn btn-sm btn-outline-secondary me-2">
@@ -246,10 +420,24 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <a href="{{ url_for('review_assignment', assignment_id=assignment.id) }}"
-                                        class="btn btn-sm btn-outline-primary">
-                                        Ochish
-                                    </a>
+                                    <div class="btn-group" role="group">
+                                        <a href="{{ url_for('review_assignment', assignment_id=assignment.id) }}"
+                                            class="btn btn-sm btn-outline-primary">
+                                            Ochish
+                                        </a>
+                                        {% if assignment.status in ['pending', 'in_review'] %}
+                                        <form method="post"
+                                            action="{{ url_for('cancel_editor_assignment', assignment_id=assignment.id) }}"
+                                            class="d-inline"
+                                            onsubmit="return confirm('Bu topshiriqni bekor qilasizmi? Tahrirchi topshiriqni yo\'qotadi va siz boshqa tahrirchi biriktirishingiz mumkin bo\'ladi.');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="ti ti-x"></i>
+                                                Bekor qilish
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -258,7 +446,12 @@
                 </div>
                 {% else %}
                 <div class="p-3 text-secondary">
+                    {% if submission.status == 'under_review' %}
+                    Bu maqolada faol tahrirchi topshirig'i qolmadi -- qabul muddati o'tgan yoki topshiriq
+                    bekor qilingan. Yuqoridagi "Tahrirchi biriktirish" tugmasi orqali yangi tahrirchi biriktiring.
+                    {% else %}
                     Bu maqola uchun hali tahrirchi biriktirilmagan.
+                    {% endif %}
                 </div>
                 {% endif %}
             </div>
@@ -301,15 +494,30 @@
                         <input type="text" class="form-control" name="published_url" value="{{ submission.published_url or '' }}" placeholder="masalan: /article/123">
                         <small class="form-hint">Avval Website → Articles bo'limida nashr yozuvini yarating, so'ng uning havolasini shu yerga qo'ying.</small>
                     </div>
-
+                    <div class="mb-3" id="revisionSeverityField" style="display: none;">
+                        <label class="form-label">Tuzatish darajasi</label>
+                        <div class="form-selectgroup">
+                            <label class="form-selectgroup-item">
+                                <input type="radio" name="revision_severity" value="minor" class="form-selectgroup-input" checked>
+                                <span class="form-selectgroup-label"><i class="ti ti-adjustments text-info me-1"></i> Kichik tuzatish</span>
+                            </label>
+                            <label class="form-selectgroup-item">
+                                <input type="radio" name="revision_severity" value="major" class="form-selectgroup-input">
+                                <span class="form-selectgroup-label"><i class="ti ti-alert-triangle text-warning me-1"></i> Katta tuzatish</span>
+                            </label>
+                        </div>
+                        <small class="form-hint">Kichik tuzatish -- mualif qayta yuklagach to'g'ridan-to'g'ri sizga qaytadi, tahrirchilar qayta biriktirilmaydi. Katta tuzatish -- to'liq qayta taqriz sikli boshlanadi.</small>
+                    </div>
                     <script>
                         (function () {
                             var statusSelect = document.getElementById('submissionStatusSelect');
                             var amountFields = document.getElementById('paymentAmountFields');
                             var publishedUrlField = document.getElementById('publishedUrlField');
+                            var revisionSeverityField = document.getElementById('revisionSeverityField');
                             function toggleAmountFields() {
                                 amountFields.style.display = statusSelect.value === 'payment_pending' ? '' : 'none';
                                 publishedUrlField.style.display = statusSelect.value === 'published' ? '' : 'none';
+                                revisionSeverityField.style.display = statusSelect.value === 'revision_required' ? '' : 'none';
                             }
                             statusSelect.addEventListener('change', toggleAmountFields);
                             toggleAmountFields();
@@ -324,7 +532,7 @@
 
                     <div class="mb-3">
                         <div class="alert alert-info mb-0">
-                            Antiplagiat hujjatini muallif dashboard orqali yuklaydi.
+                            Antiplagiat hujjatini mualif dashboard orqali yoki siz (admin) yuqoridagi "Antiplagiat" bo'limi orqali yuklashingiz mumkin.
                         </div>
                     </div>
 
@@ -394,21 +602,6 @@
             </div>
         </div>
 
-        <div class="card mt-4">
-            <div class="card-header">
-                <h3 class="card-title">{{ t("admin_section_dates") }}</h3>
-            </div>
-            <div class="card-body">
-                {% if submission.created_date %}
-                <p><strong>{{ t("admin_users_created_at") }}:</strong> {{ submission.created_date | timestamp_to_date }}
-                </p>
-                {% endif %}
-                {% if submission.updated_at %}
-                <p><strong>{{ t("admin_authors_updated_at") }}:</strong> {{ submission.updated_at | timestamp_to_date }}
-                </p>
-                {% endif %}
-            </div>
-        </div>
 
         <div class="card mt-4">
             <div class="card-header">
@@ -416,7 +609,16 @@
             </div>
             <div class="card-body p-0">
                 <div id="author-message-list" class="d-flex flex-column gap-2 p-3" style="height: 22rem; overflow-y: auto;"></div>
+                <div id="author-attachment-preview" class="d-none align-items-center gap-2 px-3 pt-2 small text-secondary">
+                    <i class="ti ti-paperclip"></i>
+                    <span id="author-attachment-preview-name" class="text-truncate"></span>
+                    <button type="button" id="author-attachment-preview-remove" class="btn btn-sm btn-link text-danger p-0">&times;</button>
+                </div>
                 <form id="author-message-form" class="d-flex gap-2 border-top p-3">
+                    <input type="file" id="author-attachment-input" class="d-none" accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt">
+                    <button type="button" id="author-attachment-button" class="btn btn-outline-secondary" title="Fayl biriktirish">
+                        <i class="ti ti-paperclip"></i>
+                    </button>
                     <input type="text" id="author-message-input" maxlength="4000" class="form-control" placeholder="Xabar yozing..." autocomplete="off">
                     <button type="submit" class="btn btn-primary">
                         <i class="ti ti-send"></i>
@@ -426,8 +628,8 @@
         </div>
     </div>
 
-    <div class="col-md-4">
-        <div class="card">
+    <div class="col-lg-4">
+        <div class="card mt-0">
             <div class="card-header">
                 <h3 class="card-title">{{ t("admin_section_submission_author") }}</h3>
             </div>
@@ -517,6 +719,7 @@
         </div>
     </div>
 </div>
+</div>
 
 {% endblock %}
 
@@ -574,6 +777,55 @@
         tickEl.style.color = '#6ea8fe';
     }
 
+    const attachmentInput = document.getElementById('author-attachment-input');
+    const attachmentButton = document.getElementById('author-attachment-button');
+    const attachmentPreview = document.getElementById('author-attachment-preview');
+    const attachmentPreviewName = document.getElementById('author-attachment-preview-name');
+    const attachmentPreviewRemove = document.getElementById('author-attachment-preview-remove');
+
+    attachmentButton.addEventListener('click', function () {
+        attachmentInput.click();
+    });
+    attachmentInput.addEventListener('change', function () {
+        const file = attachmentInput.files[0];
+        if (file) {
+            attachmentPreviewName.textContent = file.name;
+            attachmentPreview.classList.remove('d-none');
+            attachmentPreview.classList.add('d-flex');
+        }
+    });
+    attachmentPreviewRemove.addEventListener('click', function () {
+        attachmentInput.value = '';
+        attachmentPreview.classList.add('d-none');
+        attachmentPreview.classList.remove('d-flex');
+    });
+
+    function renderAttachment(attachment) {
+        if (!attachment) {
+            return null;
+        }
+        const link = document.createElement('a');
+        link.href = attachment.url;
+        link.target = '_blank';
+        link.className = 'mb-1 d-block';
+        if (attachment.is_image) {
+            const img = document.createElement('img');
+            img.src = attachment.url;
+            img.alt = attachment.name;
+            img.style.maxHeight = '13rem';
+            img.className = 'rounded';
+            link.appendChild(img);
+        } else {
+            link.className = 'mb-1 d-flex align-items-center gap-1 rounded border px-2 py-1 small';
+            link.innerHTML = '<i class="ti ti-file"></i>';
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'text-truncate';
+            nameSpan.textContent = attachment.name;
+            link.appendChild(nameSpan);
+        }
+        return link;
+    }
+
     function appendMessage(message) {
         if (document.querySelector('[data-author-message-id="' + message.id + '"]')) {
             return;
@@ -586,10 +838,17 @@
         const bubble = document.createElement('div');
         bubble.className = 'rounded p-2 ' + (isAdminSide ? 'bg-primary text-white' : 'bg-light');
         bubble.style.maxWidth = '75%';
-        const body = document.createElement('div');
-        body.style.whiteSpace = 'pre-wrap';
-        body.style.wordBreak = 'break-word';
-        body.textContent = message.body;
+        const attachmentEl = renderAttachment(message.attachment);
+        if (attachmentEl) {
+            bubble.appendChild(attachmentEl);
+        }
+        if (message.body) {
+            const body = document.createElement('div');
+            body.style.whiteSpace = 'pre-wrap';
+            body.style.wordBreak = 'break-word';
+            body.textContent = message.body;
+            bubble.appendChild(body);
+        }
         const meta = document.createElement('div');
         meta.className = 'small mt-1 d-flex align-items-center justify-content-end gap-1';
         meta.style.opacity = '0.7';
@@ -605,7 +864,6 @@
             meta.appendChild(tick);
             ticks[message.id] = tick;
         }
-        bubble.appendChild(body);
         bubble.appendChild(meta);
         row.appendChild(bubble);
         listEl.appendChild(row);
@@ -624,18 +882,23 @@
     formEl.addEventListener('submit', function (event) {
         event.preventDefault();
         const text = inputEl.value.trim();
-        if (!text) {
+        const file = attachmentInput.files[0];
+        if (!text && !file) {
             return;
         }
         inputEl.disabled = true;
+        const formData = new FormData();
+        formData.append('message', text);
+        if (file) {
+            formData.append('attachment', file);
+        }
         fetch('/fmadmin/submissions/' + submissionId + '/messages/send', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
                 'X-CSRF-Token': window.csrfToken || '',
                 'X-Requested-With': 'XMLHttpRequest'
             },
-            body: JSON.stringify({ message: text })
+            body: formData
         })
             .then(function (r) { return r.json(); })
             .then(function (result) {
@@ -644,6 +907,9 @@
                 }
                 appendMessage(result.message_obj);
                 inputEl.value = '';
+                attachmentInput.value = '';
+                attachmentPreview.classList.add('d-none');
+                attachmentPreview.classList.remove('d-flex');
             })
             .catch(function (error) {
                 alert((error && error.message) ? error.message : 'Failed to send message');

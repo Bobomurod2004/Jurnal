@@ -45,25 +45,34 @@
                   <label class="form-label">Qabul qilish muddati</label>
                   <input
                     type="datetime-local"
+                    id="acceptanceDeadlineInput"
                     name="acceptance_deadline"
                     class="form-control"
                     min="{{ min_deadline_datetime }}"
+                    max="{{ max_acceptance_datetime }}"
                     value="{{ default_acceptance_deadline }}"
                     required
                   >
-                  <small class="form-hint">Tahrirchi topshiriqni ochib qabul qilishi kerak bo'lgan vaqt</small>
+                  <small class="form-hint">
+                    Tahrirchi topshiriqni ochib qabul qilishi kerak bo'lgan vaqt.
+                    Muddatni o'zingiz belgilaysiz, lekin hozirdan 1 oydan (30 kun) ko'p bo'lmasligi kerak.
+                  </small>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Topshirish muddati</label>
                   <input
                     type="datetime-local"
+                    id="completionDeadlineInput"
                     name="completion_deadline"
                     class="form-control"
                     min="{{ min_deadline_datetime }}"
                     value="{{ default_completion_deadline }}"
                     required
                   >
-                  <small class="form-hint">Tahriz yuborilishi kerak bo'lgan oxirgi vaqt</small>
+                  <small class="form-hint">
+                    Tahriz yuborilishi kerak bo'lgan oxirgi vaqt.
+                    Qabul qilish muddatidan keyin bo'lishi shart -- bir xil vaqt bo'lmasin.
+                  </small>
                 </div>
                 <div class="col-12">
                   <label class="form-label">Tahrirchi uchun izoh</label>
@@ -75,6 +84,36 @@
                   ></textarea>
                 </div>
               </div>
+
+              <script>
+                (function () {
+                  var acceptanceInput = document.getElementById('acceptanceDeadlineInput');
+                  var completionInput = document.getElementById('completionDeadlineInput');
+                  if (!acceptanceInput || !completionInput) {
+                    return;
+                  }
+                  // Keep the completion picker strictly after the acceptance one, so
+                  // the browser blocks equal/earlier values before the POST even
+                  // happens. The server re-checks both rules regardless.
+                  function syncCompletionMin() {
+                    var acceptanceValue = acceptanceInput.value;
+                    if (!acceptanceValue) {
+                      return;
+                    }
+                    completionInput.min = acceptanceValue;
+                    if (completionInput.value && completionInput.value <= acceptanceValue) {
+                      completionInput.setCustomValidity(
+                        "Topshirish muddati qabul qilish muddatidan keyin bo'lishi kerak"
+                      );
+                    } else {
+                      completionInput.setCustomValidity('');
+                    }
+                  }
+                  acceptanceInput.addEventListener('change', syncCompletionMin);
+                  completionInput.addEventListener('change', syncCompletionMin);
+                  syncCompletionMin();
+                })();
+              </script>
 
               <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column">
                 {% for editor in editors %}

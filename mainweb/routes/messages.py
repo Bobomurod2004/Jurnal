@@ -9,17 +9,30 @@ therefore never read from the client -- every query below hardcodes the
 literal 'author_admin'.
 """
 import json
+import os
 import time
 from flask import Response, jsonify, redirect, render_template, request, session, stream_with_context, url_for
+from werkzeug.utils import secure_filename
+try:
+    import mainweb.settings as settings
+except ImportError:
+    import settings
 from extensions import dbc
 from utils.auth import author_login_required
 from utils.notifications import localized_texts
+from utils.private_uploads import build_private_upload_ref, upload_access_url
 from .api import _create_role_notification, _get_user_row, _send_user_email
 
 MESSAGE_POLL_INTERVAL_SECONDS = 2
 MESSAGE_STREAM_MAX_SECONDS = 110
 MESSAGE_BODY_MAX_LENGTH = 4000
 MESSAGE_LIST_LIMIT = 200
+MESSAGE_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024
+MESSAGE_ATTACHMENT_EXTENSIONS = {
+    'jpg', 'jpeg', 'png', 'webp', 'gif',
+    'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'txt',
+}
+MESSAGE_ATTACHMENT_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
 
 
 def _clean_text(value):
@@ -72,11 +85,56 @@ def _counterpart_last_read_message_id(submission, viewer_user_id):
     return row[0] if row and row[0] is not None else 0
 
 
+def _attachment_payload(attachment_file, attachment_name, attachment_mime, attachment_size):
+    if not attachment_file:
+        return None
+    ext = (attachment_name or '').rsplit('.', 1)[-1].lower() if attachment_name and '.' in attachment_name else ''
+    return {
+        'url': upload_access_url(attachment_file),
+        'name': attachment_name or '',
+        'mime': attachment_mime or '',
+        'size': attachment_size,
+        'is_image': ext in MESSAGE_ATTACHMENT_IMAGE_EXTENSIONS,
+    }
+
+
+def _save_message_attachment(sender_user_id, file):
+    """Validate and store a chat attachment, mirroring how anti-plagiarism
+    files are stored (same private_uploads root) but under its own
+    'messages' category so access control (see _user_has_private_upload_record
+    / _current_user_can_access_private_upload) can scope it to the thread's
+    participants instead of a single owning user_id."""
+    filename = file.filename or ''
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    if ext not in MESSAGE_ATTACHMENT_EXTENSIONS:
+        raise ValueError('Invalid attachment type')
+
+    file.seek(0, os.SEEK_END)
+    size = file.tell()
+    file.seek(0)
+    if size <= 0 or size > MESSAGE_ATTACHMENT_MAX_BYTES:
+        raise ValueError('Attachment too large')
+
+    safe_name = secure_filename(filename) or f'file.{ext}'
+    stored_filename = f"msg_{sender_user_id}_{int(time.time())}_{safe_name}"
+    filepath = os.path.join(settings.SAVE_PATH, 'private_uploads', 'messages', stored_filename)
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    file.save(filepath)
+
+    return {
+        'file_ref': build_private_upload_ref('messages', stored_filename),
+        'name': safe_name,
+        'mime': file.mimetype or '',
+        'size': size,
+    }
+
+
 def _fetch_messages(submission_id, viewer_user_id, counterpart_last_read_id, after_id=0, limit=MESSAGE_LIST_LIMIT):
     cursor = dbc.conn.cursor()
     try:
         cursor.execute(
-            "SELECT id, sender_user_id, sender_role, body, created_at "
+            "SELECT id, sender_user_id, sender_role, body, created_at, "
+            "attachment_file, attachment_name, attachment_mime, attachment_size "
             "FROM submission_messages "
             "WHERE submission_id = %s AND visibility_scope = 'author_admin' "
             "AND id > %s AND is_deleted = FALSE "
@@ -95,6 +153,7 @@ def _fetch_messages(submission_id, viewer_user_id, counterpart_last_read_id, aft
             'sender_role': row[2],
             'body': row[3],
             'created_at': row[4],
+            'attachment': _attachment_payload(row[5], row[6], row[7], row[8]),
         }
         if row[1] == viewer_user_id:
             message['read'] = row[0] <= counterpart_last_read_id
@@ -223,9 +282,22 @@ def app__api_submission_messages_send(submission_id):
     if _parse_int(submission.get('assigned_admin_id')) is None:
         return jsonify({'success': False, 'message': 'No admin assigned to this submission yet'}), 400
 
-    data = request.get_json(silent=True) or {}
-    body = _clean_text(data.get('message'))[:MESSAGE_BODY_MAX_LENGTH]
-    if not body:
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        body = _clean_text(request.form.get('message'))[:MESSAGE_BODY_MAX_LENGTH]
+        upload = request.files.get('attachment')
+    else:
+        data = request.get_json(silent=True) or {}
+        body = _clean_text(data.get('message'))[:MESSAGE_BODY_MAX_LENGTH]
+        upload = None
+
+    attachment = None
+    if upload and upload.filename:
+        try:
+            attachment = _save_message_attachment(user_id, upload)
+        except ValueError:
+            return jsonify({'success': False, 'message': 'Invalid or too large attachment'}), 400
+
+    if not body and not attachment:
         return jsonify({'success': False, 'message': 'Message cannot be empty'}), 400
 
     now_ts = int(time.time())
@@ -238,7 +310,11 @@ def app__api_submission_messages_send(submission_id):
             sender_role='author',
             body=body,
             is_deleted=False,
-            created_at=now_ts
+            created_at=now_ts,
+            attachment_file=attachment['file_ref'] if attachment else None,
+            attachment_name=attachment['name'] if attachment else None,
+            attachment_mime=attachment['mime'] if attachment else None,
+            attachment_size=attachment['size'] if attachment else None,
         ).exec()
     except Exception:
         return jsonify({'success': False, 'message': 'Failed to send message'}), 500
@@ -257,6 +333,10 @@ def app__api_submission_messages_send(submission_id):
             'body': body,
             'created_at': now_ts,
             'read': False,
+            'attachment': (
+                _attachment_payload(attachment['file_ref'], attachment['name'], attachment['mime'], attachment['size'])
+                if attachment else None
+            ),
         }
     })
 

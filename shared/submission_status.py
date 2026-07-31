@@ -13,6 +13,7 @@ SUBMISSION_STATUSES = [
     'passed_technical_check',
     'failed_technical_check',
     'plagiarism_check',
+    'antiplagiarism_failed',
     'under_review',
     'revision_required',
     'recommended',
@@ -44,6 +45,11 @@ SUBMISSION_STATUS_LABELS = {
         'uz': "Antiplagiat tekshiruvida",
         'ru': "На проверке на плагиат",
         'en': "Under plagiarism check",
+    },
+    'antiplagiarism_failed': {
+        'uz': "Antiplagiat tekshiruvidan o'tmadi",
+        'ru': "Не прошёл проверку на плагиат",
+        'en': "Failed plagiarism check",
     },
     'under_review': {
         'uz': "Taqrizda",
@@ -88,6 +94,7 @@ SUBMISSION_STATUS_BADGE_TONE = {
     'passed_technical_check': 'teal',
     'failed_technical_check': 'red',
     'plagiarism_check': 'purple',
+    'antiplagiarism_failed': 'red',
     'under_review': 'orange',
     'revision_required': 'yellow',
     'recommended': 'indigo',
@@ -99,7 +106,7 @@ SUBMISSION_STATUS_BADGE_TONE = {
 
 # Statuses from which the author is allowed to edit and resubmit the same
 # submission. `rejected` is deliberately excluded -- it is final.
-RESUBMITTABLE_STATUSES = {'failed_technical_check', 'revision_required'}
+RESUBMITTABLE_STATUSES = {'failed_technical_check', 'revision_required', 'antiplagiarism_failed'}
 
 # Statuses past which no further pipeline transition happens.
 TERMINAL_STATUSES = {'published', 'rejected'}
@@ -114,15 +121,47 @@ STATUSES_REQUIRING_ANTIPLAGIARISM_FILE = {
 
 # Setting the status to any of these requires a non-empty explanatory note,
 # since the author is being told something went wrong / needs action.
-STATUSES_REQUIRING_NOTE = {'failed_technical_check', 'revision_required', 'rejected'}
+STATUSES_REQUIRING_NOTE = {
+    'failed_technical_check', 'revision_required', 'antiplagiarism_failed', 'rejected',
+}
 
 # Only these transitions warrant an email ping (in addition to the in-app
 # notification, which fires for every status change). Keeps the author's
 # inbox to the moments that actually require attention or are worth
 # celebrating, instead of one email per internal pipeline step.
 EMAIL_NOTIFIED_STATUSES = {
-    'failed_technical_check', 'revision_required', 'payment_pending',
-    'published', 'rejected',
+    'failed_technical_check', 'revision_required', 'antiplagiarism_failed',
+    'payment_pending', 'published', 'rejected',
+}
+
+# Outcome of the anti-plagiarism check itself (submissions.anti_plagiarism_status),
+# separate from the pipeline `status` -- a file can be uploaded (by the author
+# OR an admin, see anti_plagiarism_uploaded_by_role) without yet being marked
+# passed or failed.
+ANTIPLAGIARISM_STATUSES = ('pending', 'passed', 'failed')
+
+ANTIPLAGIARISM_STATUS_LABELS = {
+    'pending': {
+        'uz': "Tekshirilmoqda",
+        'ru': "На проверке",
+        'en': "Pending review",
+    },
+    'passed': {
+        'uz': "O'tdi",
+        'ru': "Пройдена",
+        'en': "Passed",
+    },
+    'failed': {
+        'uz': "O'tmadi",
+        'ru': "Не пройдена",
+        'en': "Failed",
+    },
+}
+
+ANTIPLAGIARISM_STATUS_BADGE_TONE = {
+    'pending': 'yellow',
+    'passed': 'green',
+    'failed': 'red',
 }
 
 
@@ -159,3 +198,11 @@ def requires_note(status):
 
 def should_email_on_status(status):
     return status in EMAIL_NOTIFIED_STATUSES
+
+
+def anti_plagiarism_status_label(anti_plagiarism_status, lang='uz'):
+    normalized_lang = _normalize_lang(lang)
+    labels = ANTIPLAGIARISM_STATUS_LABELS.get(anti_plagiarism_status)
+    if not labels:
+        return anti_plagiarism_status or ''
+    return labels.get(normalized_lang) or labels.get('uz') or anti_plagiarism_status

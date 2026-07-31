@@ -2,38 +2,107 @@
 
 {% block content %}
 
+<style>
+  /* Compact list: the table used to carry 12 equally loud columns and scrolled
+     sideways on any laptop. Title + submitter share one cell now, and the
+     secondary columns are held to a fixed narrow width with ellipsis. */
+  .fm-submissions .fm-filter-card,
+  .fm-submissions .fm-table-card { border-radius: var(--tblr-border-radius-lg); }
+
+  .fm-submissions .fm-status-pill {
+    border-radius: 99px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.3rem 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .fm-submissions .fm-status-pill .fm-pill-count { opacity: 0.65; font-weight: 700; }
+
+  .fm-submissions table > thead th {
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--tblr-secondary);
+    white-space: nowrap;
+  }
+
+  .fm-submissions tbody td { vertical-align: middle; }
+
+  .fm-submissions .fm-cell-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--tblr-body-color);
+    display: block;
+    max-width: 22rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .fm-submissions .fm-cell-sub {
+    font-size: 0.76rem;
+    color: var(--tblr-secondary);
+    margin-top: 0.15rem;
+  }
+
+  .fm-submissions .fm-cell-narrow {
+    max-width: 8.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.82rem;
+  }
+
+  .fm-submissions .fm-cell-muted {
+    max-width: 10rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.76rem;
+    color: var(--tblr-secondary);
+  }
+
+  .fm-submissions .fm-row-chevron { color: var(--tblr-border-color); }
+  .fm-submissions tbody tr:hover .fm-row-chevron { color: var(--tblr-secondary); }
+</style>
+
+<div class="fm-submissions">
+
+{% set has_advanced_filters = submission_id_filter or user_id_filter or track_filter or assigned_admin_filter or editor_id_filter or author_filter or created_from or created_to %}
+{# Status pills are plain links, so carry the other active filters over by hand. #}
+{% set status_pill_args = request.args.to_dict() %}
+{% set _ = status_pill_args.pop('status', None) %}
+{% set _ = status_pill_args.pop('page', None) %}
+
 <div class="page-header d-print-none">
   <div class="row align-items-center">
     <div class="col">
       <h2 class="page-title">{{ t("admin_submissions_title") }}</h2>
+      <div class="text-secondary mt-1">{{ total_submissions }} ta ariza ko'rsatilmoqda ({{ status_counts_total }} tadan)</div>
     </div>
   </div>
 </div>
 
-<div class="card mt-4">
-  <div class="card-header">
-    <div class="card-title">{{ t("admin_filter_title") }}</div>
-  </div>
+<div class="card fm-filter-card mt-4">
   <div class="card-body">
-    <form method="get" class="row g-3" id="submission-filters">
-      <div class="col-12 d-flex align-items-end">
-        <button type="submit" class="btn btn-primary">{{ t("admin_btn_apply") }}</button>
-        <a href="{{ url_for('submissions') }}" class="btn btn-secondary ms-2">{{ t("admin_btn_reset") }}</a>
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="card mt-4">
-  <div class="card-header">
-    <form method="post" action="{{ url_for('submissions_bulk_action') }}" id="submissions-bulk-form" class="w-100">
+    <form method="get" id="submission-filters">
       <div class="d-flex flex-wrap align-items-center gap-2">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="input-icon" style="max-width: 340px; flex: 1 1 260px;">
+          <span class="input-icon-addon"><i class="ti ti-search"></i></span>
+          <input type="text" class="form-control" name="title" value="{{ title_filter }}" placeholder="Sarlavha bo'yicha qidirish...">
+        </div>
+        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#advancedFilters" aria-expanded="{{ 'true' if has_advanced_filters else 'false' }}">
+          <i class="ti ti-adjustments-horizontal me-1"></i> Batafsil filtr
+        </button>
         <div class="dropdown">
-          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-            Ustunlar
+          <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="ti ti-columns-3 me-1"></i> Ustunlar
           </button>
-          <div class="dropdown-menu p-3" style="min-width: 260px;">
+          <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 260px;">
             <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="editor" checked> <span class="form-check-label">Muharrir</span></label>
             <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="track" checked> <span class="form-check-label">Yo'nalish</span></label>
             <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="assigned-admin" checked> <span class="form-check-label">Biriktirilgan admin</span></label>
@@ -42,6 +111,86 @@
             <label class="form-check"><input class="form-check-input column-toggle" type="checkbox" data-col="created-date" checked> <span class="form-check-label">Sana</span></label>
           </div>
         </div>
+        <button type="submit" class="btn btn-primary">{{ t("admin_btn_apply") }}</button>
+        <a href="{{ url_for('submissions') }}" class="btn btn-link">{{ t("admin_btn_reset") }}</a>
+      </div>
+
+      {# Only statuses that actually occur get a pill -- all 12 at once was the
+         crowding the flat status dropdown had before. #}
+      <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+        <a href="{{ url_for('submissions', **status_pill_args) }}" class="btn btn-sm fm-status-pill {{ 'btn-dark' if not status_filter else 'btn-outline-secondary' }}">
+          {{ t("admin_option_all_statuses") }} <span class="fm-pill-count">{{ status_counts_total }}</span>
+        </a>
+        {% for status_key, status_label in workflow_stage_choices %}
+        {% set status_count = status_counts.get(status_key, 0) %}
+        {% if status_count or status_filter == status_key %}
+        <a href="{{ url_for('submissions', status=status_key, **status_pill_args) }}" class="btn btn-sm fm-status-pill {{ 'btn-dark' if status_filter == status_key else 'btn-outline-secondary' }}">
+          {{ status_label }} <span class="fm-pill-count">{{ status_count }}</span>
+        </a>
+        {% endif %}
+        {% endfor %}
+      </div>
+
+      <div class="collapse {{ 'show' if has_advanced_filters else '' }} mt-3" id="advancedFilters">
+        <div class="row g-2 pt-3 border-top">
+          <div class="col-sm-6 col-lg-2">
+            <label class="form-label small text-secondary mb-1">Ariza ID</label>
+            <input type="number" class="form-control form-control-sm" name="submission_id" value="{{ submission_id_filter or '' }}" placeholder="ID">
+          </div>
+          <div class="col-sm-6 col-lg-2">
+            <label class="form-label small text-secondary mb-1">Foydalanuvchi ID</label>
+            <input type="number" class="form-control form-control-sm" name="user_id" value="{{ user_id_filter or '' }}" placeholder="ID">
+          </div>
+          <div class="col-sm-6 col-lg-2">
+            <label class="form-label small text-secondary mb-1">{{ t("admin_submissions_col_author") }}</label>
+            <input type="text" class="form-control form-control-sm" name="author" value="{{ author_filter }}" placeholder="Muallif">
+          </div>
+          <div class="col-sm-6 col-lg-2">
+            <label class="form-label small text-secondary mb-1">Yo'nalish</label>
+            <select class="form-select form-select-sm" name="track">
+              <option value="">{{ t("admin_label_all") }}</option>
+              {% for track_key, track_label in admin_track_choices %}
+              <option value="{{ track_key }}" {% if track_filter==track_key %}selected{% endif %}>{{ track_label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6 col-lg-2">
+            <label class="form-label small text-secondary mb-1">Muharrir</label>
+            <select class="form-select form-select-sm" name="editor_id">
+              <option value="">{{ t("admin_label_all") }}</option>
+              {% for editor_user in editor_options %}
+              <option value="{{ editor_user.id }}" {% if editor_id_filter==editor_user.id %}selected{% endif %}>{{ editor_user.name or editor_user.email }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6 col-lg-2">
+            <label class="form-label small text-secondary mb-1">Biriktirilgan admin</label>
+            <select class="form-select form-select-sm" name="assigned_admin">
+              <option value="">{{ t("admin_label_all") }}</option>
+              {% for admin_user in admin_options %}
+              <option value="{{ admin_user.id }}" {% if assigned_admin_filter==admin_user.id %}selected{% endif %}>{{ admin_user.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6 col-lg-3">
+            <label class="form-label small text-secondary mb-1">Sana oralig'i</label>
+            <div class="d-flex gap-1">
+              <input type="date" class="form-control form-control-sm" name="created_from" value="{{ created_from }}">
+              <input type="date" class="form-control form-control-sm" name="created_to" value="{{ created_to }}">
+            </div>
+          </div>
+        </div>
+      </div>
+      <input type="hidden" name="status" value="{{ status_filter }}">
+    </form>
+  </div>
+</div>
+
+<div class="card fm-table-card mt-3">
+  <div class="card-header">
+    <form method="post" action="{{ url_for('submissions_bulk_action') }}" id="submissions-bulk-form" class="w-100">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <select class="form-select form-select-sm" name="action" style="max-width: 280px;" required>
           <option value="">Tanlanganlar bilan amal...</option>
           {% for status_key, status_label in workflow_stage_choices %}
@@ -60,88 +209,25 @@
           <th class="w-1">
             <input class="form-check-input" type="checkbox" id="select-all-submissions">
           </th>
-          <th>ID</th>
-          <th>{{ t("admin_submissions_col_user") }}</th>
+          <th class="w-1">ID</th>
+          <th>{{ t("admin_submissions_col_title") }} / {{ t("admin_submissions_col_user") }}</th>
           <th class="col-editor">Muharrir</th>
-          <th>{{ t("admin_submissions_col_title") }}</th>
           <th class="col-track">Yo'nalish</th>
-          <th class="col-assigned-admin">Biriktirilgan admin</th>
+          <th class="col-assigned-admin">Admin</th>
           <th class="col-classification">Tasniflar</th>
-          <th>{{ t("admin_label_status") }}</th>
           <th class="col-author">{{ t("admin_submissions_col_author") }}</th>
+          <th>{{ t("admin_label_status") }}</th>
           <th class="col-created-date">{{ t("admin_submissions_col_date") }}</th>
-          <th>{{ t("admin_col_actions") }}</th>
-        </tr>
-        <tr class="bg-light">
-          <th></th>
-          <th>
-            <input type="number" class="form-control form-control-sm" name="submission_id"
-              value="{{ submission_id_filter or '' }}" placeholder="ID" form="submission-filters">
-          </th>
-          <th>
-            <input type="number" class="form-control form-control-sm" name="user_id"
-              value="{{ user_id_filter or '' }}" placeholder="ID" form="submission-filters">
-          </th>
-          <th class="col-editor">
-            <select class="form-select form-select-sm" name="editor_id" form="submission-filters">
-              <option value="">{{ t("admin_label_all") }}</option>
-              {% for editor_user in editor_options %}
-              <option value="{{ editor_user.id }}" {% if editor_id_filter==editor_user.id %}selected{% endif %}>
-                {{ editor_user.name or editor_user.email }}
-              </option>
-              {% endfor %}
-            </select>
-          </th>
-          <th>
-            <input type="text" class="form-control form-control-sm" name="title"
-              value="{{ title_filter }}" placeholder="Sarlavha" form="submission-filters">
-          </th>
-          <th class="col-track">
-            <select class="form-select form-select-sm" name="track" form="submission-filters">
-              <option value="">{{ t("admin_label_all") }}</option>
-              {% for track_key, track_label in admin_track_choices %}
-              <option value="{{ track_key }}" {% if track_filter==track_key %}selected{% endif %}>{{ track_label }}</option>
-              {% endfor %}
-            </select>
-          </th>
-          <th class="col-assigned-admin">
-            <select class="form-select form-select-sm" name="assigned_admin" form="submission-filters">
-              <option value="">{{ t("admin_label_all") }}</option>
-              {% for admin_user in admin_options %}
-              <option value="{{ admin_user.id }}" {% if assigned_admin_filter==admin_user.id %}selected{% endif %}>
-                {{ admin_user.name }}
-              </option>
-              {% endfor %}
-            </select>
-          </th>
-          <th class="col-classification"></th>
-          <th>
-            <select class="form-select form-select-sm" name="status" form="submission-filters">
-              <option value="">{{ t("admin_option_all_statuses") }}</option>
-              {% for status_key, status_label in workflow_stage_choices %}
-              <option value="{{ status_key }}" {% if status_filter==status_key %}selected{% endif %}>{{ status_label }}</option>
-              {% endfor %}
-            </select>
-          </th>
-          <th class="col-author">
-            <input type="text" class="form-control form-control-sm" name="author"
-              value="{{ author_filter }}" placeholder="Muallif" form="submission-filters">
-          </th>
-          <th class="col-created-date">
-            <div class="d-flex gap-1">
-              <input type="date" class="form-control form-control-sm" name="created_from"
-                value="{{ created_from }}" form="submission-filters">
-              <input type="date" class="form-control form-control-sm" name="created_to"
-                value="{{ created_to }}" form="submission-filters">
-            </div>
-          </th>
-          <th></th>
+          <th class="w-1 text-end">{{ t("admin_col_actions") }}</th>
         </tr>
       </thead>
       <tbody>
         {% for submission in submissions_list %}
-        <tr>
-          <td class="align-middle">
+        {% set submitter = users_map.get(submission.user_id) %}
+        {% set row_author = authors_map.get(submission.main_author_id) %}
+        {% set classification_title = submission.classification_items | map(attribute='label') | join(', ') %}
+        <tr class="cursor-pointer" onclick="window.location='{{ url_for('submission_detail', submission_id=submission.id) }}'">
+          <td onclick="event.stopPropagation()">
             <input
               class="form-check-input submission-checkbox"
               type="checkbox"
@@ -150,75 +236,67 @@
               form="submissions-bulk-form"
             >
           </td>
-          <td class="align-middle">{{ submission.id }}</td>
-          <td class="align-middle">
-            {% if users_map.get(submission.user_id) %}
-            {{ users_map[submission.user_id].name }}
-            {% else %}
-            ID: {{ submission.user_id or t("admin_label_not_specified") }}
-            {% endif %}
+          <td class="text-secondary small">#{{ submission.id }}</td>
+          <td>
+            <span class="fm-cell-title" title="{{ submission.title or '' }}">{{ submission.title or t("admin_label_no_title") }}</span>
+            <div class="fm-cell-sub">
+              {% if submitter %}{{ submitter.name }}{% else %}ID: {{ submission.user_id or t("admin_label_not_specified") }}{% endif %}
+              {% if submission.revision_number and submission.revision_number > 1 %}
+              <span class="badge bg-secondary-lt ms-1">#{{ submission.revision_number }}</span>
+              {% endif %}
+            </div>
           </td>
-          <td class="align-middle col-editor">{{ submission.assigned_editors_label }}</td>
-          <td class="align-middle">{{ submission.title or t("admin_label_no_title") }}</td>
-          <td class="align-middle col-track">
+          <td class="col-editor">
+            <div class="fm-cell-narrow" title="{{ submission.assigned_editors_label }}">{{ submission.assigned_editors_label }}</div>
+          </td>
+          <td class="col-track">
             <span class="badge bg-blue-lt">{{ submission.submission_track_label }}</span>
           </td>
-          <td class="align-middle col-assigned-admin">{{ submission.assigned_admin_name }}</td>
-          <td class="align-middle col-classification">
+          <td class="col-assigned-admin">
+            <div class="fm-cell-narrow" title="{{ submission.assigned_admin_name }}">{{ submission.assigned_admin_name }}</div>
+          </td>
+          <td class="col-classification">
             {% if submission.classification_items %}
-            {% for classification in submission.classification_items[:2] %}
-            <span class="badge bg-light text-dark me-1 mb-1">{{ classification.label }}</span>
-            {% endfor %}
-            {% if submission.classification_total > 2 %}
-            <span class="badge bg-secondary-lt">+{{ submission.classification_total - 2 }}</span>
-            {% endif %}
+            <div class="fm-cell-muted" title="{{ classification_title }}">{{ classification_title }}</div>
             {% else %}
-            <span class="text-muted">{{ t("admin_label_not_specified") }}</span>
+            <span class="text-muted">&mdash;</span>
             {% endif %}
           </td>
-          <td class="align-middle">
+          <td class="col-author">
+            <div class="fm-cell-narrow" title="{{ row_author.name if row_author else '' }}">
+              {% if row_author %}{{ row_author.name }}{% else %}ID: {{ submission.main_author_id or t("admin_label_not_specified") }}{% endif %}
+            </div>
+          </td>
+          <td>
             {% if submission.status == 'draft' %}
             <span class="badge bg-secondary-lt">{{ t("admin_status_draft") }}</span>
             {% else %}
             <span class="badge bg-{{ submission_status_badge_tone(submission.status) }}-lt">{{ submission_status_label(submission.status) }}</span>
             {% endif %}
-            {% if submission.revision_number and submission.revision_number > 1 %}
-            <span class="badge bg-secondary-lt">#{{ submission.revision_number }}</span>
-            {% endif %}
           </td>
-          <td class="align-middle col-author">
-            {% if authors_map.get(submission.main_author_id) %}
-            {{ authors_map[submission.main_author_id].name }}
-            {% else %}
-            ID: {{ submission.main_author_id or t("admin_label_not_specified") }}
-            {% endif %}
+          <td class="col-created-date">
+            <span class="text-secondary small text-nowrap">
+              {% if submission.created_date %}{{ submission.created_date | timestamp_to_date }}{% else %}&mdash;{% endif %}
+            </span>
           </td>
-          <td class="align-middle col-created-date">
-            {% if submission.created_date %}
-            {{ submission.created_date | timestamp_to_date }}
-            {% else %}
-            {{ t("admin_label_not_specified") }}
-            {% endif %}
-          </td>
-          <td class="align-middle">
-            <div class="btn-group" role="group">
-              <a href="{{ url_for('submission_detail', submission_id=submission.id) }}"
-                class="btn btn-sm btn-outline-primary">
-                {{ t("admin_btn_view") }}
-              </a>
-              <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal"
+          {# The row itself opens the submission, so the actions column only
+             keeps what the row click cannot do. #}
+          <td onclick="event.stopPropagation()">
+            <div class="d-flex align-items-center justify-content-end gap-1">
+              <button class="btn btn-sm btn-icon btn-outline-secondary" data-bs-toggle="modal"
                 data-bs-target="#editSubmissionModal" data-submission-id="{{ submission.id }}"
                 data-submission-status="{{ submission.status or '' }}"
-                data-submission-notes="{{ submission.notes or '' }}">
+                data-submission-notes="{{ submission.notes or '' }}"
+                title="{{ t('admin_submissions_edit_title') }}">
                 <i class="ti ti-edit"></i>
               </button>
-              {% if submission.status in ['pending', 'passed_technical_check', 'plagiarism_check'] and submission.file_anonymized %}
+              {% if submission.can_assign_editors %}
               <a href="{{ url_for('assign_editors', submission_id=submission.id) }}"
-                class="btn btn-sm btn-outline-success">
+                class="btn btn-sm btn-icon btn-outline-success" title="{{ t('admin_btn_assign_editors') }}">
                 <i class="ti ti-user-check"></i>
-                {{ t("admin_btn_assign_editors") }}
               </a>
               {% endif %}
+              <i class="ti ti-chevron-right fm-row-chevron"></i>
             </div>
           </td>
         </tr>
@@ -226,6 +304,9 @@
       </tbody>
     </table>
   </div>
+  {% if not submissions_list %}
+  <div class="p-4 text-center text-secondary">Hech qanday ariza topilmadi. Filtrlarni tekshiring.</div>
+  {% endif %}
   <div class="card-footer d-flex align-items-center">
     {% set start_idx = (page - 1) * 20 + 1 %}
     {% set end_idx = (page - 1) * 20 + submissions_list|length %}
@@ -295,6 +376,8 @@
       </form>
     </div>
   </div>
+</div>
+
 </div>
 
 {% endblock %}

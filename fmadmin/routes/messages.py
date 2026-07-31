@@ -14,9 +14,16 @@ structurally separate URL paths (submission-scoped vs assignment-scoped) so
 a client can never flip a scope parameter to reach the other thread.
 """
 import json
+import os
 import time
 
 from flask import Response, jsonify, request, session, stream_with_context
+from werkzeug.utils import secure_filename
+
+try:
+    import fmadmin.settings as settings
+except ImportError:
+    import settings
 
 from .web import (
     bp,
@@ -32,12 +39,19 @@ from .web import (
 )
 from utils.auth import is_admin_or_editor
 from utils.notifications import localized_texts
+from utils.private_uploads import build_private_upload_ref, upload_access_url
 from extensions import db
 
 MESSAGE_POLL_INTERVAL_SECONDS = 2
 MESSAGE_STREAM_MAX_SECONDS = 110
 MESSAGE_BODY_MAX_LENGTH = 4000
 MESSAGE_LIST_LIMIT = 200
+MESSAGE_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024
+MESSAGE_ATTACHMENT_EXTENSIONS = {
+    'jpg', 'jpeg', 'png', 'webp', 'gif',
+    'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'txt',
+}
+MESSAGE_ATTACHMENT_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
 
 
 def _load_user(user_id):
@@ -132,12 +146,52 @@ def _counterpart_last_read_message_id(submission, visibility_scope, viewer_user_
     return row[0] if row and row[0] is not None else 0
 
 
+def _attachment_payload(attachment_file, attachment_name, attachment_mime, attachment_size):
+    if not attachment_file:
+        return None
+    ext = (attachment_name or '').rsplit('.', 1)[-1].lower() if attachment_name and '.' in attachment_name else ''
+    return {
+        'url': upload_access_url(attachment_file),
+        'name': attachment_name or '',
+        'mime': attachment_mime or '',
+        'size': attachment_size,
+        'is_image': ext in MESSAGE_ATTACHMENT_IMAGE_EXTENSIONS,
+    }
+
+
+def _save_message_attachment(sender_user_id, file):
+    filename = file.filename or ''
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    if ext not in MESSAGE_ATTACHMENT_EXTENSIONS:
+        raise ValueError('Invalid attachment type')
+
+    file.seek(0, os.SEEK_END)
+    size = file.tell()
+    file.seek(0)
+    if size <= 0 or size > MESSAGE_ATTACHMENT_MAX_BYTES:
+        raise ValueError('Attachment too large')
+
+    safe_name = secure_filename(filename) or f'file.{ext}'
+    stored_filename = f"msg_{sender_user_id}_{int(time.time())}_{safe_name}"
+    filepath = os.path.join(settings.SAVE_PATH, 'private_uploads', 'messages', stored_filename)
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    file.save(filepath)
+
+    return {
+        'file_ref': build_private_upload_ref('messages', stored_filename),
+        'name': safe_name,
+        'mime': file.mimetype or '',
+        'size': size,
+    }
+
+
 def _fetch_messages(submission_id, visibility_scope, viewer_user_id, counterpart_last_read_id, editor_assignment_id=None, after_id=0, limit=MESSAGE_LIST_LIMIT):
     cursor = db.conn.cursor()
     try:
         if editor_assignment_id is None:
             cursor.execute(
-                "SELECT id, sender_user_id, sender_role, body, created_at "
+                "SELECT id, sender_user_id, sender_role, body, created_at, "
+                "attachment_file, attachment_name, attachment_mime, attachment_size "
                 "FROM submission_messages "
                 "WHERE submission_id = %s AND visibility_scope = %s AND editor_assignment_id IS NULL "
                 "AND id > %s AND is_deleted = FALSE "
@@ -146,7 +200,8 @@ def _fetch_messages(submission_id, visibility_scope, viewer_user_id, counterpart
             )
         else:
             cursor.execute(
-                "SELECT id, sender_user_id, sender_role, body, created_at "
+                "SELECT id, sender_user_id, sender_role, body, created_at, "
+                "attachment_file, attachment_name, attachment_mime, attachment_size "
                 "FROM submission_messages "
                 "WHERE submission_id = %s AND visibility_scope = %s AND editor_assignment_id = %s "
                 "AND id > %s AND is_deleted = FALSE "
@@ -159,7 +214,10 @@ def _fetch_messages(submission_id, visibility_scope, viewer_user_id, counterpart
     rows.reverse()
     messages = []
     for row in rows:
-        message = {'id': row[0], 'sender_user_id': row[1], 'sender_role': row[2], 'body': row[3], 'created_at': row[4]}
+        message = {
+            'id': row[0], 'sender_user_id': row[1], 'sender_role': row[2], 'body': row[3], 'created_at': row[4],
+            'attachment': _attachment_payload(row[5], row[6], row[7], row[8]),
+        }
         if row[1] == viewer_user_id:
             message['read'] = row[0] <= counterpart_last_read_id
         messages.append(message)
@@ -193,7 +251,7 @@ def _mark_read(submission_id, visibility_scope, editor_assignment_id, user_id, l
             pass
 
 
-def _insert_message(submission_id, visibility_scope, editor_assignment_id, sender_user_id, sender_role, body):
+def _insert_message(submission_id, visibility_scope, editor_assignment_id, sender_user_id, sender_role, body, attachment=None):
     now_ts = int(time.time())
     try:
         created = db.submission_messages.add(
@@ -204,7 +262,11 @@ def _insert_message(submission_id, visibility_scope, editor_assignment_id, sende
             sender_role=sender_role,
             body=body,
             is_deleted=False,
-            created_at=now_ts
+            created_at=now_ts,
+            attachment_file=attachment['file_ref'] if attachment else None,
+            attachment_name=attachment['name'] if attachment else None,
+            attachment_mime=attachment['mime'] if attachment else None,
+            attachment_size=attachment['size'] if attachment else None,
         ).exec()
     except Exception:
         return None
@@ -216,6 +278,10 @@ def _insert_message(submission_id, visibility_scope, editor_assignment_id, sende
         'body': body,
         'created_at': now_ts,
         'read': False,
+        'attachment': (
+            _attachment_payload(attachment['file_ref'], attachment['name'], attachment['mime'], attachment['size'])
+            if attachment else None
+        ),
     }
 
 
@@ -253,13 +319,26 @@ def submission_messages_send(submission_id):
     if not submission or not _can_view_message_thread(current_user, submission, 'author_admin'):
         return jsonify({'success': False, 'message': 'Not found'}), 404
 
-    data = request.get_json(silent=True) or {}
-    body = _clean_text(data.get('message'))[:MESSAGE_BODY_MAX_LENGTH]
-    if not body:
+    sender_id = _parse_int(current_user.get('id'))
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        body = _clean_text(request.form.get('message'))[:MESSAGE_BODY_MAX_LENGTH]
+        upload = request.files.get('attachment')
+    else:
+        data = request.get_json(silent=True) or {}
+        body = _clean_text(data.get('message'))[:MESSAGE_BODY_MAX_LENGTH]
+        upload = None
+
+    attachment = None
+    if upload and upload.filename:
+        try:
+            attachment = _save_message_attachment(sender_id, upload)
+        except ValueError:
+            return jsonify({'success': False, 'message': 'Invalid or too large attachment'}), 400
+
+    if not body and not attachment:
         return jsonify({'success': False, 'message': 'Message cannot be empty'}), 400
 
-    sender_id = _parse_int(current_user.get('id'))
-    message = _insert_message(submission_id, 'author_admin', None, sender_id, _role_of(current_user), body)
+    message = _insert_message(submission_id, 'author_admin', None, sender_id, _role_of(current_user), body, attachment=attachment)
     if message is None:
         return jsonify({'success': False, 'message': 'Failed to send message'}), 500
 
@@ -365,14 +444,27 @@ def assignment_messages_send(assignment_id):
     if not assignment or not submission or not _can_view_message_thread(current_user, submission, 'admin_editor', assignment=assignment):
         return jsonify({'success': False, 'message': 'Not found'}), 404
 
-    data = request.get_json(silent=True) or {}
-    body = _clean_text(data.get('message'))[:MESSAGE_BODY_MAX_LENGTH]
-    if not body:
-        return jsonify({'success': False, 'message': 'Message cannot be empty'}), 400
-
     sender_id = _parse_int(current_user.get('id'))
     sender_role = _role_of(current_user)
-    message = _insert_message(submission['id'], 'admin_editor', assignment_id, sender_id, sender_role, body)
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        body = _clean_text(request.form.get('message'))[:MESSAGE_BODY_MAX_LENGTH]
+        upload = request.files.get('attachment')
+    else:
+        data = request.get_json(silent=True) or {}
+        body = _clean_text(data.get('message'))[:MESSAGE_BODY_MAX_LENGTH]
+        upload = None
+
+    attachment = None
+    if upload and upload.filename:
+        try:
+            attachment = _save_message_attachment(sender_id, upload)
+        except ValueError:
+            return jsonify({'success': False, 'message': 'Invalid or too large attachment'}), 400
+
+    if not body and not attachment:
+        return jsonify({'success': False, 'message': 'Message cannot be empty'}), 400
+
+    message = _insert_message(submission['id'], 'admin_editor', assignment_id, sender_id, sender_role, body, attachment=attachment)
     if message is None:
         return jsonify({'success': False, 'message': 'Failed to send message'}), 500
 

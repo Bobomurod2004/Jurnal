@@ -10,7 +10,7 @@ except ImportError:
 
 PRIVATE_UPLOAD_PREFIX = 'private://'
 PRIVATE_UPLOAD_ROOT = 'private_uploads'
-PRIVATE_UPLOAD_CATEGORIES = {'articles', 'documents', 'payments'}
+PRIVATE_UPLOAD_CATEGORIES = {'articles', 'documents', 'payments', 'messages'}
 
 
 def _clean_text(value):
@@ -35,6 +35,13 @@ def extract_private_upload_key(value):
     if category not in PRIVATE_UPLOAD_CATEGORIES or not remainder:
         return None
     return f'{category}/{remainder}'
+
+
+def build_private_upload_ref(category, filename):
+    key = extract_private_upload_key(f'{category}/{filename}')
+    if not key:
+        raise ValueError('Invalid private upload reference')
+    return f'{PRIVATE_UPLOAD_PREFIX}{key}'
 
 
 def is_private_upload_ref(value):

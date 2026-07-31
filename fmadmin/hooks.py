@@ -13,7 +13,12 @@ except ImportError:
 from utils.notifications import apply_localized_notification_content, role_notification_access_clause as build_role_notification_access_clause
 from utils.private_uploads import upload_access_url
 from utils.roles import hydrate_user_roles, primary_role, staff_roles_for_user, user_has_permission
-from shared.submission_status import SUBMISSION_STATUS_BADGE_TONE, submission_status_label
+from shared.submission_status import (
+    ANTIPLAGIARISM_STATUS_BADGE_TONE,
+    SUBMISSION_STATUS_BADGE_TONE,
+    anti_plagiarism_status_label,
+    submission_status_label,
+)
 from shared.audit import record_request_audit_event
 
 
@@ -215,6 +220,8 @@ def register(app):
             'app_version': settings.APP_VERSION,
             'submission_status_label': lambda status, lang=None: submission_status_label(status, lang or current_lang),
             'submission_status_badge_tone': lambda status: SUBMISSION_STATUS_BADGE_TONE.get(status, 'secondary'),
+            'anti_plagiarism_status_label': lambda status, lang=None: anti_plagiarism_status_label(status, lang or current_lang),
+            'anti_plagiarism_status_badge_tone': lambda status: ANTIPLAGIARISM_STATUS_BADGE_TONE.get(status, 'secondary'),
         }
 
     @app.after_request

@@ -10,7 +10,7 @@ except ImportError:
 
 PRIVATE_UPLOAD_PREFIX = 'private://'
 PRIVATE_UPLOAD_ROOT = 'private_uploads'
-PRIVATE_UPLOAD_CATEGORIES = {'articles', 'documents', 'payments'}
+PRIVATE_UPLOAD_CATEGORIES = {'articles', 'documents', 'payments', 'messages'}
 
 
 def _clean_text(value):

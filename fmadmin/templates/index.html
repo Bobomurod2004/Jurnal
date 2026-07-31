@@ -99,6 +99,104 @@
   .admin-dashboard .dashboard-toolbar .btn {
     white-space: nowrap;
   }
+
+  .admin-dashboard .hero-card {
+    background: linear-gradient(135deg, #1d2a44, #2a3c63);
+    border-radius: var(--tblr-border-radius-lg);
+    padding: 1.5rem 1.75rem;
+    color: #fff;
+    height: 100%;
+  }
+
+  .admin-dashboard .hero-label {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9fb3e0;
+    font-weight: 700;
+  }
+
+  .admin-dashboard .hero-value {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  .admin-dashboard .hero-meta {
+    color: #c3d0ea;
+    font-size: 0.85rem;
+  }
+
+  .admin-dashboard .kpi-card-sm {
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--tblr-border-radius);
+    background: var(--tblr-bg-surface);
+  }
+
+  .admin-dashboard .kpi-value-sm {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--tblr-body-color);
+  }
+
+  .admin-dashboard .kpi-icon {
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: var(--tblr-border-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+  }
+
+  .admin-dashboard .quick-action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  /* The reminders button is wrapped in its own <form>; d-contents lets it sit
+     in the grid next to the plain links instead of forming a second row. */
+  .admin-dashboard .d-contents { display: contents; }
+
+  .admin-dashboard .quick-action {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    padding: 0.7rem 0.75rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--tblr-border-radius);
+    background: var(--tblr-bg-surface-secondary);
+    color: var(--tblr-body-color);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-align: left;
+    text-decoration: none;
+    width: 100%;
+  }
+
+  .admin-dashboard .quick-action:hover {
+    border-color: var(--tblr-primary);
+    color: var(--tblr-body-color);
+  }
+
+  .admin-dashboard .quick-action i { font-size: 1.15rem; }
+
+  .admin-dashboard .attention-bar {
+    height: 4px;
+    border-radius: 99px;
+    background: var(--tblr-border-color);
+    overflow: hidden;
+    max-width: 12rem;
+    margin-top: 0.5rem;
+  }
+
+  .admin-dashboard .attention-bar span {
+    display: block;
+    height: 100%;
+    border-radius: 99px;
+  }
 </style>
 
 <div class="admin-dashboard">
@@ -112,35 +210,60 @@
           <span class="ms-2">{{ stats.generated_at | timestamp_to_date if stats.generated_at else '-' }}</span>
         </div>
       </div>
-      <div class="col-auto ms-auto d-print-none dashboard-toolbar">
-        <div class="btn-list">
-          {% if can_run_assignment_automation %}
-          <form action="{{ url_for('run_editor_assignment_automation_now') }}" method="POST" class="d-inline">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="btn btn-outline-warning">
-              <i class="ti ti-bell-ringing me-1"></i>
-              Run reminders
-            </button>
-          </form>
-          {% endif %}
-          <a href="{{ url_for('submissions') }}" class="btn btn-outline-primary">
-            <i class="ti ti-file-text me-1"></i>
-            Arizalar
-          </a>
-          <a href="{{ url_for('articles') }}" class="btn btn-outline-secondary">
-            <i class="ti ti-news me-1"></i>
-            Maqolalar
-          </a>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-lg-8">
+      <div class="hero-card d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+          <div class="hero-label">Diqqat talab qiladi</div>
+          <div class="hero-value mt-2">{{ stats.stalled_submissions or 0 }} ta ariza</div>
+          <div class="hero-meta mt-1">14 kundan ortiq javobsiz turibdi — tezroq harakat talab qilinadi</div>
+        </div>
+        <a href="#attention-submissions" class="btn btn-light">Ko'rib chiqish <i class="ti ti-arrow-right ms-1"></i></a>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="kpi-label mb-2">Tezkor amallar</div>
+          <div class="quick-action-grid">
+            {% if can_run_assignment_automation %}
+            <form action="{{ url_for('run_editor_assignment_automation_now') }}" method="POST" class="d-contents">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="quick-action">
+                <i class="ti ti-bell-ringing text-orange"></i>
+                <span>Run reminders</span>
+              </button>
+            </form>
+            {% endif %}
+            <a href="{{ url_for('submissions') }}" class="quick-action">
+              <i class="ti ti-file-text text-blue"></i>
+              <span>Arizalar</span>
+            </a>
+            <a href="{{ url_for('articles') }}" class="quick-action">
+              <i class="ti ti-news text-green"></i>
+              <span>Maqolalar</span>
+            </a>
+            <a href="{{ url_for('role_notifications') }}" class="quick-action">
+              <i class="ti ti-bell text-purple"></i>
+              <span>Bildirishnomalar</span>
+            </a>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
   <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-xl-2">
+    <div class="col-sm-6 col-xl-3">
       <div class="card kpi-card">
         <div class="card-body">
-          <div class="kpi-label">{{ label_total_articles }}</div>
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <div class="kpi-label">{{ label_total_articles }}</div>
+            <span class="kpi-icon bg-blue-lt text-blue"><i class="ti ti-article"></i></span>
+          </div>
           <div class="kpi-value mt-2">{{ stats.total_articles or 0 }}</div>
           <div class="kpi-meta mt-2">{{ t("admin_stats_total_articles_desc") }}</div>
         </div>
@@ -148,10 +271,13 @@
       </div>
     </div>
 
-    <div class="col-sm-6 col-xl-2">
+    <div class="col-sm-6 col-xl-3">
       <div class="card kpi-card">
         <div class="card-body">
-          <div class="kpi-label">{{ label_active_submissions }}</div>
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <div class="kpi-label">{{ label_active_submissions }}</div>
+            <span class="kpi-icon bg-yellow-lt text-yellow"><i class="ti ti-inbox"></i></span>
+          </div>
           <div class="kpi-value mt-2">{{ stats.active_submissions or 0 }}</div>
           <div class="kpi-meta mt-2">14+ kun kutayotganlar: {{ stats.stalled_submissions or 0 }}</div>
         </div>
@@ -159,10 +285,13 @@
       </div>
     </div>
 
-    <div class="col-sm-6 col-xl-2">
+    <div class="col-sm-6 col-xl-3">
       <div class="card kpi-card">
         <div class="card-body">
-          <div class="kpi-label">Qabul foizi</div>
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <div class="kpi-label">Qabul foizi</div>
+            <span class="kpi-icon bg-green-lt text-green"><i class="ti ti-checks"></i></span>
+          </div>
           <div class="kpi-value mt-2">{{ stats.acceptance_rate or 0 }}%</div>
           <div class="kpi-meta mt-2">Qaror chiqqanlar: {{ (stats.published_submissions or 0) + (stats.rejected_submissions or 0) }}</div>
         </div>
@@ -170,36 +299,52 @@
       </div>
     </div>
 
-    <div class="col-sm-6 col-xl-2">
+    <div class="col-sm-6 col-xl-3">
       <div class="card kpi-card">
         <div class="card-body">
-          <div class="kpi-label">O'rtacha qaror vaqti</div>
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <div class="kpi-label">O'rtacha qaror vaqti</div>
+            <span class="kpi-icon bg-orange-lt text-orange"><i class="ti ti-clock"></i></span>
+          </div>
           <div class="kpi-value mt-2">{{ stats.avg_decision_days or 0 }}</div>
           <div class="kpi-meta mt-2">kun</div>
         </div>
         <div class="kpi-accent bg-orange"></div>
       </div>
     </div>
+  </div>
 
-    <div class="col-sm-6 col-xl-2">
-      <div class="card kpi-card">
-        <div class="card-body">
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+      <div class="card kpi-card-sm">
+        <div class="card-body py-3">
           <div class="kpi-label">{{ label_total_views }}</div>
-          <div class="kpi-value mt-2">{{ stats.total_views | number_format }}</div>
-          <div class="kpi-meta mt-2">Oxirgi 30 kun maqolalari: {{ stats.new_articles_30d or 0 }}</div>
+          <div class="kpi-value-sm mt-1">{{ stats.total_views | number_format }}</div>
         </div>
-        <div class="kpi-accent bg-cyan"></div>
       </div>
     </div>
-
-    <div class="col-sm-6 col-xl-2">
-      <div class="card kpi-card">
-        <div class="card-body">
+    <div class="col-sm-6 col-xl-3">
+      <div class="card kpi-card-sm">
+        <div class="card-body py-3">
           <div class="kpi-label">{{ label_total_users }}</div>
-          <div class="kpi-value mt-2">{{ stats.total_users or 0 }}</div>
-          <div class="kpi-meta mt-2">Oxirgi 30 kun arizalar: {{ stats.new_submissions_30d or 0 }}</div>
+          <div class="kpi-value-sm mt-1">{{ stats.total_users or 0 }}</div>
         </div>
-        <div class="kpi-accent bg-indigo"></div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card kpi-card-sm">
+        <div class="card-body py-3">
+          <div class="kpi-label">Oxirgi 30 kun maqolalar</div>
+          <div class="kpi-value-sm mt-1">{{ stats.new_articles_30d or 0 }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card kpi-card-sm">
+        <div class="card-body py-3">
+          <div class="kpi-label">Oxirgi 30 kun arizalar</div>
+          <div class="kpi-value-sm mt-1">{{ stats.new_submissions_30d or 0 }}</div>
+        </div>
       </div>
     </div>
   </div>
@@ -249,13 +394,15 @@
 
   <div class="row g-3 mb-4">
     <div class="col-lg-6">
-      <div class="card h-100">
+      <div class="card h-100" id="attention-submissions">
         <div class="card-header">
           <h3 class="card-title">Diqqat talab qiladigan arizalar</h3>
         </div>
         <div class="card-body p-0">
           {% if attention_submissions %}
           {% for submission in attention_submissions %}
+          {# The bar fills up as the submission approaches a month untouched. #}
+          {% set age_ratio = [submission.age_days or 0, 30] | min %}
           <div class="list-item">
             <div class="d-flex justify-content-between gap-3 align-items-start">
               <div class="min-w-0">
@@ -263,16 +410,21 @@
                   {{ submission.title[:90] }}{% if submission.title|length > 90 %}...{% endif %}
                 </a>
                 <div class="item-subtitle mt-1">
-                  {{ submission.author_name }} • {{ submission.created_at | timestamp_to_date if submission.created_at else '-' }}
+                  {{ submission.author_name }} • {{ submission_status_label(submission.workflow_stage) }}
+                </div>
+                <div class="attention-bar">
+                  <span class="{{ 'bg-red' if (submission.age_days or 0) >= 30 else 'bg-orange' }}" style="width: {{ (age_ratio * 100 / 30) | round | int }}%;"></span>
                 </div>
               </div>
-              <div class="text-end">
+              <div class="text-end flex-shrink-0">
                 {% if submission.age_days >= 30 %}
                 <span class="badge badge-soft-danger">{{ submission.age_days }} kun</span>
                 {% else %}
                 <span class="badge badge-soft-warning">{{ submission.age_days }} kun</span>
                 {% endif %}
-                <div class="item-subtitle mt-1">{{ submission_status_label(submission.workflow_stage) }}</div>
+                <div class="mt-2">
+                  <a href="{{ url_for('submission_detail', submission_id=submission.id) }}" class="btn btn-sm btn-outline-secondary">{{ t("admin_btn_view") }}</a>
+                </div>
               </div>
             </div>
           </div>
@@ -400,12 +552,34 @@
           cutout: '62%',
           plugins: {
             legend: {
-              position: 'bottom',
+              position: 'right',
               labels: {
                 boxWidth: 10,
                 boxHeight: 10,
                 usePointStyle: true,
-                pointStyle: 'circle'
+                pointStyle: 'circle',
+                // Share of the total next to each status, so the ring does not
+                // have to be hovered to be read.
+                generateLabels: function (chart) {
+                  const dataset = chart.data.datasets[0] || { data: [], backgroundColor: [] };
+                  const values = dataset.data || [];
+                  const total = values.reduce(function (sum, value) {
+                    return sum + (Number(value) || 0);
+                  }, 0) || 1;
+                  return (chart.data.labels || []).map(function (label, index) {
+                    const value = Number(values[index]) || 0;
+                    const color = dataset.backgroundColor[index];
+                    return {
+                      text: label + ' — ' + Math.round(value * 100 / total) + '%',
+                      fillStyle: color,
+                      strokeStyle: color,
+                      lineWidth: 0,
+                      pointStyle: 'circle',
+                      hidden: false,
+                      index: index
+                    };
+                  });
+                }
               }
             }
           }
