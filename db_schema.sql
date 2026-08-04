@@ -1013,7 +1013,22 @@ CREATE TABLE public.submissions (
     rejected_by integer,
     revision_allowed boolean DEFAULT true NOT NULL,
     last_revision_submitted_at bigint,
-    published_url text
+    published_url text,
+    -- Added by migrations/versions/20260727_000001 and 20260727_000002.
+    -- Mirrored here because both are NOT NULL: application inserts must send
+    -- a value or leave the column out of the INSERT entirely, never NULL.
+    anti_plagiarism_uploaded_by_role text,
+    anti_plagiarism_status text DEFAULT 'pending'::text NOT NULL,
+    anti_plagiarism_note text,
+    anti_plagiarism_resubmitted_at bigint,
+    editor_shared_file text,
+    editor_shared_file_note text,
+    editor_shared_file_at bigint,
+    revision_severity text DEFAULT 'major'::text NOT NULL,
+    CONSTRAINT chk_submissions_anti_plagiarism_status
+        CHECK (anti_plagiarism_status IN ('pending', 'passed', 'failed')),
+    CONSTRAINT chk_submissions_revision_severity
+        CHECK (revision_severity IN ('minor', 'major'))
 );
 
 

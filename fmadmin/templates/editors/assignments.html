@@ -5,7 +5,7 @@
   <div class="row align-items-center">
     <div class="col">
       <h2 class="page-title">
-        {% if current_user.rolename == 'editor' %}
+        {% if not is_admin_viewer %}
         {{ t("admin_my_assignments_title") }}
         {% else %}
         {{ t("admin_editor_assignments_title") }}
@@ -30,7 +30,7 @@
         </option>
       </select>
     </div>
-    {% if current_user.rolename in ['admin', 'superadmin'] %}
+    {% if is_admin_viewer %}
     <div class="col-md-3">
       <div class="form-label">{{ t("admin_label_editor") }}</div>
       <select class="form-select" name="editor">
@@ -75,13 +75,15 @@
       <thead>
         <tr>
           <th>{{ t("admin_col_article") }}</th>
-          {% if current_user.rolename in ['admin', 'superadmin'] %}
+          {% if is_admin_viewer %}
           <th>{{ t("admin_label_editor") }}</th>
           {% endif %}
           <th>{{ t("admin_col_assigned_at") }}</th>
           <th>Muddatlar</th>
           <th>{{ t("admin_label_status") }}</th>
+          {% if is_admin_viewer %}
           <th>Admin qarori</th>
+          {% endif %}
           <th>{{ t("admin_col_reviewed_at") }}</th>
           <th class="w-1"></th>
         </tr>
@@ -101,7 +103,7 @@
               {% endif %}
             </div>
           </td>
-          {% if current_user.rolename in ['admin', 'superadmin'] %}
+          {% if is_admin_viewer %}
           <td class="align-middle">
             {% if editor %}
             <div class="d-flex py-1 align-items-center">
@@ -122,7 +124,7 @@
               <div class="text-secondary small">
                 {{ assignment.assigned_at | timestamp_to_date if assignment.assigned_at else '-' }}
               </div>
-              {% if assigned_by_user and current_user.rolename in ['admin', 'superadmin'] %}
+              {% if assigned_by_user and is_admin_viewer %}
               <div class="text-secondary small">
                 {{ assigned_by_user.name }} {{ assigned_by_user.second_name or '' }}
               </div>
@@ -169,6 +171,7 @@
             <span class="badge bg-secondary-lt">{{ assignment.status }}</span>
             {% endif %}
           </td>
+          {% if is_admin_viewer %}
           <td class="align-middle">
             {% if assignment.admin_decision == 'accepted' %}
             <span class="badge bg-success-lt">Qabul qilingan</span>
@@ -180,6 +183,7 @@
             <span class="text-secondary">-</span>
             {% endif %}
           </td>
+          {% endif %}
           <td class="align-middle">
             {% if assignment.reviewed_at %}
             <div class="text-secondary small">
@@ -190,7 +194,7 @@
             {% endif %}
           </td>
           <td class="align-middle">
-            {% if current_user.rolename == 'editor' and assignment.editor_id == current_user.id and assignment.status in ['pending', 'in_review'] %}
+            {% if not is_admin_viewer and assignment.editor_id == current_user.id and assignment.status in ['pending', 'in_review'] %}
             <a href="{{ url_for('review_assignment', assignment_id=assignment.id) }}"
               class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1">
               {{ t("admin_review_title_pending") }}

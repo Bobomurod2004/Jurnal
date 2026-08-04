@@ -508,6 +508,7 @@
   (function () {
     const statusCodes = {{ status_chart.codes | default([], true) | tojson }};
     const statusData = {{ status_chart.data | default([], true) | tojson }};
+    const statusColors = {{ status_chart.colors | default([], true) | tojson }};
     // Labels come from shared/submission_status.py in the admin's language --
     // the map that used to live here was hardcoded Uzbek and still listed the
     // pre-consolidation status keys, so every newer status (payment_pending,
@@ -522,17 +523,10 @@
           labels: statusLabels,
           datasets: [{
             data: statusData,
-            backgroundColor: [
-              '#2563EB',
-              '#0EA5E9',
-              '#F59E0B',
-              '#8B5CF6',
-              '#10B981',
-              '#14B8A6',
-              '#22C55E',
-              '#EF4444',
-              '#94A3B8'
-            ],
+            // Colours are aligned with statusCodes on the server, rather
+            // than being positional.  This keeps published green and
+            // rejected red even when a status has no data in the chart.
+            backgroundColor: statusColors,
             borderWidth: 0
           }]
         },

@@ -9,6 +9,13 @@ dbc = None
 _translations_cache = {}
 _cache_timestamp = 0
 _cache_ttl = 300  # 5 minutes
+SUPPORTED_LANGUAGES = {'uz', 'ru', 'en'}
+
+
+def _current_language():
+    """Return the session language, consistently defaulting to Uzbek."""
+    language = str(session.get('language') or 'uz').strip().lower()
+    return language if language in SUPPORTED_LANGUAGES else 'uz'
 
 STATIC_TRANSLATIONS = {
     'uz': {
@@ -53,6 +60,23 @@ STATIC_TRANSLATIONS = {
         'admin_label_issue_toc_file': "Mundarija fayli",
         'admin_btn_download_issue_toc': "Mundarijani yuklab olish",
         'admin_hint_issue_toc_file': "Ruxsat etilgan formatlar: PDF, DOC, DOCX",
+        'admin_login_brand_subtitle': "Filologiya masalalari jurnali",
+        'admin_login_headline_line_1': "Boshqaruv",
+        'admin_login_headline_line_2': "markazi",
+        'admin_login_tagline': "Maqolalar, sonlar va tahririyat jarayonini bir joydan boshqaring.",
+        'admin_login_form_subtitle': "Davom etish uchun ma'lumotlaringizni kiriting",
+        'admin_login_language_label': "Tilni tanlang",
+        'admin_login_close_alert': "Yopish",
+        'admin_login_hide_password': "Parolni yashirish",
+        'admin_login_footer_note': "Faqat vakolatli xodimlar uchun. Kirish urinishlari qayd etiladi.",
+        'admin_login_support_empty': "Yordam Telegram kontaktlari sozlanmagan.",
+        'admin_login_support_admin_title': "Login uchun yordam kontaktlari",
+        'admin_login_support_admin_description': "Kirishda muammo bo'lsa ko'rsatiladigan Telegram kontaktlarini kiriting.",
+        'admin_login_support_add': "Kontakt qo'shish",
+        'admin_login_support_empty_admin': "Hali yordam kontakti qo'shilmagan.",
+        'admin_login_support_label': "Nomi",
+        'admin_login_support_username': "Telegram username",
+        'admin_login_support_remove': "O'chirish",
     },
     'ru': {
         'admin_authors_duplicate_warning': "Обнаружены дублирующиеся аккаунты",
@@ -96,6 +120,23 @@ STATIC_TRANSLATIONS = {
         'admin_label_issue_toc_file': "Файл содержания выпуска",
         'admin_btn_download_issue_toc': "Скачать содержание",
         'admin_hint_issue_toc_file': "Разрешённые форматы: PDF, DOC, DOCX",
+        'admin_login_brand_subtitle': "Журнал филологических вопросов",
+        'admin_login_headline_line_1': "Центр",
+        'admin_login_headline_line_2': "управления",
+        'admin_login_tagline': "Управляйте статьями, выпусками и редакционными процессами из одного места.",
+        'admin_login_form_subtitle': "Введите данные, чтобы продолжить",
+        'admin_login_language_label': "Выберите язык",
+        'admin_login_close_alert': "Закрыть",
+        'admin_login_hide_password': "Скрыть пароль",
+        'admin_login_footer_note': "Только для уполномоченных сотрудников. Попытки входа регистрируются.",
+        'admin_login_support_empty': "Контакты Telegram для помощи пока не настроены.",
+        'admin_login_support_admin_title': "Контакты помощи для входа",
+        'admin_login_support_admin_description': "Укажите Telegram-контакты, которые будут показаны при проблемах со входом.",
+        'admin_login_support_add': "Добавить контакт",
+        'admin_login_support_empty_admin': "Контакты помощи ещё не добавлены.",
+        'admin_login_support_label': "Название",
+        'admin_login_support_username': "Имя пользователя Telegram",
+        'admin_login_support_remove': "Удалить",
     },
     'en': {
         'admin_authors_duplicate_warning': "Duplicate accounts detected",
@@ -139,6 +180,23 @@ STATIC_TRANSLATIONS = {
         'admin_label_issue_toc_file': "Issue table of contents file",
         'admin_btn_download_issue_toc': "Download table of contents",
         'admin_hint_issue_toc_file': "Allowed formats: PDF, DOC, DOCX",
+        'admin_login_brand_subtitle': "Philology Matters journal",
+        'admin_login_headline_line_1': "Control",
+        'admin_login_headline_line_2': "center",
+        'admin_login_tagline': "Manage articles, issues, and editorial workflows from one place.",
+        'admin_login_form_subtitle': "Enter your details to continue",
+        'admin_login_language_label': "Select language",
+        'admin_login_close_alert': "Close",
+        'admin_login_hide_password': "Hide password",
+        'admin_login_footer_note': "For authorized staff only. Login attempts are logged.",
+        'admin_login_support_empty': "Support Telegram contacts are not configured yet.",
+        'admin_login_support_admin_title': "Login support contacts",
+        'admin_login_support_admin_description': "Add Telegram contacts to show when someone has trouble signing in.",
+        'admin_login_support_add': "Add contact",
+        'admin_login_support_empty_admin': "No support contacts have been added yet.",
+        'admin_login_support_label': "Label",
+        'admin_login_support_username': "Telegram username",
+        'admin_login_support_remove': "Remove",
     },
 }
 
@@ -231,7 +289,7 @@ def _get_fallback_translations():
 
 def translate(data):
     """Translates object fields based on current language."""
-    current_lang = session.get('language', 'ru') # Default to RU for Admin if not set
+    current_lang = _current_language()
     if current_lang == 'en':
         return data
 
@@ -267,7 +325,7 @@ def translate(data):
 
 def t(key):
     """Returns translation for a key in the current language."""
-    current_lang = session.get('language', 'ru') # Default to RU
+    current_lang = _current_language()
 
     translations_cache = _load_translations_from_db()
 
@@ -280,26 +338,17 @@ def t(key):
     if key in static_lang and _translation_is_usable(static_lang[key], key):
         return static_lang[key]
 
-    # Fallback to English (or Russian since this is admin panel)
-    # Actually fallback to 'ru' might be better if original keys are english?
-    # Usually keys are english aliases.
-    if key in translations_cache.get('ru', {}):
-        val = translations_cache['ru'][key]
-        if _translation_is_usable(val, key):
-            return val
-
-    static_ru = STATIC_TRANSLATIONS.get('ru', {})
-    if key in static_ru and _translation_is_usable(static_ru[key], key):
-        return static_ru[key]
-
-    if key in translations_cache.get('en', {}):
-        val = translations_cache['en'][key]
-        if _translation_is_usable(val, key):
-            return val
-
-    static_en = STATIC_TRANSLATIONS.get('en', {})
-    if key in static_en and _translation_is_usable(static_en[key], key):
-        return static_en[key]
+    # Missing values should not silently switch an English/Uzbek screen to
+    # Russian. Prefer the canonical English text, then the other languages.
+    for fallback_lang in ('en', 'uz', 'ru'):
+        if fallback_lang == current_lang:
+            continue
+        translated = translations_cache.get(fallback_lang, {}).get(key)
+        if _translation_is_usable(translated, key):
+            return translated
+        static_translation = STATIC_TRANSLATIONS.get(fallback_lang, {}).get(key)
+        if _translation_is_usable(static_translation, key):
+            return static_translation
        
     # Auto-add missing keys
     if dbc and key not in translations_cache.get('en', {}):

@@ -201,25 +201,39 @@ class ConnectorQuery(object):
             self._action = "SELECT"
 
         elif self._action == "ADD":
-            # Dynamically determine columns based on the first item in self.adds
+            # Only the columns the caller actually supplied are written.
+            # Listing every table column and sending NULL for the omitted ones
+            # suppresses their DEFAULT -- PostgreSQL applies a column DEFAULT
+            # only when the column is left out of the INSERT, not when it is
+            # explicitly assigned NULL -- which makes every NOT NULL DEFAULT
+            # column reject the row (submissions.anti_plagiarism_status).
             if not self.adds:
                 return []
-            
-            # Use the actual columns provided in the first entry
-            columns = [each[0] for each in self.adds[0]]
-            _query = f"INSERT INTO {self.tablename} ({', '.join(columns)}) VALUES "
-            
-            _add_arguments = ()
+            columns = []
             for add in self.adds:
-                _col_value = ""
-                for each in add:
-                    # columns must be consistent across all items in self.adds for bulk inserts
-                    _add_arguments += (each[1], )
-                    _col_value = _col_value + "%s, "
-                _col_value = _col_value[:-2]
-                _query += f"({_col_value}), "
-            
-            _query = _query[:-2] + f" RETURNING {', '.join(self._columns)}"
+                for _column, _ in add:
+                    if _column not in self._columns:
+                        raise ValueError(f"Not found column {_column}")
+                    if _column != self._primary_column and _column not in columns:
+                        columns.append(_column)
+            if not columns:
+                raise ValueError(f"No columns to insert into {self.tablename}")
+            _add_arguments = ()
+            _rows = []
+            for add in self.adds:
+                _values = dict(add)
+                _placeholders = []
+                for _column in columns:
+                    # A row of a bulk insert that omits a column the batch
+                    # defines keeps that column's DEFAULT as well.
+                    if _column in _values:
+                        _placeholders.append("%s")
+                        _add_arguments += (_values[_column], )
+                    else:
+                        _placeholders.append("DEFAULT")
+                _rows.append(f"({', '.join(_placeholders)})")
+            _query = f"INSERT INTO {self.tablename} ({', '.join(columns)}) VALUES {', '.join(_rows)}"
+            _query += f" RETURNING {', '.join(self._columns)}"
             result = self._sql(_query, _add_arguments)
             self.adds = []
             self._action = "SELECT"
@@ -357,17 +371,15 @@ class ConnectorQuery(object):
     def add(self, **kwargs):
         self._action = "ADD"
         fields = []
-        for k, v in kwargs.items():
+        for k in kwargs:
             if k not in self._columns:
                 raise ValueError(f"Table {self.tablename} has not column {k}")
-            fields.append((k, v))
-        
-        # If no fields provided, we might still want to insert a default row (if possible)
-        # but usually we need at least one field or 'DEFAULT VALUES'
-        if not fields:
-             # Handle empty insert if needed, or just let it fail at SQL level
-             pass
-             
+        # Keep table order, but carry only the columns that were passed in --
+        # an omitted column has to fall back to its database DEFAULT, so it
+        # must stay out of the INSERT entirely (see the ADD branch of exec).
+        for each in self._columns:
+            if each in kwargs and each != self._primary_column:
+                fields.append((each, kwargs[each]))
         self.adds.append(fields)
         return self
 

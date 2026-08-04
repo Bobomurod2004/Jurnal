@@ -274,10 +274,29 @@ class EmailService:
 
         # Authenticate if credentials provided
         if self.settings.MAIL_USERNAME:
-            client.login(
-                self.settings.MAIL_USERNAME,
-                self.settings.MAIL_PASSWORD
-            )
+            try:
+                client.login(
+                    self.settings.MAIL_USERNAME,
+                    self.settings.MAIL_PASSWORD
+                )
+            except smtplib.SMTPAuthenticationError:
+                # Retrying cannot fix rejected credentials, so name the
+                # settings to check instead of leaving a bare 535 in the log.
+                # The caller never receives the client here, which means only
+                # this branch can close the socket it already opened.
+                logger.error(
+                    "SMTP authentication failed for user=%s at %s:%s -- check "
+                    "MAIL_USERNAME/MAIL_PASSWORD and whether this port needs "
+                    "MAIL_USE_TLS or MAIL_USE_SSL",
+                    self.settings.MAIL_USERNAME,
+                    host,
+                    self.settings.MAIL_PORT,
+                )
+                try:
+                    client.close()
+                except Exception:
+                    pass
+                raise
 
         return client
 

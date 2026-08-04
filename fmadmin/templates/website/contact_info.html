@@ -125,6 +125,43 @@
     </div>
   </div>
 
+  <!-- ===================== LOGIN SUPPORT CONTACTS ===================== -->
+  <div class="card mb-4">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <div>
+        <div class="card-title mb-1">{{ t('admin_login_support_admin_title') }}</div>
+        <div class="text-secondary small">{{ t('admin_login_support_admin_description') }}</div>
+      </div>
+      <button type="button" class="btn btn-sm btn-success" id="add-login-support-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        {{ t('admin_login_support_add') }}
+      </button>
+    </div>
+    <div class="card-body" id="login-support-container">
+      <input type="hidden" name="login_support_contacts_submitted" value="1">
+      {% for contact in login_support_contacts %}
+      <div class="row g-2 mb-2 align-items-center login-support-row">
+        <div class="col-md-5">
+          <label class="form-label small mb-1">{{ t('admin_login_support_label') }}</label>
+          <input type="text" name="login_support_label[]" class="form-control form-control-sm"
+            value="{{ contact.label or '' }}" placeholder="Dasturchi, Admin, Texnik yordam">
+        </div>
+        <div class="col-md-5">
+          <label class="form-label small mb-1">{{ t('admin_login_support_username') }}</label>
+          <input type="text" name="login_support_username[]" class="form-control form-control-sm"
+            value="{{ contact.username or '' }}" placeholder="@username">
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <button type="button" class="btn btn-sm btn-outline-danger w-100 remove-login-support-btn">{{ t('admin_login_support_remove') }}</button>
+        </div>
+      </div>
+      {% endfor %}
+      <p class="text-muted small mb-0" id="login-support-empty-hint" {% if login_support_contacts %}style="display:none"{% endif %}>
+        {{ t('admin_login_support_empty_admin') }}
+      </p>
+    </div>
+  </div>
+
   <div class="d-flex gap-2 mb-4">
     <button type="submit" class="btn btn-primary">Saqlash</button>
     <a href="{{ url_for('contact_info_settings') }}" class="btn btn-secondary">Bekor qilish</a>
@@ -181,6 +218,23 @@
   </div>
 </template>
 
+<template id="login-support-row-template">
+  <div class="row g-2 mb-2 align-items-center login-support-row">
+    <div class="col-md-5">
+      <label class="form-label small mb-1">{{ t('admin_login_support_label') }}</label>
+      <input type="text" name="login_support_label[]" class="form-control form-control-sm"
+        placeholder="Dasturchi, Admin, Texnik yordam">
+    </div>
+    <div class="col-md-5">
+      <label class="form-label small mb-1">{{ t('admin_login_support_username') }}</label>
+      <input type="text" name="login_support_username[]" class="form-control form-control-sm" placeholder="@username">
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+      <button type="button" class="btn btn-sm btn-outline-danger w-100 remove-login-support-btn">{{ t('admin_login_support_remove') }}</button>
+    </div>
+  </div>
+</template>
+
 <script>
 (function () {
   var personCount = {{ (persons|length) if persons else 0 }};
@@ -226,7 +280,30 @@
     }
   });
 
+  var loginSupportContainer = document.getElementById('login-support-container');
+  var loginSupportEmptyHint = document.getElementById('login-support-empty-hint');
+
+  function updateLoginSupportHint() {
+    if (!loginSupportEmptyHint || !loginSupportContainer) return;
+    var hasRows = loginSupportContainer.querySelectorAll('.login-support-row').length > 0;
+    loginSupportEmptyHint.style.display = hasRows ? 'none' : '';
+  }
+
+  document.getElementById('add-login-support-btn').addEventListener('click', function () {
+    var tpl = document.getElementById('login-support-row-template');
+    loginSupportContainer.appendChild(tpl.content.cloneNode(true));
+    updateLoginSupportHint();
+  });
+
+  loginSupportContainer.addEventListener('click', function (e) {
+    if (e.target.classList.contains('remove-login-support-btn')) {
+      e.target.closest('.login-support-row').remove();
+      updateLoginSupportHint();
+    }
+  });
+
   updatePersonLabels();
+  updateLoginSupportHint();
 })();
 </script>
 {% endblock %}

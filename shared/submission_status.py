@@ -104,6 +104,26 @@ SUBMISSION_STATUS_BADGE_TONE = {
     'rejected': 'red',
 }
 
+# Chart.js does not understand Tabler's badge tone names, therefore the
+# dashboard receives these matching hex colours explicitly.  Keeping the
+# mapping alongside the badge tones prevents terminal statuses from appearing
+# with a contradictory colour in the dashboard: published is green and
+# rejected is red everywhere.
+SUBMISSION_STATUS_CHART_COLOR = {
+    'pending': '#2563EB',
+    'passed_technical_check': '#0F766E',
+    'failed_technical_check': '#EF4444',
+    'plagiarism_check': '#8B5CF6',
+    'antiplagiarism_failed': '#EF4444',
+    'under_review': '#F59E0B',
+    'revision_required': '#EAB308',
+    'recommended': '#6366F1',
+    'payment_pending': '#F59E0B',
+    'in_layout': '#06B6D4',
+    'published': '#22C55E',
+    'rejected': '#EF4444',
+}
+
 # Statuses from which the author is allowed to edit and resubmit the same
 # submission. `rejected` is deliberately excluded -- it is final.
 RESUBMITTABLE_STATUSES = {'failed_technical_check', 'revision_required', 'antiplagiarism_failed'}

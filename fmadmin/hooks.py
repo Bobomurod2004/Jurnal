@@ -100,6 +100,9 @@ def register(app):
         public_routes = [
             '/fmadmin/login',
             '/fmadmin/logout',
+            # Language selection is intentionally available before login so
+            # the login form can be read in the selected language.
+            '/fmadmin/lang/',
             '/healthz',
             '/readyz',
             '/metrics',

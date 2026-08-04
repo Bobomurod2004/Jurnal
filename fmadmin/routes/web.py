@@ -94,13 +94,13 @@ SUBMISSION_EXTRA_COLUMN_TYPES = {
     'anti_plagiarism_checked_at': 'bigint',
     'anti_plagiarism_checked_by': 'integer',
     'anti_plagiarism_uploaded_by_role': 'text',
-    'anti_plagiarism_status': "text DEFAULT 'pending'",
+    'anti_plagiarism_status': "text NOT NULL DEFAULT 'pending'",
     'anti_plagiarism_note': 'text',
     'anti_plagiarism_resubmitted_at': 'bigint',
     'editor_shared_file': 'text',
     'editor_shared_file_note': 'text',
     'editor_shared_file_at': 'bigint',
-    'revision_severity': "text DEFAULT 'major'",
+    'revision_severity': "text NOT NULL DEFAULT 'major'",
     'related_submission_id': 'integer',
     'revision_number': 'integer DEFAULT 1',
     'rejection_origin': 'text',
@@ -137,6 +137,7 @@ ISSUE_EXTRA_COLUMN_TYPES = {
     'table_of_contents_file': 'text'
 }
 
+ADMIN_ROLE_NAMES = {'admin', 'superadmin'}
 EDITOR_ASSIGNMENT_STATUS_VALUES = {'pending', 'in_review', 'reviewed', 'rejected'}
 EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES = {'pending', 'in_review'}
 EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES = {'reviewed', 'rejected'}
@@ -1570,6 +1571,85 @@ def _set_site_setting(key, value):
         except Exception:
             pass
         return False
+
+
+LOGIN_SUPPORT_CONTACTS_KEY = 'login_support_contacts'
+
+
+def _normalize_login_support_contacts(value):
+    """Normalize configured Telegram handles before storing/displaying them."""
+    if not isinstance(value, list):
+        return []
+
+    contacts = []
+    seen_usernames = set()
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        label = _clean_text(item.get('label') or item.get('name') or 'Telegram')
+        raw_username = _clean_text(item.get('username') or item.get('url'))
+        if not raw_username:
+            continue
+
+        # Accept @username, username, t.me/username, or a full Telegram URL.
+        username = raw_username
+        if '://' in username:
+            parsed = urlparse(username)
+            username = parsed.path.strip('/').split('/', 1)[0]
+        else:
+            username = username.split('?', 1)[0].strip().rstrip('/')
+            if '/' in username:
+                username = username.rsplit('/', 1)[-1]
+        username = username.lstrip('@').strip()
+        if not re.fullmatch(r'[A-Za-z0-9_]{5,32}', username):
+            continue
+        username_key = username.lower()
+        if username_key in seen_usernames:
+            continue
+        seen_usernames.add(username_key)
+        contacts.append({
+            'label': label or 'Telegram',
+            'username': f'@{username}',
+            'url': f'https://t.me/{username}',
+        })
+    return contacts
+
+
+def _get_login_support_contacts():
+    """Read login help contacts, retaining compatibility with old Telegram settings."""
+    raw_value = _get_site_setting(LOGIN_SUPPORT_CONTACTS_KEY, '')
+    try:
+        contacts = _normalize_login_support_contacts(json.loads(raw_value)) if raw_value else []
+    except Exception:
+        contacts = []
+    if contacts:
+        return contacts
+
+    # Existing contact settings are a safe fallback for installations that
+    # predate the dedicated login-support section.
+    fallback_items = []
+    try:
+        social_raw = _get_site_setting('contact_social_links', '')
+        social_links = json.loads(social_raw) if social_raw else []
+        if isinstance(social_links, list):
+            fallback_items.extend(
+                {
+                    'label': item.get('label') or 'Telegram',
+                    'username': item.get('url', ''),
+                }
+                for item in social_links
+                if isinstance(item, dict) and item.get('platform') == 'telegram'
+            )
+    except Exception:
+        pass
+    if not fallback_items:
+        legacy_telegram = _get_site_setting('contact_telegram', '')
+        fallback_items = [
+            {'label': 'Telegram', 'username': item}
+            for item in re.split(r'[,\n]+', legacy_telegram)
+            if _clean_text(item)
+        ]
+    return _normalize_login_support_contacts(fallback_items)
 
 
 def _normalize_editorial_member_type(value):
@@ -4344,6 +4424,27 @@ def _role_of(user):
     return primary_role(user)
 
 
+def _is_admin_role(role_name):
+    return role_name in ADMIN_ROLE_NAMES
+
+
+def _is_assigned_editor(user, assignment):
+    """Whether this user acts as the editor of this assignment.
+
+    Deliberately not `_role_of(user) == 'editor'`.  An author account promoted
+    to editor keeps rolename='user' while 'editor' is added to roles, and
+    primary_role() returns that stored rolename -- so keying the review flow
+    on the primary role silently skipped those editors: opening the task never
+    accepted it, the review form stayed hidden, and the assignment expired on
+    its acceptance deadline as if the editor had ignored it.
+    """
+    editor_id = _parse_int((assignment or {}).get('editor_id'))
+    user_id = _parse_int((user or {}).get('id'))
+    if editor_id is None or user_id is None:
+        return False
+    return editor_id == user_id and user_has_role(user, 'editor')
+
+
 def _load_user_from_db(user_id):
     if not user_id:
         return None
@@ -4440,8 +4541,11 @@ def set_language(lang_code):
 @bp.route('/fmadmin/')
 @is_admin_or_editor
 def index():
-    current_user = session.get('fmadmin_user') or {}
-    if current_user.get('rolename') == 'editor':
+    current_user = get_current_user() or {}
+    # Non-admins land on the editor dashboard, not on the admin one: reading
+    # the stored rolename alone sent promoted authors (rolename='user') to the
+    # admin overview of the whole journal.
+    if not _is_admin_role(_role_of(current_user)):
         return redirect(url_for('editor_dashboard'))
 
     dashboard_snapshot = get_dashboard_snapshot(
@@ -4485,8 +4589,8 @@ def run_editor_assignment_automation_now():
 @bp.route('/fmadmin/editor/dashboard')
 @is_editor_allowed
 def editor_dashboard():
-    current_user = session.get('fmadmin_user') or {}
-    if current_user.get('rolename') in ['admin', 'superadmin']:
+    current_user = get_current_user() or {}
+    if _is_admin_role(_role_of(current_user)):
         return redirect(url_for('index'))
 
     editor_id = current_user.get('id')
@@ -4541,18 +4645,24 @@ def login():
     if 'fmadmin_user' in session and user_has_permission(session['fmadmin_user'], 'fmadmin.access'):
         return _redirect_to_role_dashboard()
 
+    def _render_login():
+        return render_template(
+            'auth/login.html',
+            login_support_contacts=_get_login_support_contacts(),
+        )
+
     if request.method == 'POST':
         email = (request.form.get('email') or '').strip().lower()
         password = request.form.get('password')
 
         if not email or not password:
             flash(t('admin_error_fill_all_fields'), 'danger')
-            return render_template('auth/login.html')
+            return _render_login()
 
         remaining_lock = _remaining_login_lock_seconds(email)
         if remaining_lock > 0:
             flash(f"Juda ko'p noto'g'ri urinish. {remaining_lock} soniyadan keyin qayta urinib ko'ring.", 'danger')
-            return render_template('auth/login.html')
+            return _render_login()
 
         user = db.users.all().equal(email=email).exec()
         if not user:
@@ -4561,7 +4671,7 @@ def login():
                 flash(f"Juda ko'p noto'g'ri urinish. {remaining_lock} soniyadan keyin qayta urinib ko'ring.", 'danger')
             else:
                 flash(t('admin_error_invalid_credentials'), 'danger')
-            return render_template('auth/login.html')
+            return _render_login()
 
         from werkzeug.security import check_password_hash, generate_password_hash
         user = user[0]
@@ -4586,19 +4696,19 @@ def login():
                 flash(f"Juda ko'p noto'g'ri urinish. {remaining_lock} soniyadan keyin qayta urinib ko'ring.", 'danger')
             else:
                 flash(t('admin_error_invalid_credentials'), 'danger')
-            return render_template('auth/login.html')
+            return _render_login()
 
         if user.get('is_blocked') or user.get('is_hidden'):
             _record_login_failure(email)
             flash(t('admin_error_no_access'), 'danger')
-            return render_template('auth/login.html')
+            return _render_login()
 
         # Проверяем роль (только админы и редакторы)
         user = hydrate_user_roles(user)
         if not user_has_permission(user, 'fmadmin.access'):
             _record_login_failure(email)
             flash(t('admin_error_no_access'), 'danger')
-            return render_template('auth/login.html')
+            return _render_login()
 
         _clear_login_failures(email)
 
@@ -4609,7 +4719,7 @@ def login():
         flash(f"{t('admin_welcome_body')}, {user['name']}!", 'success')
         return _redirect_to_role_dashboard(session['fmadmin_user'])
 
-    return render_template('auth/login.html')
+    return _render_login()
 
 @bp.route('/fmadmin/logout', methods=['POST'])
 def logout():
@@ -8340,8 +8450,24 @@ def contact_info_settings():
             if url:
                 social_links.append({'platform': platform or 'other', 'url': url})
 
+        login_support_contacts = []
+        if request.form.get('login_support_contacts_submitted') == '1':
+            support_labels = request.form.getlist('login_support_label[]')
+            support_usernames = request.form.getlist('login_support_username[]')
+            for i in range(max(len(support_labels), len(support_usernames))):
+                login_support_contacts.append({
+                    'label': _clean_text(support_labels[i] if i < len(support_labels) else ''),
+                    'username': _clean_text(support_usernames[i] if i < len(support_usernames) else ''),
+                })
+            login_support_contacts = _normalize_login_support_contacts(login_support_contacts)
+
         ok = _set_site_setting('contact_persons', json.dumps(persons, ensure_ascii=False))
         ok = _set_site_setting('contact_social_links', json.dumps(social_links, ensure_ascii=False)) and ok
+        if request.form.get('login_support_contacts_submitted') == '1':
+            ok = _set_site_setting(
+                LOGIN_SUPPORT_CONTACTS_KEY,
+                json.dumps(login_support_contacts, ensure_ascii=False),
+            ) and ok
 
         if ok:
             flash("Aloqa ma'lumotlari saqlandi", "success")
@@ -8355,6 +8481,7 @@ def contact_info_settings():
         'website/contact_info.html',
         persons=persons,
         social_links=social_links,
+        login_support_contacts=_get_login_support_contacts(),
         social_platforms=_SOCIAL_PLATFORMS,
     )
 
@@ -10086,13 +10213,21 @@ def editor_edit(editor_id):
                 if not admin_target or not user_has_role(admin_target, 'admin') or admin_target.get('is_hidden') or admin_target.get('is_blocked'):
                     new_alert(_msg_text("Tahrirchi uchun biriktirilgan admin topilmadi", "Для редактора не найден назначенный администратор", "Assigned admin for editor not found"), 'danger')
                     return redirect(url_for('editor_edit', editor_id=editor_id))
+            # Promoting a site-registered author used to extend roles only and
+            # leave rolename='user', which is the primary role the fmadmin UI
+            # and the review flow read -- the account then carried the editor
+            # permissions but never behaved as an editor.  Admins keep their
+            # own (higher) primary role.
+            existing_rolename = _clean_text(existing_editor.get('rolename')).lower()
+            editor_rolename = existing_rolename if existing_rolename in ADMIN_ROLE_NAMES else 'editor'
             db.users.all().equal(id=editor_id).update(
                 name=data.get('name'),
                 second_name=data.get('second_name'),
                 father_name=data.get('father_name'),
                 email=data.get('email'),
+                rolename=editor_rolename,
                 roles=build_user_roles(
-                    existing_editor.get('rolename') or 'editor',
+                    editor_rolename,
                     include_author_role=user_has_role(existing_editor, AUTHOR_ROLE),
                     extra_roles=parse_role_names(existing_editor.get('roles')) + ['editor'],
                 ),
@@ -10627,11 +10762,15 @@ def editor_assignments():
     submission_id_filter = request.args.get('submission_id', '').strip()
     submission_title_filter = request.args.get('submission_title', '').strip()
     current_user_id = _parse_int(current_user.get('id'))
+    is_admin_viewer = _is_admin_role(current_role)
 
     query = db.editor_assignments.all()
 
-    # Если текущий пользователь - редактор, показываем только его назначения
-    if current_role == 'editor' and current_user_id is not None:
+    # Если текущий пользователь - редактор, показываем только его назначения.
+    # Everyone who is not an admin is scoped to their own tasks: a promoted
+    # author keeps rolename='user', and testing for 'editor' alone used to
+    # show them every editor's assignments.
+    if not _is_admin_role(current_role) and current_user_id is not None:
         query = query.equal(editor_id=current_user_id)
 
     if status_filter:
@@ -10691,20 +10830,28 @@ def editor_assignments():
     end_idx = start_idx + per_page
     assignments_list = all_assignments[start_idx:end_idx]
 
-    # Получаем связанные данные
-    if current_role == 'admin' and current_user_id is not None:
-        editors_list = get_editors(admin_id=current_user_id)
-    else:
-        editors_list = get_editors()
-    editors_map = {e.get('id'): e for e in get_editors() if e.get('id')}
+    # Получаем связанные данные.  An editor's table renders none of the admin
+    # columns, so the editor directory and the whole user table are not loaded
+    # -- and cannot leak into a page that is not supposed to show them.
+    if is_admin_viewer:
+        if current_role == 'admin' and current_user_id is not None:
+            editors_list = get_editors(admin_id=current_user_id)
+        else:
+            editors_list = get_editors()
+        editors_map = {e.get('id'): e for e in get_editors() if e.get('id')}
 
-    try:
-        users = db.users.all().exec()
-    except:
-        users = []
-    users_map = {u.get('id'): u for u in users if u.get('id')}
+        try:
+            users = db.users.all().exec()
+        except:
+            users = []
+        users_map = {u.get('id'): u for u in users if u.get('id')}
+    else:
+        editors_list = []
+        editors_map = {}
+        users_map = {}
 
     return render_template('editors/assignments.html',
+                         is_admin_viewer=is_admin_viewer,
                          assignments=assignments_list,
                          page=page,
                          total_assignments=total_assignments,
@@ -11614,17 +11761,22 @@ def review_assignment(assignment_id):
     assignment = _decorate_assignment(assignment_rows[0])
 
     # Проверяем права доступа
-    if current_role == 'editor' and assignment.get('editor_id') != current_user_id:
+    is_admin_viewer = _is_admin_role(current_role)
+    is_assigned_editor = _is_assigned_editor(current_user, assignment)
+    # Anyone who is neither an admin nor the assigned editor is out, whatever
+    # their primary role happens to be -- the old `current_role == 'editor'`
+    # test let a promoted author (rolename='user') open other editors' tasks.
+    if not is_admin_viewer and not is_assigned_editor:
         return 'Доступ запрещен', 403
     submission_rows = db.submissions.all().equal(id=assignment.get('submission_id')).exec()
     if not submission_rows:
         return 'Статья не найдена', 404
     submission = submission_rows[0]
-    if current_role in {'admin', 'superadmin'} and not _can_access_submission(current_user, submission):
+    if is_admin_viewer and not is_assigned_editor and not _can_access_submission(current_user, submission):
         return 'Доступ запрещен', 403
 
     if request.method == 'POST':
-        if current_role != 'editor':
+        if not is_assigned_editor:
             new_alert(
                 _msg_text(
                     "Faqat tahrirchi review yubora oladi",
@@ -11725,7 +11877,7 @@ def review_assignment(assignment_id):
         new_alert(_msg_text('Tekshiruv saqlandi', 'Проверка сохранена', 'Review saved'), 'success')
         return redirect(url_for('editor_assignments'))
 
-    if current_role == 'editor':
+    if is_assigned_editor:
         db.editor_notifications.all().equal(editor_id=current_user_id).equal(assignment_id=assignment_id).update(is_read=True).exec()
         now_ts = int(datetime.datetime.now().timestamp())
         db.role_notifications.all().equal(target_user_id=current_user_id).equal(related_assignment_id=assignment_id).update(
@@ -11755,7 +11907,7 @@ def review_assignment(assignment_id):
         decided_rows = db.users.all().equal(id=assignment.get('admin_decided_by')).exec()
         admin_decided_user = decided_rows[0] if decided_rows else None
 
-    can_editor_submit = current_role == 'editor' and assignment.get('status') in EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES
+    can_editor_submit = is_assigned_editor and assignment.get('status') in EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES
     return render_template('editors/review.html',
                          assignment=assignment,
                          submission=submission,

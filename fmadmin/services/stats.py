@@ -1,7 +1,12 @@
 # flake8: noqa
 import datetime
 from extensions import db
-from shared.submission_status import SUBMISSION_STATUSES, SUBMISSION_STATUS_LABELS, SUBMISSION_STATUS_BADGE_TONE
+from shared.submission_status import (
+    SUBMISSION_STATUSES,
+    SUBMISSION_STATUS_LABELS,
+    SUBMISSION_STATUS_BADGE_TONE,
+    SUBMISSION_STATUS_CHART_COLOR,
+)
 
 
 WORKFLOW_STAGE_ORDER = SUBMISSION_STATUSES
@@ -316,6 +321,7 @@ def get_dashboard_snapshot(months=6, recent_limit=6, top_limit=6, stale_days=14,
             'codes': ordered_status_codes,
             'labels': [_status_label(code, lang) for code in ordered_status_codes],
             'data': status_chart_data,
+            'colors': [SUBMISSION_STATUS_CHART_COLOR.get(code, '#94A3B8') for code in ordered_status_codes],
             'total': len(visible_submissions),
         }
 
@@ -346,7 +352,7 @@ def get_dashboard_snapshot(months=6, recent_limit=6, top_limit=6, stale_days=14,
                 'new_articles_30d': 0,
                 'generated_at': int(datetime.datetime.now().timestamp()),
             },
-            'status_chart': {'codes': [], 'labels': [], 'data': [], 'total': 0},
+            'status_chart': {'codes': [], 'labels': [], 'data': [], 'colors': [], 'total': 0},
             'timeline_chart': {'labels': [], 'submissions': [], 'published': []},
             'workflow_cards': [],
             'recent_submissions': [],

@@ -136,7 +136,7 @@ services:
     # with "column slot_name does not exist" errors, so keep them off.
     command:
       - --no-collector.replication
-      - --no-collector.replication_slot
+      - --no-collector.replication_slots
     environment:
       DATA_SOURCE_NAME: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable
     depends_on:

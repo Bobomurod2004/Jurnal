@@ -2627,6 +2627,16 @@ def _fetch_orcid_json(url, timeout, access_token=None):
         return None
 
 
+def _is_orcid_rest_host(url):
+    """ORCID serves the /v3.0 REST data from its api.* and pub.* hosts only.
+
+    The plain website host (orcid.org), which ORCID_BASE_URL points at because
+    the OAuth screens live there, answers /v3.0/... with an HTML page.
+    """
+    host = (urlparse(url or '').netloc or '').lower()
+    return host.startswith('api.') or host.startswith('pub.')
+
+
 def _fetch_orcid_json_with_public_fallback(path, timeout, access_token=None):
     base_url = _orcid_base_url().rstrip('/')
     public_url = _orcid_public_api_base_url().rstrip('/')
@@ -2634,12 +2644,21 @@ def _fetch_orcid_json_with_public_fallback(path, timeout, access_token=None):
     if not path_part.startswith('/'):
         path_part = f'/{path_part}'
 
-    candidates = []
+    base_candidates = []
     if base_url:
-        candidates.append((f'{base_url}{path_part}', access_token))
+        base_candidates.append((f'{base_url}{path_part}', access_token))
+    public_candidates = []
     if public_url:
-        candidates.append((f'{public_url}{path_part}', access_token))
-        candidates.append((f'{public_url}{path_part}', None))
+        public_candidates.append((f'{public_url}{path_part}', access_token))
+        public_candidates.append((f'{public_url}{path_part}', None))
+
+    # Ask the REST host first unless ORCID_BASE_URL is itself one: querying the
+    # website host costs an extra round trip per login and logs a misleading
+    # "response is not valid JSON" warning for what is really an HTML page.
+    if _is_orcid_rest_host(base_url):
+        candidates = base_candidates + public_candidates
+    else:
+        candidates = public_candidates + base_candidates
 
     seen = set()
     for candidate_url, candidate_token in candidates:

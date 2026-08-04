@@ -9,6 +9,9 @@ __pycache__/
 *$py.class
 *.egg-info/
 dist/
+!fmadmin/dist/
+!fmadmin/dist/img/
+!fmadmin/dist/img/fm-logo-transparent.png
 build/
 *.egg
 

@@ -68,13 +68,13 @@ SUBMISSION_EXTRA_COLUMN_TYPES = {
     'anti_plagiarism_checked_at': 'bigint',
     'anti_plagiarism_checked_by': 'integer',
     'anti_plagiarism_uploaded_by_role': 'text',
-    'anti_plagiarism_status': "text DEFAULT 'pending'",
+    'anti_plagiarism_status': "text NOT NULL DEFAULT 'pending'",
     'anti_plagiarism_note': 'text',
     'anti_plagiarism_resubmitted_at': 'bigint',
     'editor_shared_file': 'text',
     'editor_shared_file_note': 'text',
     'editor_shared_file_at': 'bigint',
-    'revision_severity': "text DEFAULT 'major'",
+    'revision_severity': "text NOT NULL DEFAULT 'major'",
     'related_submission_id': 'integer',
     'revision_number': 'integer DEFAULT 1',
     'rejection_origin': 'text',
@@ -2442,14 +2442,17 @@ def _prepare_submission_payload(data, user_id, status, existing=None, is_new=Fal
     if is_new and 'created_date' in SUBMISSION_COLUMNS:
         payload['created_date'] = now
 
-    # The database connector includes every table column in INSERT statements
-    # and supplies NULL for keys omitted from this payload.  PostgreSQL applies
-    # a column DEFAULT only when that column is omitted from INSERT, not when
-    # it is explicitly assigned NULL.  New drafts therefore must carry the
-    # revision defaults explicitly.
+    # New rows spell out their workflow defaults instead of leaning on the
+    # column DEFAULT.  Development creates these columns through the runtime
+    # schema sync (SUBMISSION_EXTRA_COLUMN_TYPES, nullable) while production
+    # gets them from the migrations as NOT NULL, so a value missing here is a
+    # bug that only ever surfaces on the server.  Keys the database does not
+    # have yet are dropped by _filter_submission_payload.
     if is_new:
         payload['revision_number'] = 1
         payload['revision_allowed'] = True
+        payload['revision_severity'] = 'major'
+        payload['anti_plagiarism_status'] = 'pending'
 
     return payload
 

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ session.get('language') or 'uz' }}">
 
 <head>
   <meta charset="utf-8" />
@@ -8,122 +8,678 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>{{ t("admin_login_page_title") }}</title>
   <link href="/dist/css/tabler.min.css?1740918423" rel="stylesheet" />
-  <link href="/dist/css/tabler-flags.min.css?1740918423" rel="stylesheet" />
-  <link href="/dist/css/tabler-payments.min.css?1740918423" rel="stylesheet" />
-  <link href="/dist/css/tabler-vendors.min.css?1740918423" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.28.1/tabler-icons.min.css"
     crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;700&family=Barlow+Condensed:wght@400;600&display=swap');
 
-    body {
-      font-feature-settings: "cv03", "cv04", "cv11";
+    :root {
+      --pm-bg: #f2f2f3;
+      --pm-surface: #e9e9ea;
+      --pm-text: #1d1f20;
+      --pm-accent: #5980a6;
+      --pm-accent-200: #d6ebff;
+      --pm-accent-300: #b5d9fd;
+      --pm-accent-400: #94bce3;
+      --pm-accent-500: #749dc4;
+      --pm-accent-600: #597ea3;
+      --pm-accent-700: #416180;
+      --pm-accent-900: #1d2d3d;
+      --pm-neutral-500: #98989b;
+      --pm-neutral-600: #7a7a7d;
+      --pm-neutral-700: #5d5d60;
+      --pm-divider: color-mix(in srgb, #1d1f20 16%, transparent);
+      --pm-shadow-lg: 0 12px 32px color-mix(in srgb, #2b2b2d 22%, transparent);
+      --pm-radius: 2px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body.pm-login {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      overflow-x: hidden;
+      background: var(--pm-bg);
+      color: var(--pm-text);
+      font-family: "Barlow", system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .pm-board {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+      border: 0;
+      background: var(--pm-accent-900);
+      box-shadow: none;
+    }
+
+    .pm-board::before {
+      content: "";
+      position: absolute;
+      z-index: 4;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--pm-accent-500);
+    }
+
+    .pm-grid {
+      position: absolute;
+      inset: -20%;
+      opacity: .45;
+      background-image:
+        repeating-linear-gradient(0deg, color-mix(in srgb, white 8%, transparent) 0 1px, transparent 1px 48px),
+        repeating-linear-gradient(90deg, color-mix(in srgb, white 8%, transparent) 0 1px, transparent 1px 48px);
+      animation: pmGridPan 24s linear infinite alternate;
+    }
+
+    .pm-scan {
+      position: absolute;
+      z-index: 1;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 160px;
+      pointer-events: none;
+      background: linear-gradient(to bottom, transparent, color-mix(in srgb, white 9%, transparent), transparent);
+      animation: pmScan 6.5s linear infinite;
+    }
+
+    .pm-motif {
+      position: absolute;
+      z-index: 1;
+      top: 24px;
+      right: 472px;
+      width: 220px;
+      height: 220px;
+      opacity: .35;
+      pointer-events: none;
+    }
+
+    .pm-content {
+      position: relative;
+      z-index: 2;
+      width: 420px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 48px;
+      color: var(--pm-bg);
+    }
+
+    .pm-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      animation: pmFadeUp .6s ease both;
+    }
+
+    .pm-brand-chip {
+      position: relative;
+      flex: none;
+      padding: 8px;
+      background: transparent;
+    }
+
+    .pm-brand-chip img {
+      display: block;
+      /* The supplied transparent PNG has generous canvas padding; this
+         makes the visible FM mark read at the intended size. */
+      width: 92px;
+      height: auto;
+    }
+
+    .pm-brand-name {
+      color: var(--pm-bg);
+      font-family: "Barlow Condensed", system-ui, sans-serif;
+      font-size: 21px;
+      font-weight: 600;
+      letter-spacing: .01em;
+      line-height: 1.1;
+    }
+
+    .pm-brand-subtitle {
+      margin-top: 2px;
+      color: var(--pm-accent-200);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    .pm-headline {
+      animation: pmFadeUp .6s ease .16s both;
+    }
+
+    .pm-headline h1 {
+      margin: 0 0 16px;
+      color: var(--pm-bg);
+      font-family: "Barlow Condensed", system-ui, sans-serif;
+      font-size: 42px;
+      font-weight: 600;
+      letter-spacing: -.015em;
+      line-height: 1.12;
+    }
+
+    .pm-headline p {
+      max-width: 330px;
+      margin: 0;
+      color: var(--pm-accent-200);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .pm-contact-list {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      animation: pmFadeUp .6s ease .44s both;
+    }
+
+    .pm-contact {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--pm-accent-300);
+      font-size: 12.5px;
+      text-decoration: none;
+      transition: color .15s ease;
+    }
+
+    .pm-contact:hover { color: var(--pm-bg); }
+    .pm-contact svg { flex: none; }
+    .pm-contact-copy { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+    .pm-contact-label { color: var(--pm-accent-200); }
+    .pm-contact-username { color: var(--pm-accent-300); }
+    .pm-contact-empty { color: var(--pm-accent-300); }
+
+    .pm-blueprint { position: relative; }
+
+    .pm-corner {
+      position: absolute;
+      width: 11px;
+      height: 11px;
+      color: color-mix(in srgb, currentColor 55%, transparent);
+      pointer-events: none;
+    }
+
+    .pm-corner::before,
+    .pm-corner::after {
+      content: "";
+      position: absolute;
+      background: currentColor;
+    }
+
+    .pm-corner::before { top: 0; left: 5px; width: 1px; height: 100%; }
+    .pm-corner::after { top: 5px; left: 0; width: 100%; height: 1px; }
+    .pm-corner.tl { top: -6px; left: -6px; }
+    .pm-corner.tr { top: -6px; right: -6px; }
+    .pm-corner.bl { bottom: -6px; left: -6px; }
+    .pm-corner.br { right: -6px; bottom: -6px; }
+
+    .pm-plate {
+      position: absolute;
+      z-index: 3;
+      top: 48px;
+      right: 48px;
+      bottom: 48px;
+      width: 400px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 44px 40px 44px 44px;
+      overflow: visible;
+      border-left: 3px solid var(--pm-accent-500);
+      background: var(--pm-bg);
+      box-shadow: var(--pm-shadow-lg);
+      animation: pmPlateIn .7s cubic-bezier(.22, 1, .36, 1) .15s both;
+    }
+
+    .pm-plate .pm-corner { color: var(--pm-text); }
+    .pm-plate .pm-corner.tl { animation: pmPulseCorner 4s ease-in-out infinite; }
+    .pm-plate .pm-corner.tr { animation: pmPulseCorner 4s ease-in-out .5s infinite; }
+    .pm-plate .pm-corner.bl { animation: pmPulseCorner 4s ease-in-out 1s infinite; }
+    .pm-plate .pm-corner.br { animation: pmPulseCorner 4s ease-in-out 1.5s infinite; }
+
+    .pm-language-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 20px;
+    }
+
+    .pm-language {
+      min-width: 116px;
+      padding: 6px 10px;
+      border: 1px solid var(--pm-divider);
+      border-radius: var(--pm-radius);
+      background: var(--pm-bg);
+      color: var(--pm-text);
+      font: 400 14px/1.4 "Barlow", system-ui, sans-serif;
+    }
+
+    .pm-language:focus-visible,
+    .pm-input:focus-visible,
+    .pm-check:focus-visible,
+    .pm-password-toggle:focus-visible,
+    .pm-submit:focus-visible,
+    .pm-link:focus-visible {
+      outline: 2px solid var(--pm-accent);
+      outline-offset: 2px;
+    }
+
+    .pm-form-title {
+      margin: 0 0 6px;
+      color: var(--pm-text);
+      font-family: "Barlow Condensed", system-ui, sans-serif;
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: -.015em;
+      line-height: 1.12;
+    }
+
+    .pm-form-subtitle {
+      margin: 0 0 26px;
+      color: var(--pm-neutral-600);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .pm-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      margin: 0 0 18px;
+      padding: 9px 10px;
+      border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+      border-radius: var(--pm-radius);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .pm-alert-danger { color: #8a3d3d; background: #f9eded; }
+    .pm-alert-success { color: #2c6d4b; background: #edf7f0; }
+    .pm-alert-info { color: var(--pm-accent-700); background: var(--pm-accent-100, #eef6ff); }
+    .pm-alert .ti { margin-top: 1px; font-size: 16px; }
+    .pm-alert-close { margin-left: auto; padding: 0 0 0 8px; border: 0; background: transparent; color: currentColor; cursor: pointer; }
+
+    .pm-field { margin-bottom: 16px; }
+    .pm-field-password { margin-bottom: 20px; }
+
+    .pm-label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--pm-neutral-700);
+      font-size: 13px;
+      line-height: 1.25;
+    }
+
+    .pm-input-wrap { position: relative; }
+
+    .pm-input {
+      width: 100%;
+      min-height: 38px;
+      padding: 8px 10px;
+      border: 1px solid var(--pm-divider);
+      border-radius: var(--pm-radius);
+      background: var(--pm-surface);
+      color: var(--pm-text);
+      caret-color: var(--pm-accent);
+      font: 400 14px/1.4 "Barlow", system-ui, sans-serif;
+      transition: border-color .15s ease, background-color .15s ease;
+    }
+
+    .pm-input::placeholder { color: var(--pm-neutral-500); opacity: 1; }
+    .pm-input:hover { border-color: color-mix(in srgb, var(--pm-text) 45%, transparent); }
+    .pm-input:focus { border-color: var(--pm-accent); outline: 0; background: var(--pm-bg); }
+
+    .pm-password-input { padding-right: 42px; }
+
+    .pm-password-toggle {
+      position: absolute;
+      top: 50%;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transform: translateY(-50%);
+      border: 0;
+      border-radius: var(--pm-radius);
+      background: transparent;
+      color: var(--pm-neutral-600);
+      cursor: pointer;
+    }
+
+    .pm-password-toggle:hover { color: var(--pm-accent-700); background: color-mix(in srgb, var(--pm-accent) 10%, transparent); }
+    .pm-password-toggle .ti { font-size: 18px; }
+
+    .pm-form-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .pm-remember {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--pm-neutral-700);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .pm-check {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: var(--pm-accent-600);
+    }
+
+    .pm-link {
+      color: var(--pm-accent-700);
+      font-size: 13px;
+      text-decoration: none;
+      text-underline-offset: 3px;
+      white-space: nowrap;
+    }
+
+    .pm-link:hover { color: var(--pm-accent-900); text-decoration: underline; }
+
+    .pm-submit {
+      position: relative;
+      width: 100%;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      overflow: hidden;
+      margin: 0 0 14px;
+      padding: 9px 14px;
+      border: 1px solid transparent;
+      border-radius: var(--pm-radius);
+      background: var(--pm-accent);
+      color: var(--pm-bg);
+      cursor: pointer;
+      font: 600 14px/1.2 "Barlow Condensed", system-ui, sans-serif;
+      transition: background-color .15s ease, transform .15s ease;
+    }
+
+    .pm-submit:hover { background: var(--pm-accent-600); }
+    .pm-submit:active { background: var(--pm-accent-700); transform: translateY(1px); }
+    .pm-submit:disabled { opacity: .55; cursor: not-allowed; }
+    .pm-submit > span { position: relative; z-index: 1; }
+    .pm-submit::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 30%;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, white 26%, transparent), transparent);
+      animation: pmSweep 4.5s linear infinite;
+    }
+
+    .pm-submit svg { position: relative; z-index: 1; flex: none; }
+
+    .pm-note {
+      margin: 0;
+      color: var(--pm-neutral-500);
+      font-size: 12px;
+      line-height: 1.45;
+      text-align: center;
+    }
+
+    @keyframes pmFadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pmPlateIn {
+      from { opacity: 0; transform: translateY(24px) scale(.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes pmGridPan {
+      from { background-position: 0 0, 0 0; }
+      to { background-position: 48px 48px, 48px 48px; }
+    }
+
+    @keyframes pmScan {
+      from { transform: translateY(-160px); }
+      to { transform: translateY(820px); }
+    }
+
+    @keyframes pmPulseCorner {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .2; }
+    }
+
+    @keyframes pmDrawLine { to { stroke-dashoffset: 0; } }
+    @keyframes pmBlink { 0%, 100% { opacity: .9; } 50% { opacity: .35; } }
+    @keyframes pmSweep {
+      0% { transform: translateX(-120%) skewX(-12deg); }
+      100% { transform: translateX(220%) skewX(-12deg); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .pm-grid, .pm-scan, .pm-motif *, .pm-brand, .pm-headline, .pm-contact-list, .pm-plate,
+      .pm-plate .pm-corner, .pm-submit::before { animation: none !important; }
+    }
+
+    @media (max-width: 860px) {
+      body.pm-login { padding: 0; }
+      .pm-board {
+        width: 100%;
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
+      }
+      .pm-content {
+        width: 100%;
+        min-height: 320px;
+        padding: 34px 32px 168px;
+      }
+      .pm-motif { right: 22px; top: 84px; opacity: .22; transform: scale(.8); transform-origin: top right; }
+      .pm-plate {
+        position: relative;
+        top: auto;
+        right: auto;
+        bottom: auto;
+        width: calc(100% - 48px);
+        margin: -126px 24px 24px;
+        padding: 34px 30px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      body.pm-login { display: block; padding: 0; }
+      .pm-board { width: 100%; }
+      .pm-content { min-height: 300px; padding: 30px 24px 148px; }
+      .pm-headline h1 { font-size: 36px; }
+      .pm-brand-name { font-size: 19px; }
+      .pm-plate { width: calc(100% - 24px); margin: -112px 12px 12px; padding: 28px 22px; }
+      .pm-form-row { align-items: flex-start; flex-direction: column; gap: 12px; }
     }
   </style>
 </head>
 
-<body class="d-flex flex-column">
-  <div class="page page-center">
-    <div class="container container-tight py-4">
-      <div class="text-center mb-4">
-        <a href="{{ url_for('index') }}" class="navbar-brand navbar-brand-autodark">
-          <h1 class="text-primary">{{ t("admin_sidebar_logo_text") }}</h1>
-        </a>
+<body class="pm-login">
+  <main class="pm-board" aria-labelledby="pm-login-title">
+    <div class="pm-grid" aria-hidden="true"></div>
+    <div class="pm-scan" aria-hidden="true"></div>
+
+    <svg class="pm-motif" viewBox="0 0 220 220" aria-hidden="true">
+      <circle cx="110" cy="110" r="70" fill="none" stroke="var(--pm-accent-400)" stroke-width="1"
+        stroke-dasharray="440" stroke-dashoffset="440" style="animation: pmDrawLine 2.2s ease .3s forwards;"></circle>
+      <circle cx="110" cy="110" r="3" fill="var(--pm-accent-200)" style="animation: pmBlink 2.8s ease-in-out infinite;"></circle>
+    </svg>
+
+    <section class="pm-content" aria-label="Philology Matters">
+      <div class="pm-brand">
+        <div class="pm-brand-chip pm-blueprint">
+          <i class="pm-corner tl" aria-hidden="true"></i>
+          <i class="pm-corner tr" aria-hidden="true"></i>
+          <i class="pm-corner bl" aria-hidden="true"></i>
+          <i class="pm-corner br" aria-hidden="true"></i>
+          <img src="/dist/img/fm-logo-transparent.png?v=1" alt="Philology Matters">
+        </div>
+        <div>
+          <div class="pm-brand-name">Philology Matters</div>
+          <div class="pm-brand-subtitle">{{ t("admin_login_brand_subtitle") }}</div>
+        </div>
       </div>
-      <div class="card card-md">
-        <div class="card-body">
-          <h2 class="h2 text-center mb-4">{{ t("admin_login_header") }}</h2>
 
-          {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-          {% for category, message in messages %}
-          <div
-            class="alert alert-{{ 'danger' if category == 'danger' else 'success' if category == 'success' else 'info' }} alert-dismissible"
-            role="alert">
-            <div class="d-flex">
-              <div>
-                {% if category == 'danger' %}
-                <i class="ti ti-alert-circle"></i>
-                {% elif category == 'success' %}
-                <i class="ti ti-check"></i>
-                {% else %}
-                <i class="ti ti-info-circle"></i>
-                {% endif %}
-              </div>
-              <div class="ms-2">
-                {{ message }}
-              </div>
-            </div>
-            <a class="btn-close" data-bs-dismiss="alert" aria-label="close"></a>
-          </div>
-          {% endfor %}
-          {% endif %}
-          {% endwith %}
+      <div class="pm-headline">
+        <h1 id="pm-login-title">{{ t("admin_login_headline_line_1") }}<br>{{ t("admin_login_headline_line_2") }}</h1>
+        <p>{{ t("admin_login_tagline") }}</p>
+      </div>
 
-          <form action="{{ url_for('login') }}" method="post" autocomplete="off" novalidate>
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <div class="mb-3">
-              <label class="form-label">{{ t("admin_login_email_label") }}</label>
-              <input type="email" class="form-control" name="email"
-                placeholder="{{ t('admin_login_email_placeholder') }}" autocomplete="off" required>
-            </div>
-            <div class="mb-2">
-              <label class="form-label">
-                {{ t("admin_login_password_label") }}
-                <span class="form-label-description">
-                  <a href="#" tabindex="-1">{{ t("admin_login_forgot_password") }}</a>
-                </span>
-              </label>
-              <div class="input-group input-group-flat">
-                <input type="password" class="form-control" name="password"
-                  placeholder="{{ t('admin_login_password_placeholder') }}" autocomplete="off" required>
-                <span class="input-group-text">
-                  <a href="#" class="link-secondary" title="{{ t('admin_login_show_password') }}"
-                    data-bs-toggle="tooltip" onclick="togglePassword()">
-                    <i class="ti ti-eye" id="password-icon"></i>
-                  </a>
-                </span>
-              </div>
-            </div>
-            <div class="mb-2">
-              <label class="form-check">
-                <input type="checkbox" class="form-check-input" />
-                <span class="form-check-label">{{ t("admin_login_remember_me") }}</span>
-              </label>
-            </div>
-            <div class="form-footer">
-              <button type="submit" class="btn btn-primary w-100">{{ t("admin_login") }}</button>
-            </div>
-          </form>
+      <div class="pm-contact-list">
+        {% if login_support_contacts %}
+        {% for contact in login_support_contacts %}
+        <a class="pm-contact" href="{{ contact.url }}" target="_blank" rel="noopener">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+            aria-hidden="true">
+            <path d="M21.5 4.5 18.2 19c-.25 1.02-.84 1.27-1.7.79l-4.72-3.48-2.28 2.2c-.25.25-.46.46-.94.46l.34-4.82 8.77-7.92c.38-.34-.08-.53-.59-.19L6.24 12.6 1.6 11.14c-1.01-.32-1.03-1.01.21-1.5L19.94 2.6c.85-.31 1.59.2 1.56 1.9Z"></path>
+          </svg>
+          <span class="pm-contact-copy">
+            <span class="pm-contact-label">{{ contact.label }}</span>
+            <span class="pm-contact-username">{{ contact.username }}</span>
+          </span>
+        </a>
+        {% endfor %}
+        {% else %}
+        <div class="pm-contact pm-contact-empty">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+            aria-hidden="true">
+            <path d="M21.5 4.5 18.2 19c-.25 1.02-.84 1.27-1.7.79l-4.72-3.48-2.28 2.2c-.25.25-.46.46-.94.46l.34-4.82 8.77-7.92c.38-.34-.08-.53-.59-.19L6.24 12.6 1.6 11.14c-1.01-.32-1.03-1.01.21-1.5L19.94 2.6c.85-.31 1.59.2 1.56 1.9Z"></path>
+          </svg>
+          <span>{{ t("admin_login_support_empty") }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="pm-plate pm-blueprint" aria-label="Admin login form">
+      <i class="pm-corner tl" aria-hidden="true"></i>
+      <i class="pm-corner tr" aria-hidden="true"></i>
+      <i class="pm-corner bl" aria-hidden="true"></i>
+      <i class="pm-corner br" aria-hidden="true"></i>
+
+      <div class="pm-language-row">
+        <form method="POST" action="{{ url_for('set_language', lang_code='uz') }}" data-language-form>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="redirect_url" value="{{ request.full_path if request.query_string else request.path }}">
+          <select class="pm-language" aria-label="{{ t('admin_login_language_label') }}"
+            data-action-template="{{ url_for('set_language', lang_code='__lang__') }}"
+            onchange="this.form.action = this.dataset.actionTemplate.replace('__lang__', this.value); this.form.submit();">
+            <option value="uz" {% if (session.get('language') or 'uz') == 'uz' %}selected{% endif %}>O'zbekcha</option>
+            <option value="ru" {% if session.get('language') == 'ru' %}selected{% endif %}>Русский</option>
+            <option value="en" {% if session.get('language') == 'en' %}selected{% endif %}>English</option>
+          </select>
+        </form>
+      </div>
+
+      <h2 class="pm-form-title">{{ t("admin_login_header") }}</h2>
+      <p class="pm-form-subtitle">{{ t("admin_login_form_subtitle") }}</p>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      {% for category, message in messages %}
+      <div class="pm-alert pm-alert-{{ 'danger' if category == 'danger' else 'success' if category == 'success' else 'info' }}"
+        role="alert">
+        {% if category == 'danger' %}
+        <i class="ti ti-alert-circle" aria-hidden="true"></i>
+        {% elif category == 'success' %}
+        <i class="ti ti-check" aria-hidden="true"></i>
+        {% else %}
+        <i class="ti ti-info-circle" aria-hidden="true"></i>
+        {% endif %}
+        <span>{{ message }}</span>
+        <button type="button" class="pm-alert-close" aria-label="{{ t('admin_login_close_alert') }}" onclick="this.parentElement.remove()">&times;</button>
+      </div>
+      {% endfor %}
+      {% endif %}
+      {% endwith %}
+
+      <form action="{{ url_for('login') }}" method="post" autocomplete="off" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+        <div class="pm-field">
+          <label class="pm-label" for="pm-email">{{ t("admin_login_email_label") }}</label>
+          <input id="pm-email" type="email" class="pm-input" name="email"
+            placeholder="{{ t('admin_login_email_placeholder') }}" autocomplete="off" required>
         </div>
 
-      </div>
-      <div class="text-center text-secondary mt-3">
-        {{ t("admin_login_no_account") }} <a href="#" tabindex="-1">{{ t("admin_login_register") }}</a>
-      </div>
-    </div>
-  </div>
+        <div class="pm-field pm-field-password">
+          <label class="pm-label" for="pm-password">{{ t("admin_login_password_label") }}</label>
+          <div class="pm-input-wrap">
+            <input id="pm-password" type="password" class="pm-input pm-password-input" name="password"
+              placeholder="{{ t('admin_login_password_placeholder') }}" autocomplete="off" required>
+            <button type="button" class="pm-password-toggle" title="{{ t('admin_login_show_password') }}"
+              aria-label="{{ t('admin_login_show_password') }}" onclick="togglePassword(event)">
+              <i class="ti ti-eye" id="password-icon" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
 
-  <!-- Libs JS -->
+        <div class="pm-form-row">
+          <label class="pm-remember" for="pm-remember">
+            <input id="pm-remember" type="checkbox" class="pm-check" />
+            <span>{{ t("admin_login_remember_me") }}</span>
+          </label>
+          <a href="#" class="pm-link" tabindex="-1">{{ t("admin_login_forgot_password") }}</a>
+        </div>
+
+        <button type="submit" class="pm-submit">
+          <span>{{ t("admin_login") }}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+            aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </button>
+        <p class="pm-note">{{ t("admin_login_footer_note") }}</p>
+      </form>
+    </section>
+  </main>
+
   <script src="/dist/js/tabler.min.js?1740918423" defer></script>
-
   <script>
-    function togglePassword() {
+    function togglePassword(event) {
+      if (event) event.preventDefault();
       const passwordInput = document.querySelector('input[name="password"]');
       const passwordIcon = document.getElementById('password-icon');
+      const toggle = document.querySelector('.pm-password-toggle');
+      if (!passwordInput || !passwordIcon) return;
 
       if (passwordInput.type === 'password') {
         passwordInput.type = 'text';
         passwordIcon.className = 'ti ti-eye-off';
+        if (toggle) toggle.setAttribute('aria-label', '{{ t("admin_login_hide_password") }}');
       } else {
         passwordInput.type = 'password';
         passwordIcon.className = 'ti ti-eye';
+        if (toggle) toggle.setAttribute('aria-label', '{{ t("admin_login_show_password") }}');
       }
     }
 
-    // Автофокус на поле email
     document.addEventListener('DOMContentLoaded', function () {
-      document.querySelector('input[name="email"]').focus();
+      const emailInput = document.querySelector('input[name="email"]');
+      if (emailInput) emailInput.focus();
     });
   </script>
 </body>

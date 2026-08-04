@@ -1,10 +1,12 @@
+from types import SimpleNamespace
+
 from fmadmin.routes.web import (
     _missing_nonempty_payload_fields,
     _parse_amount,
     _serialize_upload_value_list,
     _stored_upload_value_to_list as _admin_upload_value_to_list,
 )
-from fmadmin.services.emailer import _build_context, _build_multilingual_template_payload
+from shared.email.email_service import EmailService
 from mainweb.routes.public import (
     _issue_toc_public_url,
     _normalize_public_upload_url,
@@ -82,64 +84,18 @@ def test_resolved_country_bucket_preserves_explicit_country_name_without_iso():
     assert _resolved_country_bucket(country_name='Uzbekistan') == ('uz', 'Uzbekistan', 'uz')
 
 
-def test_build_multilingual_template_payload_keeps_three_languages():
-    template_row = {
-        'subject_uz': 'UZ subject',
-        'subject_ru': 'RU subject',
-        'subject_en': 'EN subject',
-        'intro_uz': 'UZ intro',
-        'intro_ru': 'RU intro',
-        'intro_en': 'EN intro',
-        'body_uz': 'UZ body',
-        'body_ru': 'RU body',
-        'body_en': 'EN body',
-        'cta_label_uz': 'UZ open',
-        'cta_label_ru': 'RU open',
-        'cta_label_en': 'EN open',
-    }
-    payload = _build_multilingual_template_payload(
-        template_row,
-        {'action_url': 'https://example.org'},
+def _email_service():
+    """Building a template context needs no database -- only the base URL for
+    the call-to-action link and the signature name, so stub settings do."""
+    settings = SimpleNamespace(
+        APP_BASE_URL='https://example.org',
+        MAIL_FROM_NAME='Philology Matters',
     )
-
-    assert payload['subject'] == 'UZ subject | RU subject | EN subject'
-    assert payload['intro'] == 'UZ intro'
-    assert '[RU]' in payload['body_lines']
-    assert '[EN]' in payload['body_lines']
-    assert payload['cta_label'] == 'UZ open / RU open / EN open'
-
-
-def test_build_multilingual_template_payload_uses_language_specific_vars():
-    template_row = {
-        'subject_uz': 'UZ {{time_left}}',
-        'subject_ru': 'RU {{time_left}}',
-        'subject_en': 'EN {{time_left}}',
-        'intro_uz': 'Intro UZ',
-        'intro_ru': 'Intro RU',
-        'intro_en': 'Intro EN',
-        'body_uz': 'Body UZ {{deadline_type}}',
-        'body_ru': 'Body RU {{deadline_type}}',
-        'body_en': 'Body EN {{deadline_type}}',
-        'cta_label_uz': 'Open UZ',
-        'cta_label_ru': 'Open RU',
-        'cta_label_en': 'Open EN',
-    }
-    payload = _build_multilingual_template_payload(
-        template_row,
-        {
-            'time_left': {'uz': '2 soat', 'ru': '2 часа', 'en': '2 hours'},
-            'deadline_type': {'uz': 'qabul', 'ru': 'принятие', 'en': 'acceptance'},
-        },
-    )
-
-    assert payload['subject'] == 'UZ 2 soat | RU 2 часа | EN 2 hours'
-    assert 'Body UZ qabul' in payload['body_lines']
-    assert 'Body RU принятие' in payload['body_lines']
-    assert 'Body EN acceptance' in payload['body_lines']
+    return EmailService(None, settings, app_name='tests')
 
 
 def test_build_context_groups_multilingual_content_for_templates():
-    context = _build_context(
+    context = _email_service()._build_context(
         subject='Subject UZ | Subject RU | Subject EN',
         intro='[UZ] Intro UZ | [RU] Intro RU | [EN] Intro EN',
         details=[
@@ -161,3 +117,21 @@ def test_build_context_groups_multilingual_content_for_templates():
     assert context['language_sections'][2]['cta_label'] == 'Open EN'
     assert context['language_sections'][0]['details'][0]['label'] == 'Label UZ'
     assert context['language_sections'][2]['body_lines'][0] == 'Body EN line'
+
+
+def test_build_context_mirrors_untranslated_text_into_every_language():
+    # Text that carries no "uz | ru | en" separators is treated as common
+    # content and copied into all three sections, so such an email renders the
+    # same paragraph three times.
+    context = _email_service()._build_context(
+        subject='Yagona sarlavha',
+        intro='Yagona kirish',
+        cta_url='/dashboard',
+        cta_label='Ochish',
+    )
+
+    assert context['subject'] == 'Yagona sarlavha'
+    assert context['cta_url'] == 'https://example.org/dashboard'
+    assert [section['subject'] for section in context['language_sections']] == [
+        'Yagona sarlavha'
+    ] * 3

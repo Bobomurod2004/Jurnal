@@ -2,8 +2,11 @@ import os
 import re
 import threading
 
+import pytest
 from flask import Flask, render_template, session
 
+from mainweb.modules import connector as mainweb_connector
+from fmadmin import connector as fmadmin_connector
 from mainweb.routes import api as api_routes
 from mainweb.routes import auth as auth_routes
 from mainweb.routes import context as context_routes
@@ -63,11 +66,13 @@ def test_publication_recent_sort_key_ignores_legacy_publish_time_within_same_day
     assert [row['id'] for row in ordered] == [122, 121]
 
 
-def test_new_submission_payload_sets_revision_defaults_explicitly():
-    """New drafts must not rely on SQL DEFAULT values.
+def test_new_submission_payload_sets_workflow_defaults_explicitly():
+    """New drafts carry a value for every NOT NULL submissions column.
 
-    The connector sends omitted table columns as NULL, which bypasses a
-    PostgreSQL DEFAULT and violates submissions.revision_number NOT NULL.
+    Development creates these columns through the runtime schema sync
+    (nullable) while production creates them from the migrations as NOT NULL,
+    so a value missing here fails on the server only -- which is exactly how
+    anti_plagiarism_status broke every new draft after 20260727_000001.
     """
     payload = api_routes._prepare_submission_payload(
         data={}, user_id=42, status='draft', is_new=True
@@ -75,6 +80,130 @@ def test_new_submission_payload_sets_revision_defaults_explicitly():
 
     assert payload['revision_number'] == 1
     assert payload['revision_allowed'] is True
+    assert payload['revision_severity'] == 'major'
+    assert payload['anti_plagiarism_status'] == 'pending'
+
+
+class _FakeDbConnection:
+    """Just enough of PostgreSQLConnector for ConnectorQuery to build SQL."""
+
+    def __init__(self, tablename, columns, primary_column='id'):
+        self.conn = None
+        self.columns = {tablename: list(columns)}
+        self.primary_columns = {tablename: primary_column}
+
+
+def _captured_insert(connector_module, columns, rows):
+    query = connector_module.ConnectorQuery(
+        _FakeDbConnection('submissions', columns), 'submissions'
+    )
+    captured = {}
+
+    def fake_sql(sql, arguments, colnames=[]):
+        captured['sql'] = sql
+        captured['arguments'] = arguments
+        return []
+
+    query._sql = fake_sql
+    for row in rows:
+        query.add(**row)
+    query.exec()
+    return captured
+
+
+@pytest.mark.parametrize('connector_module', [mainweb_connector, fmadmin_connector])
+def test_insert_omits_unset_columns_so_defaults_apply(connector_module):
+    """Production regression: no new submission could be created at all.
+
+    The INSERT used to name every table column and pass NULL for the ones the
+    caller left out.  PostgreSQL honours a column DEFAULT only when the column
+    is absent from the INSERT, so anti_plagiarism_status (NOT NULL DEFAULT
+    'pending') was handed a NULL and rejected the row.
+    """
+    captured = _captured_insert(
+        connector_module,
+        columns=['id', 'user_id', 'status', 'anti_plagiarism_status'],
+        rows=[{'user_id': 85, 'status': 'draft'}],
+    )
+
+    assert captured['sql'].startswith(
+        'INSERT INTO submissions (user_id, status) VALUES (%s, %s)'
+    )
+    assert 'anti_plagiarism_status' not in captured['sql'].split(' VALUES ')[0]
+    assert captured['arguments'] == (85, 'draft')
+
+
+@pytest.mark.parametrize('connector_module', [mainweb_connector, fmadmin_connector])
+def test_insert_never_writes_the_primary_key(connector_module):
+    captured = _captured_insert(
+        connector_module,
+        columns=['id', 'user_id'],
+        rows=[{'id': 999, 'user_id': 85}],
+    )
+
+    assert captured['sql'].startswith('INSERT INTO submissions (user_id) VALUES (%s)')
+    assert captured['arguments'] == (85,)
+
+
+@pytest.mark.parametrize('connector_module', [mainweb_connector, fmadmin_connector])
+def test_bulk_insert_defaults_columns_a_row_leaves_out(connector_module):
+    # Rows of one batch may set different columns; the ones a row omits have
+    # to keep their database DEFAULT instead of shifting the placeholders.
+    captured = _captured_insert(
+        connector_module,
+        columns=['id', 'user_id', 'status'],
+        rows=[{'user_id': 85, 'status': 'draft'}, {'user_id': 86}],
+    )
+
+    assert 'VALUES (%s, %s), (%s, DEFAULT)' in captured['sql']
+    assert captured['arguments'] == (85, 'draft', 86)
+
+
+@pytest.mark.parametrize('connector_module', [mainweb_connector, fmadmin_connector])
+def test_insert_rejects_unknown_columns(connector_module):
+    query = connector_module.ConnectorQuery(
+        _FakeDbConnection('submissions', ['id', 'user_id']), 'submissions'
+    )
+
+    with pytest.raises(ValueError):
+        query.add(user_id=85, no_such_column=1)
+
+
+def test_orcid_data_fetch_asks_the_rest_host_before_the_website(monkeypatch):
+    # ORCID_BASE_URL points at the website because the OAuth screens live
+    # there, but orcid.org answers /v3.0/... with HTML -- asking it first cost
+    # a round trip per login and logged a bogus "not valid JSON" warning.
+    monkeypatch.setattr(auth_routes.settings, 'ORCID_BASE_URL', 'https://orcid.org')
+    requested = []
+
+    def fake_fetch(url, timeout, access_token=None):
+        requested.append(url)
+        return None
+
+    monkeypatch.setattr(auth_routes, '_fetch_orcid_json', fake_fetch)
+
+    assert auth_routes._fetch_orcid_json_with_public_fallback(
+        '/v3.0/0000-0002-1825-0097/person', timeout=5
+    ) is None
+    assert requested[0] == 'https://pub.orcid.org/v3.0/0000-0002-1825-0097/person'
+    assert requested[-1] == 'https://orcid.org/v3.0/0000-0002-1825-0097/person'
+
+
+def test_orcid_data_fetch_keeps_a_configured_api_host_first(monkeypatch):
+    # A member API deployment configures an api.* base on purpose -- that one
+    # really does serve the REST data and must stay the first choice.
+    monkeypatch.setattr(auth_routes.settings, 'ORCID_BASE_URL', 'https://api.orcid.org')
+    requested = []
+
+    def fake_fetch(url, timeout, access_token=None):
+        requested.append(url)
+        return None
+
+    monkeypatch.setattr(auth_routes, '_fetch_orcid_json', fake_fetch)
+
+    auth_routes._fetch_orcid_json_with_public_fallback('/v3.0/0000/person', timeout=5)
+
+    assert requested[0] == 'https://api.orcid.org/v3.0/0000/person'
 
 
 def test_load_public_editorial_members_does_not_fallback_to_editor_users(monkeypatch):
@@ -1214,19 +1343,30 @@ def _fmadmin_template_app():
     return app
 
 
-def _render_sidebar(path):
+ADMIN_CAPABILITIES = {
+    'can_manage_users': True,
+    'can_manage_submissions': True,
+    'can_view_assignments': True,
+    'can_manage_content': True,
+    'can_access_admin_dashboard': True,
+}
+EDITOR_CAPABILITIES = {
+    'can_access_fmadmin': True,
+    'can_access_editor_dashboard': True,
+    'can_view_assignments': True,
+    'can_review_assignments': True,
+    'can_view_notifications': True,
+}
+
+
+def _render_sidebar(path, capabilities=None):
     app = _fmadmin_template_app()
     with app.test_request_context(path):
         session['fmadmin_user'] = {
             'id': 1,
             'name': 'Admin',
             'rolename': 'superadmin',
-            'capabilities': {
-                'can_manage_users': True,
-                'can_manage_submissions': True,
-                'can_view_assignments': True,
-                'can_manage_content': True,
-            },
+            'capabilities': dict(ADMIN_CAPABILITIES if capabilities is None else capabilities),
         }
         session['language'] = 'uz'
         return render_template('basic.html')
@@ -1261,6 +1401,14 @@ def test_dashboard_status_labels_cover_every_status_in_three_languages():
             assert labels.get(lang), f'{status} is missing the {lang} label'
             # No label may fall through to the raw status key.
             assert fmadmin_stats._status_label(status, lang) != status
+
+
+def test_dashboard_status_colours_match_the_terminal_status_meaning():
+    from shared.submission_status import SUBMISSION_STATUSES, SUBMISSION_STATUS_CHART_COLOR
+
+    assert set(SUBMISSION_STATUS_CHART_COLOR) == set(SUBMISSION_STATUSES)
+    assert SUBMISSION_STATUS_CHART_COLOR['published'] == '#22C55E'
+    assert SUBMISSION_STATUS_CHART_COLOR['rejected'] == '#EF4444'
 
 
 def test_dashboard_status_label_falls_back_instead_of_showing_the_code():
@@ -1563,3 +1711,146 @@ def test_status_pills_carry_the_other_filters_over():
     # Paging must reset when the status changes -- page 2 of the old filter
     # is meaningless for the new one.
     assert all('page=' not in href for href in hrefs)
+
+
+def _promoted_editor(user_id=85):
+    """Author account later granted the editor role in fmadmin.
+
+    The promotion only appended 'editor' to roles, so the stored primary role
+    stayed 'user' -- exactly the shape that broke review acceptance.
+    """
+    return {'id': user_id, 'rolename': 'user', 'roles': ['user', 'editor']}
+
+
+def test_promoted_editor_counts_as_the_assigned_editor():
+    # Production regression: opening the task left accepted_at NULL, the
+    # review form never appeared, and the assignment expired unaccepted.
+    user = _promoted_editor()
+
+    assert fmadmin_web._role_of(user) == 'user'
+    assert fmadmin_web._is_assigned_editor(user, {'editor_id': 85}) is True
+
+
+def test_assigned_editor_check_rejects_other_peoples_assignments():
+    user = _promoted_editor()
+
+    assert fmadmin_web._is_assigned_editor(user, {'editor_id': 86}) is False
+    assert fmadmin_web._is_assigned_editor(user, {}) is False
+    assert fmadmin_web._is_assigned_editor(user, None) is False
+    # An account without the editor role never reviews, even its own row.
+    assert fmadmin_web._is_assigned_editor(
+        {'id': 85, 'rolename': 'user', 'roles': ['user']}, {'editor_id': 85}
+    ) is False
+
+
+def test_assigned_editor_check_accepts_a_plain_editor_account():
+    editor = {'id': 7, 'rolename': 'editor', 'roles': ['editor']}
+
+    assert fmadmin_web._is_assigned_editor(editor, {'editor_id': 7}) is True
+    assert fmadmin_web._is_assigned_editor(editor, {'editor_id': 8}) is False
+
+
+def test_admin_role_check_covers_both_admin_levels():
+    assert fmadmin_web._is_admin_role('admin') is True
+    assert fmadmin_web._is_admin_role('superadmin') is True
+    # Editors and promoted authors must stay scoped to their own assignments.
+    assert fmadmin_web._is_admin_role('editor') is False
+    assert fmadmin_web._is_admin_role('user') is False
+
+
+def test_global_search_is_hidden_from_users_who_cannot_use_it():
+    # /fmadmin/api/search spans the whole journal (every submission with its
+    # status, every user, every author) and requires fmadmin.users.manage.
+    # Rendering the trigger for an editor only produced an "access denied"
+    # popup -- and advertised data they are not allowed to reach.
+    editor_view = _render_sidebar('/fmadmin/editor/dashboard', capabilities=EDITOR_CAPABILITIES)
+
+    assert 'id="global-search-trigger"' not in editor_view
+    assert 'id="globalSearchModal"' not in editor_view
+
+    admin_view = _render_sidebar('/fmadmin/submissions')
+    assert 'id="global-search-trigger"' in admin_view
+    assert 'id="globalSearchModal"' in admin_view
+
+
+def test_sidebar_home_link_follows_the_dashboard_permission():
+    # Not the stored rolename: a promoted author (rolename='user') carries the
+    # editor permissions but used to get a Home link into the admin overview
+    # of every submission in the journal.
+    editor_view = _render_sidebar('/fmadmin/editor/dashboard', capabilities=EDITOR_CAPABILITIES)
+
+    assert '/fmadmin/editor/dashboard' in editor_view
+    assert 'href="/fmadmin/"' not in editor_view
+
+
+def _render_editor_assignments(is_admin_viewer, capabilities=None):
+    assignment = {
+        'id': 5,
+        'submission_id': 21,
+        'editor_id': 1,
+        'assigned_by': 2,
+        'status': 'reviewed',
+        'admin_decision': 'revision_requested',
+        'assigned_at': 1785000000,
+        'reviewed_at': 1785200000,
+        'acceptance_deadline_at': 1785100000,
+        'completion_deadline_at': 1785500000,
+        'acceptance_remaining_seconds': None,
+        'acceptance_remaining_label': '',
+        'completion_remaining_seconds': None,
+        'completion_remaining_label': '',
+    }
+    context = {
+        'assignments': [assignment],
+        'page': 1,
+        'total_assignments': 1,
+        'total_pages': 1,
+        'status_filter': '',
+        'editor_filter': '',
+        'submission_id_filter': '',
+        'submission_title_filter': '',
+        'submissions_map': {21: {'id': 21, 'title': 'Test article'}},
+        'editors_map': {1: {'id': 1, 'name': 'Editor', 'second_name': ''}},
+        'users_map': {2: {'id': 2, 'name': 'Admin', 'second_name': ''}},
+        'editors': [{'id': 1, 'name': 'Editor', 'second_name': ''}],
+        'current_user': {'id': 1, 'rolename': 'editor'},
+        'is_admin_viewer': is_admin_viewer,
+    }
+
+    app = _fmadmin_template_app()
+    with app.test_request_context('/fmadmin/editor-assignments'):
+        session['fmadmin_user'] = {
+            'id': 1,
+            'name': 'Editor',
+            'rolename': 'editor',
+            'capabilities': dict(
+                (ADMIN_CAPABILITIES if is_admin_viewer else EDITOR_CAPABILITIES)
+                if capabilities is None else capabilities
+            ),
+        }
+        session['language'] = 'uz'
+        return render_template('editors/assignments.html', **context)
+
+
+def test_assignments_list_hides_administration_columns_from_editors():
+    # The admin decision is the administration's verdict on the review, and
+    # the editor/assigned-by columns describe staffing -- none of it is the
+    # editor's own task data.  "Admin qarori" had no permission gate at all.
+    html = _render_editor_assignments(is_admin_viewer=False)
+
+    assert 'Admin qarori' not in html
+    assert 'Qayta ishlash so\'ralgan' not in html
+    assert 'admin_label_editor' not in html
+    assert 'admin_option_all_editors' not in html
+    # Their own task data stays.
+    assert 'Test article' in html
+    assert 'admin_col_reviewed_at' in html
+
+
+def test_assignments_list_keeps_administration_columns_for_admins():
+    html = _render_editor_assignments(is_admin_viewer=True)
+
+    assert 'Admin qarori' in html
+    assert 'Qayta ishlash so\'ralgan' in html
+    assert 'admin_label_editor' in html
+    assert 'admin_option_all_editors' in html

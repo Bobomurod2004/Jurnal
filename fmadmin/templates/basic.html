@@ -137,7 +137,9 @@
         <div class="collapse navbar-collapse" id="sidebar-menu">
           <!-- BEGIN NAVBAR MENU -->
           <ul class="navbar-nav pt-lg-3">
-            {% set home_endpoint = 'editor_dashboard' if fmadmin_user and fmadmin_user.rolename == 'editor' else 'index' %}
+            {# Faqat admin dashboardiga ruxsati borlar 'index'ga boradi: saqlangan
+               rolename ga qarash muharrirni butun jurnal statistikasiga olib borardi. #}
+            {% set home_endpoint = 'index' if user_caps.can_access_admin_dashboard else 'editor_dashboard' %}
             {{ sidebar_link(home_endpoint, 'ti-home', t('admin_home'), ['index', 'editor_dashboard']) }}
 
             <!-- Раздел "Пользователи" только для супер-админа -->
@@ -164,10 +166,10 @@
 
             <!-- Назначения для редакторов и администраторов -->
             {% if user_caps.can_view_assignments %}
-            {% set _assignments_label = t('admin_my_tasks') if fmadmin_user and fmadmin_user.rolename == 'editor' else t('admin_editor_tasks') %}
+            {% set _assignments_label = t('admin_editor_tasks') if user_caps.can_access_admin_dashboard else t('admin_my_tasks') %}
             {% set _assignments_active = ['editor_assignments', 'review_assignment', 'role_notifications', 'role_notification_open', 'role_notification_read_all'] %}
             {% call sidebar_group('assignments', 'ti-clipboard-check', _assignments_label, _assignments_active) %}
-            {% set assignments_label = t('admin_my_assignments') if fmadmin_user and fmadmin_user.rolename == 'editor' else t('admin_assignments') %}
+            {% set assignments_label = t('admin_assignments') if user_caps.can_access_admin_dashboard else t('admin_my_assignments') %}
             {{ sidebar_link('editor_assignments', 'ti-clipboard-list', assignments_label, ['editor_assignments', 'review_assignment']) }}
             {% set _notifications_active = (request.endpoint or '').split('.')[-1] in ['role_notifications', 'role_notification_open', 'role_notification_read_all'] %}
             <li class="nav-item">
@@ -236,6 +238,11 @@
         </button>
         <!-- END NAVBAR TOGGLER -->
         <div class="navbar-nav flex-row order-md-last">
+          {# Tezkor qidiruv butun jurnal bo'yicha (maqolalar, foydalanuvchilar,
+             mualliflar) qidiradi va /fmadmin/api/search fmadmin.users.manage
+             talab qiladi. Muharrirga tugma ko'rinib, bosilganda "ruxsat yo'q"
+             deb turishi o'rniga umuman ko'rsatilmaydi. #}
+          {% if user_caps.can_manage_users %}
           <div class="nav-item me-2">
             <a href="#" class="nav-link px-2 d-flex align-items-center gap-2" id="global-search-trigger" aria-label="Search">
               <i class="ti ti-search fs-3"></i>
@@ -243,6 +250,7 @@
               <span class="global-search-kbd d-none d-xl-inline">Ctrl+K</span>
             </a>
           </div>
+          {% endif %}
 
           <div class="nav-item dropdown me-2">
             <a href="#" class="nav-link px-2" data-bs-toggle="dropdown" aria-label="Notifications">
@@ -688,6 +696,7 @@
 
   <script src="/dist/js/tom-select/dist/js/tom-select.base.min.js"></script>
 
+  {% if user_caps.can_manage_users %}
   <div class="modal modal-blur fade" id="globalSearchModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
       <div class="modal-content">
@@ -725,6 +734,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
   <!-- Toast уведомления -->
   <script>
