@@ -330,9 +330,31 @@
             </div>
         </div>
 
+        {% if submission.revision_number and submission.revision_number > 1 and submission.status in ['under_review', 'plagiarism_check'] %}
+        <div class="card mt-4 border-info">
+            <div class="card-body">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div>
+                        <div class="fw-bold"><i class="ti ti-git-pull-request me-1"></i>Taqriz #{{ submission.revision_number }} — joriy versiya</div>
+                        {% if submission.status == 'plagiarism_check' %}
+                        <div class="text-secondary small mt-1">Mazmun sezilarli o'zgargani uchun yangi antiplagiat hisoboti kutilmoqda. Hisobot o'tgach, avvalgi muharrirlarga yangi topshiriqlar avtomatik ochiladi.</div>
+                        {% else %}
+                        <div class="text-secondary small mt-1">Avvalgi raundlar tarixda saqlanadi. Jadvaldagi faqat <strong>Taqriz #{{ submission.revision_number }}</strong> javoblari ushbu versiya uchun joriy hisoblanadi; qo'shimcha muharrirni yuqoridagi tugma orqali biriktirish mumkin.</div>
+                        {% endif %}
+                    </div>
+                    {% if submission.file_anonymized %}
+                    <a href="{{ upload_access_url(submission.file_anonymized) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <i class="ti ti-file"></i> Joriy anonim fayl
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="card mt-4">
             <div class="card-header">
-                <h3 class="card-title">Tahriz topshiriqlari</h3>
+                <h3 class="card-title">Taqriz topshiriqlari</h3>
                 <div class="card-actions">
                     {% if can_assign_editors %}
                     <form method="post" action="{{ url_for('auto_assign_editor', submission_id=submission.id) }}" class="d-inline">
@@ -356,6 +378,7 @@
                         <thead>
                             <tr>
                                 <th>Tahrirchi</th>
+                                <th>Raund</th>
                                 <th>Biriktirilgan</th>
                                 <th>Qabul muddati</th>
                                 <th>Topshirish muddati</th>
@@ -377,11 +400,12 @@
                                             ID: {{ assignment.editor_id }}
                                             {% endif %}
                                         </span>
-                                        {% if assignment.assignment_note %}
-                                        <span class="text-secondary small">{{ assignment.assignment_note }}</span>
+                                        {% if assignment.assignment_note_display %}
+                                        <span class="text-secondary small">{{ assignment.assignment_note_display }}</span>
                                         {% endif %}
                                     </div>
                                 </td>
+                                <td><span class="badge bg-secondary-lt">{{ assignment.revision_round_label }}</span></td>
                                 <td>{{ assignment.assigned_at | timestamp_to_date if assignment.assigned_at else '-' }}</td>
                                 <td>
                                     {{ assignment.acceptance_deadline_at | timestamp_to_datetime if assignment.acceptance_deadline_at else '-' }}
@@ -411,6 +435,8 @@
                                 <td>
                                     {% if assignment.admin_decision == 'accepted' %}
                                     <span class="badge bg-success-lt">Qabul qilingan</span>
+                                    {% elif assignment.admin_decision == 'sent_to_author' %}
+                                    <span class="badge bg-warning-lt">Muallifga yuborildi</span>
                                     {% elif assignment.admin_decision == 'revision_requested' %}
                                     <span class="badge bg-warning-lt">Qayta ishlash so'ralgan</span>
                                     {% elif assignment.status in ['reviewed', 'rejected'] %}
@@ -494,30 +520,23 @@
                         <input type="text" class="form-control" name="published_url" value="{{ submission.published_url or '' }}" placeholder="masalan: /article/123">
                         <small class="form-hint">Avval Website → Articles bo'limida nashr yozuvini yarating, so'ng uning havolasini shu yerga qo'ying.</small>
                     </div>
-                    <div class="mb-3" id="revisionSeverityField" style="display: none;">
-                        <label class="form-label">Tuzatish darajasi</label>
-                        <div class="form-selectgroup">
-                            <label class="form-selectgroup-item">
-                                <input type="radio" name="revision_severity" value="minor" class="form-selectgroup-input" checked>
-                                <span class="form-selectgroup-label"><i class="ti ti-adjustments text-info me-1"></i> Kichik tuzatish</span>
-                            </label>
-                            <label class="form-selectgroup-item">
-                                <input type="radio" name="revision_severity" value="major" class="form-selectgroup-input">
-                                <span class="form-selectgroup-label"><i class="ti ti-alert-triangle text-warning me-1"></i> Katta tuzatish</span>
-                            </label>
-                        </div>
-                        <small class="form-hint">Kichik tuzatish -- mualif qayta yuklagach to'g'ridan-to'g'ri sizga qaytadi, tahrirchilar qayta biriktirilmaydi. Katta tuzatish -- to'liq qayta taqriz sikli boshlanadi.</small>
+                    <div class="mb-3" id="revisionAntiplagiarismField" style="display: none;">
+                        <label class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="requires_antiplagiarism_recheck" value="1" {% if submission.revision_requires_antiplagiarism_recheck %}checked{% endif %}>
+                            <span class="form-check-label">Tuzatilgan matnni antiplagiatga qayta tekshirish</span>
+                        </label>
+                        <small class="form-hint">Faqat maqola mazmuni sezilarli o'zgargan bo'lsa belgilang. Aks holda muallif qayta yuborgach avvalgi muharrirlarga yangi taqriz raundi avtomatik ochiladi.</small>
                     </div>
                     <script>
                         (function () {
                             var statusSelect = document.getElementById('submissionStatusSelect');
                             var amountFields = document.getElementById('paymentAmountFields');
                             var publishedUrlField = document.getElementById('publishedUrlField');
-                            var revisionSeverityField = document.getElementById('revisionSeverityField');
+                            var revisionAntiplagiarismField = document.getElementById('revisionAntiplagiarismField');
                             function toggleAmountFields() {
                                 amountFields.style.display = statusSelect.value === 'payment_pending' ? '' : 'none';
                                 publishedUrlField.style.display = statusSelect.value === 'published' ? '' : 'none';
-                                revisionSeverityField.style.display = statusSelect.value === 'revision_required' ? '' : 'none';
+                                revisionAntiplagiarismField.style.display = statusSelect.value === 'revision_required' ? '' : 'none';
                             }
                             statusSelect.addEventListener('change', toggleAmountFields);
                             toggleAmountFields();
@@ -526,8 +545,8 @@
 
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_admin_notes") }}</label>
-                        <textarea class="form-control" name="notes" rows="4"
-                            placeholder="{{ t('admin_placeholder_notes') }}">{{ submission.notes or '' }}</textarea>
+                        <textarea class="form-control" name="notes" rows="4" autocomplete="off"
+                            placeholder="{{ t('admin_placeholder_notes') }}"></textarea>
                     </div>
 
                     <div class="mb-3">
@@ -689,18 +708,78 @@
             </div>
             <div class="card-body">
                 {% if submission.file_authors %}
-                <div class="mb-2">
+                <div class="mb-3">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                        {% if submission.file_change_flags.authors_changed %}
+                        <span class="badge bg-success-lt"><i class="ti ti-sparkles me-1"></i>Yangi tuzatilgan versiya</span>
+                        {% else %}
+                        <span class="badge bg-secondary-lt">Eng oxirgi versiya</span>
+                        {% endif %}
+                        {% if submission.revision_number and submission.revision_number > 1 %}
+                        <span class="text-secondary small">Taqriz #{{ submission.revision_number }}</span>
+                        {% endif %}
+                    </div>
                     <a href="{{ upload_access_url(submission.file_authors) }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                        <i class="ti ti-file"></i> {{ t("admin_file_authors") }}
+                        <i class="ti ti-file"></i> {{ t("admin_file_authors") }} — joriy
                     </a>
                 </div>
                 {% endif %}
 
                 {% if submission.file_anonymized %}
-                <div class="mb-2">
+                <div class="mb-3">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                        {% if submission.file_change_flags.anonymized_changed %}
+                        <span class="badge bg-success-lt"><i class="ti ti-sparkles me-1"></i>Yangi tuzatilgan versiya</span>
+                        {% else %}
+                        <span class="badge bg-secondary-lt">Eng oxirgi versiya</span>
+                        {% endif %}
+                        {% if submission.revision_number and submission.revision_number > 1 %}
+                        <span class="text-secondary small">Taqriz #{{ submission.revision_number }}</span>
+                        {% endif %}
+                    </div>
                     <a href="{{ upload_access_url(submission.file_anonymized) }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                        <i class="ti ti-file"></i> {{ t("admin_file_anonymized") }}
+                        <i class="ti ti-file"></i> {{ t("admin_file_anonymized") }} — joriy
                     </a>
+                </div>
+                {% endif %}
+
+                {% if revision_file_history %}
+                <div class="border-top pt-3 mt-3">
+                    <div class="fw-semibold mb-2"><i class="ti ti-history me-1"></i>Tuzatishdan oldingi versiyalar</div>
+                    {% for revision in revision_file_history %}
+                    <div class="border rounded p-2 mb-2 bg-light">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-1 mb-2">
+                            <span class="small fw-semibold">Taqriz #{{ revision.revision_number }} — avvalgi versiya</span>
+                            <span class="text-secondary small">
+                                {% if revision.resubmitted_at %}
+                                Qayta yuborilgan: {{ revision.resubmitted_at | timestamp_to_date }}
+                                {% else %}
+                                Muallifning yuborishi kutilmoqda
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% if revision.file_authors %}
+                            {% if revision.file_authors == submission.file_authors %}
+                            <span class="badge bg-secondary-lt">{{ t("admin_file_authors") }} o'zgarmagan</span>
+                            {% else %}
+                            <a href="{{ upload_access_url(revision.file_authors) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                <i class="ti ti-file"></i> {{ t("admin_file_authors") }} — avvalgi
+                            </a>
+                            {% endif %}
+                            {% endif %}
+                            {% if revision.file_anonymized %}
+                            {% if revision.file_anonymized == submission.file_anonymized %}
+                            <span class="badge bg-secondary-lt">{{ t("admin_file_anonymized") }} o'zgarmagan</span>
+                            {% else %}
+                            <a href="{{ upload_access_url(revision.file_anonymized) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                <i class="ti ti-file"></i> {{ t("admin_file_anonymized") }} — avvalgi
+                            </a>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
                 {% endif %}
 

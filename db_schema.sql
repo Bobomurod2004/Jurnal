@@ -1025,6 +1025,7 @@ CREATE TABLE public.submissions (
     editor_shared_file_note text,
     editor_shared_file_at bigint,
     revision_severity text DEFAULT 'major'::text NOT NULL,
+    revision_requires_antiplagiarism_recheck boolean DEFAULT false NOT NULL,
     CONSTRAINT chk_submissions_anti_plagiarism_status
         CHECK (anti_plagiarism_status IN ('pending', 'passed', 'failed')),
     CONSTRAINT chk_submissions_revision_severity
@@ -1083,6 +1084,8 @@ CREATE TABLE public.submission_revision_log (
     rejection_notes text,
     resubmitted_at bigint,
     resubmitted_by integer,
+    file_authors text,
+    file_anonymized text,
     created_at bigint DEFAULT EXTRACT(epoch FROM now())
 );
 
@@ -2147,6 +2150,14 @@ ALTER TABLE ONLY public.submissions
 
 ALTER TABLE ONLY public.submission_revision_log
     ADD CONSTRAINT submission_revision_log_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_submission_revision_log_submission_revision; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_submission_revision_log_submission_revision
+    ON public.submission_revision_log USING btree (submission_id, revision_number);
 
 
 --

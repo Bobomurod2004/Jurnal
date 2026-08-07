@@ -20,6 +20,45 @@
   </div>
 </div>
 
+{# Submissions with no track reach no admin at all -- only the superadmin sees them. #}
+{% if untracked_submission_count %}
+<div class="alert alert-info" role="alert">
+  <div class="d-flex">
+    <div class="me-2"><i class="ti ti-info-circle icon"></i></div>
+    <div>
+      <h4 class="alert-title">Yo'nalishi ko'rsatilmagan {{ untracked_submission_count }} ta ariza</h4>
+      <div class="text-secondary">
+        Bu arizalarda yo'nalish belgilanmagan va admin ham biriktirilmagan, shuning uchun
+        ular faqat superadminga ko'rinadi. Ularni ko'rish uchun
+        <a href="{{ url_for('submissions') }}">Arizalar</a> bo'limiga o'ting.
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# Submissions whose track no admin covers stay unassigned silently -- say so. #}
+{% if uncovered_tracks %}
+<div class="alert alert-warning" role="alert">
+  <div class="d-flex">
+    <div class="me-2"><i class="ti ti-alert-triangle icon"></i></div>
+    <div>
+      <h4 class="alert-title">Yo'nalishsiz arizalar bor</h4>
+      <div class="text-secondary">
+        Quyidagi yo'nalishlarga biror admin biriktirilmagan, shuning uchun ularning arizalari
+        hech kimga tushmayapti:
+        <ul class="mt-2 mb-2">
+          {% for item in uncovered_tracks %}
+          <li><strong>{{ item.label }}</strong> — {{ item.count }} ta ariza kutmoqda</li>
+          {% endfor %}
+        </ul>
+        Tuzatish uchun kerakli adminni tahrirlab, "Admin yo'nalishlari" dan shu yo'nalishni belgilang.
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <form method="get" action="{{ url_for('users') }}">
   <div class="row mb-3">
     <div class="col-md-4">

@@ -141,6 +141,8 @@
                 class="btn btn-icon btn-outline-info bg-info-lt btn-sm px-2 py-1 me-2">
                 {{ t("admin_btn_content") }}
               </a>
+              {# Maqola o'chirish faqat superadmin'da (fmadmin.content.delete). #}
+              {% if user_caps.can_delete_content %}
               <button type="button" class="btn btn-icon btn-outline-danger bg-danger-lt btn-sm px-2 py-1"
                 data-bs-toggle="modal"
                 data-bs-target="#modal-delete-article"
@@ -148,6 +150,7 @@
                 data-article-title="{{ article.title_display or article.title or ('ID ' ~ article.id) }}">
                 <i class="ti ti-trash me-1"></i>{{ t("admin_btn_delete") }}
               </button>
+              {% endif %}
             </div>
           </td>
         </tr>

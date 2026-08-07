@@ -51,6 +51,34 @@ def is_admin_or_editor(f):
     return decorated_function
 
 
+def permission_required(*permission_names):
+    """Gate an fmadmin page behind one or more permissions.
+
+    The user passes when they hold ANY of the listed permissions, mirroring
+    how `api_permission_required` guards the JSON endpoints.  Prefer this over
+    `is_superadmin_required` for pages an administrator may also reach, so the
+    role/permission table in `utils.roles` stays the single source of truth.
+    """
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'fmadmin_user' not in session:
+                return redirect(url_for('login'))
+
+            user = session.get('fmadmin_user') or {}
+            granted = any(
+                user_has_permission(user, name)
+                for name in permission_names
+            )
+            if not granted:
+                flash(t('admin_error_no_access'), 'danger')
+                return redirect(url_for('index'))
+
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
 def api_admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -74,6 +102,32 @@ def api_permission_required(permission_name, message='Permission required'):
                 return jsonify({'success': False, 'message': 'Unauthorized'}), 401
 
             if not user_has_permission(user, permission_name):
+                return jsonify({'success': False, 'message': message}), 403
+
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
+def api_any_permission_required(permission_names, message='Permission required'):
+    """Allow a JSON endpoint that several sections legitimately share.
+
+    Used where one endpoint backs pages guarded by different permissions --
+    e.g. the author picker serves both article editing (`content.manage`) and
+    the authors directory (`users.manage`).
+    """
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            user = session.get('fmadmin_user')
+            if not user:
+                return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+            granted = any(
+                user_has_permission(user, name)
+                for name in permission_names
+            )
+            if not granted:
                 return jsonify({'success': False, 'message': message}), 403
 
             return f(*args, **kwargs)

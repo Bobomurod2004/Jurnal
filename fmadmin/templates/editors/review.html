@@ -73,9 +73,15 @@
               <div class="datagrid-item">
                 <div class="datagrid-title">Anonim fayl</div>
                 <div class="datagrid-content">
+                  {% if submission.file_change_flags.anonymized_changed %}
+                  <div class="mb-2">
+                    <span class="badge bg-success-lt"><i class="ti ti-sparkles me-1"></i>Yangi tuzatilgan fayl</span>
+                    <span class="text-secondary small ms-1">{{ assignment.revision_round_label }}</span>
+                  </div>
+                  {% endif %}
                   <a href="{{ upload_access_url(submission.file_anonymized) }}" class="btn btn-primary" target="_blank">
                     <i class="ti ti-download"></i>
-                    {{ t("admin_btn_download") }}
+                    Joriy anonim faylni ochish
                   </a>
                 </div>
               </div>
@@ -83,6 +89,21 @@
             </div>
           </div>
         </div>
+
+        {% if submission.revision_number and submission.revision_number > 1 and submission.last_revision_submitted_at %}
+        <div class="alert alert-success mt-3 mb-0" role="alert">
+          <div class="d-flex gap-2">
+            <i class="ti ti-file-check fs-2"></i>
+            <div>
+              <div class="fw-bold">Yangi tuzatilgan versiya keldi</div>
+              <div class="small mt-1">
+                Muallif taqriz #{{ submission.revision_number }} ni {{ submission.last_revision_submitted_at | timestamp_to_datetime }} da qayta yubordi.
+                Joriy anonim faylni shu topshiriq uchun tekshiring.
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
 
         <div class="card mt-3">
           <div class="card-header">
@@ -172,7 +193,7 @@
               </div>
 
               <div class="mb-3">
-                <label class="form-label">Tahriz izohi</label>
+                <label class="form-label">Taqriz izohi</label>
                 <textarea class="form-control ckeditor-word" name="editor_comment" rows="7" data-editor-height="220" placeholder="Maqolaning kuchli va zaif tomonlarini yozing">{{ assignment.editor_comment or '' }}</textarea>
                 <small class="form-hint">Kamida izoh yoki fayl yuborish tavsiya etiladi.</small>
               </div>
@@ -214,7 +235,7 @@
         {% else %}
         <div class="card mt-3">
           <div class="card-header">
-            <h3 class="card-title">Tahriz natijasi</h3>
+            <h3 class="card-title">Taqriz natijasi</h3>
           </div>
           <div class="card-body">
             <div class="datagrid">
@@ -224,15 +245,15 @@
                 <div class="datagrid-content">{{ assignment.reviewed_at | timestamp_to_date }}</div>
               </div>
               {% endif %}
-              {% if assignment.editor_comment %}
+              {% if assignment.editor_comment_display %}
               <div class="datagrid-item">
-                <div class="datagrid-title">Tahriz izohi</div>
-                <div class="datagrid-content">{{ assignment.editor_comment }}</div>
+                <div class="datagrid-title">Taqriz izohi</div>
+                <div class="datagrid-content" style="white-space: pre-line;">{{ assignment.editor_comment_display }}</div>
               </div>
               {% endif %}
               {% if assignment.editor_file %}
               <div class="datagrid-item">
-                <div class="datagrid-title">Tahriz fayli</div>
+                <div class="datagrid-title">Taqriz fayli</div>
                 <div class="datagrid-content">
                   <a href="{{ assignment.editor_file }}" class="btn btn-outline-primary btn-sm" target="_blank">
                     <i class="ti ti-download"></i>
@@ -248,7 +269,7 @@
 
         {% if current_role in ['admin', 'superadmin'] and assignment.status in ['reviewed', 'rejected'] %}
         <form method="POST" action="{{ url_for('assignment_admin_decision', assignment_id=assignment.id) }}"
-              onsubmit="return (this.admin_decision.value !== 'return_to_author') || confirm('Maqola muallifga tuzatish uchun qaytariladi. Davom etasizmi?');">
+              onsubmit="return (this.admin_decision.value !== 'return_to_author') || confirm('Maqola muallifga tuzatish uchun qaytariladi. Shu raunddagi barcha yakunlangan muharrir izohlari va fayllari birga yuboriladi. Davom etasizmi?');">
           <div class="card mt-3">
             <div class="card-header">
               <h3 class="card-title">Qaror</h3>
@@ -275,32 +296,19 @@
                     <input type="radio" name="admin_decision" value="return_to_author" id="admin_decision_return_to_author" class="form-selectgroup-input">
                     <span class="form-selectgroup-label">
                       <i class="ti ti-corner-up-left text-danger me-1"></i>
-                      Muallifga qaytarish
+                      Muallifga tuzatish uchun yuborish
                     </span>
                   </label>
                 </div>
-                <small class="form-hint">"Tahrirchiga qayta yuborish" -- tahrirchi o'z xulosasini qayta ko'rib chiqadi. "Muallifga qaytarish" -- tahrirchi ishi yakunlangan hisoblanadi, maqola to'g'ridan-to'g'ri muallifga tuzatish uchun qaytariladi.</small>
+                <small class="form-hint">"Tahrirchiga qayta yuborish" faqat shu muharrirdan xulosasini to'ldirishni so'raydi. "Muallifga qaytarish" esa shu raunddagi barcha yakunlangan xulosalar va fayllarni bitta topshiriqqa jamlaydi. Boshqa muharrir topshirig'i hali faol bo'lsa, tizim avval uning javobini kutadi.</small>
               </div>
 
-              <div class="mb-3" id="revision_severity_group" style="display: none;">
-                <label class="form-label">Tuzatish darajasi</label>
-                <div class="form-selectgroup">
-                  <label class="form-selectgroup-item">
-                    <input type="radio" name="revision_severity" value="minor" class="form-selectgroup-input" checked>
-                    <span class="form-selectgroup-label">
-                      <i class="ti ti-adjustments text-info me-1"></i>
-                      Kichik tuzatish
-                    </span>
-                  </label>
-                  <label class="form-selectgroup-item">
-                    <input type="radio" name="revision_severity" value="major" class="form-selectgroup-input">
-                    <span class="form-selectgroup-label">
-                      <i class="ti ti-alert-triangle text-warning me-1"></i>
-                      Katta tuzatish
-                    </span>
-                  </label>
-                </div>
-                <small class="form-hint">Kichik tuzatish -- muallif faylni to'g'irlab qayta yuklagach, to'g'ridan-to'g'ri sizning (admin) navbatingizga qaytadi, tahrirchilar qayta biriktirilmaydi. Katta tuzatish -- qayta yuklangach, to'liq qayta taqriz sikli boshlanadi (tahrirchilar qayta faollashadi).</small>
+              <div class="mb-3" id="revision_antiplagiarism_group" style="display: none;">
+                <label class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" name="requires_antiplagiarism_recheck" value="1">
+                  <span class="form-check-label">Tuzatilgan maqolani antiplagiatga qayta tekshirish</span>
+                </label>
+                <small class="form-hint">Faqat matn mazmuni sezilarli o'zgargan bo'lsa belgilang. Belgilansa, muallif qayta yuborgach yangi antiplagiat hisoboti tasdiqlanmaguncha muharrirlarga yuborilmaydi.</small>
               </div>
 
               <div class="mb-3">
@@ -388,6 +396,8 @@
                 <div class="datagrid-content">
                   {% if assignment.admin_decision == 'accepted' %}
                   <span class="badge bg-success-lt">Qabul qilingan</span>
+                  {% elif assignment.admin_decision == 'sent_to_author' %}
+                  <span class="badge bg-warning-lt">Muallifga yuborildi</span>
                   {% elif assignment.admin_decision == 'revision_requested' %}
                   <span class="badge bg-warning-lt">Qayta ishlash so'ralgan</span>
                   {% elif assignment.status in ['reviewed', 'rejected'] %}
@@ -406,10 +416,10 @@
                 </div>
               </div>
               {% endif %}
-              {% if assignment.assignment_note %}
+              {% if assignment.assignment_note_display %}
               <div class="datagrid-item">
                 <div class="datagrid-title">Topshiriq izohi</div>
-                <div class="datagrid-content">{{ assignment.assignment_note }}</div>
+                <div class="datagrid-content">{{ assignment.assignment_note_display }}</div>
               </div>
               {% endif %}
               {% if assigned_by_user %}
@@ -427,17 +437,17 @@
 </div>
 <script>
 (function () {
-    const severityGroup = document.getElementById('revision_severity_group');
+    const antiPlagiarismGroup = document.getElementById('revision_antiplagiarism_group');
     const decisionRadios = document.querySelectorAll('input[name="admin_decision"]');
-    if (severityGroup && decisionRadios.length) {
-        const syncSeverityVisibility = function () {
+    if (antiPlagiarismGroup && decisionRadios.length) {
+        const syncRevisionOptionsVisibility = function () {
             const checked = document.querySelector('input[name="admin_decision"]:checked');
-            severityGroup.style.display = (checked && checked.value === 'return_to_author') ? '' : 'none';
+            antiPlagiarismGroup.style.display = (checked && checked.value === 'return_to_author') ? '' : 'none';
         };
         decisionRadios.forEach(function (radio) {
-            radio.addEventListener('change', syncSeverityVisibility);
+            radio.addEventListener('change', syncRevisionOptionsVisibility);
         });
-        syncSeverityVisibility();
+        syncRevisionOptionsVisibility();
     }
 })();
 </script>

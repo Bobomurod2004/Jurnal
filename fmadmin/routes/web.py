@@ -7,7 +7,7 @@ import secrets
 import re
 import json
 import logging
-from html import escape as html_escape
+from html import escape as html_escape, unescape as html_unescape
 from html.parser import HTMLParser
 from urllib.parse import urlencode, urlparse
 from flask import Blueprint, send_from_directory, render_template, request, jsonify, flash, redirect, url_for, session, send_file, abort
@@ -28,8 +28,9 @@ from utils.notifications import (
     role_notification_access_clause as build_role_notification_access_clause,
     user_allows_email_notifications,
 )
-from utils.auth import is_allowed, is_editor_allowed, is_admin_or_editor, is_superadmin_required
+from utils.auth import is_allowed, is_editor_allowed, is_admin_or_editor, permission_required
 from utils.private_uploads import build_private_upload_ref, extract_private_upload_key, private_upload_abspath, upload_access_url
+from utils.filters import parse_ui_date, parse_ui_datetime, ui_datetime_input_value
 from utils.roles import (
     AUTHOR_ROLE,
     PRIVILEGED_ROLES,
@@ -38,6 +39,7 @@ from utils.roles import (
     parse_role_names,
     primary_role,
     staff_roles_for_user,
+    user_has_any_role,
     user_has_permission,
     user_has_role,
 )
@@ -101,6 +103,7 @@ SUBMISSION_EXTRA_COLUMN_TYPES = {
     'editor_shared_file_note': 'text',
     'editor_shared_file_at': 'bigint',
     'revision_severity': "text NOT NULL DEFAULT 'major'",
+    'revision_requires_antiplagiarism_recheck': 'boolean NOT NULL DEFAULT false',
     'related_submission_id': 'integer',
     'revision_number': 'integer DEFAULT 1',
     'rejection_origin': 'text',
@@ -138,10 +141,28 @@ ISSUE_EXTRA_COLUMN_TYPES = {
 }
 
 ADMIN_ROLE_NAMES = {'admin', 'superadmin'}
+
+# Page-level permission gates.  Administrators share the journal-operations
+# pages with superadmins (content, editors, incoming payments), while the
+# site/pricing/user pages below stay superadmin-only.  See `utils.roles` for
+# which role holds which permission.
+content_required = permission_required('fmadmin.content.manage')
+content_delete_required = permission_required('fmadmin.content.delete')
+editors_required = permission_required('fmadmin.editors.manage')
+payments_required = permission_required('fmadmin.payments.manage')
+site_required = permission_required('fmadmin.site.manage')
+finance_required = permission_required('fmadmin.finance.manage')
+users_required = permission_required('fmadmin.users.manage')
+
 EDITOR_ASSIGNMENT_STATUS_VALUES = {'pending', 'in_review', 'reviewed', 'rejected'}
 EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES = {'pending', 'in_review'}
 EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES = {'reviewed', 'rejected'}
-EDITOR_ASSIGNMENT_ADMIN_DECISION_VALUES = {'pending', 'accepted', 'revision_requested', 'return_to_author'}
+EDITOR_ASSIGNMENT_ADMIN_DECISION_VALUES = {
+    'pending', 'accepted', 'revision_requested', 'return_to_author',
+    # All completed reports of a round receive this audit value when the
+    # handling admin sends the consolidated feedback to the author.
+    'sent_to_author',
+}
 ROLE_NOTIFICATION_LEVELS = {'info', 'success', 'warning', 'danger'}
 EDITOR_ASSIGNMENT_REMINDER_LEVEL_RANKS = {'': 0, '24h': 1, '6h': 2, '1h': 3}
 EDITOR_ASSIGNMENT_AUTOMATION_INTERVAL_SECONDS = 30
@@ -518,6 +539,80 @@ def _clean_text(value):
     if value is None:
         return ''
     return str(value).strip()
+
+
+def _plain_review_comment(value):
+    """Return a readable plain-text rendering of a rich-text review comment.
+
+    CKEditor posts HTML.  Review comments are internal, but admins should
+    never have to read raw ``<p>`` / ``&#39;`` markup in a decision screen.
+    The original value is retained in the database for the editor form; this
+    value is only for safe display.
+    """
+    text = _clean_text(value)
+    if not text:
+        return ''
+    for _ in range(3):
+        decoded = html_unescape(text)
+        if decoded == text:
+            break
+        text = decoded
+    text = re.sub(r'(?is)<\s*/?\s*(?:p|div|br|li|tr|h[1-6])\b[^>]*>', '\n', text)
+    text = re.sub(r'(?is)<[^>]+>', '', text)
+    text = html_unescape(text)
+    text = re.sub(r'[ \t]*\n[ \t]*', '\n', text)
+    return re.sub(r'\n{2,}', '\n', text).strip()
+
+
+SYSTEM_REREVIEW_NOTE = '__system_rereview__'
+
+
+def _localized_revision_round_label(revision_round, lang=None):
+    round_number = _parse_int(revision_round) or 1
+    language = _clean_text(lang or _admin_language()).lower()
+    labels = {
+        'uz': f'Taqriz #{round_number}',
+        'ru': f'Рецензия #{round_number}',
+        'en': f'Review #{round_number}',
+    }
+    return labels.get(language, labels['uz'])
+
+
+def _localized_assignment_note(note, revision_round, lang=None):
+    """Translate system-generated assignment notes without touching admin text."""
+    raw_note = _clean_text(note)
+    normalized = raw_note.lower()
+    is_rereview_note = (
+        raw_note == SYSTEM_REREVIEW_NOTE
+        or 'corrected manuscript re-review' in normalized
+        or 'tuzatilgan maqolani qayta ko\'rib chiqish' in normalized
+        or 'avvalgi taqrizchi uchun qayta ko\'rib chiqish' in normalized
+        # Old stored assignment notes keep the former spelling. Recognise
+        # both forms while they remain in the history.
+        or 'avvalgi tahrizchi uchun qayta ko\'rib chiqish' in normalized
+    )
+    if not is_rereview_note:
+        return raw_note
+    language = _clean_text(lang or _admin_language()).lower()
+    labels = {
+        'uz': 'Tuzatilgan maqolani qayta ko\'rib chiqish',
+        'ru': 'Повторное рассмотрение исправленной статьи',
+        'en': 'Re-review of the corrected manuscript',
+    }
+    return labels.get(language, labels['uz'])
+
+
+def _parse_bool(value, default=False):
+    """Parse database/form boolean values consistently in web routes."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+    return bool(value)
 
 
 def _stored_upload_value_to_list(value):
@@ -2115,37 +2210,15 @@ def _prepare_editorial_member_form_files(member):
 
 
 def _parse_date_to_timestamp(value, end_of_day=False):
-    cleaned = _clean_text(value)
-    if not cleaned:
-        return None
-    try:
-        dt = datetime.datetime.strptime(cleaned, '%Y-%m-%d')
-    except ValueError:
-        return None
-    if end_of_day:
-        dt = dt.replace(hour=23, minute=59, second=59)
-    return int(dt.timestamp())
+    # Read as the admin's wall clock (UTC+5), not the server's UTC -- see
+    # `utils.filters.parse_ui_datetime`.
+    return parse_ui_date(_clean_text(value), end_of_day=end_of_day)
 
 
 def _parse_datetime_to_timestamp(value):
-    cleaned = _clean_text(value)
-    if not cleaned:
-        return None
-
-    formats = (
-        '%Y-%m-%dT%H:%M',
-        '%Y-%m-%d %H:%M',
-        '%Y-%m-%d'
-    )
-    for fmt in formats:
-        try:
-            dt = datetime.datetime.strptime(cleaned, fmt)
-            if fmt == '%Y-%m-%d':
-                dt = dt.replace(hour=23, minute=59, second=59)
-            return int(dt.timestamp())
-        except ValueError:
-            continue
-    return None
+    # A bare date still means "end of that day" here, matching the deadline
+    # pickers that accept either form.
+    return parse_ui_datetime(_clean_text(value), end_of_day=True)
 
 
 def _format_duration_text(total_seconds, lang='uz'):
@@ -2234,6 +2307,13 @@ def _decorate_assignment(assignment, now_ts=None, lang=None):
     decorated['status'] = _normalize_assignment_status(decorated.get('status'))
     decorated['admin_decision'] = _normalize_assignment_admin_decision(decorated.get('admin_decision'))
     decorated['accepted_at'] = _parse_int(decorated.get('accepted_at'))
+    decorated['revision_round_label'] = _localized_revision_round_label(
+        decorated.get('revision_round'), lang=lang,
+    )
+    decorated['assignment_note_display'] = _localized_assignment_note(
+        decorated.get('assignment_note'), decorated.get('revision_round'), lang=lang,
+    )
+    decorated['editor_comment_display'] = _plain_review_comment(decorated.get('editor_comment'))
 
     acceptance_deadline_at = _parse_int(decorated.get('acceptance_deadline_at'))
     completion_deadline_at = _parse_int(decorated.get('completion_deadline_at'))
@@ -2288,6 +2368,139 @@ def _can_assign_editors(submission):
     if _clean_text(submission.get('anti_plagiarism_status')).lower() != 'passed':
         return False
     return _clean_text(submission.get('status')).lower() in EDITOR_ASSIGNABLE_SUBMISSION_STATUSES
+
+
+def _revision_rereview_candidates(submission, assignments):
+    """Return the completed reviewers from the latest completed prior round.
+
+    The result contains one most-recent assignment per editor.  Re-review
+    creates new assignment rows rather than resetting these rows, preserving
+    each round's original comments, decision and timestamps as an audit
+    history. If a corrected version fails anti-plagiarism before reaching a
+    reviewer, the immediately preceding version has no assignments; in that
+    case this deliberately falls back to the last real reviewer panel.
+    """
+    current_revision = _parse_int((submission or {}).get('revision_number')) or 1
+    if current_revision <= 1:
+        return []
+
+    completed_rounds = [
+        _parse_int(assignment.get('revision_round')) or 1
+        for assignment in assignments or []
+        if (_parse_int(assignment.get('revision_round')) or 1) < current_revision
+        and _normalize_assignment_status(assignment.get('status')) in EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES
+    ]
+    if not completed_rounds:
+        return []
+    previous_round = max(completed_rounds)
+
+    latest_by_editor = {}
+    for assignment in assignments or []:
+        if _normalize_assignment_status(assignment.get('status')) not in EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES:
+            continue
+        if (_parse_int(assignment.get('revision_round')) or 1) != previous_round:
+            continue
+        editor_id = _parse_int(assignment.get('editor_id'))
+        if editor_id is None:
+            continue
+        existing = latest_by_editor.get(editor_id)
+        if existing is None or (_parse_int(assignment.get('assigned_at')) or 0) > (_parse_int(existing.get('assigned_at')) or 0):
+            latest_by_editor[editor_id] = assignment
+
+    return sorted(
+        latest_by_editor.values(),
+        key=lambda item: (_parse_int(item.get('assigned_at')) or 0, _parse_int(item.get('id')) or 0),
+        reverse=True,
+    )
+
+
+def _create_revision_reviewer_assignments(submission, assignments, assigned_by=None, actor_user_id=None):
+    """Open a fresh review task for each reviewer from the prior version.
+
+    The prior assignment is never reset. This makes a reviewer dashboard and
+    the admin audit trail unambiguous: R1 stays completed while R2 is the
+    only new pending task. The same helper is used after a normal correction
+    and after a required anti-plagiarism recheck passes.
+    """
+    submission = submission or {}
+    submission_id = _parse_int(submission.get('id'))
+    current_revision = _parse_int(submission.get('revision_number')) or 1
+    if submission_id is None or current_revision <= 1:
+        return []
+
+    candidates = _revision_rereview_candidates(submission, assignments)
+    existing_current_editor_ids = {
+        _parse_int(assignment.get('editor_id'))
+        for assignment in assignments or []
+        if (_parse_int(assignment.get('revision_round')) or 1) == current_revision
+        and _parse_int(assignment.get('editor_id')) is not None
+    }
+    now_ts = int(datetime.datetime.now().timestamp())
+    acceptance_deadline_at = now_ts + EDITOR_ASSIGNMENT_DEFAULT_ACCEPTANCE_SECONDS
+    completion_deadline_at = now_ts + EDITOR_ASSIGNMENT_DEFAULT_COMPLETION_SECONDS
+    submission_title = _submission_title(submission)
+    created_assignment_ids = []
+
+    for previous_assignment in candidates:
+        editor_id = _parse_int(previous_assignment.get('editor_id'))
+        if editor_id is None or editor_id in existing_current_editor_ids:
+            continue
+        assigned_by_id = _parse_int(assigned_by) or _parse_int(previous_assignment.get('assigned_by'))
+        if assigned_by_id is None:
+            logger.warning(
+                'Cannot create re-review task without assigned_by: submission_id=%s editor_id=%s',
+                submission_id, editor_id,
+            )
+            continue
+        try:
+            created = db.editor_assignments.add(
+                submission_id=submission_id,
+                editor_id=editor_id,
+                assigned_by=assigned_by_id,
+                assigned_at=now_ts,
+                status='pending',
+                assignment_note=SYSTEM_REREVIEW_NOTE,
+                deadline_at=completion_deadline_at,
+                acceptance_deadline_at=acceptance_deadline_at,
+                completion_deadline_at=completion_deadline_at,
+                accepted_at=None,
+                acceptance_reminder_level='',
+                completion_reminder_level='',
+                admin_decision='pending',
+                revision_round=current_revision,
+                created_at=now_ts,
+                updated_at=now_ts,
+            ).exec()
+        except Exception:
+            logger.exception(
+                'Failed to create re-review assignment for submission_id=%s editor_id=%s',
+                submission_id, editor_id,
+            )
+            continue
+
+        assignment_id = _extract_inserted_id(created)
+        created_assignment_ids.append(assignment_id)
+        _create_role_notification(
+            target_user_id=editor_id,
+            target_role='editor',
+            title=localized_texts(
+                "Tuzatilgan maqola qayta taqrizga yuborildi",
+                'Исправленная статья направлена на повторное рецензирование',
+                'Revised submission sent for re-review',
+            ),
+            message=localized_texts(
+                f'"{submission_title}" maqolasining taqriz #{current_revision} versiyasini qayta ko\'rib chiqing',
+                f'Рассмотрите повторно версию #{current_revision} статьи «{submission_title}»',
+                f'Re-review revision #{current_revision} of "{submission_title}"',
+            ),
+            action_url=url_for('review_assignment', assignment_id=assignment_id) if assignment_id else url_for('editor_assignments'),
+            level='info',
+            event_type='editor_assignment_rereview_requested',
+            related_submission_id=submission_id,
+            related_assignment_id=assignment_id,
+            actor_user_id=actor_user_id,
+        )
+    return created_assignment_ids
 
 
 # Ordered milestones for the submission detail progress strip. Each milestone
@@ -2372,7 +2585,16 @@ def _refresh_submission_editor_review_status(submission_id):
     except Exception:
         assignments = []
 
-    normalized_assignments = [_decorate_assignment(item) for item in assignments]
+    current_revision = _parse_int(submission.get('revision_number')) or 1
+    # R1 must never influence the final decision of R2. Older assignments are
+    # an audit trail; only assignments created for the manuscript's current
+    # version determine whether that version is still in review or ready for
+    # an editorial decision.
+    current_round_assignments = [
+        item for item in assignments
+        if (_parse_int(item.get('revision_round')) or 1) == current_revision
+    ]
+    normalized_assignments = [_decorate_assignment(item) for item in current_round_assignments]
     normalized_statuses = [item.get('status') for item in normalized_assignments]
     normalized_decisions = [item.get('admin_decision') for item in normalized_assignments]
 
@@ -2384,7 +2606,15 @@ def _refresh_submission_editor_review_status(submission_id):
         else:
             review_status = 'in_review'
     elif all(status in EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES for status in normalized_statuses):
-        if normalized_decisions and all(decision == 'accepted' for decision in normalized_decisions):
+        # A reviewer's "reject" is advice, never an automatic final rejection
+        # or approval. Automatic recommendation is valid only when every
+        # reviewer recommended publication and the admin accepted every
+        # current-round report.
+        if (
+            normalized_decisions
+            and all(status == 'reviewed' for status in normalized_statuses)
+            and all(decision == 'accepted' for decision in normalized_decisions)
+        ):
             review_status = 'approved'
         else:
             review_status = 'reviewed'
@@ -2461,17 +2691,17 @@ def _notify_assignment_deadline_reminder(
 
     if reminder_type == 'completion':
         editor_title = localized_texts(
-            "Tahriz topshirish muddati yaqin",
+            "Taqriz topshirish muddati yaqin",
             "Срок отправки рецензии приближается",
             "Review submission deadline is near"
         )
         editor_message = localized_texts(
-            f'"{submission_title}" bo\'yicha tahriz yuborish uchun {left_uz} qoldi.',
+            f'"{submission_title}" bo\'yicha taqriz yuborish uchun {left_uz} qoldi.',
             f'До отправки рецензии по "{submission_title}" осталось {left_ru}.',
             f'{left_en} left to submit review for "{submission_title}".'
         )
         admin_message = localized_texts(
-            f'{editor_name} uchun "{submission_title}" bo\'yicha tahriz muddati tugashiga {left_uz} qoldi.',
+            f'{editor_name} uchun "{submission_title}" bo\'yicha taqriz muddati tugashiga {left_uz} qoldi.',
             f'До дедлайна рецензии "{submission_title}" у {editor_name} осталось {left_ru}.',
             f'{left_en} left for {editor_name} to submit review for "{submission_title}".'
         )
@@ -2541,7 +2771,7 @@ def _notify_assignment_deadline_reminder(
     )
     if reminder_type == 'completion':
         deadline_kind = localized_texts(
-            "tahriz topshirish",
+            "taqriz topshirish",
             "отправки рецензии",
             "review submission"
         )
@@ -2647,12 +2877,12 @@ def _expire_assignment_due_deadline(
 
     if reason == 'completion':
         editor_title = localized_texts(
-            "Tahriz topshirish muddati o'tdi",
+            "Taqriz topshirish muddati o'tdi",
             "Срок отправки рецензии истёк",
             "Review submission deadline passed"
         )
         editor_message = localized_texts(
-            f'"{submission_title}" bo\'yicha tahriz topshirish muddati ({deadline_label}) tugadi. Topshiriq bekor qilindi.',
+            f'"{submission_title}" bo\'yicha taqriz topshirish muddati ({deadline_label}) tugadi. Topshiriq bekor qilindi.',
             f'Срок отправки рецензии по "{submission_title}" ({deadline_label}) истёк. Назначение отменено.',
             f'The review deadline for "{submission_title}" ({deadline_label}) has passed. Assignment was removed.'
         )
@@ -3011,10 +3241,77 @@ def _role_notification_access_clause(current_user):
     return build_role_notification_access_clause(current_user)
 
 
+def _uncovered_admin_tracks():
+    """Tracks that have live submissions but no admin able to receive them.
+
+    A submission whose track nobody covers is simply left with
+    `assigned_admin_id` empty by `_realign_submission_admin_assignments`, and
+    nothing else says so -- it just sits in the queue unowned.  Surfacing the
+    gap is what turns it into something a superadmin can act on.
+
+    Returns a list of dicts: track key, label and how many submissions wait.
+    """
+    try:
+        admins = _active_admins()
+        submissions = db.submissions.all().unequal(status='draft').exec()
+    except Exception:
+        logger.exception("Could not determine uncovered admin tracks")
+        return []
+
+    covered_tracks = set()
+    for admin in admins:
+        covered_tracks.update(_admin_tracks_for_user(admin))
+
+    waiting_counts = {}
+    for submission in submissions:
+        track = _normalize_admin_track(submission.get('submission_track'))
+        if not track or track in covered_tracks:
+            continue
+        waiting_counts[track] = waiting_counts.get(track, 0) + 1
+
+    return [
+        {
+            'track': track,
+            'label': ADMIN_TRACK_LABELS.get(track, track),
+            'count': waiting_counts[track],
+        }
+        for track in ADMIN_TRACK_KEYS
+        if track in waiting_counts
+    ]
+
+
+def _untracked_submission_count():
+    """Live submissions that reach no admin: no track and no owner.
+
+    They are invisible to every track admin by design (see
+    `_user_has_track_access`), so the superadmin has to be told they exist.
+    """
+    try:
+        submissions = db.submissions.all().unequal(status='draft').exec()
+    except Exception:
+        logger.exception("Could not count untracked submissions")
+        return 0
+
+    return sum(
+        1 for submission in submissions
+        if not _normalize_admin_track(submission.get('submission_track'))
+        and _parse_int(submission.get('assigned_admin_id')) is None
+    )
+
+
 def _user_has_track_access(user, track):
+    """Whether `track` falls inside this admin's queue.
+
+    A submission carrying no track belongs to no admin's queue.  Treating it
+    as "everyone may see it" leaked untracked submissions into every admin's
+    list, which defeats the whole point of assigning tracks -- an admin set to
+    Doktorantura expects to see doctoral work and nothing else.  Such rows stay
+    with the superadmin until someone gives them a track or an owner;
+    `_untracked_submission_count` makes sure they are not forgotten.
+    """
     normalized_track = _normalize_admin_track(track)
     if not normalized_track:
-        return True
+        return False
     return normalized_track in _admin_tracks_for_user(user)
 
 
@@ -4277,6 +4574,10 @@ def _send_user_email(
         template_alias=template_alias,
         template_vars=template_vars,
         preferred_language=preferred_language,
+        # Nobody reads this result: every caller fires and forgets. Delivering
+        # inline made an admin wait out the SMTP timeout (up to ~50s with
+        # retries) before their page came back.
+        background=True,
     )
 
 
@@ -4487,6 +4788,18 @@ def _session_admin_user_payload(user_row):
 
 def _active_admins():
     return _users_with_role('admin', include_hidden=False, include_blocked=False)
+
+
+def _actor_may_manage_staff_account(actor_user, target_user):
+    """Guard the editors pages against sideways privilege escalation.
+
+    Administrators may manage editors, but a superadmin (or a fellow admin)
+    who also carries the `editor` role must stay out of reach -- otherwise an
+    admin could edit or delete an account that outranks their own.
+    """
+    if user_has_role(actor_user, 'superadmin'):
+        return True
+    return not user_has_any_role(target_user, ADMIN_ROLE_NAMES)
 
 
 def _submission_track_label(track):
@@ -4728,7 +5041,7 @@ def logout():
     return redirect(url_for('login'))
 
 @bp.route('/fmadmin/users/users')
-@is_superadmin_required
+@users_required
 def users():
     current_user = hydrate_user_roles(session.get('fmadmin_user') or {})
     current_role = primary_role(current_user)
@@ -4768,7 +5081,9 @@ def users():
     return render_template('users/users/users.html', users=users, page=page, total_users=total_users, total_pages=total_pages,
                            search_name=search_name, search_email=search_email, search_orcid=search_orcid,
                            author_map=author_map, tariffs_map=tariffs_map,
-                           include_hidden=include_hidden, current_user=current_user, admin_map=admin_map)
+                           include_hidden=include_hidden, current_user=current_user, admin_map=admin_map,
+                           uncovered_tracks=_uncovered_admin_tracks(),
+                           untracked_submission_count=_untracked_submission_count())
 
 
 def _to_bool(value):
@@ -5344,7 +5659,7 @@ def _build_user_360_snapshot(user_row, timeline_limit=24):
     return snapshot
 
 @bp.route('/fmadmin/users/users/<int:user_id>', methods=['GET', 'POST'])
-@is_superadmin_required
+@users_required
 def user_edit(user_id):
     current_user = hydrate_user_roles(session.get('fmadmin_user') or {})
     current_role = primary_role(current_user)
@@ -5663,7 +5978,7 @@ def user_edit(user_id):
 
 
 @bp.route('/fmadmin/users/users/<int:user_id>/state', methods=['POST'])
-@is_superadmin_required
+@users_required
 def user_state_change(user_id):
     current_user = session.get('fmadmin_user') or {}
     current_user_id = _parse_int(current_user.get('id'))
@@ -5723,7 +6038,7 @@ def _hide_users_except(keep_ids, now_ts):
 
 
 @bp.route('/fmadmin/users/users/bulk', methods=['POST'])
-@is_superadmin_required
+@users_required
 def users_bulk_action():
     action = (request.form.get('action') or '').strip().lower()
     current_user = session.get('fmadmin_user') or {}
@@ -5785,7 +6100,7 @@ def users_bulk_action():
 
 
 @bp.route('/fmadmin/users/authors')
-@is_superadmin_required
+@users_required
 def authors():
     page = request.args.get('page', 1, type=int)
     per_page = 20
@@ -6137,7 +6452,7 @@ def _merge_author_profiles_for_users(cursor, column_cache, primary_user_id, seco
 
 
 @bp.route('/fmadmin/users/authors/<int:author_id>', methods=['GET', 'POST'])
-@is_superadmin_required
+@users_required
 def author_edit(author_id):
     column_cache = {}
     cursor = db.conn.cursor()
@@ -6231,7 +6546,7 @@ def author_edit(author_id):
 
 
 @bp.route('/fmadmin/users/authors/<int:author_id>/merge', methods=['POST'])
-@is_superadmin_required
+@users_required
 def author_merge_users(author_id):
     """Merge a duplicate user account into the primary user linked to this author."""
     primary_user_id = request.form.get('primary_user_id', type=int)
@@ -6407,7 +6722,7 @@ def author_merge_users(author_id):
 
 
 @bp.route('/fmadmin/users/authors/<int:author_id>/link-user', methods=['POST'])
-@is_superadmin_required
+@users_required
 def author_link_user(author_id):
     candidate_user_id = request.form.get('user_id', type=int)
     if not candidate_user_id:
@@ -6497,7 +6812,7 @@ def author_link_user(author_id):
 
 
 @bp.route('/fmadmin/website/issues')
-@is_superadmin_required
+@content_required
 def issues():
     page = request.args.get('page', 1, type=int)
     per_page = 20
@@ -6706,7 +7021,7 @@ def parse_date(date_str, with_time=False):
         return None
 
 @bp.route('/fmadmin/website/issues/<int:issue_id>', methods=['GET', 'POST'])
-@is_superadmin_required
+@content_required
 def issue_edit(issue_id):
     if request.method == 'POST':
         toc_upload_requested = bool(
@@ -7064,7 +7379,7 @@ def _delete_publication_with_related_data(cursor, column_cache, publication_row,
 
 
 @bp.route('/fmadmin/website/issues/<int:issue_id>/delete', methods=['POST'])
-@is_superadmin_required
+@content_delete_required
 def issue_delete(issue_id):
     redirect_target = _safe_internal_redirect(request.form.get('next') or request.referrer, 'issues')
     column_cache = {}
@@ -7129,7 +7444,7 @@ def issue_delete(issue_id):
 
 
 @bp.route('/fmadmin/website/articles/<int:article_id>/delete', methods=['POST'])
-@is_superadmin_required
+@content_delete_required
 def article_delete(article_id):
     redirect_target = _safe_internal_redirect(request.form.get('next') or request.referrer, 'articles')
     column_cache = {}
@@ -7173,7 +7488,7 @@ def article_delete(article_id):
 
 
 @bp.route('/fmadmin/website/articles')
-@is_superadmin_required
+@content_required
 def articles():
     page = request.args.get('page', 1, type=int)
     per_page = 20
@@ -7264,7 +7579,7 @@ def articles():
                            issues=issues, pagination_query_string=pagination_query_string)
 
 @bp.route('/fmadmin/website/articles/<int:article_id>', methods=['GET', 'POST'])
-@is_superadmin_required
+@content_required
 def article_edit(article_id):
     _ensure_publication_metadata_columns()
     admin_lang = _admin_language()
@@ -7583,7 +7898,7 @@ def article_edit(article_id):
     )
 
 @bp.route('/fmadmin/website/articles/<int:article_id>/content', methods=['GET', 'POST'])
-@is_superadmin_required
+@content_required
 def article_content(article_id):
     if request.method == 'POST':
         move_block_id = request.form.get('move_block_id')
@@ -7691,7 +8006,7 @@ def article_content(article_id):
     return render_template('website/articles/content.html', article_id=article_id, content_list=content_list, article=article)
 
 @bp.route('/fmadmin/website/news')
-@is_superadmin_required
+@content_required
 def news():
     page = request.args.get('page', 1, type=int)
     per_page = 20
@@ -7707,7 +8022,7 @@ def news():
     return render_template('website/news/news.html', news_list=news_list, page=page, total_news=total_news, total_pages=total_pages, pagination_query_string=pagination_query_string)
 
 @bp.route('/fmadmin/website/announcements')
-@is_superadmin_required
+@content_required
 def announcements():
     page = request.args.get('page', 1, type=int)
     per_page = 20
@@ -7723,7 +8038,7 @@ def announcements():
     return render_template('website/announcements.html', announcements_list=announcements_list, page=page, total_announcements=total_announcements, total_pages=total_pages, pagination_query_string=pagination_query_string)
 
 @bp.route('/fmadmin/website/tariffs')
-@is_superadmin_required
+@finance_required
 def tariffs():
     _ensure_tariff_duration_column()
     _ensure_tariff_archive_column()
@@ -7738,7 +8053,7 @@ def tariffs():
     return render_template('website/tariffs.html', tariffs=tariffs, tariffs_user_count=tariffs_user_count)
 
 @bp.route('/fmadmin/website/translations')
-@is_superadmin_required
+@site_required
 def translations():
     search = request.args.get('search', '').strip()
     translations = db.translations.all().exec()
@@ -7811,7 +8126,7 @@ def _email_template_preview_payload(template_row):
         'editor_name': 'Dilnoza Rahimova',
         'title': 'Tilshunoslikda yangi yondashuvlar',
         'time_left': '6 soat',
-        'deadline_type': 'tahriz topshirish',
+        'deadline_type': 'taqriz topshirish',
         'link': settings.APP_BASE_URL or 'https://example.com',
     }
 
@@ -7849,7 +8164,7 @@ def _email_template_preview_payload(template_row):
 
 
 @bp.route('/fmadmin/website/email-templates')
-@is_superadmin_required
+@site_required
 def email_templates():
     if not _ensure_email_templates_ready(force_schema_sync=True):
         flash('Email templates jadvali tayyor emas. Iltimos, administratorga murojaat qiling.', 'danger')
@@ -7871,7 +8186,7 @@ def email_templates():
 
 
 @bp.route('/fmadmin/website/email-templates/new', methods=['GET', 'POST'])
-@is_superadmin_required
+@site_required
 def email_template_create():
     if not _ensure_email_templates_ready(force_schema_sync=True):
         flash('Email templates jadvali tayyor emas. Iltimos, administratorga murojaat qiling.', 'danger')
@@ -7938,7 +8253,7 @@ def email_template_create():
 
 
 @bp.route('/fmadmin/website/email-templates/<int:template_id>', methods=['GET', 'POST'])
-@is_superadmin_required
+@site_required
 def email_template_edit(template_id):
     if not _ensure_email_templates_ready(force_schema_sync=True):
         flash('Email templates jadvali tayyor emas. Iltimos, administratorga murojaat qiling.', 'danger')
@@ -7993,7 +8308,7 @@ def email_template_edit(template_id):
 
 
 @bp.route('/fmadmin/website/email-templates/<int:template_id>/delete', methods=['POST'])
-@is_superadmin_required
+@site_required
 def email_template_delete(template_id):
     if not _ensure_email_templates_ready(force_schema_sync=True):
         flash('Email templates jadvali tayyor emas. Iltimos, administratorga murojaat qiling.', 'danger')
@@ -8009,7 +8324,7 @@ def email_template_delete(template_id):
 
 
 @bp.route('/fmadmin/website/email-logs')
-@is_superadmin_required
+@site_required
 def email_logs():
     if not _ensure_email_delivery_logs_table(force=True):
         flash('Email loglar jadvali tayyor emas. Iltimos, administratorga murojaat qiling.', 'danger')
@@ -8141,7 +8456,7 @@ def email_logs():
 
 
 @bp.route('/fmadmin/website/home-videos', methods=['GET', 'POST'])
-@is_superadmin_required
+@site_required
 def home_videos():
     base_usage_url = _get_site_setting(HOME_VIDEO_USAGE_KEY)
     base_submission_url = _get_site_setting(HOME_VIDEO_SUBMISSION_KEY)
@@ -8245,7 +8560,7 @@ def _load_home_gallery_rows():
 
 
 @bp.route('/fmadmin/website/home-gallery', methods=['GET', 'POST'])
-@is_superadmin_required
+@site_required
 def home_gallery():
     if request.method == 'POST':
         if not _ensure_home_gallery_table():
@@ -8296,7 +8611,7 @@ def home_gallery():
 
 
 @bp.route('/fmadmin/website/home-gallery/<int:item_id>', methods=['POST'])
-@is_superadmin_required
+@site_required
 def home_gallery_update(item_id):
     if not _ensure_home_gallery_table():
         flash('Jadvalni tayyorlashda xatolik yuz berdi', 'danger')
@@ -8342,7 +8657,7 @@ def home_gallery_update(item_id):
 
 
 @bp.route('/fmadmin/website/home-gallery/<int:item_id>/delete', methods=['POST'])
-@is_superadmin_required
+@site_required
 def home_gallery_delete(item_id):
     if not _ensure_home_gallery_table():
         flash('Jadvalni tayyorlashda xatolik yuz berdi', 'danger')
@@ -8368,7 +8683,7 @@ def home_gallery_delete(item_id):
 
 
 @bp.route('/fmadmin/website/contact-info', methods=['GET', 'POST'])
-@is_superadmin_required
+@site_required
 def contact_info_settings():
     _SOCIAL_PLATFORMS = [
         ('telegram', 'Telegram'),
@@ -8488,7 +8803,7 @@ def contact_info_settings():
 
 
 @bp.route('/fmadmin/website/payment-guide', methods=['GET', 'POST'])
-@is_superadmin_required
+@finance_required
 def payment_guide_settings():
     guide_values = {}
     guide_defaults = {}
@@ -8533,7 +8848,7 @@ def payment_guide_settings():
     )
 
 @bp.route('/fmadmin/website/news/edit/<int:news_id>', methods=['GET', 'POST'])
-@is_superadmin_required
+@content_required
 def news_edit(news_id):
     if request.method == 'POST':
         title_ru = request.form.get('title_ru', '')
@@ -8636,7 +8951,7 @@ NON_EDITABLE_PAGE_ALIASES = {
 
 
 @bp.route('/fmadmin/website/pages')
-@is_superadmin_required
+@site_required
 def pages():
     pages_list = db.pages.all().order_by('alias').exec() or []
     pages_list = [p for p in pages_list
@@ -8645,7 +8960,7 @@ def pages():
 
 
 @bp.route('/fmadmin/website/pages/edit/<int:page_id>', methods=['GET', 'POST'])
-@is_superadmin_required
+@site_required
 def page_edit(page_id):
     if request.method == 'POST':
         alias = _clean_text(request.form.get('alias')).lower()
@@ -8739,7 +9054,7 @@ def page_edit(page_id):
 
 
 @bp.route('/fmadmin/website/pages/<int:page_id>/upload-attachment', methods=['POST'])
-@is_superadmin_required
+@site_required
 def page_upload_attachment(page_id):
     """Upload file attachment for a page (submission_guidelines)."""
     lang = request.form.get('lang', 'en')
@@ -8792,7 +9107,7 @@ def page_upload_attachment(page_id):
 
 
 @bp.route('/fmadmin/website/pages/<int:page_id>/delete-attachment', methods=['POST'])
-@is_superadmin_required
+@site_required
 def page_delete_attachment(page_id):
     """Delete file attachment from a page."""
     lang = request.form.get('lang', 'en')
@@ -8842,7 +9157,7 @@ def page_delete_attachment(page_id):
 
 
 @bp.route('/fmadmin/website/announcements/edit/<int:announcement_id>', methods=['GET', 'POST'])
-@is_superadmin_required
+@content_required
 def announcement_edit(announcement_id):
     if request.method == 'POST':
         title_ru = request.form.get('title_ru', '')
@@ -8921,7 +9236,7 @@ def announcement_edit(announcement_id):
     return render_template('website/announcements/announcement_edit.html', announcement_id=announcement_id, announcement=announcement)
 
 @bp.route('/fmadmin/finance/payments')
-@is_superadmin_required
+@payments_required
 def payments():
     page = request.args.get('page', 1, type=int)
     per_page = 20
@@ -9037,7 +9352,7 @@ def payments():
                          users_map=users_map)
 
 @bp.route('/fmadmin/finance/payments/edit', methods=['POST'])
-@is_superadmin_required
+@payments_required
 def payment_edit():
     try:
         current_user = get_current_user() or {}
@@ -9255,6 +9570,96 @@ def _submission_has_private_upload(submission, storage_key):
     )
 
 
+def _load_submission_revision_file_history(submission_id):
+    """Return archived manuscript files, newest replaced version first."""
+    submission_id = _parse_int(submission_id)
+    if submission_id is None:
+        return []
+    try:
+        rows = db.submission_revision_log.all().equal(submission_id=submission_id).exec()
+    except Exception:
+        return []
+
+    history = [
+        row for row in (rows or [])
+        if _clean_text(row.get('file_authors')) or _clean_text(row.get('file_anonymized'))
+    ]
+    return sorted(
+        history,
+        key=lambda row: _parse_int(row.get('revision_number')) or 0,
+        reverse=True,
+    )
+
+
+def _archive_submission_revision_files(submission, opened_by, reason='', opened_at=None):
+    """Preserve the current files the moment a revision is requested.
+
+    This runs before the author opens the form.  It is deliberately earlier
+    than the author's later save/submit cycle, so an older manuscript remains
+    available even when the form saves the new file before its final submit.
+    """
+    submission = submission or {}
+    submission_id = _parse_int(submission.get('id'))
+    if submission_id is None:
+        return
+    file_authors = _clean_text(submission.get('file_authors'))
+    file_anonymized = _clean_text(submission.get('file_anonymized'))
+    if not file_authors and not file_anonymized:
+        return
+
+    revision_number = _parse_int(submission.get('revision_number')) or 1
+    now_ts = opened_at or int(datetime.datetime.now().timestamp())
+    try:
+        existing_rows = db.submission_revision_log.all().equal(
+            submission_id=submission_id,
+        ).equal(revision_number=revision_number).exec()
+        if existing_rows:
+            return
+        db.submission_revision_log.add(
+            submission_id=submission_id,
+            revision_number=revision_number,
+            rejection_origin=_clean_text(submission.get('rejection_origin')) or None,
+            rejected_by=_parse_int(opened_by),
+            rejected_at=now_ts,
+            rejection_notes=_clean_text(reason) or _clean_text(submission.get('notes')) or None,
+            resubmitted_at=None,
+            resubmitted_by=None,
+            file_authors=file_authors,
+            file_anonymized=file_anonymized,
+            created_at=now_ts,
+        ).exec()
+    except Exception:
+        logger.exception(
+            'Failed to archive revision files for submission_id=%s',
+            submission_id,
+        )
+
+
+def _submission_file_change_flags(submission, revision_file_history):
+    """Mark files that differ from the immediately preceding revision."""
+    current_revision = _parse_int((submission or {}).get('revision_number')) or 1
+    previous_revision = next(
+        (
+            row for row in revision_file_history
+            if (_parse_int(row.get('revision_number')) or 0) == current_revision - 1
+        ),
+        None,
+    )
+    if not previous_revision:
+        return {'authors_changed': False, 'anonymized_changed': False}
+
+    return {
+        'authors_changed': bool(
+            _clean_text(previous_revision.get('file_authors'))
+            and previous_revision.get('file_authors') != (submission or {}).get('file_authors')
+        ),
+        'anonymized_changed': bool(
+            _clean_text(previous_revision.get('file_anonymized'))
+            and previous_revision.get('file_anonymized') != (submission or {}).get('file_anonymized')
+        ),
+    }
+
+
 def _current_user_can_access_private_upload(current_user, storage_key):
     if not storage_key:
         return False
@@ -9291,14 +9696,43 @@ def _current_user_can_access_private_upload(current_user, storage_key):
                 if _parse_int(item.get('submission_id')) is not None
             }
 
+        # Replaced manuscript versions are kept in the revision log.  Admins
+        # may open both current and archived copies for an audit trail, but a
+        # reviewer must never receive an older copy.
+        historical_submission_ids = set()
+        try:
+            revision_rows = db.submission_revision_log.all().exec()
+        except Exception:
+            revision_rows = []
+        for revision in revision_rows or []:
+            if (
+                extract_private_upload_key(revision.get('file_authors')) == storage_key
+                or extract_private_upload_key(revision.get('file_anonymized')) == storage_key
+            ):
+                submission_id = _parse_int(revision.get('submission_id'))
+                if submission_id is not None:
+                    historical_submission_ids.add(submission_id)
+
         submissions = db.submissions.all().exec()
         for submission in submissions:
-            if not _submission_has_private_upload(submission, storage_key):
+            submission_id = _parse_int(submission.get('id'))
+            is_current_manuscript_file = _submission_has_private_upload(submission, storage_key)
+            is_current_anonymized_file = (
+                extract_private_upload_key(submission.get('file_anonymized')) == storage_key
+            )
+            is_historical_manuscript_file = submission_id in historical_submission_ids
+            if not is_current_manuscript_file and not is_historical_manuscript_file:
                 continue
             if can_access_admin_files and _can_access_submission(current_user, submission):
                 return True
-            submission_id = _parse_int(submission.get('id'))
-            if submission_id is not None and submission_id in editor_submission_ids:
+            # Editors only receive the latest *anonymous* copy for their
+            # assignment. Previous versions and author-identified copies stay
+            # in the admin-only audit trail.
+            if (
+                is_current_anonymized_file
+                and submission_id is not None
+                and submission_id in editor_submission_ids
+            ):
                 return True
         return False
 
@@ -9559,6 +9993,8 @@ def submission_detail(submission_id):
     )
     submission['classification_items'] = classification_items
     submission['classification_groups'] = _group_submission_classifications(classification_items)
+    revision_file_history = _load_submission_revision_file_history(submission_id)
+    submission['file_change_flags'] = _submission_file_change_flags(submission, revision_file_history)
 
     try:
         existing_fee_payment = (
@@ -9595,7 +10031,6 @@ def submission_detail(submission_id):
     submission_assignments = sorted(submission_assignments, key=lambda item: _parse_int(item.get('assigned_at')) or 0, reverse=True)
     for assignment in submission_assignments:
         assignment['can_admin_decide'] = assignment.get('status') in EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES
-
     editor_ids = [assignment.get('editor_id') for assignment in submission_assignments if assignment.get('editor_id')]
     assignment_editors_map = {}
     if editor_ids:
@@ -9638,6 +10073,7 @@ def submission_detail(submission_id):
                          workflow_steps=_submission_workflow_steps(submission, admin_lang),
                          main_author=main_author,
                          sub_authors=sub_authors,
+                         revision_file_history=revision_file_history,
                          workflow_stage_choices=_submission_status_choices(_admin_language()),
                          workflow_stage_labels=WORKFLOW_STAGE_LABELS)
 
@@ -9779,20 +10215,34 @@ def submission_edit():
             update_data['rejected_at'] = now_ts
             update_data['rejected_by'] = actor_id
 
-        revision_severity = None
+        requires_antiplagiarism_recheck = False
         if status == 'revision_required':
-            revision_severity = _clean_text(request.form.get('revision_severity')).lower()
-            if revision_severity not in {'minor', 'major'}:
-                revision_severity = 'major'
-            update_data['revision_severity'] = revision_severity
+            requires_antiplagiarism_recheck = _parse_bool(
+                request.form.get('requires_antiplagiarism_recheck')
+            )
+            update_data['revision_requires_antiplagiarism_recheck'] = requires_antiplagiarism_recheck
 
         if status == 'published':
             update_data['published_url'] = published_url
 
+        if status == 'revision_required':
+            _archive_submission_revision_files(
+                submission,
+                opened_by=actor_id,
+                reason=notes,
+                opened_at=now_ts,
+            )
+
         result = db.submissions.all().equal(id=submission_id_int).update(**update_data).exec()
 
         if result and status == 'revision_required':
-            _record_revision_round(submission_id_int, revision_severity, actor_id, notes, opened_at=now_ts)
+            _record_revision_round(
+                submission_id_int,
+                actor_id,
+                notes,
+                opened_at=now_ts,
+                requires_antiplagiarism_recheck=requires_antiplagiarism_recheck,
+            )
 
         # Leaving `revision_required` by any route closes the round -- the
         # author's resubmit is only one of them.
@@ -10111,7 +10561,7 @@ def document_edit():
 # ==================== РЕДАКТОРЫ ====================
 
 @bp.route('/fmadmin/editors')
-@is_superadmin_required
+@editors_required
 def editors():
     """Список всех редакторов"""
     page = request.args.get('page', 1, type=int)
@@ -10120,6 +10570,13 @@ def editors():
     search_specialization = request.args.get('specialization', '').strip()
 
     editors_pool = _users_with_role('editor', include_hidden=False, include_blocked=False)
+    # Staff accounts that also carry the `editor` role stay hidden from admins:
+    # they cannot open or delete them anyway (see `_actor_may_manage_staff_account`).
+    current_actor = session.get('fmadmin_user') or {}
+    editors_pool = [
+        editor for editor in editors_pool
+        if _actor_may_manage_staff_account(current_actor, editor)
+    ]
     if search_name:
         search_name_lower = search_name.lower()
         editors_pool = [
@@ -10165,7 +10622,7 @@ def editors():
                          editor_stats=editor_stats)
 
 @bp.route('/fmadmin/editors/<int:editor_id>', methods=['GET', 'POST'])
-@is_superadmin_required
+@editors_required
 def editor_edit(editor_id):
     """Редактирование редактора"""
     active_admins = _active_admins()
@@ -10207,6 +10664,13 @@ def editor_edit(editor_id):
             # Обновление существующего редактора
             data = request.json if request.is_json else request.form
             existing_editor = _load_user_from_db(editor_id) or {}
+            if not _actor_may_manage_staff_account(session.get('fmadmin_user') or {}, existing_editor):
+                new_alert(_msg_text(
+                    "Bu hisobni faqat superadmin tahrirlashi mumkin",
+                    "Эту учётную запись может редактировать только суперадмин",
+                    "Only a superadmin can edit this account",
+                ), 'danger')
+                return redirect(url_for('editors'))
             editor_admin_id = _parse_int(data.get('editor_admin_id'))
             if editor_admin_id is not None:
                 admin_target = _load_user_from_db(editor_admin_id)
@@ -10255,6 +10719,13 @@ def editor_edit(editor_id):
         editor = _load_user_from_db(editor_id)
         if not editor or not user_has_role(editor, 'editor'):
             return 'Редактор не найден', 404
+        if not _actor_may_manage_staff_account(session.get('fmadmin_user') or {}, editor):
+            new_alert(_msg_text(
+                "Bu hisobni faqat superadmin ko'ra oladi",
+                "Эту учётную запись может просматривать только суперадмин",
+                "Only a superadmin can view this account",
+            ), 'danger')
+            return redirect(url_for('editors'))
 
         # Получаем назначения редактора
         try:
@@ -10286,7 +10757,7 @@ def editor_edit(editor_id):
 
 
 @bp.route('/fmadmin/editors/<int:editor_id>/delete', methods=['POST'])
-@is_superadmin_required
+@editors_required
 def editor_delete(editor_id):
     current_user = session.get('fmadmin_user') or {}
     current_user_id = _parse_int(current_user.get('id'))
@@ -10295,6 +10766,14 @@ def editor_delete(editor_id):
     editor_rows = _load_user_from_db(editor_id)
     if not editor_rows or not user_has_role(editor_rows, 'editor'):
         new_alert(_msg_text("Tahrirchi topilmadi", "Редактор не найден", "Editor not found"), 'danger')
+        return redirect(redirect_url)
+
+    if not _actor_may_manage_staff_account(current_user, editor_rows):
+        new_alert(_msg_text(
+            "Bu hisobni faqat superadmin o'chira oladi",
+            "Эту учётную запись может удалить только суперадмин",
+            "Only a superadmin can delete this account",
+        ), 'danger')
         return redirect(redirect_url)
 
     if current_user_id is not None and editor_id == current_user_id:
@@ -10312,7 +10791,7 @@ def editor_delete(editor_id):
 
 
 @bp.route('/fmadmin/editorial-members')
-@is_superadmin_required
+@users_required
 def editorial_members():
     ui_lang = _ui_language()
     editorial_ui = _editorial_admin_ui_texts(ui_lang)
@@ -10386,7 +10865,7 @@ def editorial_members():
 
 
 @bp.route('/fmadmin/editorial-members/<int:member_id>', methods=['GET', 'POST'])
-@is_superadmin_required
+@users_required
 def editorial_member_edit(member_id):
     ui_lang = _ui_language()
     editorial_ui = _editorial_admin_ui_texts(ui_lang)
@@ -10721,7 +11200,7 @@ def editorial_member_edit(member_id):
 
 
 @bp.route('/fmadmin/editorial-members/<int:member_id>/delete', methods=['POST'])
-@is_superadmin_required
+@users_required
 def editorial_member_delete(member_id):
     redirect_url = _safe_internal_redirect(request.form.get('redirect_url') or request.referrer, 'editorial_members')
     rows = db.editorial_members.all().equal(id=member_id).exec()
@@ -11090,7 +11569,32 @@ def submission_anti_plagiarism_result(submission_id):
             rejected_at=now_ts,
             rejected_by=current_user_id,
         )
+    elif _parse_bool(submission.get('revision_requires_antiplagiarism_recheck')):
+        # This is the fresh report requested for a materially changed
+        # correction. Only now may the corrected manuscript return to the
+        # reviewer panel; the helper creates NEW R2/R3 tasks and retains all
+        # earlier reviews as history.
+        update_payload.update(
+            status='under_review',
+            revision_requires_antiplagiarism_recheck=False,
+        )
     db.submissions.all().equal(id=submission_id).update(**update_payload).exec()
+
+    rereview_assignment_ids = []
+    if result == 'passed' and _parse_bool(submission.get('revision_requires_antiplagiarism_recheck')):
+        refreshed_submission = dict(submission)
+        refreshed_submission.update(update_payload)
+        try:
+            revision_assignments = db.editor_assignments.all().equal(submission_id=submission_id).exec()
+        except Exception:
+            revision_assignments = []
+        rereview_assignment_ids = _create_revision_reviewer_assignments(
+            refreshed_submission,
+            revision_assignments,
+            assigned_by=current_user_id,
+            actor_user_id=current_user_id,
+        )
+        _refresh_submission_editor_review_status(submission_id)
 
     submission_title = _submission_title(submission)
     author_id = _parse_int(submission.get('user_id'))
@@ -11142,8 +11646,191 @@ def submission_anti_plagiarism_result(submission_id):
                 actor_user_id=current_user_id
             )
 
+        if rereview_assignment_ids:
+            _notify_role_users(
+                'superadmin',
+                title=localized_texts(
+                    "Antiplagiatdan keyin qayta taqriz ochildi",
+                    'После антиплагиата открыто повторное рецензирование',
+                    'Re-review opened after anti-plagiarism check',
+                ),
+                message=localized_texts(
+                    f'"{submission_title}" uchun {len(rereview_assignment_ids)} ta qayta taqriz topshirig‘i yaratildi',
+                    f'Для «{submission_title}» создано заданий повторного рецензирования: {len(rereview_assignment_ids)}',
+                    f'{len(rereview_assignment_ids)} re-review task(s) were created for "{submission_title}"',
+                ),
+                action_url=url_for('submission_detail', submission_id=submission_id),
+                level='info',
+                event_type='revision_rereview_opened_after_antiplagiarism',
+                related_submission_id=submission_id,
+                actor_user_id=current_user_id,
+            )
+
     new_alert(
         _msg_text("Natija saqlandi", "Результат сохранён", "Result saved"),
+        'success'
+    )
+    return redirect(url_for('submission_detail', submission_id=submission_id))
+
+
+@bp.route('/fmadmin/submissions/<int:submission_id>/revision/re-review', methods=['POST'])
+@is_allowed
+def submission_revision_send_for_rereview(submission_id):
+    """Invite selected previous reviewers for the corrected manuscript.
+
+    Each invitation is a new row for the current revision round.  The old
+    assignment remains completed, so neither the admin nor the reviewer loses
+    the R1 report while working on R2.
+    """
+    current_user = get_current_user() or {}
+    current_user_id = _parse_int(current_user.get('id'))
+    submission_rows = db.submissions.all().equal(id=submission_id).exec()
+    if not submission_rows:
+        new_alert(_msg_text('Maqola topilmadi', 'Статья не найдена', 'Submission not found'), 'danger')
+        return redirect(url_for('submissions'))
+    submission = submission_rows[0]
+    if not _can_access_submission(current_user, submission):
+        new_alert(t('admin_error_no_access'), 'danger')
+        return redirect(url_for('submissions'))
+
+    # Compatibility endpoint for old bookmarked pages only. New revisions
+    # automatically receive fresh tasks for the preceding review panel as
+    # soon as the author resubmits (or the required anti-plagiarism report
+    # passes), so an admin no longer has to select a "major/minor" route.
+    new_alert(
+        _msg_text(
+            "Qayta taqriz endi avtomatik ochiladi. Qo'shimcha muharrir kerak bo'lsa 'Tahrirchi biriktirish' orqali qo'shing.",
+            'Повторное рецензирование теперь открывается автоматически. Добавьте дополнительного редактора через «Назначить редактора».',
+            'Re-review now opens automatically. Add another reviewer through the editor-assignment page.'
+        ),
+        'info'
+    )
+    return redirect(url_for('submission_detail', submission_id=submission_id))
+
+    try:
+        assignments = db.editor_assignments.all().equal(submission_id=submission_id).exec()
+    except Exception:
+        assignments = []
+    if not _is_revision_editorial_triage_pending(submission, assignments):
+        new_alert(
+            _msg_text(
+                "Bu tahrir uchun qayta taqriz qarori allaqachon qabul qilingan",
+                'Решение о повторном рецензировании этой версии уже принято',
+                'A re-review decision has already been made for this revision'
+            ),
+            'warning'
+        )
+        return redirect(url_for('submission_detail', submission_id=submission_id))
+
+    if (_clean_text(submission.get('revision_severity')).lower() or 'major') != 'major':
+        new_alert(
+            _msg_text(
+                "Kichik tuzatish uchun qayta taqriz shart emas; admin qarorini tanlang",
+                'Для небольшой доработки повторное рецензирование не требуется; выберите решение редактора',
+                'A minor revision does not need re-review; choose the editorial decision instead'
+            ),
+            'warning'
+        )
+        return redirect(url_for('submission_detail', submission_id=submission_id))
+
+    selected_assignment_ids = {
+        parsed_id for parsed_id in (_parse_int(value) for value in request.form.getlist('assignment_id'))
+        if parsed_id is not None
+    }
+    candidates = _revision_rereview_candidates(submission, assignments)
+    selected_candidates = [
+        assignment for assignment in candidates
+        if _parse_int(assignment.get('id')) in selected_assignment_ids
+    ]
+    if not selected_candidates:
+        new_alert(
+            _msg_text(
+                "Qayta taqriz uchun kamida bitta avvalgi muharrirni tanlang",
+                'Выберите хотя бы одного предыдущего редактора для повторного рецензирования',
+                'Choose at least one previous reviewer for re-review'
+            ),
+            'danger'
+        )
+        return redirect(url_for('submission_detail', submission_id=submission_id))
+
+    now_ts = int(datetime.datetime.now().timestamp())
+    acceptance_deadline_at = now_ts + EDITOR_ASSIGNMENT_DEFAULT_ACCEPTANCE_SECONDS
+    completion_deadline_at = now_ts + EDITOR_ASSIGNMENT_DEFAULT_COMPLETION_SECONDS
+    current_revision = _parse_int(submission.get('revision_number')) or 1
+    submission_title = _submission_title(submission)
+    created_count = 0
+
+    for previous_assignment in selected_candidates:
+        editor_id = _parse_int(previous_assignment.get('editor_id'))
+        if editor_id is None:
+            continue
+        try:
+            created = db.editor_assignments.add(
+                submission_id=submission_id,
+                editor_id=editor_id,
+                assigned_by=current_user_id or current_user.get('id'),
+                assigned_at=now_ts,
+                status='pending',
+                assignment_note=f"Taqriz #{current_revision}: avvalgi taqrizchi uchun qayta ko'rib chiqish",
+                deadline_at=completion_deadline_at,
+                acceptance_deadline_at=acceptance_deadline_at,
+                completion_deadline_at=completion_deadline_at,
+                accepted_at=None,
+                acceptance_reminder_level='',
+                completion_reminder_level='',
+                admin_decision='pending',
+                revision_round=current_revision,
+                created_at=now_ts,
+                updated_at=now_ts,
+            ).exec()
+        except Exception:
+            logger.exception(
+                'Failed to create re-review assignment for submission_id=%s editor_id=%s',
+                submission_id, editor_id,
+            )
+            continue
+
+        assignment_id = _extract_inserted_id(created)
+        created_count += 1
+        _create_role_notification(
+            target_user_id=editor_id,
+            target_role='editor',
+            title=localized_texts(
+                "Tuzatilgan maqola qayta taqrizga yuborildi",
+                'Исправленная статья направлена на повторное рецензирование',
+                'Revised submission sent for re-review',
+            ),
+            message=localized_texts(
+                f'"{submission_title}" maqolasining taqriz #{current_revision} versiyasini qayta ko\'rib chiqing',
+                f'Рассмотрите повторно версию #{current_revision} статьи «{submission_title}»',
+                f'Re-review revision #{current_revision} of "{submission_title}"',
+            ),
+            action_url=url_for('review_assignment', assignment_id=assignment_id) if assignment_id else url_for('editor_assignments'),
+            level='info',
+            event_type='editor_assignment_rereview_requested',
+            related_submission_id=submission_id,
+            related_assignment_id=assignment_id,
+            actor_user_id=current_user_id,
+        )
+
+    if not created_count:
+        new_alert(
+            _msg_text(
+                "Qayta taqriz topshirig'ini yaratib bo'lmadi",
+                'Не удалось создать задание на повторное рецензирование',
+                'Could not create the re-review assignment'
+            ),
+            'danger'
+        )
+        return redirect(url_for('submission_detail', submission_id=submission_id))
+
+    _refresh_submission_editor_review_status(submission_id)
+    new_alert(
+        _msg_text(
+            f"{created_count} ta avvalgi muharrirga taqriz #{current_revision} uchun qayta taqriz so'rovi yuborildi",
+            f'Предыдущим редакторам ({created_count}) отправлен запрос на повторное рецензирование версии #{current_revision}',
+            f'Re-review invitations for revision #{current_revision} were sent to {created_count} previous reviewer(s)',
+        ),
         'success'
     )
     return redirect(url_for('submission_detail', submission_id=submission_id))
@@ -11213,6 +11900,7 @@ def auto_assign_editor(submission_id):
         acceptance_reminder_level='',
         completion_reminder_level='',
         admin_decision='pending',
+        revision_round=_parse_int(submission.get('revision_number')) or 1,
         created_at=now_ts,
         updated_at=now_ts
     ).exec()
@@ -11229,7 +11917,7 @@ def auto_assign_editor(submission_id):
     _create_role_notification(
         target_user_id=editor_id,
         target_role='editor',
-        title=localized_texts("Yangi tahriz topshirig'i", "Новое задание на рецензию", "New review assignment"),
+        title=localized_texts("Yangi taqriz topshirig'i", "Новое задание на рецензию", "New review assignment"),
         message=message,
         action_url=url_for('review_assignment', assignment_id=assignment_id) if assignment_id else url_for('editor_assignments'),
         level='info',
@@ -11280,17 +11968,18 @@ def assign_editors(submission_id):
     else:
         editors_list = get_editors()
     allowed_editor_ids = {editor.get('id') for editor in editors_list if editor.get('id')}
-    now_dt = datetime.datetime.now()
-    now_ts = int(now_dt.timestamp())
+    now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
     max_acceptance_ts = now_ts + EDITOR_ASSIGNMENT_MAX_ACCEPTANCE_SECONDS
-    min_deadline_datetime = now_dt.strftime('%Y-%m-%dT%H:%M')
-    max_acceptance_datetime = datetime.datetime.fromtimestamp(max_acceptance_ts).strftime('%Y-%m-%dT%H:%M')
-    default_acceptance_deadline = (
-        now_dt + datetime.timedelta(seconds=EDITOR_ASSIGNMENT_DEFAULT_ACCEPTANCE_SECONDS)
-    ).strftime('%Y-%m-%dT%H:%M')
-    default_completion_deadline = (
-        now_dt + datetime.timedelta(seconds=EDITOR_ASSIGNMENT_DEFAULT_COMPLETION_SECONDS)
-    ).strftime('%Y-%m-%dT%H:%M')
+    # The pickers show the admin's wall clock (UTC+5), matching how the saved
+    # deadline is rendered back and how the POST value is parsed.
+    min_deadline_datetime = ui_datetime_input_value(now_ts)
+    max_acceptance_datetime = ui_datetime_input_value(max_acceptance_ts)
+    default_acceptance_deadline = ui_datetime_input_value(
+        now_ts + EDITOR_ASSIGNMENT_DEFAULT_ACCEPTANCE_SECONDS
+    )
+    default_completion_deadline = ui_datetime_input_value(
+        now_ts + EDITOR_ASSIGNMENT_DEFAULT_COMPLETION_SECONDS
+    )
 
     if request.method == 'POST':
         if not is_antiplag_ready:
@@ -11401,11 +12090,29 @@ def assign_editors(submission_id):
 
         created_count = 0
         updated_count = 0
+        assignment_revision_round = _parse_int(submission.get('revision_number')) or 1
 
         for editor_id in selected_editor_ids:
             existing = db.editor_assignments.all().equal(submission_id=submission_id).equal(editor_id=editor_id).exec()
-            if existing:
-                existing_assignment = _decorate_assignment(existing[0])
+            # A reviewer may appear in several revision rounds.  Only update
+            # an assignment from THIS round; using an R1 row for R2 would
+            # overwrite the completed review which the admin and reviewer
+            # need as history.
+            existing_current_round = next(
+                (
+                    item for item in existing
+                    if (_parse_int(item.get('revision_round')) or 1) == assignment_revision_round
+                ),
+                None,
+            )
+            if existing_current_round:
+                existing_assignment = _decorate_assignment(existing_current_round)
+                if existing_assignment.get('status') in EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES:
+                    # A completed report belongs to this exact manuscript
+                    # version. It must never be reset or shifted into a
+                    # fictitious next round merely because the admin opened
+                    # the assignment form again.
+                    continue
                 update_payload = {'updated_at': now_ts}
                 if assignment_note:
                     update_payload['assignment_note'] = assignment_note
@@ -11417,44 +12124,8 @@ def assign_editors(submission_id):
                 if existing_assignment.get('admin_decision') == 'revision_requested':
                     update_payload['admin_decision'] = 'pending'
 
-                reactivated = False
-                if existing_assignment.get('status') in EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES:
-                    # Editor already submitted a review for this submission --
-                    # re-assigning them (e.g. after a revision round) must
-                    # reopen the assignment, or it stays stuck as
-                    # reviewed/rejected and the editor can no longer act on it.
-                    next_round = (_parse_int(existing_assignment.get('revision_round')) or 1) + 1
-                    update_payload['status'] = 'pending'
-                    update_payload['admin_decision'] = 'pending'
-                    update_payload['reviewed_at'] = None
-                    update_payload['accepted_at'] = None
-                    update_payload['revision_round'] = next_round
-                    reactivated = True
-
                 db.editor_assignments.all().equal(id=existing_assignment.get('id')).update(**update_payload).exec()
                 updated_count += 1
-
-                if reactivated:
-                    _create_role_notification(
-                        target_user_id=editor_id,
-                        target_role='editor',
-                        title=localized_texts(
-                            "Maqola qayta ko'rib chiqish uchun qayta yuborildi",
-                            "Статья повторно направлена на рецензирование",
-                            "Submission resent for review"
-                        ),
-                        message=localized_texts(
-                            f'"{submission.get("title") or submission_id}" maqolasi tuzatilgandan so\'ng sizga yana yuborildi',
-                            f'Статья "{submission.get("title") or submission_id}" снова направлена вам после доработки',
-                            f'Submission "{submission.get("title") or submission_id}" was sent to you again after revision'
-                        ),
-                        action_url=url_for('review_assignment', assignment_id=existing_assignment.get('id')),
-                        level='info',
-                        event_type='editor_assignment_reactivated',
-                        related_submission_id=submission_id,
-                        related_assignment_id=existing_assignment.get('id'),
-                        actor_user_id=current_user_id
-                    )
                 continue
 
             assignment_id = db.editor_assignments.add(
@@ -11471,6 +12142,7 @@ def assign_editors(submission_id):
                 acceptance_reminder_level='',
                 completion_reminder_level='',
                 admin_decision='pending',
+                revision_round=assignment_revision_round,
                 created_at=now_ts,
                 updated_at=now_ts
             ).exec()
@@ -11505,7 +12177,7 @@ def assign_editors(submission_id):
             _create_role_notification(
                 target_user_id=editor_id,
                 target_role='editor',
-                title=localized_texts("Yangi tahriz topshirig'i", "Новое задание на рецензию", "New review assignment"),
+                title=localized_texts("Yangi taqriz topshirig'i", "Новое задание на рецензию", "New review assignment"),
                 message=message,
                 action_url=url_for('review_assignment', assignment_id=assignment_id) if assignment_id else url_for('editor_assignments'),
                 level='info',
@@ -11526,7 +12198,7 @@ def assign_editors(submission_id):
                 _create_role_notification(
                     target_user_id=author_id,
                     target_role='user',
-                    title=localized_texts("Maqolangiz tahrizga yuborildi", "Ваша статья направлена на рецензию", "Your submission was sent for review"),
+                    title=localized_texts("Maqolangiz taqrizga yuborildi", "Ваша статья направлена на рецензию", "Your submission was sent for review"),
                     message=localized_texts(
                         f'"{submission_title}" maqolasi tahrirchiga yuborildi',
                         f'Статья "{submission_title}" направлена редактору',
@@ -11694,7 +12366,7 @@ def cancel_editor_assignment(assignment_id):
             target_role='editor',
             title=localized_texts('Topshiriq bekor qilindi', 'Назначение отменено', 'Assignment cancelled'),
             message=localized_texts(
-                f'"{submission_title}" bo\'yicha tahriz topshirig\'i administrator tomonidan bekor qilindi',
+                f'"{submission_title}" bo\'yicha taqriz topshirig\'i administrator tomonidan bekor qilindi',
                 f'Задание на рецензию по "{submission_title}" отменено администратором',
                 f'The review assignment for "{submission_title}" was cancelled by an administrator'
             ),
@@ -11844,9 +12516,9 @@ def review_assignment(assignment_id):
             _create_role_notification(
                 target_user_id=assigned_admin_id,
                 target_role='admin',
-                title=localized_texts("Tahrirchi tahriz yubordi", "Редактор отправил рецензию", "Editor submitted review"),
+                title=localized_texts("Tahrirchi taqriz yubordi", "Редактор отправил рецензию", "Editor submitted review"),
                 message=localized_texts(
-                    f'"{submission_title}" bo\'yicha tahriz yuborildi: {editor_decision_label["uz"]}',
+                    f'"{submission_title}" bo\'yicha taqriz yuborildi: {editor_decision_label["uz"]}',
                     f'По "{submission_title}" отправлена рецензия: {editor_decision_label["ru"]}',
                     f'Review submitted for "{submission_title}": {editor_decision_label["en"]}'
                 ),
@@ -11860,9 +12532,9 @@ def review_assignment(assignment_id):
 
         _notify_role_users(
             'superadmin',
-            title=localized_texts("Tahrirchi tahriz yubordi", "Редактор отправил рецензию", "Editor submitted review"),
+            title=localized_texts("Tahrirchi taqriz yubordi", "Редактор отправил рецензию", "Editor submitted review"),
             message=localized_texts(
-                f'"{submission_title}" bo\'yicha tahriz yuborildi: {editor_decision_label["uz"]}',
+                f'"{submission_title}" bo\'yicha taqriz yuborildi: {editor_decision_label["uz"]}',
                 f'По "{submission_title}" отправлена рецензия: {editor_decision_label["ru"]}',
                 f'Review submitted for "{submission_title}": {editor_decision_label["en"]}'
             ),
@@ -11908,6 +12580,8 @@ def review_assignment(assignment_id):
         admin_decided_user = decided_rows[0] if decided_rows else None
 
     can_editor_submit = is_assigned_editor and assignment.get('status') in EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES
+    revision_file_history = _load_submission_revision_file_history(submission.get('id'))
+    submission['file_change_flags'] = _submission_file_change_flags(submission, revision_file_history)
     return render_template('editors/review.html',
                          assignment=assignment,
                          submission=submission,
@@ -11966,16 +12640,13 @@ def assignment_admin_decision(assignment_id):
     admin_comment = _clean_text(request.form.get('admin_comment'))
 
     if admin_decision == 'return_to_author':
-        revision_severity = _clean_text(request.form.get('revision_severity')).lower()
-        if revision_severity not in {'minor', 'major'}:
-            revision_severity = 'major'
         return _return_assignment_submission_to_author(
             assignment=assignment,
             submission=submission,
             assignment_id=assignment_id,
             admin_comment=admin_comment,
             current_user_id=current_user_id,
-            revision_severity=revision_severity,
+            requires_antiplagiarism_recheck=_parse_bool(request.form.get('requires_antiplagiarism_recheck')),
         )
 
     now_ts = int(datetime.datetime.now().timestamp())
@@ -12036,9 +12707,9 @@ def assignment_admin_decision(assignment_id):
     author_id = _parse_int(submission.get('user_id'))
     if author_id is not None:
         if admin_decision == 'accepted':
-            author_title = localized_texts("Maqolangiz bo'yicha tahriz yakunlandi", "Рецензирование вашей статьи завершено", "Review of your submission is completed")
+            author_title = localized_texts("Maqolangiz bo'yicha taqriz yakunlandi", "Рецензирование вашей статьи завершено", "Review of your submission is completed")
             author_message = localized_texts(
-                f'"{submission_title}" bo\'yicha ijobiy tahriz tasdiqlandi',
+                f'"{submission_title}" bo\'yicha ijobiy taqriz tasdiqlandi',
                 f'По "{submission_title}" подтверждена положительная рецензия',
                 f'Positive review approved for "{submission_title}"'
             )
@@ -12046,7 +12717,7 @@ def assignment_admin_decision(assignment_id):
         else:
             author_title = localized_texts("Maqolangiz qayta ko'rib chiqilmoqda", "Ваша статья направлена на повторное рассмотрение", "Your submission is under re-review")
             author_message = localized_texts(
-                f'"{submission_title}" bo\'yicha qo\'shimcha tahriz so\'raldi',
+                f'"{submission_title}" bo\'yicha qo\'shimcha taqriz so\'raldi',
                 f'По "{submission_title}" запрошена дополнительная рецензия',
                 f'Additional review requested for "{submission_title}"'
             )
@@ -12065,7 +12736,7 @@ def assignment_admin_decision(assignment_id):
 
     _notify_role_users(
         'superadmin',
-        title=localized_texts("Admin tahriz bo'yicha qaror berdi", "Администратор принял решение по рецензии", "Admin made a review decision"),
+        title=localized_texts("Admin taqriz bo'yicha qaror berdi", "Администратор принял решение по рецензии", "Admin made a review decision"),
         message=localized_texts(
             f'"{submission_title}" uchun qaror: {"qabul qilindi" if admin_decision == "accepted" else "qayta ishlash"}',
             f'Решение по "{submission_title}": {"принято" if admin_decision == "accepted" else "доработка"}',
@@ -12083,7 +12754,7 @@ def assignment_admin_decision(assignment_id):
     if review_status == 'approved':
         new_alert(
             _msg_text(
-                'Tahriz natijasi qabul qilindi va maqola tavsiya bosqichiga o\'tdi',
+            'Taqriz natijasi qabul qilindi va maqola tavsiya bosqichiga o\'tdi',
                 'Результат рецензирования принят, статья переведена на этап рекомендации',
                 'Review accepted and submission moved to recommendation stage'
             ),
@@ -12101,7 +12772,7 @@ def assignment_admin_decision(assignment_id):
     else:
         new_alert(
             _msg_text(
-                "Tahriz natijasi qabul qilindi",
+            "Taqriz natijasi qabul qilindi",
                 "Результат рецензирования принят",
                 "Review accepted"
             ),
@@ -12115,17 +12786,33 @@ def _next_revision_round_number(submission_id):
     return len(rows) + 1
 
 
-def _record_revision_round(submission_id, severity, opened_by, reason, editor_file=None, editor_assignment_id=None, opened_at=None):
+def _record_revision_round(
+    submission_id,
+    opened_by,
+    reason,
+    editor_file=None,
+    editor_assignment_id=None,
+    opened_at=None,
+    requires_antiplagiarism_recheck=False,
+    feedback_comments=None,
+    feedback_files=None,
+):
     now_ts = opened_at or int(datetime.datetime.now().timestamp())
     db.submission_revision_rounds.add(
         submission_id=submission_id,
         round_number=_next_revision_round_number(submission_id),
-        severity=severity if severity in {'minor', 'major'} else 'major',
+        # Kept for old rows/template compatibility; the workflow no longer
+        # branches on minor/major. The explicit anti-plagiarism flag is the
+        # only extra route a correction can take.
+        severity='major',
         editor_assignment_id=editor_assignment_id,
         opened_by=opened_by,
         opened_at=now_ts,
         reason=reason,
         editor_file=editor_file,
+        requires_antiplagiarism_recheck=bool(requires_antiplagiarism_recheck),
+        feedback_comments=feedback_comments,
+        feedback_files=feedback_files or [],
         resolved_at=None,
         created_at=now_ts,
     ).exec()
@@ -12165,18 +12852,72 @@ def _resolve_open_revision_rounds(submission_id, resolved_at=None):
     return closed
 
 
-def _return_assignment_submission_to_author(assignment, submission, assignment_id, admin_comment, current_user_id, revision_severity='major'):
-    """Reject the submission back to the author using this editor's review as
+def _collect_revision_feedback(submission_id, revision_round):
+    """Build the anonymised, consolidated feedback for one review round.
+
+    A handling admin may add several reviewers to a version.  Their reports
+    must remain separate in the audit trail, but the author needs one clear
+    correction request.  Names are intentionally omitted here so the
+    double-blind review is preserved.  Returning feedback is blocked while a
+    reviewer of the same round still has an active task; otherwise an admin
+    could accidentally send only half of the panel's comments to the author.
+    """
+    submission_id_int = _parse_int(submission_id)
+    current_round = _parse_int(revision_round) or 1
+    if submission_id_int is None:
+        return [], '', [], []
+
+    try:
+        rows = db.editor_assignments.all().equal(submission_id=submission_id_int).exec()
+    except Exception:
+        logger.exception('Failed to collect revision feedback for submission_id=%s', submission_id_int)
+        return [], '', [], []
+
+    round_assignments = [
+        _decorate_assignment(row)
+        for row in (rows or [])
+        if (_parse_int(row.get('revision_round')) or 1) == current_round
+    ]
+    active_assignments = [
+        row for row in round_assignments
+        if row.get('status') in EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES
+    ]
+    completed_assignments = [
+        row for row in round_assignments
+        if row.get('status') in EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES
+    ]
+
+    feedback_parts = []
+    feedback_files = []
+    for number, reviewed_assignment in enumerate(completed_assignments, start=1):
+        comment = _clean_text(reviewed_assignment.get('editor_comment'))
+        if comment:
+            feedback_parts.append(f"Taqriz #{number}:\n{comment}")
+        editor_file = _clean_text(reviewed_assignment.get('editor_file'))
+        if editor_file and editor_file not in feedback_files:
+            feedback_files.append(editor_file)
+
+    return active_assignments, '\n\n'.join(feedback_parts), feedback_files, completed_assignments
+
+
+def _return_assignment_submission_to_author(
+    assignment,
+    submission,
+    assignment_id,
+    admin_comment,
+    current_user_id,
+    requires_antiplagiarism_recheck=False,
+):
+    """Return the submission to the author using this editor's review as
     grounds -- distinct from the 'revision_requested' decision above, which
     sends the SAME review back to the editor to redo. This ends the editor's
     task (their work stands) and starts the author-facing revision loop (see
     `_compute_revision_reentry` in mainweb).
 
-    `revision_severity` ('minor'/'major') is stored on the submission and
-    read back by `_compute_revision_reentry` when the author resubmits: for
-    'minor' fixes the editor queue is NOT reset (no full new review round --
-    the admin just glances at the fixed file), while 'major' keeps the
-    original full re-review behavior. Each call also opens a new row in
+    The admin may explicitly require a fresh anti-plagiarism check where the
+    expected correction materially changes the manuscript. Otherwise the
+    author resubmission opens fresh tasks for the same reviewer panel. Each
+    call also opens a new row in
     `submission_revision_rounds` -- the author-facing "muharrir fayli" box
     used to be a single mutable field on `submissions` that stayed forever
     once set (even after the submission moved on to later stages); it's now
@@ -12184,43 +12925,81 @@ def _return_assignment_submission_to_author(assignment, submission, assignment_i
     resubmission, so it never goes stale like that again. Deliberately does
     NOT call `_refresh_submission_editor_review_status` afterward -- that
     would recompute workflow_stage from assignment statuses and could
-    overwrite the 'rejected' status set below."""
+    overwrite the `revision_required` status set below."""
     if not admin_comment:
         new_alert(
             _msg_text(
-                "Rad etish sababi majburiy. Iltimos, izoh yozing.",
-                "Причина отклонения обязательна. Пожалуйста, укажите комментарий.",
-                "Rejection reason is required. Please add a note."
+                "Muallifga yuboriladigan tuzatish izohi majburiy. Iltimos, talablarni yozing.",
+                'Комментарий с требованиями для автора обязателен. Пожалуйста, укажите его.',
+                'A correction instruction for the author is required. Please add a note.'
             ),
             'danger'
         )
         return redirect(url_for('review_assignment', assignment_id=assignment_id))
 
-    now_ts = int(datetime.datetime.now().timestamp())
     submission_id_int = _parse_int(assignment.get('submission_id'))
+    revision_round = _parse_int(assignment.get('revision_round')) or 1
+    active_assignments, reviewer_feedback, feedback_files, completed_assignments = _collect_revision_feedback(
+        submission_id_int,
+        revision_round,
+    )
+    if active_assignments:
+        new_alert(
+            _msg_text(
+                "Bu tahrir raundida hali yakunlanmagan muharrir topshiriqlari bor. Barcha javoblarni kuting yoki kerak bo'lmagan topshiriqni bekor qiling.",
+                'В этом раунде ещё есть незавершённые задания редакторов. Дождитесь всех ответов или отмените ненужное задание.',
+                'This review round still has active reviewer tasks. Wait for all responses or cancel an unneeded task.'
+            ),
+            'warning'
+        )
+        return redirect(url_for('submission_detail', submission_id=submission_id_int))
 
-    # Acknowledge the editor's work is done -- the objection is the admin's
-    # to raise with the author, not something the editor needs to redo.
-    db.editor_assignments.all().equal(id=assignment_id).update(
-        admin_decision='accepted',
-        admin_comment=admin_comment,
-        admin_decided_by=current_user_id,
-        admin_decided_at=now_ts,
-        updated_at=now_ts
-    ).exec()
+    now_ts = int(datetime.datetime.now().timestamp())
+    # Peer-review text remains internal to the editorial team. The editor's
+    # marked-up correction file is deliberately shared with the author, so
+    # they can act on the requested changes.
+    author_instruction = admin_comment
 
-    editor_file = _clean_text(assignment.get('editor_file'))
+    _archive_submission_revision_files(
+        submission,
+        opened_by=current_user_id,
+        reason=author_instruction,
+        opened_at=now_ts,
+    )
+
+    # Close every completed report of this version with the same audit value.
+    # These rows stay immutable evidence of R1/R2; a resubmission creates
+    # NEW assignments rather than overwriting comments or recommendations.
+    for completed_assignment in completed_assignments:
+        completed_assignment_id = _parse_int(completed_assignment.get('id'))
+        if completed_assignment_id is None:
+            continue
+        db.editor_assignments.all().equal(id=completed_assignment_id).update(
+            admin_decision='sent_to_author',
+            admin_comment=admin_comment,
+            admin_decided_by=current_user_id,
+            admin_decided_at=now_ts,
+            updated_at=now_ts
+        ).exec()
+
     db.submissions.all().equal(id=submission_id_int).update(
         status='revision_required',
-        revision_severity=revision_severity,
+        revision_requires_antiplagiarism_recheck=bool(requires_antiplagiarism_recheck),
         rejected_at=now_ts,
         rejected_by=current_user_id,
-        notes=admin_comment,
+        notes=author_instruction,
         updated_at=now_ts,
     ).exec()
     _record_revision_round(
-        submission_id_int, revision_severity, current_user_id, admin_comment,
-        editor_file=editor_file or None, editor_assignment_id=assignment_id, opened_at=now_ts,
+        submission_id_int,
+        current_user_id,
+        author_instruction,
+        editor_file=feedback_files[0] if feedback_files else None,
+        editor_assignment_id=assignment_id,
+        opened_at=now_ts,
+        requires_antiplagiarism_recheck=requires_antiplagiarism_recheck,
+        feedback_comments=reviewer_feedback or None,
+        feedback_files=feedback_files,
     )
 
     submission_title = _submission_title(submission)
@@ -12232,9 +13011,9 @@ def _return_assignment_submission_to_author(assignment, submission, assignment_i
             "Your submission was returned for revision"
         )
         notification_message = localized_texts(
-            f'"{submission_title}" bo\'yicha tahriz natijasiga ko\'ra tuzatish talab qilinadi. Sabab: {admin_comment}',
-            f'По результатам рецензии "{submission_title}" требуется доработка. Причина: {admin_comment}',
-            f'"{submission_title}" needs revision based on the review outcome. Reason: {admin_comment}'
+            f'"{submission_title}" bo\'yicha tuzatish talab qilinadi. {author_instruction}',
+            f'По статье «{submission_title}» требуется доработка. {author_instruction}',
+            f'"{submission_title}" needs revision. {author_instruction}'
         )
         _create_role_notification(
             target_user_id=author_id,
@@ -12264,7 +13043,7 @@ def _return_assignment_submission_to_author(assignment, submission, assignment_i
         'superadmin',
         title=localized_texts("Maqola muallifga qaytarildi", "Статья возвращена автору", "Submission returned to author"),
         message=localized_texts(
-            f'"{submission_title}" tahriz natijasiga ko\'ra muallifga qaytarildi',
+            f'"{submission_title}" taqriz natijasiga ko\'ra muallifga qaytarildi',
             f'"{submission_title}" возвращена автору по результатам рецензии',
             f'"{submission_title}" was returned to the author based on the review outcome'
         ),

@@ -23,6 +23,13 @@ ROLE_PERMISSIONS = {
         'fmadmin.assignments.view',
         'fmadmin.assignments.manage',
         'fmadmin.notifications.view',
+        # Day-to-day journal operations: issues, articles, news, announcements.
+        'fmadmin.content.manage',
+        # Adding and maintaining the editors an admin assigns work to.
+        'fmadmin.editors.manage',
+        # Confirming/rejecting incoming payments. Pricing (tariffs, payment
+        # guide) stays with superadmin via `fmadmin.finance.manage`.
+        'fmadmin.payments.manage',
     },
     'superadmin': {
         'fmadmin.access',
@@ -33,7 +40,11 @@ ROLE_PERMISSIONS = {
         'fmadmin.notifications.view',
         'fmadmin.users.manage',
         'fmadmin.content.manage',
+        'fmadmin.content.delete',
+        'fmadmin.editors.manage',
+        'fmadmin.site.manage',
         'fmadmin.finance.manage',
+        'fmadmin.payments.manage',
         'fmadmin.system.manage',
     },
 }
@@ -50,7 +61,11 @@ CAPABILITY_PERMISSION_MAP = {
     'can_view_notifications': 'fmadmin.notifications.view',
     'can_manage_users': 'fmadmin.users.manage',
     'can_manage_content': 'fmadmin.content.manage',
+    'can_delete_content': 'fmadmin.content.delete',
+    'can_manage_editors': 'fmadmin.editors.manage',
+    'can_manage_site': 'fmadmin.site.manage',
     'can_manage_finance': 'fmadmin.finance.manage',
+    'can_manage_payments': 'fmadmin.payments.manage',
     'can_manage_system': 'fmadmin.system.manage',
 }
 

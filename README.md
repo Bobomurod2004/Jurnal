@@ -269,10 +269,30 @@ Start it together with production services:
 docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d --build
 ```
 
+`GRAFANA_ADMIN_PASSWORD` **must** be set in `.env` first — the stack refuses to
+start without it.
+
 Grafana UI:
 - `http://127.0.0.1:3000` on the server host
 - user: `${GRAFANA_ADMIN_USER}`
 - pass: `${GRAFANA_ADMIN_PASSWORD}`
+
+`GRAFANA_ROOT_URL` has to match the address you actually open. Leave it at the
+default only while reaching Grafana at `127.0.0.1:3000` (directly or through the
+SSH tunnel below). Point a browser at any other address without updating it and
+Grafana loads but its redirects and assets still aim at `127.0.0.1`, which is
+what a "half working" Grafana looks like.
+
+To serve it over the site's own domain and TLS instead, set in `.env`:
+
+```bash
+GRAFANA_ROOT_URL=https://your-domain.uz/grafana/
+GRAFANA_SERVE_FROM_SUB_PATH=true
+```
+
+nginx already proxies `/grafana/` to the container, so port 3000 can stay bound
+to `127.0.0.1`. Grafana keeps its own login (anonymous access and sign-up are
+disabled), but it is still an admin surface — restrict it by IP if you can.
 
 Provisioned dashboards:
 - `Journal Platform Overview`

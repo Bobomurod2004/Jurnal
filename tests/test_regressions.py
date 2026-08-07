@@ -66,6 +66,25 @@ def test_publication_recent_sort_key_ignores_legacy_publish_time_within_same_day
     assert [row['id'] for row in ordered] == [122, 121]
 
 
+def test_publication_author_ids_supports_main_and_legacy_coauthor_storage():
+    assert public_routes._publication_author_ids(
+        {'main_author_id': '12', 'subauthor_ids': ['13', 14]}
+    ) == [12, 13, 14]
+    assert public_routes._publication_author_ids(
+        {'main_author_id': 12, 'sub_author_ids': '{13,14,12}'}
+    ) == [12, 13, 14]
+
+
+def test_author_tooltip_names_link_to_the_author_article_filter():
+    template_path = os.path.join(
+        os.path.dirname(__file__), '..', 'mainweb', 'templates', 'components', 'author_tooltip_macros.html'
+    )
+    with open(template_path, encoding='utf-8') as template_file:
+        template = template_file.read()
+
+    assert "url_for('app__articles', author_id=author.id)" in template
+
+
 def test_new_submission_payload_sets_workflow_defaults_explicitly():
     """New drafts carry a value for every NOT NULL submissions column.
 
@@ -81,6 +100,7 @@ def test_new_submission_payload_sets_workflow_defaults_explicitly():
     assert payload['revision_number'] == 1
     assert payload['revision_allowed'] is True
     assert payload['revision_severity'] == 'major'
+    assert payload['revision_requires_antiplagiarism_recheck'] is False
     assert payload['anti_plagiarism_status'] == 'pending'
 
 
@@ -1191,14 +1211,13 @@ def test_compute_revision_reentry_failed_technical_check_goes_to_pending():
     assert (status, needs_editor) == ('pending', False)
 
 
-def test_compute_revision_reentry_revision_required_returns_to_same_editor():
-    # A revision requested after peer review (editor-requested, or a late
-    # admin objection) must go back to the SAME editor's queue via
-    # under_review, not restart from scratch -- the blind-review continuity
-    # guarantee.
+def test_compute_revision_reentry_revision_required_returns_to_admin_triage():
+    # A revision requested after peer review returns to the admin-visible
+    # review stage. The admin chooses whether the same reviewer receives a
+    # fresh invitation; a completed assignment must not be silently reopened.
     existing = {'status': 'revision_required'}
     status, needs_editor = api_routes._compute_revision_reentry(existing)
-    assert (status, needs_editor) == ('under_review', True)
+    assert (status, needs_editor) == ('under_review', False)
 
 
 def test_compute_revision_reentry_missing_or_unknown_status_falls_back_conservatively():
@@ -1210,6 +1229,115 @@ def test_compute_revision_reentry_missing_or_unknown_status_falls_back_conservat
 
     status, needs_editor = api_routes._compute_revision_reentry({'status': 'not_a_real_status'})
     assert (status, needs_editor) == ('pending', False)
+
+
+def test_revision_snapshot_keeps_the_replaced_manuscript_files(monkeypatch):
+    class RevisionLogTable:
+        def __init__(self):
+            self.added = []
+
+        def get(self, **_filters):
+            return self
+
+        def add(self, **payload):
+            self.added.append(payload)
+            return self
+
+        def exec(self):
+            return []
+
+    revision_log = RevisionLogTable()
+    monkeypatch.setattr(
+        api_routes,
+        'dbc',
+        type('FakeDBC', (), {'submission_revision_log': revision_log})(),
+    )
+
+    api_routes._log_submission_revision(
+        {
+            'id': 44,
+            'revision_number': 1,
+            'file_authors': 'private://articles/authors_old.docx',
+            'file_anonymized': 'private://articles/anonymized_old.docx',
+        },
+        actor_user_id=7,
+        now_ts=123456,
+        is_resubmitted=False,
+    )
+
+    assert revision_log.added == [{
+        'submission_id': 44,
+        'revision_number': 1,
+        'rejection_origin': None,
+        'rejected_by': None,
+        'rejected_at': None,
+        'rejection_notes': None,
+        'resubmitted_at': None,
+        'resubmitted_by': None,
+        'file_authors': 'private://articles/authors_old.docx',
+        'file_anonymized': 'private://articles/anonymized_old.docx',
+        'created_at': 123456,
+    }]
+
+
+def test_revision_file_change_flags_compare_the_current_and_previous_versions():
+    flags = fmadmin_web._submission_file_change_flags(
+        {
+            'revision_number': 2,
+            'file_authors': 'private://articles/authors_new.docx',
+            'file_anonymized': 'private://articles/anonymized_new.docx',
+        },
+        [{
+            'revision_number': 1,
+            'file_authors': 'private://articles/authors_old.docx',
+            'file_anonymized': 'private://articles/anonymized_old.docx',
+        }],
+    )
+
+    assert flags == {'authors_changed': True, 'anonymized_changed': True}
+
+
+def test_requesting_revision_archives_the_current_manuscript_files(monkeypatch):
+    class RevisionLogTable:
+        def __init__(self):
+            self.added = []
+
+        def all(self):
+            return self
+
+        def equal(self, **_filters):
+            return self
+
+        def add(self, **payload):
+            self.added.append(payload)
+            return self
+
+        def exec(self):
+            return []
+
+    revision_log = RevisionLogTable()
+    monkeypatch.setattr(
+        fmadmin_web,
+        'db',
+        type('FakeDB', (), {'submission_revision_log': revision_log})(),
+    )
+
+    fmadmin_web._archive_submission_revision_files(
+        {
+            'id': 44,
+            'revision_number': 1,
+            'file_authors': 'private://articles/authors_old.docx',
+            'file_anonymized': 'private://articles/anonymized_old.docx',
+        },
+        opened_by=7,
+        reason='Xulosani to‘g‘rilang',
+        opened_at=123456,
+    )
+
+    assert revision_log.added[0]['revision_number'] == 1
+    assert revision_log.added[0]['file_authors'] == 'private://articles/authors_old.docx'
+    assert revision_log.added[0]['file_anonymized'] == 'private://articles/anonymized_old.docx'
+    assert revision_log.added[0]['rejection_notes'] == 'Xulosani to‘g‘rilang'
 
 
 def test_is_resubmittable_excludes_final_rejection():
@@ -1313,6 +1441,20 @@ def test_cancel_editor_assignment_route_is_registered_as_post_only():
     assert 'GET' not in rule.methods
 
 
+def test_rereview_route_is_registered_as_post_only():
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    fmadmin_web.register(app)
+
+    rule = next(
+        rule for rule in app.url_map.iter_rules()
+        if rule.rule == '/fmadmin/submissions/<int:submission_id>/revision/re-review'
+    )
+    assert 'POST' in rule.methods
+    assert 'GET' not in rule.methods
+
+
 def _fmadmin_template_app():
     """Minimal app able to render fmadmin templates (no DB, stubbed globals)."""
     from fmadmin.utils.filters import register_filters
@@ -1343,11 +1485,18 @@ def _fmadmin_template_app():
     return app
 
 
+# Stands in for a superadmin: every sidebar group must render for them.
+# The per-role split itself lives in tests/test_role_permissions.py.
 ADMIN_CAPABILITIES = {
     'can_manage_users': True,
     'can_manage_submissions': True,
     'can_view_assignments': True,
     'can_manage_content': True,
+    'can_delete_content': True,
+    'can_manage_editors': True,
+    'can_manage_site': True,
+    'can_manage_finance': True,
+    'can_manage_payments': True,
     'can_access_admin_dashboard': True,
 }
 EDITOR_CAPABILITIES = {
@@ -1421,6 +1570,49 @@ def test_dashboard_status_label_falls_back_instead_of_showing_the_code():
     assert fmadmin_stats._status_label('legacy_code', 'en') == 'legacy_code'
 
 
+def test_dashboard_status_cards_link_to_the_matching_submission_filter():
+    app = _fmadmin_template_app()
+    with app.test_request_context('/fmadmin/'):
+        session['fmadmin_user'] = {
+            'id': 1,
+            'name': 'Admin',
+            'rolename': 'superadmin',
+            'capabilities': ADMIN_CAPABILITIES,
+        }
+        html = render_template(
+            'index.html',
+            stats={
+                'generated_at': 0,
+                'stalled_submissions': 0,
+                'total_articles': 0,
+                'active_submissions': 0,
+                'published_submissions': 0,
+                'rejected_submissions': 0,
+                'acceptance_rate': 0,
+                'avg_decision_days': 0,
+                'total_views': 0,
+                'total_users': 0,
+                'new_articles_30d': 0,
+                'new_submissions_30d': 0,
+            },
+            status_chart={'codes': [], 'labels': [], 'data': [], 'colors': [], 'total': 0},
+            timeline_chart={'labels': [], 'submissions': [], 'published': []},
+            workflow_cards=[{
+                'key': 'under_review',
+                'label': 'Taqrizda',
+                'count': 3,
+                'tone': 'orange',
+            }],
+            attention_submissions=[],
+            recent_submissions=[],
+            top_articles=[],
+            can_run_assignment_automation=False,
+        )
+
+    assert 'href="/fmadmin/submissions?status=under_review"' in html
+    assert 'class="stage-card-link"' in html
+
+
 def test_saving_keeps_a_submission_that_already_left_draft():
     # Production regression: the submit button saves first and submits second,
     # and saving forced status='draft'. The submit step then re-read 'draft',
@@ -1443,14 +1635,71 @@ def test_saving_a_real_draft_still_saves_as_draft():
 
 def test_revision_reentry_still_reads_revision_required_after_a_save():
     # The pair that broke together: save preserves the status, so submit can
-    # still recognise the revision and send it back to review.
-    assert api_routes._compute_revision_reentry({'status': 'revision_required', 'revision_severity': 'minor'}) == ('under_review', False)
-    assert api_routes._compute_revision_reentry({'status': 'revision_required', 'revision_severity': 'major'}) == ('under_review', True)
+    # still recognise the revision and automatically open fresh R2 tasks for
+    # the prior reviewer panel. Only an explicit material-change flag sends
+    # the corrected text through anti-plagiarism again first.
+    assert api_routes._compute_revision_reentry({'status': 'revision_required'}) == ('under_review', True)
+    assert api_routes._compute_revision_reentry({
+        'status': 'revision_required',
+        'revision_requires_antiplagiarism_recheck': True,
+    }) == ('plagiarism_check', False)
     # 'draft' is what the bug fed in -- it is not resubmittable at all, which
     # is exactly why the revision branch never ran.
     from shared.submission_status import is_resubmittable
     assert is_resubmittable('draft') is False
     assert is_resubmittable('revision_required') is True
+
+
+def test_rereview_candidates_are_latest_completed_round_only_and_keep_one_row_per_editor():
+    submission = {'revision_number': 3}
+    assignments = [
+        {'id': 1, 'editor_id': 10, 'revision_round': 1, 'status': 'reviewed', 'assigned_at': 100},
+        {'id': 2, 'editor_id': 10, 'revision_round': 2, 'status': 'reviewed', 'assigned_at': 200},
+        {'id': 3, 'editor_id': 11, 'revision_round': 2, 'status': 'rejected', 'assigned_at': 210},
+        {'id': 4, 'editor_id': 12, 'revision_round': 2, 'status': 'pending', 'assigned_at': 220},
+    ]
+
+    candidates = fmadmin_web._revision_rereview_candidates(submission, assignments)
+
+    assert [item['id'] for item in candidates] == [3, 2]
+
+
+def test_rereview_candidates_fall_back_to_last_completed_panel_after_antiplagiarism_failure():
+    # Revision #2 did not reach reviewers because anti-plagiarism failed.
+    # When the author fixes that failure and submits version #3, the R1 panel
+    # still needs a new task; an empty R2 must not break the review loop.
+    submission = {'revision_number': 3}
+    assignments = [
+        {'id': 21, 'editor_id': 10, 'revision_round': 1, 'status': 'reviewed', 'assigned_at': 100},
+        {'id': 22, 'editor_id': 11, 'revision_round': 1, 'status': 'rejected', 'assigned_at': 101},
+    ]
+
+    candidates = fmadmin_web._revision_rereview_candidates(submission, assignments)
+
+    assert [item['id'] for item in candidates] == [22, 21]
+
+
+def test_author_revision_instruction_never_contains_internal_reviewer_feedback():
+    legacy_combined_instruction = (
+        "Admin izohi:\nFaqat adabiyotlar ro'yxatini tuzating."
+        "\n\nMuharrirlar izohi:\nTaqriz #1: <p>Ichki tahrir izohi</p>"
+    )
+
+    assert dashboard_routes._author_visible_revision_instruction(legacy_combined_instruction) == (
+        "Faqat adabiyotlar ro'yxatini tuzating."
+    )
+
+
+def test_review_comment_display_decodes_rich_text_without_changing_stored_value():
+    assert fmadmin_web._plain_review_comment('<p>bo&#39;ldi</p><p>Ikkinchi qator</p>') == (
+        "bo'ldi\nIkkinchi qator"
+    )
+    assert fmadmin_web._localized_assignment_note(
+        'Revision #4: corrected manuscript re-review', 4, lang='uz'
+    ) == "Tuzatilgan maqolani qayta ko'rib chiqish"
+    assert fmadmin_web._localized_revision_round_label(4, lang='uz') == 'Taqriz #4'
+    assert fmadmin_web._localized_revision_round_label(4, lang='ru') == 'Рецензия #4'
+    assert fmadmin_web._localized_revision_round_label(4, lang='en') == 'Review #4'
 
 
 def _submit_errors(**overrides):

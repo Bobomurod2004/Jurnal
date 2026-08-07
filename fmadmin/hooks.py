@@ -213,9 +213,14 @@ def register(app):
     def inject_translate():
         notifications = _role_notifications_overview()
         current_lang = session.get('language') or 'uz'
+        # Exposed globally so child templates can gate buttons too: the
+        # `{% set user_caps = ... %}` inside basic.html is not visible from a
+        # child template's {% block %}.  Same name, same data.
+        session_user = session.get('fmadmin_user') or {}
         return {
             't': t,
             'translate': translate,
+            'user_caps': session_user.get('capabilities') or {},
             'csrf_token': session.get('csrf_token', ''),
             'upload_access_url': upload_access_url,
             'role_notifications_unread_count': notifications['count'],

@@ -1008,19 +1008,38 @@ def app__dashboard():
 
 
 def _load_revision_rounds(submission_id):
-    """Per-round revision history for one submission, newest first -- the
-    author-facing replacement for the old single mutable `editor_shared_file`
-    field, which stayed visible forever (even past publication) since it had
-    no concept of "which round" or "already resolved"."""
+    """Author-safe correction history, newest round first.
+
+    Reviewer report text is internal editorial data. The author sees the
+    handling admin's correction instruction and any marked-up correction
+    file the editor attached for that round.
+    """
     try:
         rows = dbc.submission_revision_rounds.get(submission_id=submission_id).exec()
     except Exception:
         return []
     for row in rows:
-        editor_file = row.get('editor_file')
-        row['editor_file_url'] = upload_access_url(editor_file) if editor_file else None
+        row['author_instruction'] = _author_visible_revision_instruction(row.get('reason'))
+        file_refs = []
+        for file_ref in [row.get('editor_file')] + _parse_text_array(row.get('feedback_files')):
+            if file_ref and file_ref not in file_refs:
+                file_refs.append(file_ref)
+        row['correction_file_urls'] = [upload_access_url(file_ref) for file_ref in file_refs]
     rows.sort(key=lambda row: _parse_int(row.get('round_number')) or 0, reverse=True)
     return rows
+
+
+def _author_visible_revision_instruction(value):
+    """Hide internal reviewer feedback from both new and legacy round text."""
+    instruction = decode_html_entities(str(value or '')).strip()
+    if not instruction:
+        return ''
+    # Earlier builds stored a combined string in `reason`/`notes`.  Keep the
+    # admin portion visible to the author while ensuring the reviewer portion
+    # is never rendered again.
+    instruction = re.split(r'\s*Muharrirlar\s+izohi\s*:', instruction, maxsplit=1, flags=re.IGNORECASE)[0]
+    instruction = re.sub(r'^\s*Admin\s+izohi\s*:\s*', '', instruction, flags=re.IGNORECASE)
+    return instruction.strip()
 
 
 def app__dashboard_articles():
@@ -1032,6 +1051,7 @@ def app__dashboard_articles():
     for submission in submissions:
         translate(submission)
         _decorate_submission_with_workflow(submission)
+        submission['author_revision_instruction'] = _author_visible_revision_instruction(submission.get('notes'))
         submission['revision_rounds'] = _load_revision_rounds(submission.get('id'))
         if submission.get('main_author_id'):
             author_ids.add(submission['main_author_id'])

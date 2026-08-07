@@ -75,6 +75,7 @@ SUBMISSION_EXTRA_COLUMN_TYPES = {
     'editor_shared_file_note': 'text',
     'editor_shared_file_at': 'bigint',
     'revision_severity': "text NOT NULL DEFAULT 'major'",
+    'revision_requires_antiplagiarism_recheck': 'boolean NOT NULL DEFAULT false',
     'related_submission_id': 'integer',
     'revision_number': 'integer DEFAULT 1',
     'rejection_origin': 'text',
@@ -1763,6 +1764,10 @@ def _send_user_email(user_row, subject, intro, details=None, body_lines=None, ct
         cta_label=cta_label_text,
         reply_to=reply_to,
         fail_silently=True,
+        # Nobody reads this result: every caller fires and forgets. Delivering
+        # inline made the user wait out the SMTP timeout (up to ~50s with
+        # retries) before their request came back.
+        background=True,
     )
 
 
@@ -2186,19 +2191,16 @@ def _compute_revision_reentry(existing):
     """Decide where a submission re-enters the pipeline once the author fixes
     it and resubmits, based on its current (resubmittable) status -- the
     status value alone now carries this, no separate rejection_origin needed.
-    Returns (status, needs_editor_reactivation)."""
+    Returns ``(status, needs_reviewer_invites)``.
+
+    A corrected manuscript returns to the prior reviewer panel as a new,
+    independent review round. If the editor/admin flagged the expected change
+    as material, that panel opens only after a fresh anti-plagiarism check.
+    """
     current_status = str((existing or {}).get('status') or '').strip().lower()
     if current_status == 'revision_required':
-        # 'minor' (see submissions.revision_severity, set by whoever opened
-        # this revision round): the fix goes straight back to the same
-        # admin/editor queue for a quick look, WITHOUT resetting editor
-        # assignments to 'pending' -- a full new review round for a small
-        # fix is exactly the "feels like starting from zero" complaint this
-        # distinction exists to avoid (matches the common "minor revision"
-        # vs "major revision" split used by real editorial workflows).
-        # 'major' (or missing/legacy) keeps the original full re-review.
-        severity = str((existing or {}).get('revision_severity') or 'major').strip().lower()
-        return 'under_review', severity != 'minor'
+        requires_recheck = _parse_bool((existing or {}).get('revision_requires_antiplagiarism_recheck'))
+        return ('plagiarism_check' if requires_recheck else 'under_review', not requires_recheck)
     if current_status == 'antiplagiarism_failed':
         # Author edited the manuscript itself (not just the checked-file
         # re-upload, which has its own path in app__api_article_upload) --
@@ -2231,73 +2233,146 @@ def _resolve_latest_revision_round(submission_id, now_ts=None):
     dbc.submission_revision_rounds.get(id=latest_id).update(resolved_at=now_ts or int(time.time())).exec()
 
 
-def _reactivate_editor_assignments_for_revision(submission_id):
-    """Reset this submission's already-reviewed editor assignments back to
-    'pending' with fresh deadlines, so the SAME reviewer(s) see the revised
-    manuscript -- preserving blind-review continuity across revision cycles."""
+def _create_editor_rereview_assignments_for_revision(submission_id):
+    """Create new review tasks for the corrected-manuscript version.
+
+    Prior assignments are immutable records: resetting them would overwrite
+    the comments and decision from R1. The same completed reviewers instead
+    receive separate ``pending`` assignments for the current R2/R3 version.
+    """
     now_ts = int(time.time())
     acceptance_deadline_at = now_ts + 24 * 60 * 60
     completion_deadline_at = now_ts + 5 * 24 * 60 * 60
 
     try:
-        assignment_rows = dbc.editor_assignments.get(submission_id=submission_id).any(
-            status=list(EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES)
-        ).exec()
+        submission_rows = dbc.submissions.get(id=submission_id).exec()
+        assignment_rows = dbc.editor_assignments.get(submission_id=submission_id).exec()
     except Exception:
-        logger.exception('Failed to load editor_assignments for revision reactivation, submission_id=%s', submission_id)
+        logger.exception('Failed to load revision reviewers for submission_id=%s', submission_id)
+        return []
+    if not submission_rows:
         return []
 
-    reactivated_editor_ids = []
-    for assignment in assignment_rows:
-        assignment_id = _parse_int(assignment.get('id'))
-        if assignment_id is None:
+    current_revision = _parse_int(submission_rows[0].get('revision_number')) or 1
+    if current_revision <= 1:
+        return []
+
+    # Usually the immediately preceding version has the completed reports.
+    # If a revised file failed anti-plagiarism before review, however, that
+    # version has no assignments at all. In that case reuse the latest actual
+    # completed review panel rather than losing the reviewer loop.
+    latest_completed_revision = None
+    for assignment in assignment_rows or []:
+        assignment_revision = _parse_int(assignment.get('revision_round')) or 1
+        if (
+            assignment_revision < current_revision
+            and _clean_text(assignment.get('status')).lower() in EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES
+            and (latest_completed_revision is None or assignment_revision > latest_completed_revision)
+        ):
+            latest_completed_revision = assignment_revision
+    if latest_completed_revision is None:
+        return []
+
+    previous_by_editor = {}
+    current_editor_ids = set()
+    for assignment in assignment_rows or []:
+        editor_id = _parse_int(assignment.get('editor_id'))
+        assignment_revision = _parse_int(assignment.get('revision_round')) or 1
+        if editor_id is None:
             continue
-        next_round = (_parse_int(assignment.get('revision_round')) or 1) + 1
+        if assignment_revision == current_revision:
+            current_editor_ids.add(editor_id)
+        if (
+            assignment_revision == latest_completed_revision
+            and _clean_text(assignment.get('status')).lower() in EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES
+        ):
+            previous_by_editor[editor_id] = assignment
+
+    invited_editor_ids = []
+    for editor_id, previous_assignment in previous_by_editor.items():
+        if editor_id in current_editor_ids:
+            continue
         try:
-            dbc.editor_assignments.get(id=assignment_id).update(
+            dbc.editor_assignments.add(
+                submission_id=submission_id,
+                editor_id=editor_id,
+                assigned_by=_parse_int(previous_assignment.get('assigned_by')),
+                assigned_at=now_ts,
                 status='pending',
                 admin_decision='pending',
-                reviewed_at=None,
-                revision_round=next_round,
+                assignment_note='__system_rereview__',
+                deadline_at=completion_deadline_at,
                 acceptance_deadline_at=acceptance_deadline_at,
                 completion_deadline_at=completion_deadline_at,
                 accepted_at=None,
                 acceptance_reminder_level='',
                 completion_reminder_level='',
+                revision_round=current_revision,
+                created_at=now_ts,
                 updated_at=now_ts
             ).exec()
-            editor_id = _parse_int(assignment.get('editor_id'))
-            if editor_id is not None:
-                reactivated_editor_ids.append(editor_id)
+            invited_editor_ids.append(editor_id)
         except Exception:
-            logger.exception('Failed to reactivate editor_assignment id=%s for revision', assignment_id)
-    return reactivated_editor_ids
+            logger.exception('Failed to create re-review assignment for submission_id=%s editor_id=%s', submission_id, editor_id)
+    return invited_editor_ids
 
 
-def _log_submission_revision(existing, actor_user_id, now_ts):
-    """Snapshot the pre-resubmit rejection state into submission_revision_log
-    before it gets cleared on the submission row -- this is the durable
-    audit trail of "who rejected it, why, and when it was fixed"."""
+def _submission_manuscript_files_changed(existing, payload):
+    """Whether a revision save is about to replace either manuscript file."""
+    for field_name in ('file_authors', 'file_anonymized'):
+        old_value = _to_submission_file((existing or {}).get(field_name))
+        new_value = _to_submission_file((payload or {}).get(field_name))
+        if old_value != new_value:
+            return True
+    return False
+
+
+def _log_submission_revision(existing, actor_user_id, now_ts, is_resubmitted=True):
+    """Snapshot the version being replaced into ``submission_revision_log``.
+
+    The article form saves immediately before it submits.  Capturing the
+    snapshot on that first save preserves the original files before their
+    pointers on ``submissions`` are replaced.  The final submit only marks
+    that same snapshot as resubmitted, so repeated saves cannot overwrite the
+    archived old version with the new one.
+    """
     submission_id = _parse_int((existing or {}).get('id'))
     if submission_id is None:
         return
+    revision_number = _parse_int((existing or {}).get('revision_number')) or 1
     try:
+        existing_logs = dbc.submission_revision_log.get(
+            submission_id=submission_id,
+            revision_number=revision_number,
+        ).exec()
+        if existing_logs:
+            if is_resubmitted:
+                log_id = _parse_int(existing_logs[0].get('id'))
+                if log_id is not None:
+                    dbc.submission_revision_log.get(id=log_id).update(
+                        resubmitted_at=now_ts,
+                        resubmitted_by=_parse_int(actor_user_id),
+                    ).exec()
+            return
+
         dbc.submission_revision_log.add(
             submission_id=submission_id,
-            revision_number=_parse_int((existing or {}).get('revision_number')) or 1,
+            revision_number=revision_number,
             rejection_origin=_clean_text((existing or {}).get('rejection_origin')) or None,
             rejected_by=_parse_int((existing or {}).get('rejected_by')),
             rejected_at=_parse_int((existing or {}).get('rejected_at')),
             rejection_notes=_clean_text((existing or {}).get('notes')) or None,
-            resubmitted_at=now_ts,
-            resubmitted_by=_parse_int(actor_user_id),
+            resubmitted_at=now_ts if is_resubmitted else None,
+            resubmitted_by=_parse_int(actor_user_id) if is_resubmitted else None,
+            file_authors=_to_submission_file((existing or {}).get('file_authors')),
+            file_anonymized=_to_submission_file((existing or {}).get('file_anonymized')),
             created_at=now_ts
         ).exec()
     except Exception:
         logger.exception('Failed to write submission_revision_log for submission_id=%s', submission_id)
 
 
-def _notify_submission_revision_resubmitted(submission, actor_user_id, reactivated_editor_ids):
+def _notify_submission_revision_resubmitted(submission, actor_user_id, reviewer_ids):
     submission_id = _parse_int((submission or {}).get('id'))
     if submission_id is None:
         return
@@ -2326,7 +2401,7 @@ def _notify_submission_revision_resubmitted(submission, actor_user_id, reactivat
             actor_user_id=actor_user_id
         )
 
-    for editor_id in reactivated_editor_ids:
+    for editor_id in reviewer_ids:
         _create_role_notification(
             target_user_id=editor_id,
             target_role='editor',
@@ -2452,6 +2527,7 @@ def _prepare_submission_payload(data, user_id, status, existing=None, is_new=Fal
         payload['revision_number'] = 1
         payload['revision_allowed'] = True
         payload['revision_severity'] = 'major'
+        payload['revision_requires_antiplagiarism_recheck'] = False
         payload['anti_plagiarism_status'] = 'pending'
 
     return payload
@@ -2695,6 +2771,20 @@ def app__api_article_save():
 
         db_payload = _filter_submission_payload(submission_payload)
         if submission_id:
+            # The submit action saves first.  Archive the current manuscript
+            # before this save replaces its file references, otherwise the
+            # editor can never compare the old copy with the corrected one.
+            existing_status = _clean_text(existing.get('status')) or ''
+            if (
+                is_resubmittable(existing_status.lower())
+                and _submission_manuscript_files_changed(existing, submission_payload)
+            ):
+                _log_submission_revision(
+                    existing,
+                    actor_user_id=user_id,
+                    now_ts=int(time.time()),
+                    is_resubmitted=False,
+                )
             updated = dbc.submissions.get(id=submission_id, user_id=user_id).update(**db_payload).exec()
             saved_submission = updated[0] if updated else dbc.submissions.get(id=submission_id, user_id=user_id).exec()[0]
             response_payload = _submission_response_payload(_merge_submission_for_response(saved_submission, submission_payload))
@@ -2773,14 +2863,23 @@ def app__api_article_submit():
 
         now_ts = int(time.time())
         is_revision = bool(existing) and is_resubmittable(str(existing.get('status') or '').strip().lower())
-        needs_editor_reactivation = False
+        needs_reviewer_invites = False
         if is_revision:
-            revision_status, needs_editor_reactivation = _compute_revision_reentry(existing)
+            revision_status, needs_reviewer_invites = _compute_revision_reentry(existing)
             submission_payload['status'] = revision_status
             submission_payload['revision_number'] = (_parse_int(existing.get('revision_number')) or 1) + 1
             submission_payload['rejected_at'] = None
             submission_payload['rejected_by'] = None
             submission_payload['last_revision_submitted_at'] = now_ts
+            if revision_status == 'plagiarism_check':
+                # The prior report belongs to the old manuscript. A material
+                # revision needs a new report before it reaches reviewers.
+                submission_payload['anti_plagiarism_file'] = None
+                submission_payload['anti_plagiarism_status'] = 'pending'
+                submission_payload['anti_plagiarism_checked_at'] = None
+                submission_payload['anti_plagiarism_checked_by'] = None
+                submission_payload['anti_plagiarism_uploaded_by_role'] = None
+                submission_payload['anti_plagiarism_resubmitted_at'] = None
 
         db_payload = _filter_submission_payload(submission_payload)
         if submission_id:
@@ -2790,11 +2889,15 @@ def app__api_article_submit():
                 _log_submission_revision(existing, actor_user_id=user_id, now_ts=now_ts)
                 if str(existing.get('status') or '').strip().lower() == 'revision_required':
                     _resolve_latest_revision_round(submission_id, now_ts=now_ts)
-                reactivated_editor_ids = (
-                    _reactivate_editor_assignments_for_revision(submission_id)
-                    if needs_editor_reactivation else []
+                reviewer_ids = (
+                    _create_editor_rereview_assignments_for_revision(submission_id)
+                    if needs_reviewer_invites else []
                 )
-                _notify_submission_revision_resubmitted(saved_submission, actor_user_id=user_id, reactivated_editor_ids=reactivated_editor_ids)
+                _notify_submission_revision_resubmitted(
+                    saved_submission,
+                    actor_user_id=user_id,
+                    reviewer_ids=reviewer_ids,
+                )
             else:
                 _notify_submission_submitted(saved_submission, actor_user_id=user_id)
             response_payload = _submission_response_payload(_merge_submission_for_response(saved_submission, submission_payload))

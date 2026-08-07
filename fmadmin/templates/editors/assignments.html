@@ -100,6 +100,11 @@
               </div>
               {% if submission %}
               <div class="text-secondary small">ID: {{ submission.id }}</div>
+              {% if submission.revision_number and submission.revision_number > 1 and submission.last_revision_submitted_at %}
+              <div class="mt-1">
+                <span class="badge bg-success-lt"><i class="ti ti-file-check me-1"></i>Tuzatilgan versiya #{{ submission.revision_number }} keldi</span>
+              </div>
+              {% endif %}
               {% endif %}
             </div>
           </td>

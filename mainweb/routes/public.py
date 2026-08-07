@@ -514,6 +514,32 @@ def _parse_int(value):
         return None
 
 
+def _publication_author_ids(publication):
+    """Return every author profile id attached to a published article.
+
+    Older rows may store co-author ids as a PostgreSQL-style text array while
+    new rows use a Python list.  Keeping that compatibility here makes the
+    public author filter work for both kinds of publication records.
+    """
+    row = publication or {}
+    raw_ids = [row.get('main_author_id')]
+    co_author_ids = row.get('subauthor_ids') or row.get('sub_author_ids') or []
+
+    if isinstance(co_author_ids, (list, tuple, set)):
+        raw_ids.extend(co_author_ids)
+    else:
+        raw_text = _clean_text(co_author_ids).strip().strip('{}[]')
+        if raw_text:
+            raw_ids.extend(item.strip().strip('"') for item in raw_text.split(','))
+
+    author_ids = []
+    for raw_id in raw_ids:
+        author_id = _parse_int(raw_id)
+        if author_id is not None and author_id > 0 and author_id not in author_ids:
+            author_ids.append(author_id)
+    return author_ids
+
+
 def _parse_float(value, default=0.0):
     if value in (None, ''):
         return default
@@ -1282,6 +1308,7 @@ def _author_tooltip_payload(author_row, lang=None):
         return None
     orcid_value, orcid_url = _normalize_orcid_profile(row.get('orcid'))
     return {
+        'id': _parse_int(row.get('id')),
         'name': name,
         'email': _clean_text(row.get('email')),
         'organization': _clean_text(row.get('organization')),
@@ -3292,6 +3319,9 @@ def app__contact():
                     separator=' / ',
                 ),
                 fail_silently=True,
+                # Courtesy copy for the sender. The admin copy above stays
+                # synchronous because its failure is reported back to them.
+                background=True,
             )
             flash('Message sent successfully', 'success')
         else:
@@ -3365,6 +3395,11 @@ def app__articles():
     year_filter = request.args.get('year', '').strip()
     access_filter = request.args.get('access', '').strip().lower()
     sort_by = request.args.get('sort', 'newest').strip().lower()
+    author_filter = request.args.get('author_id', '').strip()
+    selected_author_id = _parse_int(author_filter)
+    if selected_author_id is None or selected_author_id <= 0:
+        author_filter = ''
+        selected_author_id = None
 
     valid_sort_options = {'newest', 'oldest', 'title_az', 'title_za', 'most_viewed', 'most_cited'}
     if sort_by not in valid_sort_options:
@@ -3461,6 +3496,17 @@ def app__articles():
         if author_profile:
             return author_profile.get('name')
         return None
+
+    selected_author = get_author_profile(selected_author_id) if selected_author_id else None
+    if author_filter and not selected_author:
+        author_filter = ''
+        selected_author_id = None
+
+    if selected_author_id:
+        publications = [
+            publication for publication in publications
+            if selected_author_id in _publication_author_ids(publication)
+        ]
 
     def get_issue(issue_id):
         if not issue_id:
@@ -3600,8 +3646,10 @@ def app__articles():
                              'volume': volume_filter,
                              'year': year_filter,
                              'access': access_filter,
-                             'sort': sort_by
+                             'sort': sort_by,
+                             'author_id': selected_author_id or '',
                          },
+                         selected_author=selected_author,
                          total_results=total_results,
                          total_pages=total_pages,
                          page=page,

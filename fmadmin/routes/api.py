@@ -8,7 +8,7 @@ from flask import request, jsonify
 from werkzeug.utils import secure_filename
 from extensions import db
 from modules.translate import t, translate, clear_translations_cache
-from utils.auth import api_permission_required, api_superadmin_required
+from utils.auth import api_any_permission_required, api_permission_required
 try:
     import fmadmin.settings as settings
 except ImportError:
@@ -18,6 +18,13 @@ logger = logging.getLogger(__name__)
 api_content_required = api_permission_required('fmadmin.content.manage', 'Content management access required')
 api_finance_required = api_permission_required('fmadmin.finance.manage', 'Finance management access required')
 api_users_required = api_permission_required('fmadmin.users.manage', 'User management access required')
+api_site_required = api_permission_required('fmadmin.site.manage', 'Site management access required')
+# The author picker is opened both from article editing and the authors
+# directory, so it accepts either side's permission.
+api_author_picker_required = api_any_permission_required(
+    ('fmadmin.content.manage', 'fmadmin.users.manage'),
+    'Content or user management access required'
+)
 TARIFF_ENTITLEMENT_SCOPES = {'all', 'archive'}
 DEFAULT_ARCHIVE_DAYS_THRESHOLD = 365
 ALLOWED_TARIFF_FEATURE_PERMISSIONS = {
@@ -549,7 +556,7 @@ def _sync_mainweb_translation_cache():
     return False, last_error
 
 
-@api_superadmin_required
+@api_site_required
 def get_translation(alias):
     safe_alias = (alias or '').strip()
     if not safe_alias:
@@ -561,7 +568,7 @@ def get_translation(alias):
     return jsonify({'success': False, 'message': 'Translation not found'}), 404
 
 
-@api_superadmin_required
+@api_site_required
 def update_translation(alias):
     safe_alias = (alias or '').strip()
     if not safe_alias:
@@ -601,7 +608,7 @@ def update_translation(alias):
     })
 
 
-@api_superadmin_required
+@api_site_required
 def sync_translations():
     translations = db.translations.all().exec()
     translations_count = len(translations)
@@ -913,7 +920,7 @@ def delete_citation(citation_id):
     return jsonify({'success': True})
 
 
-@api_users_required
+@api_author_picker_required
 def api_getauthor():
     data = _json_payload()
     author_id = data.get('author_id')
@@ -939,7 +946,7 @@ def api_getauthor():
     return jsonify({'success': True, 'is_found': True, 'author': author_profile})
 
 
-@api_users_required
+@api_author_picker_required
 def api_createauthor():
     data = _json_payload()
     raw_name = _clean_text(data.get('name'))

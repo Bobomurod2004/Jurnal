@@ -171,7 +171,13 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env before starting Grafana}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
-      GF_SERVER_ROOT_URL: http://127.0.0.1:3000
+      # Must match the address the browser actually uses, otherwise Grafana's
+      # redirects and asset URLs point at 127.0.0.1 and the UI half-loads.
+      # Behind the site's nginx set, in .env:
+      #   GRAFANA_ROOT_URL=https://<your-domain>/grafana/
+      #   GRAFANA_SERVE_FROM_SUB_PATH=true
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://127.0.0.1:3000}
+      GF_SERVER_SERVE_FROM_SUB_PATH: ${GRAFANA_SERVE_FROM_SUB_PATH:-false}
       DB_HOST: db
       DB_PORT: 5432
       DB_USER: ${DB_USER}

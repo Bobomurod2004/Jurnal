@@ -46,35 +46,67 @@ class ConnectorQuery(object):
                 last_exception = exc
                 time.sleep(min(0.1 * (attempt + 1), 1.0))
                 self.connector._connect()
-                self.connection = self.connector.conn
             except Exception:
                 raise
         if last_exception:
             raise last_exception
         raise psycopg2.OperationalError("Database connection precheck failed")
     
+    # A read can be replayed safely once the connection is back; a write
+    # cannot -- the server may have committed it just before the connection
+    # dropped, and replaying would duplicate the row.
+    _REPLAYABLE_ACTIONS = ("SELECT", "COUNT", "SUMM", "GROUP_BY")
+
+    def _reconnect(self):
+        """Replace this thread's dead connection with a fresh one."""
+        try:
+            self.connector.conn.close()
+        except Exception:
+            pass
+        self.connector._connect()
+
+    def _rollback_quietly(self):
+        try:
+            self.connection.rollback()
+        except Exception:
+            logger.debug("Rollback skipped: connection is unusable")
+
     def _sql(self, query, arguments, colnames = []):
-        with self.connector._lock:
-            self.precheck()
+        # No lock: `connection` is this thread's own connection, so queries
+        # from different threads no longer serialise behind a single mutex --
+        # and one thread's rollback can no longer discard another's
+        # uncommitted work.
+        connection = self.connection
+
+        for attempt in (0, 1):
             cursor = None
             try:
-                cursor = self.connection.cursor()
+                cursor = connection.cursor()
                 cursor.execute(query, arguments)
-                self.connection.commit()
+                connection.commit()
                 if self._action != "DELETE":
                     if colnames:
-                        result = self._get_all(cursor.fetchall(), colnames = colnames)
-                    else:
-                        result = self._get_all(cursor.fetchall())
-                    return result
+                        return self._get_all(cursor.fetchall(), colnames = colnames)
+                    return self._get_all(cursor.fetchall())
                 return True
+            except (psycopg2.OperationalError, psycopg2.InterfaceError):
+                replayable = attempt == 0 and self._action in self._REPLAYABLE_ACTIONS
+                self._reconnect()
+                connection = self.connection
+                if not replayable:
+                    logger.exception("Database connection lost (table=%s, action=%s)", self.tablename, self._action)
+                    raise
+                logger.warning("Database connection lost, replaying read (table=%s)", self.tablename)
             except Exception:
-                self.connection.rollback()
+                self._rollback_quietly()
                 logger.exception("Database query failed (table=%s, action=%s)", self.tablename, self._action)
                 raise
             finally:
                 if cursor is not None:
-                    cursor.close()
+                    try:
+                        cursor.close()
+                    except Exception:
+                        pass
 
     def exec(self):
         _filters = []
@@ -443,10 +475,19 @@ class ConnectorQuery(object):
         new_copy.unique_identy = copy.deepcopy(self.unique_identy)
         return new_copy
 
+    @property
+    def connection(self):
+        """Always the calling thread's own connection.
+
+        Resolved on every access rather than captured in `__init__`, so a
+        query object built on one thread and executed on another still talks
+        to the right connection.
+        """
+        return self.connector.conn
+
     def __init__(self, connection, tablename, is_single = False, unique_identy = None, single_item = None):
         super(ConnectorQuery, self).__init__()
         self.connector = connection
-        self.connection = connection.conn
         self.tablename = tablename
         self.is_single = is_single
         self.unique_identy = unique_identy
@@ -765,8 +806,32 @@ class PostgreSQLConnector(object):
             self.password = "postgres"
         return
 
+    @property
+    def conn(self):
+        """This thread's own database connection, opened on first use.
+
+        One shared connection used to serialise every query behind
+        `self._lock`, and let a `rollback()` on one thread wipe out another
+        thread's uncommitted work.  Gunicorn threads are long-lived and
+        reused, so each holds exactly one connection -- budget
+        `workers x threads` connections per service against the server's
+        `max_connections`.
+        """
+        connection = getattr(self._local, 'conn', None)
+        if connection is None or connection.closed:
+            connection = self._open_connection()
+            self._local.conn = connection
+        return connection
+
+    @conn.setter
+    def conn(self, value):
+        self._local.conn = value
+
+    def _open_connection(self):
+        return psycopg2.connect(database = self.database, user = self.user, password = self.password, host = self.host, port = self.port)
+
     def _connect(self):
-        self.conn = psycopg2.connect(database = self.database, user = self.user, password = self.password, host = self.host, port = self.port)
+        self._local.conn = self._open_connection()
         return
 
     def _init_columns(self):
@@ -831,7 +896,8 @@ class PostgreSQLConnector(object):
         self.primary_columns = {}
 
         self.json_data = None
-        self.conn = None
+        # Connections live per thread; see the `conn` property.
+        self._local = threading.local()
         self.languages = ['ru', 'en', 'cn']
         self._lock = threading.RLock()
         self._skip_init = str(os.getenv('SKIP_DB_INIT', '')).strip().lower() in {'1', 'true', 'yes'}
@@ -851,7 +917,9 @@ class PostgreSQLConnector(object):
         if self._ask:
             self._ask_creds()
 
-        if self.conn == None or autoconnect:
+        # Read the raw slot, not the `conn` property -- the property would open
+        # a connection just to test it and the next line would leak it.
+        if autoconnect or getattr(self._local, 'conn', None) is None:
             self._connect()
 
         self._init_tables()

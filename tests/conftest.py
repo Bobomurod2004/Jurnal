@@ -56,13 +56,15 @@ def _install_import_aliases():
     merged_private_uploads = _merge_modules('utils.private_uploads', ('mainweb.utils.private_uploads', 'fmadmin.utils.private_uploads'))
     uploads_module = importlib.import_module('mainweb.utils.uploads')
     emailer_module = importlib.import_module('mainweb.utils.emailer')
-    filters_module = importlib.import_module('mainweb.utils.filters')
+    # fmadmin first: it owns the admin-timezone helpers that fmadmin routes
+    # import, and mainweb fills in the rest (richtext, covers, currency).
+    merged_filters = _merge_modules('utils.filters', ('fmadmin.utils.filters', 'mainweb.utils.filters'))
     module_map = {
         'notifications': merged_notifications,
         'private_uploads': merged_private_uploads,
         'uploads': uploads_module,
         'emailer': emailer_module,
-        'filters': filters_module,
+        'filters': merged_filters,
     }
     for short_name, module in module_map.items():
         full_name = f'utils.{short_name}'

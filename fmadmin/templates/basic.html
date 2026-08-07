@@ -142,16 +142,22 @@
             {% set home_endpoint = 'index' if user_caps.can_access_admin_dashboard else 'editor_dashboard' %}
             {{ sidebar_link(home_endpoint, 'ti-home', t('admin_home'), ['index', 'editor_dashboard']) }}
 
-            <!-- Раздел "Пользователи" только для супер-админа -->
-            {% if user_caps.can_manage_users %}
+            <!-- Foydalanuvchilar: ro'yxatlar superadmin'da, Muharrirlar admin'da ham -->
+            {% if user_caps.can_manage_users or user_caps.can_manage_editors %}
             {% set _users_active = ['users', 'user_edit', 'authors', 'author_edit', 'editors', 'editor_edit', 'editorial_members', 'editorial_member_edit'] %}
             {% call sidebar_group('users', 'ti-users', t('admin_users'), _users_active) %}
+            {% if user_caps.can_manage_users %}
             {{ sidebar_link('users', 'ti-user', t('admin_users'), ['users', 'user_edit']) }}
             {{ sidebar_link('authors', 'ti-id-badge-2', t('admin_authors'), ['authors', 'author_edit']) }}
+            {% endif %}
+            {% if user_caps.can_manage_editors %}
             {{ sidebar_link('editors', 'ti-user-check', t('admin_editors'), ['editors', 'editor_edit']) }}
+            {% endif %}
+            {% if user_caps.can_manage_users %}
             {% set _lang = (session.get('language') or 'uz') %}
             {% set editorial_label = 'Редакционная коллегия' if _lang == 'ru' else ('Editorial Board' if _lang == 'en' else "Tahrir hay'ati") %}
             {{ sidebar_link('editorial_members', 'ti-users-group', editorial_label, ['editorial_members', 'editorial_member_edit']) }}
+            {% endif %}
             {% endcall %}
             {% endif %}
 
@@ -185,40 +191,58 @@
             {% endcall %}
             {% endif %}
 
-            <!-- Разделы контента и финансов только для супер-админа -->
-            {% if user_caps.can_manage_content %}
             {% set _menu_lang = session.get('language') or 'uz' %}
 
+            <!-- Jurnal kontenti: admin ham boshqaradi -->
+            {% if user_caps.can_manage_content %}
             {% set _content_label = 'Контент журнала' if _menu_lang == 'ru' else ('Journal content' if _menu_lang == 'en' else 'Jurnal kontenti') %}
             {% set _content_active = ['issues', 'issue_edit', 'articles', 'article_edit', 'article_content'] %}
             {% call sidebar_group('content', 'ti-article', _content_label, _content_active) %}
             {{ sidebar_link('issues', 'ti-book-2', t('admin_issues'), ['issues', 'issue_edit']) }}
             {{ sidebar_link('articles', 'ti-article', t('admin_articles'), ['articles', 'article_edit', 'article_content']) }}
             {% endcall %}
+            {% endif %}
 
+            <!-- Sayt boshqaruvi: yangilik/e'lon admin'da, qolgani superadmin'da -->
+            {% if user_caps.can_manage_site or user_caps.can_manage_content %}
             {% set _site_label = 'Управление сайтом' if _menu_lang == 'ru' else ('Site management' if _menu_lang == 'en' else 'Sayt boshqaruvi') %}
             {% set _site_active = ['pages', 'page_edit', 'news', 'news_edit', 'announcements', 'announcement_edit', 'home_videos', 'home_gallery', 'contact_info_settings', 'translations'] %}
             {% call sidebar_group('site', 'ti-layout-grid', _site_label, _site_active) %}
+            {% if user_caps.can_manage_site %}
             {{ sidebar_link('pages', 'ti-file-description', 'Sahifalar', ['pages', 'page_edit']) }}
+            {% endif %}
+            {% if user_caps.can_manage_content %}
             {{ sidebar_link('news', 'ti-news', t('admin_news'), ['news', 'news_edit']) }}
             {{ sidebar_link('announcements', 'ti-speakerphone', t('admin_announcements'), ['announcements', 'announcement_edit']) }}
+            {% endif %}
+            {% if user_caps.can_manage_site %}
             {{ sidebar_link('home_videos', 'ti-video', 'Bosh sahifa videolari', ['home_videos']) }}
             {{ sidebar_link('home_gallery', 'ti-photo', 'Bosh sahifa rasmlari', ['home_gallery']) }}
             {{ sidebar_link('contact_info_settings', 'ti-address-book', "Aloqa ma'lumotlari", ['contact_info_settings']) }}
             {{ sidebar_link('translations', 'ti-language', t('admin_translations'), ['translations']) }}
+            {% endif %}
             {% endcall %}
+            {% endif %}
 
+            {% if user_caps.can_manage_site %}
             {% set _email_active = ['email_templates', 'email_template_create', 'email_template_edit', 'email_logs'] %}
             {% call sidebar_group('email', 'ti-mail', 'Email', _email_active) %}
             {{ sidebar_link('email_templates', 'ti-mail-cog', 'Email shablonlar', ['email_templates', 'email_template_create', 'email_template_edit']) }}
             {{ sidebar_link('email_logs', 'ti-mail-forward', 'Email xabarlar', ['email_logs']) }}
             {% endcall %}
+            {% endif %}
 
+            <!-- Moliya: to'lovlarni admin qabul qiladi, narx siyosati superadmin'da -->
+            {% if user_caps.can_manage_finance or user_caps.can_manage_payments %}
             {% set _finance_active = ['tariffs', 'payment_guide_settings', 'payments', 'payment_edit'] %}
             {% call sidebar_group('finance', 'ti-cash', t('admin_finance'), _finance_active) %}
+            {% if user_caps.can_manage_finance %}
             {{ sidebar_link('tariffs', 'ti-tags', t('admin_tariffs'), ['tariffs']) }}
             {{ sidebar_link('payment_guide_settings', 'ti-receipt', "To'lov yo'riqnomasi", ['payment_guide_settings']) }}
+            {% endif %}
+            {% if user_caps.can_manage_payments %}
             {{ sidebar_link('payments', 'ti-credit-card', t('admin_payments'), ['payments', 'payment_edit']) }}
+            {% endif %}
             {% endcall %}
             {% endif %}
 
@@ -343,7 +367,8 @@
                 {{ t('admin_profile') }}
               </a>
               {% endif %}
-              {% if user_caps.can_manage_content %}
+              {# Sozlamalar tarjimalar sahifasiga olib boradi -- u site.manage talab qiladi. #}
+              {% if user_caps.can_manage_site %}
               <a href="{{ url_for('translations') }}" class="dropdown-item">
                 <i class="ti ti-settings me-2"></i>
                 {{ t('admin_settings') }}

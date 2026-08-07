@@ -15,6 +15,7 @@ except ImportError:
 
 from extensions import db
 from shared.email.email_service import EmailService
+from shared.email.background import dispatch as dispatch_email
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ def send_notification_email(
     template_alias=None,
     template_vars=None,
     preferred_language='uz',
+    background=False,
 ):
     """
     Send notification email.
@@ -64,9 +66,12 @@ def send_notification_email(
         template_alias: Template alias for DB templates
         template_vars: Template variables (for future template system)
         preferred_language: Preferred language (for future template system)
+        background: If True, deliver off-request and return immediately.
+            Only for mail nobody is waiting on -- a verification code must
+            stay synchronous so a failure can still be shown to the user.
 
     Returns:
-        bool: True if sent successfully
+        bool: True if sent successfully (or, in background mode, if queued)
     """
     service = _get_email_service()
 
@@ -76,16 +81,24 @@ def send_notification_email(
     # Note: template_vars and preferred_language are not yet implemented
     # in the shared EmailService, but parameters are kept for compatibility
 
-    return service.send_notification_email(
-        recipients=recipients,
-        subject=subject,
-        intro=intro,
-        details=details,
-        body_lines=body_lines,
-        cta_url=cta_url,
-        cta_label=cta_label,
-        reply_to=reply_to,
-        fail_silently=fail_silently,
-        template_alias=template_alias,
-        jinja_env=jinja_env,
-    )
+    def _send(env=jinja_env):
+        return service.send_notification_email(
+            recipients=recipients,
+            subject=subject,
+            intro=intro,
+            details=details,
+            body_lines=body_lines,
+            cta_url=cta_url,
+            cta_label=cta_label,
+            reply_to=reply_to,
+            fail_silently=fail_silently,
+            template_alias=template_alias,
+            jinja_env=env,
+        )
+
+    if background:
+        app = current_app._get_current_object() if current_app else None
+        # The captured jinja_env belongs to this app, so the worker reuses it.
+        return dispatch_email(app, _send, description=subject)
+
+    return _send()

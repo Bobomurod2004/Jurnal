@@ -1,11 +1,19 @@
 {% macro render_author(author, author_tooltip_ui, name_class='') -%}
 {% if author and author.name %}
 <span class="author-tooltip-wrap">
+    {% if author.id %}
+    <a href="{{ url_for('app__articles', author_id=author.id) }}"
+       class="author-tooltip-trigger cursor-pointer text-slate-700 hover:text-fmmain transition-colors underline decoration-dotted underline-offset-4 bg-transparent border-0 p-0 text-left leading-tight{% if name_class %} {{ name_class }}{% endif %}"
+       aria-expanded="false">
+        {{ author.name }}
+    </a>
+    {% else %}
     <button type="button"
             class="author-tooltip-trigger cursor-help text-slate-700 hover:text-fmmain transition-colors underline decoration-dotted underline-offset-4 bg-transparent border-0 p-0 text-left leading-tight{% if name_class %} {{ name_class }}{% endif %}"
             aria-expanded="false">
         {{ author.name }}
     </button>
+    {% endif %}
     <span class="author-tooltip-card" role="tooltip" aria-hidden="true">
         <span class="block text-[11px] font-semibold text-slate-900 mb-1.5">{{ author.name }}</span>
         <span class="block"><strong>{{ author_tooltip_ui.email_label }}:</strong> {{ author.email or author_tooltip_ui.not_specified }}</span>

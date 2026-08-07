@@ -13,6 +13,9 @@ services:
     image: postgres:17-alpine
     container_name: journal_db_local
     restart: unless-stopped
+    # Each application thread holds its own connection (see the `conn` property
+    # in the connectors); keep headroom over workers x threads x services.
+    command: ["postgres", "-c", "max_connections=300"]
     environment:
       POSTGRES_DB: journal2
       POSTGRES_USER: postgres
@@ -129,7 +132,7 @@ services:
     command: >-
       bash -lc "mkdir -p \"$$PROMETHEUS_MULTIPROC_DIR\" &&
       rm -f \"$$PROMETHEUS_MULTIPROC_DIR\"/* &&
-      exec gunicorn --config /app/gunicorn.conf.py --bind 0.0.0.0:5000 --workers 1 --threads 8 --timeout 180 --keep-alive 5 --reload --access-logfile - --error-logfile - run:app"
+      exec gunicorn --config /app/gunicorn.conf.py --bind 0.0.0.0:5000 --workers 2 --threads 16 --timeout 180 --keep-alive 5 --reload --access-logfile - --error-logfile - run:app"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5000/healthz || exit 1"]
       interval: 15s
@@ -190,7 +193,7 @@ services:
     command: >-
       bash -lc "mkdir -p \"$$PROMETHEUS_MULTIPROC_DIR\" &&
       rm -f \"$$PROMETHEUS_MULTIPROC_DIR\"/* &&
-      exec gunicorn --config /app/gunicorn.conf.py --bind 0.0.0.0:5001 --workers 1 --threads 8 --timeout 180 --keep-alive 5 --reload --access-logfile - --error-logfile - run:app"
+      exec gunicorn --config /app/gunicorn.conf.py --bind 0.0.0.0:5001 --workers 2 --threads 16 --timeout 180 --keep-alive 5 --reload --access-logfile - --error-logfile - run:app"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5001/healthz || exit 1"]
       interval: 15s

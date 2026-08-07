@@ -294,35 +294,38 @@
                         </div>
                     {% endif %}
 
-	                    {% if (submission.status == 'rejected' or is_resubmittable(submission.status)) and submission.notes %}
+	                    {% if (submission.status == 'rejected' or is_resubmittable(submission.status)) and submission.author_revision_instruction %}
 	                        <div class="mt-4 rounded-lg border border-red-100 bg-red-50/70 px-3 py-2">
 	                            <p class="text-xs font-semibold uppercase tracking-wide text-red-700">{{ t('reason') }}</p>
-	                            <p class="mt-1 text-sm text-red-800">{{ submission.notes }}</p>
+	                            <p class="mt-1 text-sm text-red-800">{{ submission.author_revision_instruction }}</p>
                         </div>
                     {% endif %}
 
 	                    {% if submission.revision_rounds %}
 	                        <div class="mt-4 space-y-2">
-	                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Tuzatishlar tarixi</p>
+	                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t('revision_history') }}</p>
 	                            {% for round in submission.revision_rounds %}
 	                                <div class="rounded-lg border px-3 py-2 {{ 'border-amber-200 bg-amber-50/70' if not round.resolved_at else 'border-gray-100 bg-gray-50' }}">
 	                                    <div class="flex items-center justify-between gap-2">
-	                                        <span class="text-xs font-semibold text-gray-700">{{ round.round_number }}-tur &middot; {{ 'Kichik tuzatish' if round.severity == 'minor' else 'Katta tuzatish' }}</span>
+	                                        <span class="text-xs font-semibold text-gray-700">{{ round.round_number }}-{{ t('revision_round_suffix') }} &middot; {{ t('revision_requested') }}</span>
 	                                        {% if round.resolved_at %}
-	                                            <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">Hal qilindi</span>
+	                                            <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">{{ t('revision_corrected') }}</span>
 	                                        {% else %}
 	                                            <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">Kutilmoqda</span>
 	                                        {% endif %}
 	                                    </div>
-	                                    {% if round.reason %}
-	                                        <p class="mt-1 text-sm text-gray-700">{{ round.reason }}</p>
+	                                    {% if round.author_instruction %}
+	                                        <p class="mt-1 text-sm text-gray-700">{{ round.author_instruction }}</p>
 	                                    {% endif %}
-	                                    {% if round.editor_file_url %}
-	                                        <a href="{{ round.editor_file_url }}" target="_blank" class="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 hover:underline">
+	                                    {% if round.requires_antiplagiarism_recheck %}
+	                                        <p class="mt-1 text-xs font-semibold text-amber-700">Qayta yuborilgach antiplagiat tekshiruvi talab qilinadi.</p>
+	                                    {% endif %}
+	                                    {% for correction_file_url in round.correction_file_urls %}
+	                                        <a href="{{ correction_file_url }}" target="_blank" class="mt-2 mr-3 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 hover:underline">
 	                                            <iconify-icon icon="solar:file-download-bold-duotone" class="text-base"></iconify-icon>
-	                                            Muharrir faylini yuklab olish
+	                                            {{ t('revision_correction_file') }}
 	                                        </a>
-	                                    {% endif %}
+	                                    {% endfor %}
 	                                    <p class="mt-1 text-[11px] text-gray-400">{{ round.opened_at | timestamp_to_date }}</p>
 	                                </div>
 	                            {% endfor %}

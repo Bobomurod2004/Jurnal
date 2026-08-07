@@ -286,7 +286,6 @@
               <button class="btn btn-sm btn-icon btn-outline-secondary" data-bs-toggle="modal"
                 data-bs-target="#editSubmissionModal" data-submission-id="{{ submission.id }}"
                 data-submission-status="{{ submission.status or '' }}"
-                data-submission-notes="{{ submission.notes or '' }}"
                 title="{{ t('admin_submissions_edit_title') }}">
                 <i class="ti ti-edit"></i>
               </button>
@@ -359,7 +358,7 @@
 
           <div class="mb-3">
             <label class="form-label">{{ t("admin_label_notes") }}</label>
-            <textarea class="form-control" id="submission_notes" name="notes" rows="5"
+            <textarea class="form-control" id="submission_notes" name="notes" rows="5" autocomplete="off"
               placeholder="{{ t('admin_placeholder_notes') }}"></textarea>
           </div>
 
@@ -476,12 +475,10 @@
 
         const submissionId = button.getAttribute('data-submission-id');
         const submissionStatus = button.getAttribute('data-submission-status');
-        const submissionNotes = button.getAttribute('data-submission-notes');
-
         // Заполняем форму
         document.getElementById('submission_id').value = submissionId;
         document.getElementById('submission_status').value = submissionStatus;
-        document.getElementById('submission_notes').value = submissionNotes;
+        document.getElementById('submission_notes').value = '';
       });
     }
 
