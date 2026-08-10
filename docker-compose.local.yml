@@ -132,7 +132,7 @@ services:
     command: >-
       bash -lc "mkdir -p \"$$PROMETHEUS_MULTIPROC_DIR\" &&
       rm -f \"$$PROMETHEUS_MULTIPROC_DIR\"/* &&
-      exec gunicorn --config /app/gunicorn.conf.py --bind 0.0.0.0:5000 --workers 2 --threads 16 --timeout 180 --keep-alive 5 --reload --access-logfile - --error-logfile - run:app"
+      exec gunicorn --config /app/gunicorn.conf.py --bind 0.0.0.0:5000 --workers 2 --threads 16 --timeout 180 --keep-alive 5 --reload --access-logfile /dev/null --error-logfile - run:app"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5000/healthz || exit 1"]
       interval: 15s
@@ -193,7 +193,7 @@ services:
     command: >-
       bash -lc "mkdir -p \"$$PROMETHEUS_MULTIPROC_DIR\" &&
       rm -f \"$$PROMETHEUS_MULTIPROC_DIR\"/* &&
-      exec gunicorn --config /app/gunicorn.conf.py --bind 0.0.0.0:5001 --workers 2 --threads 16 --timeout 180 --keep-alive 5 --reload --access-logfile - --error-logfile - run:app"
+      exec gunicorn --config /app/gunicorn.conf.py --bind 0.0.0.0:5001 --workers 2 --threads 16 --timeout 180 --keep-alive 5 --reload --access-logfile /dev/null --error-logfile - run:app"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5001/healthz || exit 1"]
       interval: 15s

@@ -59,7 +59,10 @@
             </button>
         </form>
         {% else %}
-        <a href="{{ url_for('app__login', next=request.full_path) }}" class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 font-medium text-gray-700 hover:border-fmmain/40 hover:text-gray-900 transition-colors">
+        {# `login_next_url` is None on the auth pages, so crawlers cannot walk
+           /login?next=/login?next%3D/login... forever. rel=nofollow keeps them
+           out of the sign-in page altogether. #}
+        <a href="{% if login_next_url %}{{ url_for('app__login', next=login_next_url) }}{% else %}{{ url_for('app__login') }}{% endif %}" rel="nofollow" class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 font-medium text-gray-700 hover:border-fmmain/40 hover:text-gray-900 transition-colors">
             <iconify-icon icon="solar:login-3-bold-duotone" class="text-base"></iconify-icon>
             {{ t('login') }}
         </a>

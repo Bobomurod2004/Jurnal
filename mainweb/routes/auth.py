@@ -26,6 +26,7 @@ from utils.auth import (
     is_valid_email,
     not_auth_only,
     sanitize_input,
+    sanitize_next_url,
 )
 from utils.roles import AUTHOR_ROLE, build_user_roles, hydrate_user_roles, user_has_permission
 
@@ -183,22 +184,10 @@ def _set_user_session(user_row):
 
 
 def _sanitize_next_url(next_url):
-    if not next_url:
-        return None
-    next_url = str(next_url).strip()
-    if not next_url:
-        return None
-    parsed = urlparse(next_url)
-    if parsed.scheme or parsed.netloc:
-        return None
-    if not next_url.startswith('/'):
-        return None
-    if next_url.startswith('//'):
-        return None
-    blocked_paths = {'/login', '/logout', '/register'}
-    if next_url.split('?', 1)[0] in blocked_paths:
-        return None
-    return next_url
+    # Single source of truth in utils.auth: the header link builder needs the
+    # very same rule, and importing it from a route module would be the only
+    # cross-route import in the app.
+    return sanitize_next_url(next_url)
 
 
 def _post_auth_redirect(user_row, next_url=None):

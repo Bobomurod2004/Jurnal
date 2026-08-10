@@ -504,6 +504,22 @@ _country_catalog_cache = {
 _country_catalog_cache_timestamp = 0.0
 _country_catalog_cache_lock = threading.Lock()
 
+# The editorial board is rendered on the homepage and on /editorial, but it is
+# edited a few times a year. Re-reading (and re-localising) it on every request
+# was pure repeated work on the two busiest pages.
+EDITORIAL_MEMBERS_CACHE_TTL = 300
+_editorial_members_cache = None
+_editorial_members_cache_timestamp = 0.0
+_editorial_members_cache_lock = threading.Lock()
+
+
+def _invalidate_editorial_members_cache():
+    """Drop the cached board so an admin edit shows up without a restart."""
+    global _editorial_members_cache, _editorial_members_cache_timestamp
+    with _editorial_members_cache_lock:
+        _editorial_members_cache = None
+        _editorial_members_cache_timestamp = 0.0
+
 
 def _parse_int(value):
     if value in (None, ''):
@@ -2502,8 +2518,27 @@ def _load_editorial_members():
 
 
 def _load_public_editorial_members():
-    editorial_members = _load_editorial_members()
-    return editorial_members or []
+    """Editorial board for the public pages, cached for a few minutes.
+
+    Both the homepage and /editorial render the whole board, so without this
+    every visit re-queried and re-localised the same rarely-changing rows.
+    """
+    global _editorial_members_cache, _editorial_members_cache_timestamp
+
+    now = time.time()
+    with _editorial_members_cache_lock:
+        cached = _editorial_members_cache
+        is_fresh = now - _editorial_members_cache_timestamp < EDITORIAL_MEMBERS_CACHE_TTL
+        if cached is not None and is_fresh:
+            return cached
+
+    editorial_members = _load_editorial_members() or []
+
+    with _editorial_members_cache_lock:
+        _editorial_members_cache = editorial_members
+        _editorial_members_cache_timestamp = now
+
+    return editorial_members
 
 
 def _load_home_gallery(lang=None):

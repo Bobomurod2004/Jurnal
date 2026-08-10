@@ -208,11 +208,21 @@ def configure_logging(app, service_name: str, version: str, level_name: str) -> 
         app.logger.propagate = True
         app.logger.setLevel(level)
 
-        for logger_name in ("gunicorn.error", "gunicorn.access", "werkzeug"):
+        for logger_name in ("gunicorn.error", "werkzeug"):
             child_logger = logging.getLogger(logger_name)
             child_logger.handlers = []
             child_logger.propagate = True
             child_logger.setLevel(level)
+
+        # gunicorn.access duplicates every line the app's own `log_request`
+        # hook already writes -- same request, same status, but without the
+        # request_id, user or duration. Routing it here doubled the volume
+        # shipped to Loki for no extra information. Silenced at the logger, not
+        # via --access-logfile, because this handler would keep emitting it.
+        access_logger = logging.getLogger("gunicorn.access")
+        access_logger.handlers = []
+        access_logger.propagate = False
+        access_logger.disabled = True
 
         logging.captureWarnings(True)
 

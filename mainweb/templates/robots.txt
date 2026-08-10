@@ -5,4 +5,12 @@ Disallow: /fmadmin/
 Disallow: /article/purchase/
 Disallow: /issue/purchase/
 
+# Auth pages carry a ?next= return path. They hold nothing worth indexing, and
+# crawling them used to generate an endless chain of re-encoded URLs.
+Disallow: /login
+Disallow: /register
+Disallow: /logout
+Disallow: /forgot-password
+Disallow: /*?next=
+
 Sitemap: {{ url_for('app__sitemap_xml', _external=True) }}

@@ -697,9 +697,12 @@
                                 <div class="editorial-slide-avatar">
                                     {% if member_image %}
                                         {% if member_image.startswith('http://') or member_image.startswith('https://') or member_image.startswith('/') %}
-                                        <img src="{{ member_image }}" alt="{{ member_name }}" class="h-full w-full object-cover">
+                                        {# One request per board member, and only the first slide is
+                                           visible -- without lazy loading the homepage fetched the
+                                           whole board up front. #}
+                                        <img src="{{ member_image }}" alt="{{ member_name }}" class="h-full w-full object-cover" loading="lazy" decoding="async">
                                         {% else %}
-                                        <img src="{{ url_for('static', filename=member_image) }}" alt="{{ member_name }}" class="h-full w-full object-cover">
+                                        <img src="{{ url_for('static', filename=member_image) }}" alt="{{ member_name }}" class="h-full w-full object-cover" loading="lazy" decoding="async">
                                         {% endif %}
                                     {% else %}
                                     <div class="flex h-full w-full items-center justify-center text-xl text-fmmain">

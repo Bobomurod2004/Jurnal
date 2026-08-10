@@ -1,7 +1,8 @@
 # flake8: noqa
 from extensions import dbc
 from modules.translate import t
-from flask import session
+from flask import request, session
+from utils.auth import sanitize_next_url
 from utils.notifications import apply_localized_notification_content, dashboard_notification_access_clause
 try:
     import mainweb.settings as settings
@@ -203,6 +204,28 @@ def register_context_processors(app):
     @app.context_processor
     def inject_version():
         return {'app_version': settings.APP_VERSION}
+
+    @app.context_processor
+    def inject_login_next_url():
+        """Safe return path for the header's "sign in" link, or None.
+
+        The header used to build `url_for('app__login', next=request.full_path)`
+        directly, so on /login it pointed back at /login. Each crawl re-encoded
+        the previous URL into a new one
+        (/login?next=/login?next%3D/login?next%253D...) and bots walked an
+        endless tree. `sanitize_next_url` refuses the auth paths, which stops
+        the chain at the source.
+
+        Returns the raw path rather than a finished URL: a context processor
+        runs on every render, and reaching into the URL map here would make it
+        fail wherever that endpoint is not registered.
+        """
+        current_path = request.full_path or request.path
+        # `full_path` always appends '?', even with no query string.
+        if current_path.endswith('?'):
+            current_path = current_path[:-1]
+
+        return {'login_next_url': sanitize_next_url(current_path)}
 
     @app.context_processor
     def inject_author_notifications():

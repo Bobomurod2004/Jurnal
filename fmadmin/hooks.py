@@ -22,6 +22,18 @@ from shared.submission_status import (
 from shared.audit import record_request_audit_event
 
 
+# Successful requests to these are not logged: probes and scrapes run every
+# 15 seconds and otherwise bury the real traffic. Failures still get logged.
+LOG_EXEMPT_PATHS = frozenset({
+    '/healthz',
+    '/readyz',
+    '/metrics',
+    '/fmadmin/healthz',
+    '/fmadmin/readyz',
+    '/fmadmin/metrics',
+})
+
+
 def _parse_int(value):
     if value in (None, ''):
         return None
@@ -245,6 +257,13 @@ def register(app):
 
     @app.after_request
     def log_request(response):
+        # Probes fire every 15s and drowned out real traffic -- roughly 85% of
+        # all log volume was health checks and metric scrapes. They are still
+        # observable through Prometheus itself; a failing probe shows up in the
+        # container health status and in the alerting rules.
+        if request.path in LOG_EXEMPT_PATHS and response.status_code < 400:
+            return response
+
         start_time = getattr(g, 'request_start', None)
         duration_ms = None
         if isinstance(start_time, (int, float)):

@@ -1,10 +1,41 @@
 import re
 from html import unescape
 from functools import wraps
+from urllib.parse import urlparse
 from flask import session, flash, redirect, url_for, request, jsonify
 from modules.translate import t
 from extensions import dbc
 from utils.roles import AUTHOR_ROLE, hydrate_user_roles, user_has_permission
+
+# Paths that must never become a post-login redirect target. Sending the user
+# back to /login is what let crawlers walk
+# /login?next=/login?next%3D/login?next%253D... forever, each hop re-encoding
+# the last, so the auth pages are refused outright.
+NEXT_URL_BLOCKED_PATHS = {'/login', '/logout', '/register'}
+
+
+def sanitize_next_url(next_url):
+    """Accept only a safe in-site return path, otherwise None.
+
+    Guards two things at once: an open redirect (anything with a scheme or
+    host, or a protocol-relative //evil.com) and the crawl trap above.
+    """
+    if not next_url:
+        return None
+    next_url = str(next_url).strip()
+    if not next_url:
+        return None
+    parsed = urlparse(next_url)
+    if parsed.scheme or parsed.netloc:
+        return None
+    if not next_url.startswith('/'):
+        return None
+    if next_url.startswith('//'):
+        return None
+    if next_url.split('?', 1)[0] in NEXT_URL_BLOCKED_PATHS:
+        return None
+    return next_url
+
 
 PROFILE_REQUIRED_USER_FIELDS = ('name', 'second_name', 'father_name', 'country_id')
 PROFILE_REQUIRED_AUTHOR_FIELDS = ()

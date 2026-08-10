@@ -632,3 +632,115 @@ Test qatorlari o'chirildi; real ma'lumot tegilmadi (tayinlovlar=19, xabarlar=40)
 
 `cancel_editor_assignment` (admin ataylab bekor qilishi) hamon `DELETE` qiladi. Bu
 kutilmagan hodisa emas — admin o'zi bosadi. Xohlasangiz uni ham parklash mumkin.
+
+---
+
+## 2026-08-10 (3) — Production loglaridan chiqqan muammolar
+
+### #1 Gunicorn restart — muammo yo'q
+
+`docker inspect journal_mainweb` → `RestartCount: 0`, `Restarting: false`. Konteyner
+qayta ishga tushmagan, OOMKill ham yo'q. 07:58:05 dagi yozuv — Docker log rotatsiyasi
+yoki `docker compose up` dan keyingi birinchi log. Tegilmadi.
+
+### #2 Bosh sahifa sekinligi
+
+**Yechim (a): tahririyat ro'yxati keshlandi.** `_load_public_editorial_members()` endi
+5 daqiqalik TTL kesh ishlatadi (loyihadagi `COUNTRY_CATALOG_CACHE_TTL` naqshi bo'yicha).
+Bosh sahifa va `/editorial` — ikkalasi ham butun hay'atni render qiladi, avval har
+tashrifda qaytadan o'qilardi. `_invalidate_editorial_members_cache()` ham qo'shildi.
+
+**Yechim (b): `loading="lazy"` qo'shildi** bosh sahifadagi hay'at slayderiga. Bu
+`{% for member in editorial_members %}` sikli ichida — ya'ni bitta `<img>` tegi
+serverda N ta so'rovga aylanardi. `/editorial` sahifasida lazy allaqachon bor edi.
+
+### #3 + #5 Static fayllar va favicon — nginx konfiguratsiyasi
+
+Sizning host nginx'ingiz **hamma narsani** Flask'ga uzatardi, jumladan `/static/` ni.
+Ya'ni har bir rasm bitta gunicorn worker'ini band qilardi.
+
+Yangi fayl: **`nginx/philmatt.uzswlu.uz.conf`** — sizning serveringiz uchun to'liq
+konfiguratsiya. Ichida:
+
+- `/static/`, `/dist/` → diskdan to'g'ridan-to'g'ri, `Cache-Control: max-age=2592000`
+- `/static/uploads/` → Docker volume'dan
+- `/static/uploads/(articles|documents|payments)/` → **404** (pullik/maxfiy material
+  faqat ilova ruxsat tekshiruvidan o'tib beriladi — bu qoida regex bo'lgani uchun
+  yuqoridagi prefikslardan oldin ishlaydi)
+- `= /favicon.ico`
+- `/metrics`, `/readyz`, `/healthz` → 404 (tashqaridan yopiq)
+- **SSE marshrutlari** — sizning konfiguratsiyangizda yo'q edi, ya'ni ariza chati
+  production'da to'g'ri ishlamayotgan bo'lishi mumkin (`proxy_buffering off` kerak)
+- `/grafana/` bloki
+- gzip va xavfsizlik sarlavhalari
+
+`nginx -t` bilan tekshirildi — sintaksis to'g'ri.
+
+### #4 Login crawl trap — manba topildi va yopildi
+
+**Sabab:** `components/headers/header_top.html` da havola
+`url_for('app__login', next=request.full_path)` bo'lgan. Bu header **har bir sahifada**,
+jumladan `/login` da ham ko'rinadi — shuning uchun `/login` sahifasi o'ziga
+`/login?next=/login?` havolasini yasardi, bot ergashardi, va har qadamda URL qayta
+kodlanardi. Sizdagi `next%3D` → `next%253D` → `next%25253D` naqshi aynan shu.
+
+**Yechim:**
+- `sanitize_next_url()` `mainweb/utils/auth.py` ga ko'chirildi (yagona manba). Bu
+  funksiya **ochiq redirect** dan ham himoya qiladi (`https://evil.example`,
+  `//evil.example`, `javascript:` — hammasi rad etiladi).
+- Yangi `login_next_url` kontekst qiymati auth sahifalarida `None` qaytaradi.
+- Havolaga `rel="nofollow"`.
+- `robots.txt` ga `Disallow: /login`, `/register`, `/logout`, `/*?next=`.
+
+**Jonli tekshirildi:**
+```
+/login    -> href="/login"                  (next= yo'q, zanjir uzildi)
+/articles -> href="/login?next=/articles"   (foydali qism saqlandi)
+```
+
+### #6 Log dublikati
+
+`shared/observability.py` `gunicorn.access` loggerini JSON handler'ga ulagan edi,
+shuning uchun `--access-logfile /dev/null` ta'sir qilmasdi. Endi logger butunlay
+o'chirildi (`disabled = True`) — ilovaning o'z `log_request` hooki bir xil ma'lumotni
+`request_id`, `user_id` va `duration_ms` bilan birga yozadi.
+
+### #7 Log shovqini
+
+`LOG_EXEMPT_PATHS` — `/healthz`, `/readyz`, `/metrics` uchun **muvaffaqiyatli** so'rovlar
+endi loglanmaydi (xatoliklar loglanadi). Ikkala ilovada ham.
+
+**O'lchandi:** 9 ta so'rov (3 healthz + 3 metrics + 3 articles) → avval ~18 qator log,
+endi **3 qator**.
+
+### #8 PROMETHEUS_MULTIPROC_DIR — muammo yo'q
+
+Tekshirildi: `/tmp/prometheus-multiproc/mainweb` da 56 ta counter fayli bor, ya'ni
+multiproc rejimi to'g'ri ishlayapti va counter'lar to'rtala worker bo'yicha
+yig'iladi.
+
+### Grafana paroli — sabab isbotlandi
+
+`GF_SECURITY_ADMIN_PASSWORD` **faqat birinchi ishga tushishda** (volume bo'sh bo'lganda)
+qo'llanadi. Keyin parol `grafana.db` da saqlanadi va `.env` ni o'zgartirish **hech
+narsani o'zgartirmaydi**. Siz avval serverda qo'lda sozlagansiz — shuning uchun
+bazadagi eski parol kuchda qolgan.
+
+Local'da isbotlandi: CLI bilan parol o'zgartirilgach, `.env` dagi parol 401 bera
+boshladi, CLI qo'ygani 200 berdi.
+
+### Tegilgan fayllar
+
+`mainweb/utils/auth.py`, `mainweb/routes/auth.py`, `mainweb/routes/context.py`,
+`mainweb/routes/public.py`, `mainweb/hooks.py`, `fmadmin/hooks.py`,
+`shared/observability.py`, `mainweb/templates/components/headers/header_top.html`,
+`mainweb/templates/index.html`, `mainweb/templates/robots.txt`,
+`nginx/philmatt.uzswlu.uz.conf` (yangi), `docker-compose.yml`,
+`docker-compose.local.yml`, `tests/test_production_hardening.py` (yangi)
+
+### Tekshiruv
+
+- `pytest tests/` → **201 passed, 1 failed** (12 tasi yangi). Yiqilgan test hamon
+  Codex'niki.
+- `nginx -t` yangi konfiguratsiya uchun muvaffaqiyatli
+- Barcha sahifalar 200
