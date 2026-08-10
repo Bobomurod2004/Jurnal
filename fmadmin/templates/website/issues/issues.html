@@ -96,7 +96,7 @@
                 class="btn btn-icon btn-outline-info bg-info-lt btn-sm px-2 py-1 me-2">
                 {{ t("admin_btn_show_all_articles") }}
               </a>
-              {# Son o'chirish faqat superadmin'da (fmadmin.content.delete). #}
+              {# Sonni admin va superadmin o'chira oladi (fmadmin.content.delete). #}
               {% if user_caps.can_delete_content %}
               <button type="button" class="btn btn-icon btn-outline-danger bg-danger-lt btn-sm px-2 py-1"
                 data-bs-toggle="modal"

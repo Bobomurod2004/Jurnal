@@ -1,0 +1,103 @@
+{% extends 'basic.html' %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <h2 class="page-title">Muharrir rolini berish</h2>
+      <div class="text-secondary mt-1">
+        {{ target_user.name }} {{ target_user.second_name or '' }} — {{ target_user.email }}
+      </div>
+    </div>
+    <div class="col-auto ms-auto">
+      <a href="{{ url_for('users') }}" class="btn btn-secondary">
+        <i class="ti ti-arrow-left"></i> Orqaga
+      </a>
+    </div>
+  </div>
+</div>
+
+<form method="post">
+  <div class="card">
+    <div class="card-body">
+      <div class="alert alert-info" role="alert">
+        Ushbu amal foydalanuvchiga faqat <strong>muharrir</strong> rolini beradi.
+        Admin va superadmin rollari bu sahifadan berilmaydi.
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="editor_specialization">Mutaxassislik</label>
+        <input id="editor_specialization" name="editor_specialization" class="form-control"
+          value="{{ target_user.editor_specialization or '' }}"
+          placeholder="Masalan: tilshunoslik, adabiyotshunoslik">
+      </div>
+
+      {% if can_manage_users %}
+      <div class="mb-3">
+        <label class="form-label" for="editor_admin_id">Biriktirilgan admin</label>
+        <select id="editor_admin_id" name="editor_admin_id" class="form-select">
+          <option value="">Tanlanmagan</option>
+          {% for admin_user in active_admins %}
+          <option value="{{ admin_user.id }}" {% if target_user.editor_admin_id == admin_user.id %}selected{% endif %}>
+            {{ admin_user.name }} ({{ admin_user.email }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      {% else %}
+      <div class="alert alert-secondary" role="alert">
+        Muharrir sizga biriktiriladi.
+      </div>
+      {% endif %}
+
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label" for="password">Yangi parol{% if password_required %} <span class="text-danger">*</span>{% endif %}</label>
+          <div class="input-group">
+            <input id="password" name="password" type="password" class="form-control" {% if password_required %}required{% endif %}>
+            <button type="button" class="btn btn-outline-secondary" data-password-toggle="password"
+              aria-label="Parolni ko‘rsatish" title="Parolni ko‘rsatish" aria-pressed="false">
+              <i class="ti ti-eye" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="form-hint">Mavjud parol saqlanadi. Almashtirish kerak bo‘lsa, yangi parol kiriting.</div>
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label" for="password_confirm">Parolni tasdiqlang{% if password_required %} <span class="text-danger">*</span>{% endif %}</label>
+          <div class="input-group">
+            <input id="password_confirm" name="password_confirm" type="password" class="form-control" {% if password_required %}required{% endif %}>
+            <button type="button" class="btn btn-outline-secondary" data-password-toggle="password_confirm"
+              aria-label="Parolni ko‘rsatish" title="Parolni ko‘rsatish" aria-pressed="false">
+              <i class="ti ti-eye" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-footer text-end">
+      <button type="submit" class="btn btn-primary">
+        <i class="ti ti-user-check"></i> Muharrir rolini berish
+      </button>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('[data-password-toggle]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      const input = document.getElementById(button.dataset.passwordToggle);
+      const icon = button.querySelector('i');
+      if (!input || !icon) return;
+
+      const showPassword = input.type === 'password';
+      input.type = showPassword ? 'text' : 'password';
+      icon.className = showPassword ? 'ti ti-eye-off' : 'ti ti-eye';
+      button.setAttribute('aria-pressed', String(showPassword));
+      button.setAttribute('aria-label', showPassword ? 'Parolni yashirish' : 'Parolni ko‘rsatish');
+      button.setAttribute('title', showPassword ? 'Parolni yashirish' : 'Parolni ko‘rsatish');
+    });
+  });
+</script>
+{% endblock %}

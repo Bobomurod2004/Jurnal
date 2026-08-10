@@ -477,3 +477,158 @@ kerak (yuqoridagi 2-bo'limga qarang).
   Codex'niki.
 - Haqiqiy baza bilan simulyatsiya qilindi (yuqoridagi jadval)
 - fmadmin qayta ishga tushirildi: `/healthz` 200, loglarda 0 ta xatolik
+
+---
+
+## 2026-08-10 — Muharrir tayinlovi 1 kundan keyin o'chib ketishi
+
+### Muammo
+
+Admin qabul qilish muddatini masalan 10 kun qilib bersa ham, tayinlov **1 kundan
+keyin** "qabul qilmadi" deb o'chib ketardi.
+
+### Tahlil
+
+Ikki alohida sabab topildi.
+
+**1) Uchta yo'l adminning tanlagan muddatini umuman o'qimasdi** — to'g'ridan-to'g'ri
+24 soatlik default'ni yozardi:
+
+| Funksiya | Qachon |
+|---|---|
+| `_create_revision_reviewer_assignments` | qayta ko'rib chiqish raundi |
+| `submission_revision_send_for_rereview` | tuzatilgandan keyin qayta taqrizga |
+| `auto_assign_editor` | avtomatik biriktirish |
+
+Faqat `assign_editors` (qo'lda biriktirish formasi) tanlovni o'qirdi. Ustiga forma
+ham har safar `now + 24 soat` bilan to'ldirilardi.
+
+Bazadagi dalil: ko'p tayinlovlar **roppa-rosa 24.0 / 120.0 soat** (qattiq yozilgan
+default'dan), boshqalari 36 / 48 / 97.9 soat (admin qo'lda o'zgartirgan).
+
+**2) Muddat o'tganda qator butunlay o'chiriladi** —
+`_expire_assignment_due_deadline` da hard `DELETE` (soft delete emas). Shuning uchun
+"serverdan o'chib ketmoqda". `role_notifications` da 7 ta shunday hodisa qayd
+etilgan; `editor_assignments` id'larida katta bo'shliqlar bor.
+
+Avtomatika `hooks.py` dagi `before_request` da (30 soniyada bir marta) ishlaydi,
+ya'ni muddat tugagach admin panelni keyingi ochganda o'chadi.
+
+### Yechim
+
+Yangi `_assignment_windows_from(previous_assignment)` — adminning avval **shu maqola
+uchun bergan oralig'ini** (`deadline − assigned_at`) qaytaradi, default esa faqat
+meros qiladigan narsa bo'lmaganda ishlatiladi. Himoyalar:
+
+- qabul oralig'i 30 kundan oshmaydi (`MAX_ACCEPTANCE`)
+- topshirish muddati har doim qabul muddatidan keyin bo'ladi
+- buzuq (manfiy) oraliqda default'ga qaytadi — darhol o'chib ketmasin
+
+`_latest_assignment_for_submission()` — formasi yo'q yo'llar uchun oxirgi tayinlovni
+topadi.
+
+Qo'llanildi:
+- uchala avtomatik yo'lda (qayta taqriz raundlarida **har muharrir o'z** oldingi
+  oralig'ini oladi)
+- `assign_editors` formasining oldindan to'ldirilishida ham — admin bir marta 10 kun
+  bergan bo'lsa, keyingi safar ham 10 kun taklif qilinadi
+
+Default'lar endi `.env` orqali sozlanadi:
+`EDITOR_ACCEPTANCE_DEFAULT_HOURS` (24), `EDITOR_COMPLETION_DEFAULT_HOURS` (120).
+
+### Tekshiruv
+
+- `pytest tests/` → **181 passed, 1 failed** (10 tasi yangi). Yiqilgan test hamon
+  Codex'niki (`_compute_revision_reentry`) — tegilmadi.
+- Jonli sinov (haqiqiy baza): 35-maqolada admin ~98 soat bergan edi — avval keyingi
+  raund 24 soatga tushib qolardi, endi 98 soatni meros oladi.
+- fmadmin qayta ishga tushirildi: `/healthz` 200, loglarda 0 ta xatolik
+
+### Tegilgan fayllar
+
+`fmadmin/routes/web.py`, `.env.production.example`, `tests/test_admin_workflow_fixes.py`
+
+### Hali qilinmagan (tavsiya)
+
+Muddat o'tganda tayinlov hamon **butunlay o'chiriladi**. `status='expired'` qilib
+qo'yilsa tarix saqlanardi va admin o'sha muharrirni qayta taklif qila olardi. Buni
+alohida ish sifatida qilish mumkin.
+
+---
+
+## 2026-08-10 (2) — Muddati o'tgan tayinlov endi o'chirilmaydi
+
+### Muammo
+
+`_expire_assignment_due_deadline` muddat o'tganda qatorni **butunlay o'chirardi**:
+
+```python
+db.editor_assignments.all().equal(id=assignment_id).delete().exec()
+```
+
+`editor_assignments` — `submission_messages`, `submission_message_reads` va
+`editor_notifications` uchun ota jadval, ular `ON DELETE CASCADE` bilan bog'langan.
+Ya'ni o'chirish **admin va muharrir o'rtasidagi butun yozishmani** ham olib ketardi.
+Nima bo'lganini tushuntiradigan hech narsa qolmasdi.
+
+### Yechim
+
+Qator o'chirilmaydi — `status='expired'` qilib **parklanadi**, `expired_at` va
+`expired_reason` ('acceptance' / 'completion') bilan.
+
+**Muhim nozik nuqta:** `_normalize_assignment_status()` noma'lum statusni `'pending'`
+ga qaytaradi. Agar `'expired'` ni `EDITOR_ASSIGNMENT_STATUS_VALUES` ga qo'shmasak,
+avtomatika uni yana "pending" deb ko'rib, cheksiz qayta-o'chirish va bildirishnoma
+sikliga tushardi. Shuning uchun u ro'yxatga qo'shildi, lekin `ACTIVE` va `REVIEWED`
+to'plamlariga **ataylab kiritilmadi**.
+
+`_refresh_submission_editor_review_status()` da muddati o'tganlar hisobdan chiqariladi
+— aks holda maqola "hech kim ko'rmayotgan bo'lsa ham" `under_review` da qolib ketardi.
+Endi u eski hard-delete kabi `not_assigned` bo'ladi va admin o'rniga boshqasini
+biriktira oladi.
+
+**Qayta taklif.** Admin muddati o'tgan muharrirni yana tanlasa, mavjud qator
+tiriltiriladi: `status='pending'`, `accepted_at`/`expired_at`/`expired_reason`
+tozalanadi. Buni qo'shmaganimda qator `expired` bo'lib qolar va muharrir uni umuman
+ko'rmasdi.
+
+### Migratsiya
+
+`migrations/versions/20260810_000001_editor_assignment_expiry.sql` — `expired_at`,
+`expired_reason` ustunlari va qisman indeks. `status` — oddiy `text`, CHECK cheklovi
+yo'q, shuning uchun yangi qiymat uchun sxema o'zgarmaydi. Local'da qo'llandi.
+
+### UI
+
+`editors/assignments.html`: "Muddati o'tgan" nishoni + sababi ("Qabul qilmadi" /
+"Topshirmadi") va sanasi; status filtriga ham qo'shildi.
+
+### Jonli sinov (vaqtinchalik test qatori bilan, keyin tozalandi)
+
+| Tekshiruv | Natija |
+|---|---|
+| Avtomatika ishladi | `expired: 1` |
+| Tayinlov qatori | saqlandi — `status=expired`, `reason=acceptance` |
+| Chat xabari | **saqlandi** (avval kaskad bilan o'chardi) |
+| Bildirishnomalar | 4 ta yuborildi |
+| Avtomatika 2- va 3-marta | `expired: 0` — **sikl yo'q** |
+| Bildirishnomalar takrorlandimi | yo'q, 4 ta bo'lib qoldi |
+
+Test qatorlari o'chirildi; real ma'lumot tegilmadi (tayinlovlar=19, xabarlar=40).
+
+### Tegilgan fayllar
+
+`fmadmin/routes/web.py`, `fmadmin/templates/editors/assignments.html`,
+`migrations/versions/20260810_000001_editor_assignment_expiry.sql`,
+`tests/test_admin_workflow_fixes.py`
+
+### Tekshiruv
+
+- `pytest tests/` → **189 passed, 1 failed** (7 tasi yangi). Yiqilgan test hamon
+  Codex'niki (`_compute_revision_reentry`) — tegilmadi.
+- fmadmin qayta ishga tushirildi: `/healthz` 200, loglarda 0 ta xatolik
+
+### Tegilmagan
+
+`cancel_editor_assignment` (admin ataylab bekor qilishi) hamon `DELETE` qiladi. Bu
+kutilmagan hodisa emas — admin o'zi bosadi. Xohlasangiz uni ham parklash mumkin.

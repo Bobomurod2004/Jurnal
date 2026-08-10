@@ -114,7 +114,7 @@ def api_any_permission_required(permission_names, message='Permission required')
 
     Used where one endpoint backs pages guarded by different permissions --
     e.g. the author picker serves both article editing (`content.manage`) and
-    the authors directory (`users.manage`).
+    the authors directory (`authors.manage`).
     """
     def decorator(f):
         @wraps(f)

@@ -1,9 +1,11 @@
 """Regression tests for the administrator permission split.
 
-Administrators share the day-to-day journal work with superadmins (journal
-content, editors, incoming payments) while the site/pricing/user sections stay
-superadmin-only.  These tests pin that boundary down at three levels: the
-permission table, the route decorators, and the sidebar template.
+Administrators have full day-to-day journal control with superadmins (journal
+content, authors, incoming payments). They may also browse regular accounts to
+assign the editor role, while general user administration, site/pricing, and
+system sections stay superadmin-only. These tests pin that boundary down at
+three levels: the permission table, the route decorators, and the sidebar
+template.
 """
 import os
 
@@ -21,16 +23,17 @@ ADMIN = {'rolename': 'admin', 'roles': ['admin']}
 SUPERADMIN = {'rolename': 'superadmin', 'roles': ['superadmin']}
 EDITOR = {'rolename': 'editor', 'roles': ['editor']}
 
-# What the administrator role gained: journal operations.
+# What the administrator role holds for full journal operations.
 ADMIN_GRANTED_PERMISSIONS = (
     'fmadmin.content.manage',
-    'fmadmin.editors.manage',
+    'fmadmin.content.delete',
+    'fmadmin.authors.manage',
+    'fmadmin.editor_roles.manage',
     'fmadmin.payments.manage',
 )
-# What stays with the superadmin: site content, pricing, user records and the
-# destructive content actions.
+# What stays with the superadmin: site content, pricing, user records, and
+# system settings.
 ADMIN_DENIED_PERMISSIONS = (
-    'fmadmin.content.delete',
     'fmadmin.site.manage',
     'fmadmin.finance.manage',
     'fmadmin.users.manage',
@@ -49,7 +52,7 @@ def test_admin_holds_the_journal_operations_permissions():
 
 def test_admin_is_denied_the_superadmin_only_permissions():
     # Accepting a payment is operational work; setting the price is not.
-    # Editing an article is operational; deleting a published one is not.
+    # Author management is operational; general user administration is not.
     for permission_name in ADMIN_DENIED_PERMISSIONS:
         assert not user_has_permission(ADMIN, permission_name), permission_name
 
@@ -62,7 +65,7 @@ def test_superadmin_keeps_every_permission_an_admin_has():
 
 def test_editor_gains_nothing_from_the_split():
     # The split moved permissions between admin and superadmin only -- an
-    # editor must not pick up content, editor or payment management.
+    # editor must not pick up content, author, editor-role or payment management.
     for permission_name in ADMIN_GRANTED_PERMISSIONS + ADMIN_DENIED_PERMISSIONS:
         assert not user_has_permission(EDITOR, permission_name), permission_name
 
@@ -70,9 +73,11 @@ def test_editor_gains_nothing_from_the_split():
 def test_new_capabilities_are_exposed_to_templates():
     admin_capabilities = capabilities_for_user(ADMIN)
     assert admin_capabilities['can_manage_content'] is True
-    assert admin_capabilities['can_manage_editors'] is True
+    assert admin_capabilities['can_delete_content'] is True
+    assert admin_capabilities['can_manage_authors'] is True
+    assert admin_capabilities['can_manage_editors'] is False
+    assert admin_capabilities['can_assign_editor_roles'] is True
     assert admin_capabilities['can_manage_payments'] is True
-    assert admin_capabilities['can_delete_content'] is False
     assert admin_capabilities['can_manage_site'] is False
     assert admin_capabilities['can_manage_finance'] is False
 
@@ -120,12 +125,17 @@ ADMIN_REACHABLE_PAGES = (
     '/fmadmin/website/articles',
     '/fmadmin/website/news',
     '/fmadmin/website/announcements',
-    '/fmadmin/editors',
+    '/fmadmin/users/users',
+    '/fmadmin/users/authors',
+    '/fmadmin/users/authors/<int:author_id>',
+    '/fmadmin/users/authors/<int:author_id>/merge',
+    '/fmadmin/users/authors/<int:author_id>/link-user',
+    '/fmadmin/users/users/<int:user_id>/assign-editor',
     '/fmadmin/finance/payments',
 )
 ADMIN_BLOCKED_PAGES = (
-    '/fmadmin/users/users',
-    '/fmadmin/users/authors',
+    '/fmadmin/editors',
+    '/fmadmin/users/users/<int:user_id>',
     '/fmadmin/editorial-members',
     '/fmadmin/website/pages',
     '/fmadmin/website/tariffs',
@@ -135,7 +145,7 @@ ADMIN_BLOCKED_PAGES = (
 )
 
 
-def test_admin_reaches_the_journal_operations_pages():
+def test_admin_reaches_the_granted_pages():
     for rule_path in ADMIN_REACHABLE_PAGES:
         assert _allows(rule_path, ADMIN), rule_path
 
@@ -155,20 +165,22 @@ def test_editor_is_blocked_from_admin_pages():
         assert not _allows(rule_path, EDITOR), rule_path
 
 
-def test_content_delete_routes_stay_superadmin_only():
-    # An admin may edit an issue or article but must not be able to destroy a
-    # published record, so the delete routes keep the stricter gate.
+def test_admin_has_full_control_of_article_and_issue_delete_routes():
+    # Article and issue deletion is part of the admin's full journal-content
+    # control.  The routes still use their dedicated permission so future
+    # roles can be restricted independently.
     for rule_path in (
         '/fmadmin/website/issues/<int:issue_id>/delete',
         '/fmadmin/website/articles/<int:article_id>/delete',
     ):
         assert _required_permissions(rule_path) == {'fmadmin.content.delete'}
-        assert not _allows(rule_path, ADMIN), rule_path
+        assert _allows(rule_path, ADMIN), rule_path
         assert _allows(rule_path, SUPERADMIN), rule_path
 
 
-def test_editing_an_article_does_not_imply_deleting_it():
-    # The edit and delete routes must not collapse onto the same permission.
+def test_article_edit_and_delete_keep_separate_permissions():
+    # The edit and delete routes retain distinct permissions, even though the
+    # administrator role has both of them.
     edit_permissions = _required_permissions('/fmadmin/website/articles/<int:article_id>')
     delete_permissions = _required_permissions('/fmadmin/website/articles/<int:article_id>/delete')
     assert edit_permissions == {'fmadmin.content.manage'}
@@ -179,9 +191,9 @@ def test_editing_an_article_does_not_imply_deleting_it():
 # Privilege-escalation guard on the editors pages
 # --------------------------------------------------------------------------
 
-def test_admin_cannot_manage_a_staff_account_that_also_is_an_editor():
-    # A superadmin who also carries the `editor` role shows up in the editor
-    # pool; without this guard an admin could edit or delete them.
+def test_non_superadmin_cannot_manage_a_staff_account_that_also_is_an_editor():
+    # The editor routes are superadmin-only, and this helper preserves the
+    # same boundary should they be exposed to another role in the future.
     superadmin_editor = {'rolename': 'superadmin', 'roles': ['superadmin', 'editor']}
     admin_editor = {'rolename': 'admin', 'roles': ['admin', 'editor']}
     plain_editor = {'rolename': 'editor', 'roles': ['editor']}
@@ -189,6 +201,27 @@ def test_admin_cannot_manage_a_staff_account_that_also_is_an_editor():
     assert fmadmin_web._actor_may_manage_staff_account(ADMIN, plain_editor) is True
     assert fmadmin_web._actor_may_manage_staff_account(ADMIN, superadmin_editor) is False
     assert fmadmin_web._actor_may_manage_staff_account(ADMIN, admin_editor) is False
+
+
+def test_admin_can_assign_only_regular_users_to_the_editor_role():
+    regular_user = {'rolename': 'user', 'roles': ['user']}
+    editor = {'rolename': 'editor', 'roles': ['editor']}
+    admin = {'rolename': 'admin', 'roles': ['admin']}
+    superadmin = {'rolename': 'superadmin', 'roles': ['superadmin']}
+
+    assert fmadmin_web._may_assign_editor_role(ADMIN, regular_user) is True
+    assert fmadmin_web._may_assign_editor_role(ADMIN, editor) is False
+    assert fmadmin_web._may_assign_editor_role(ADMIN, admin) is False
+    assert fmadmin_web._may_assign_editor_role(ADMIN, superadmin) is False
+
+
+def test_superadmin_promotion_discards_redundant_lower_staff_roles():
+    assert fmadmin_web._roles_for_primary_role(
+        'superadmin', ['user', 'editor', 'admin', 'superadmin']
+    ) == ['superadmin', 'user']
+    assert fmadmin_web._roles_for_primary_role(
+        'superadmin', ['admin', 'superadmin']
+    ) == ['superadmin']
 
 
 def test_superadmin_may_still_manage_any_staff_account():
@@ -248,12 +281,12 @@ ADMIN_SIDEBAR_LINKS = (
     '/fmadmin/website/articles',
     '/fmadmin/website/news',
     '/fmadmin/website/announcements',
-    '/fmadmin/editors',
+    '/fmadmin/users/users',
+    '/fmadmin/users/authors',
     '/fmadmin/finance/payments',
 )
 SUPERADMIN_ONLY_SIDEBAR_LINKS = (
-    '/fmadmin/users/users',
-    '/fmadmin/users/authors',
+    '/fmadmin/editors',
     '/fmadmin/editorial-members',
     '/fmadmin/website/pages',
     '/fmadmin/website/tariffs',

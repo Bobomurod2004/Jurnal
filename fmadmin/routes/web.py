@@ -132,7 +132,11 @@ EDITOR_ASSIGNMENT_EXTRA_COLUMN_TYPES = {
     'admin_comment': 'text',
     'admin_decided_by': 'integer',
     'admin_decided_at': 'bigint',
-    'revision_round': 'integer DEFAULT 1'
+    'revision_round': 'integer DEFAULT 1',
+    # Set when a missed deadline parks the assignment as `expired`; the reason
+    # is 'acceptance' or 'completion'.
+    'expired_at': 'bigint',
+    'expired_reason': 'text'
 }
 PUBLICATION_EXTRA_COLUMN_TYPES = dict(PUBLICATION_METADATA_COLUMN_TYPES)
 PUBLICATION_EXTRA_COLUMN_TYPES['page_range'] = 'text'
@@ -143,18 +147,30 @@ ISSUE_EXTRA_COLUMN_TYPES = {
 ADMIN_ROLE_NAMES = {'admin', 'superadmin'}
 
 # Page-level permission gates.  Administrators share the journal-operations
-# pages with superadmins (content, editors, incoming payments), while the
+# pages with superadmins (content, authors, incoming payments), while the
 # site/pricing/user pages below stay superadmin-only.  See `utils.roles` for
 # which role holds which permission.
 content_required = permission_required('fmadmin.content.manage')
 content_delete_required = permission_required('fmadmin.content.delete')
 editors_required = permission_required('fmadmin.editors.manage')
+authors_required = permission_required('fmadmin.authors.manage', 'fmadmin.users.manage')
+editor_roles_required = permission_required('fmadmin.editor_roles.manage', 'fmadmin.users.manage')
+user_directory_required = permission_required('fmadmin.users.manage', 'fmadmin.editor_roles.manage')
 payments_required = permission_required('fmadmin.payments.manage')
 site_required = permission_required('fmadmin.site.manage')
 finance_required = permission_required('fmadmin.finance.manage')
 users_required = permission_required('fmadmin.users.manage')
 
-EDITOR_ASSIGNMENT_STATUS_VALUES = {'pending', 'in_review', 'reviewed', 'rejected'}
+# A missed deadline parks the assignment here instead of deleting the row, so
+# the admin keeps the history (and the chat, which the old DELETE cascaded
+# away) and can see who was invited and never answered.  It must stay a known
+# status: `_normalize_assignment_status` maps anything unknown back to
+# 'pending', which would make the automation expire and re-notify it forever.
+EDITOR_ASSIGNMENT_EXPIRED_STATUS = 'expired'
+EDITOR_ASSIGNMENT_STATUS_VALUES = {'pending', 'in_review', 'reviewed', 'rejected', EDITOR_ASSIGNMENT_EXPIRED_STATUS}
+# Deliberately excluded from both sets below: an expired assignment is neither
+# live work nor a review outcome, so it drops out of the review-status maths
+# exactly like the deleted row used to.
 EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES = {'pending', 'in_review'}
 EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES = {'reviewed', 'rejected'}
 EDITOR_ASSIGNMENT_ADMIN_DECISION_VALUES = {
@@ -168,12 +184,33 @@ EDITOR_ASSIGNMENT_REMINDER_LEVEL_RANKS = {'': 0, '24h': 1, '6h': 2, '1h': 3}
 EDITOR_ASSIGNMENT_AUTOMATION_INTERVAL_SECONDS = 30
 _LAST_EDITOR_ASSIGNMENT_AUTOMATION_TS = 0
 
-# The acceptance window is the admin's call, not a fixed 24h rule: these two
-# values only pre-fill the assign form (and are what auto-assign uses, since
-# no admin picks anything there). The admin may move the acceptance deadline
-# anywhere up to EDITOR_ASSIGNMENT_MAX_ACCEPTANCE_SECONDS ahead.
-EDITOR_ASSIGNMENT_DEFAULT_ACCEPTANCE_SECONDS = 24 * 60 * 60
-EDITOR_ASSIGNMENT_DEFAULT_COMPLETION_SECONDS = 5 * 24 * 60 * 60
+# The acceptance window is the admin's call, not a fixed 24h rule. These two
+# values are only the starting point: they pre-fill the assign form, and stand
+# in for the flows that have no form when the submission has no earlier
+# assignment to inherit from (see `_assignment_windows_from`). The admin may
+# move the acceptance deadline anywhere up to
+# EDITOR_ASSIGNMENT_MAX_ACCEPTANCE_SECONDS ahead.
+
+
+def _default_window_seconds(env_name, fallback_hours):
+    raw = str(os.getenv(env_name, '') or '').strip()
+    if not raw:
+        return int(fallback_hours * 3600)
+    try:
+        hours = float(raw)
+    except (TypeError, ValueError):
+        return int(fallback_hours * 3600)
+    if hours <= 0:
+        return int(fallback_hours * 3600)
+    return int(hours * 3600)
+
+
+EDITOR_ASSIGNMENT_DEFAULT_ACCEPTANCE_SECONDS = _default_window_seconds(
+    'EDITOR_ACCEPTANCE_DEFAULT_HOURS', 24
+)
+EDITOR_ASSIGNMENT_DEFAULT_COMPLETION_SECONDS = _default_window_seconds(
+    'EDITOR_COMPLETION_DEFAULT_HOURS', 5 * 24
+)
 # Hard ceiling on the acceptance deadline -- one month. Beyond that a
 # submission would sit in `under_review` for a whole cycle before the
 # expiry automation frees it up for reassignment.
@@ -2414,6 +2451,76 @@ def _revision_rereview_candidates(submission, assignments):
     )
 
 
+def _assignment_windows_from(previous_assignment):
+    """How much time the admin last granted for this task, in seconds.
+
+    Auto-assign and the re-review flows have no deadline form, so they used to
+    hardcode 24h/5d.  An admin who deliberately allowed ten days then watched
+    the invitation get deleted overnight, because the next round quietly reset
+    the window.  Reusing the span the admin already chose keeps their decision
+    in force across revision rounds; the defaults only apply when there is no
+    earlier assignment to learn from.
+
+    Returns `(acceptance_seconds, completion_seconds)`.
+    """
+    acceptance_default = EDITOR_ASSIGNMENT_DEFAULT_ACCEPTANCE_SECONDS
+    completion_default = EDITOR_ASSIGNMENT_DEFAULT_COMPLETION_SECONDS
+
+    previous = previous_assignment or {}
+    started_at = _parse_int(previous.get('assigned_at'))
+    if started_at is None:
+        started_at = _parse_int(previous.get('created_at'))
+    if started_at is None:
+        return acceptance_default, completion_default
+
+    def _window(raw_deadline, fallback):
+        deadline_at = _parse_int(raw_deadline)
+        if deadline_at is None:
+            return fallback
+        span = deadline_at - started_at
+        # A non-positive span means the row was edited after the fact; the
+        # original intent is unrecoverable, so fall back rather than create an
+        # already-expired assignment.
+        return span if span > 0 else fallback
+
+    acceptance_window = min(
+        _window(previous.get('acceptance_deadline_at'), acceptance_default),
+        EDITOR_ASSIGNMENT_MAX_ACCEPTANCE_SECONDS,
+    )
+    completion_window = _window(
+        previous.get('completion_deadline_at') or previous.get('deadline_at'),
+        completion_default,
+    )
+    # A review can never be due before the invitation may still be accepted.
+    if completion_window <= acceptance_window:
+        completion_window = acceptance_window + completion_default
+
+    return acceptance_window, completion_window
+
+
+def _latest_assignment_for_submission(submission_id):
+    """The most recent assignment on this submission, whatever its status."""
+    if submission_id is None:
+        return None
+    try:
+        rows = db.editor_assignments.all().equal(submission_id=submission_id).exec()
+    except Exception:
+        logger.exception('Could not load assignments for submission_id=%s', submission_id)
+        return None
+
+    if not rows:
+        return None
+
+    def _sort_key(assignment):
+        return (
+            _parse_int(assignment.get('assigned_at')) or 0,
+            _parse_int(assignment.get('created_at')) or 0,
+            _parse_int(assignment.get('id')) or 0,
+        )
+
+    return max(rows, key=_sort_key)
+
+
 def _create_revision_reviewer_assignments(submission, assignments, assigned_by=None, actor_user_id=None):
     """Open a fresh review task for each reviewer from the prior version.
 
@@ -2436,8 +2543,6 @@ def _create_revision_reviewer_assignments(submission, assignments, assigned_by=N
         and _parse_int(assignment.get('editor_id')) is not None
     }
     now_ts = int(datetime.datetime.now().timestamp())
-    acceptance_deadline_at = now_ts + EDITOR_ASSIGNMENT_DEFAULT_ACCEPTANCE_SECONDS
-    completion_deadline_at = now_ts + EDITOR_ASSIGNMENT_DEFAULT_COMPLETION_SECONDS
     submission_title = _submission_title(submission)
     created_assignment_ids = []
 
@@ -2445,6 +2550,10 @@ def _create_revision_reviewer_assignments(submission, assignments, assigned_by=N
         editor_id = _parse_int(previous_assignment.get('editor_id'))
         if editor_id is None or editor_id in existing_current_editor_ids:
             continue
+        # Each reviewer keeps the window the admin granted them last round.
+        acceptance_window, completion_window = _assignment_windows_from(previous_assignment)
+        acceptance_deadline_at = now_ts + acceptance_window
+        completion_deadline_at = now_ts + completion_window
         assigned_by_id = _parse_int(assigned_by) or _parse_int(previous_assignment.get('assigned_by'))
         if assigned_by_id is None:
             logger.warning(
@@ -2593,6 +2702,12 @@ def _refresh_submission_editor_review_status(submission_id):
     current_round_assignments = [
         item for item in assignments
         if (_parse_int(item.get('revision_round')) or 1) == current_revision
+        # An expired invitation is history, not live work. Counting it would
+        # hold the submission in `under_review` with nobody actually
+        # reviewing; dropping it reproduces exactly what the old hard delete
+        # achieved -- the round reads as `not_assigned` and the admin can
+        # invite a replacement.
+        and _normalize_assignment_status(item.get('status')) != EDITOR_ASSIGNMENT_EXPIRED_STATUS
     ]
     normalized_assignments = [_decorate_assignment(item) for item in current_round_assignments]
     normalized_statuses = [item.get('status') for item in normalized_assignments]
@@ -2855,8 +2970,18 @@ def _expire_assignment_due_deadline(
     editor_name = _assignment_editor_name(editor_user, editor_id)
     current_ts = _parse_int(now_ts) or int(datetime.datetime.now().timestamp())
 
+    # Park the assignment instead of deleting it. The row carries who was
+    # invited, the deadline they missed and the whole admin/editor chat --
+    # `editor_assignments` is the parent of `submission_messages` with ON
+    # DELETE CASCADE, so the old hard delete silently took the conversation
+    # with it and left nothing to explain the gap.
     try:
-        db.editor_assignments.all().equal(id=assignment_id).delete().exec()
+        db.editor_assignments.all().equal(id=assignment_id).update(
+            status=EDITOR_ASSIGNMENT_EXPIRED_STATUS,
+            expired_at=current_ts,
+            expired_reason=reason,
+            updated_at=current_ts,
+        ).exec()
     except Exception:
         try:
             db.conn.rollback()
@@ -2864,6 +2989,8 @@ def _expire_assignment_due_deadline(
             pass
         return False
 
+    # The editor's inbox entry is the actionable part, and the task is no
+    # longer actionable; the notification created below explains what happened.
     try:
         db.editor_notifications.all().equal(assignment_id=assignment_id).delete().exec()
     except Exception:
@@ -3203,6 +3330,26 @@ def _extract_selected_roles(data, primary_role_name, allowed_roles=None, fallbac
         'primary_role': primary,
         'roles': roles,
     }
+
+
+def _roles_for_primary_role(primary_role_name, selected_roles):
+    """Return the persisted roles for a primary-role selection.
+
+    Superadmin is the highest staff role, so retaining lower ``admin`` or
+    ``editor`` roles on promotion is redundant.  More importantly, those
+    stale checkboxes trigger their respective setup validation (tracks or an
+    assigned admin) and used to make a Super Admin promotion appear to save
+    without taking effect.  Keep the optional author role, but persist a
+    single unambiguous staff role.
+    """
+    primary = _clean_text(primary_role_name).lower() or AUTHOR_ROLE
+    roles = parse_role_names(selected_roles)
+    if primary == 'superadmin':
+        return build_user_roles(
+            'superadmin',
+            include_author_role=AUTHOR_ROLE in roles,
+        )
+    return roles
 
 
 def _admin_tracks_for_user(user):
@@ -4793,9 +4940,9 @@ def _active_admins():
 def _actor_may_manage_staff_account(actor_user, target_user):
     """Guard the editors pages against sideways privilege escalation.
 
-    Administrators may manage editors, but a superadmin (or a fellow admin)
-    who also carries the `editor` role must stay out of reach -- otherwise an
-    admin could edit or delete an account that outranks their own.
+    Only a superadmin may manage an editor account that also carries an admin
+    or superadmin role.  This preserves the staff hierarchy even if another
+    lower-privileged role is granted editor-directory access in the future.
     """
     if user_has_role(actor_user, 'superadmin'):
         return True
@@ -5041,10 +5188,12 @@ def logout():
     return redirect(url_for('login'))
 
 @bp.route('/fmadmin/users/users')
-@users_required
+@user_directory_required
 def users():
     current_user = hydrate_user_roles(session.get('fmadmin_user') or {})
     current_role = primary_role(current_user)
+    can_manage_users = user_has_permission(current_user, 'fmadmin.users.manage')
+    can_assign_editor_roles = user_has_permission(current_user, 'fmadmin.editor_roles.manage')
 
     page = request.args.get('page', 1, type=int)
     per_page = 20
@@ -5053,18 +5202,49 @@ def users():
     search_orcid = request.args.get('orcid', '').strip()
     include_hidden = request.args.get('include_hidden') == '1' if current_role == 'superadmin' else False
 
-    query = db.users.all().order_by('id')
-    if not include_hidden:
-        query = query.unequal(is_hidden=True)
-    if current_role != 'superadmin':
-        query = query.unequal(rolename='superadmin')
-    if search_name:
-        query = query.like(name=search_name)
-    if search_email:
-        query = query.like(email=search_email)
+    if can_manage_users:
+        query = db.users.all().order_by('id')
+        if not include_hidden:
+            query = query.unequal(is_hidden=True)
+        if current_role != 'superadmin':
+            query = query.unequal(rolename='superadmin')
+        if search_name:
+            query = query.like(name=search_name)
+        if search_email:
+            query = query.like(email=search_email)
 
-    total_users = query.copy().count().exec()
-    users = [hydrate_user_roles(user) for user in query.per_page(per_page).page(page).exec()]
+        total_users = query.copy().count().exec()
+        users = [hydrate_user_roles(user) for user in query.per_page(per_page).page(page).exec()]
+    else:
+        # Admins assigning editors can only browse regular, active accounts.
+        # Filtering in Python is intentional: an account may carry an admin
+        # role while its legacy `rolename` still says `user`.
+        candidate_users = [
+            hydrate_user_roles(user)
+            for user in db.users.all().order_by('id').unequal(is_hidden=True).exec()
+        ]
+        candidate_users = [
+            user for user in candidate_users
+            if not user_has_any_role(user, ADMIN_ROLE_NAMES)
+            and not user.get('is_blocked')
+        ]
+        if search_name:
+            search_name_lower = search_name.lower()
+            candidate_users = [
+                user for user in candidate_users
+                if search_name_lower in _clean_text(user.get('name')).lower()
+                or search_name_lower in _clean_text(user.get('second_name')).lower()
+                or search_name_lower in _clean_text(user.get('father_name')).lower()
+            ]
+        if search_email:
+            search_email_lower = search_email.lower()
+            candidate_users = [
+                user for user in candidate_users
+                if search_email_lower in _clean_text(user.get('email')).lower()
+            ]
+        total_users = len(candidate_users)
+        start = max(page - 1, 0) * per_page
+        users = candidate_users[start:start + per_page]
     total_pages = (total_users + per_page - 1) // per_page
 
     for user in users:
@@ -5082,6 +5262,8 @@ def users():
                            search_name=search_name, search_email=search_email, search_orcid=search_orcid,
                            author_map=author_map, tariffs_map=tariffs_map,
                            include_hidden=include_hidden, current_user=current_user, admin_map=admin_map,
+                           can_manage_users=can_manage_users,
+                           can_assign_editor_roles=can_assign_editor_roles,
                            uncovered_tracks=_uncovered_admin_tracks(),
                            untracked_submission_count=_untracked_submission_count())
 
@@ -5109,6 +5291,21 @@ def _allowed_roles_for_actor(actor_role):
     if actor_role == 'superadmin':
         roles.append('superadmin')
     return roles
+
+
+def _may_assign_editor_role(actor_user, target_user):
+    """Whether an actor may promote ``target_user`` to editor.
+
+    A superadmin with full user-management access may use the normal user
+    editor.  A regular admin has the narrower editor-role permission and may
+    promote only a non-staff account, which prevents sideways or upward role
+    escalation.
+    """
+    if user_has_permission(actor_user, 'fmadmin.users.manage'):
+        return True
+    if not user_has_permission(actor_user, 'fmadmin.editor_roles.manage'):
+        return False
+    return not user_has_any_role(target_user, {'editor', 'admin', 'superadmin'})
 
 
 def _query_rows_dicts(query, args=()):
@@ -5686,7 +5883,7 @@ def user_edit(user_id):
             rolename = (data.get('rolename') or 'user').strip().lower()
             role_selection = _extract_selected_roles(data, rolename, allowed_roles=allowed_roles)
             rolename = role_selection['primary_role']
-            roles = role_selection['roles']
+            roles = _roles_for_primary_role(rolename, role_selection['roles'])
             password = data.get('password') or ''
             password_confirm = data.get('password_confirm') or ''
             has_staff_role = any(role_name in PRIVILEGED_ROLES for role_name in roles)
@@ -5791,7 +5988,7 @@ def user_edit(user_id):
             fallback_roles=existing_user.get('roles'),
         )
         submitted_role = role_selection['primary_role']
-        roles = role_selection['roles']
+        roles = _roles_for_primary_role(submitted_role, role_selection['roles'])
         has_staff_role = any(role_name in PRIVILEGED_ROLES for role_name in roles)
         had_staff_role = any(role_name in PRIVILEGED_ROLES for role_name in parse_role_names(existing_user.get('roles')))
         has_admin_role = 'admin' in roles
@@ -5886,6 +6083,28 @@ def user_edit(user_id):
 
         saved_user_rows = db.users.all().equal(id=user_id).update(**update_data).exec()
         saved_user = saved_user_rows[0] if saved_user_rows else None
+        if not saved_user:
+            logger.error('User role update returned no saved row for user_id=%s', user_id)
+            new_alert(
+                _msg_text(
+                    "Foydalanuvchi saqlanmadi. Qayta urinib ko'ring.",
+                    'Пользователь не сохранён. Повторите попытку.',
+                    'User was not saved. Please try again.',
+                ),
+                'danger',
+            )
+            return redirect(url_for('user_edit', user_id=user_id))
+        if submitted_role == 'superadmin' and primary_role(saved_user) != 'superadmin':
+            logger.error('Superadmin role was not persisted for user_id=%s', user_id)
+            new_alert(
+                _msg_text(
+                    "Super Admin roli saqlanmadi. Qayta urinib ko'ring.",
+                    'Роль Super Admin не сохранилась. Повторите попытку.',
+                    'The Super Admin role was not saved. Please try again.',
+                ),
+                'danger',
+            )
+            return redirect(url_for('user_edit', user_id=user_id))
         if user_has_role(existing_user, 'admin') or has_admin_role:
             _realign_submission_admin_assignments()
         if _parse_int(current_user.get('id')) == user_id and saved_user:
@@ -5974,6 +6193,146 @@ def user_edit(user_id):
         admin_track_choices=ADMIN_TRACK_CHOICES,
         role_choices=role_choices,
         user_360=user_360
+    )
+
+
+@bp.route('/fmadmin/users/users/<int:user_id>/assign-editor', methods=['GET', 'POST'])
+@editor_roles_required
+def assign_editor_role(user_id):
+    """Promote one regular account to editor without exposing user management."""
+    current_user = _current_user_with_details()
+    target_rows = db.users.all().equal(id=user_id).exec()
+    if not target_rows:
+        return 'Foydalanuvchi topilmadi', 404
+
+    target_user = hydrate_user_roles(target_rows[0])
+    if user_has_any_role(target_user, ADMIN_ROLE_NAMES):
+        flash(t('admin_error_no_access'), 'danger')
+        return redirect(url_for('users'))
+    if not _may_assign_editor_role(current_user, target_user):
+        flash(t('admin_error_no_access'), 'danger')
+        return redirect(url_for('users'))
+    if target_user.get('is_hidden') or target_user.get('is_blocked'):
+        new_alert(
+            _msg_text(
+                "Yashirilgan yoki bloklangan foydalanuvchiga muharrir roli berib bo'lmaydi",
+                'Нельзя назначить редактора скрытому или заблокированному пользователю',
+                'A hidden or blocked user cannot be assigned as an editor',
+            ),
+            'danger',
+        )
+        return redirect(url_for('users'))
+    if user_has_role(target_user, 'editor'):
+        new_alert(
+            _msg_text(
+                "Bu foydalanuvchida muharrir roli allaqachon bor",
+                'У этого пользователя уже есть роль редактора',
+                'This user already has the editor role',
+            ),
+            'info',
+        )
+        return redirect(url_for('users'))
+
+    can_manage_users = user_has_permission(current_user, 'fmadmin.users.manage')
+    active_admins = _active_admins() if can_manage_users else []
+
+    if request.method == 'POST':
+        password = request.form.get('password') or ''
+        password_confirm = request.form.get('password_confirm') or ''
+        password_hash = None
+        if password or password_confirm:
+            if len(password) < 6:
+                new_alert(
+                    _msg_text(
+                        "Parol kamida 6 ta belgidan iborat bo'lishi kerak",
+                        'Пароль должен быть не короче 6 символов',
+                        'Password must be at least 6 characters long',
+                    ),
+                    'danger',
+                )
+                return redirect(url_for('assign_editor_role', user_id=user_id))
+            if password != password_confirm:
+                new_alert(
+                    _msg_text(
+                        'Parol va tasdiq paroli mos emas',
+                        'Пароль и подтверждение не совпадают',
+                        'Password and confirmation do not match',
+                    ),
+                    'danger',
+                )
+                return redirect(url_for('assign_editor_role', user_id=user_id))
+            from werkzeug.security import generate_password_hash
+            password_hash = generate_password_hash(password)
+
+        if not target_user.get('password') and not password_hash:
+            new_alert(
+                _msg_text(
+                    "Muharrir kirishi uchun yangi parol o'rnating",
+                    'Установите новый пароль для входа редактора',
+                    'Set a new password for the editor login',
+                ),
+                'danger',
+            )
+            return redirect(url_for('assign_editor_role', user_id=user_id))
+
+        if can_manage_users:
+            editor_admin_id = _parse_int(request.form.get('editor_admin_id'))
+            if editor_admin_id is not None:
+                assigned_admin = _load_user_from_db(editor_admin_id)
+                if (
+                    not assigned_admin
+                    or not user_has_role(assigned_admin, 'admin')
+                    or assigned_admin.get('is_hidden')
+                    or assigned_admin.get('is_blocked')
+                ):
+                    new_alert(
+                        _msg_text(
+                            "Muharrir uchun biriktirilgan admin topilmadi",
+                            'Для редактора не найден назначенный администратор',
+                            'Assigned admin for editor not found',
+                        ),
+                        'danger',
+                    )
+                    return redirect(url_for('assign_editor_role', user_id=user_id))
+        else:
+            # An admin can only add editors to their own assignment pool.
+            editor_admin_id = _parse_int(current_user.get('id'))
+
+        new_roles = build_user_roles(
+            'editor',
+            include_author_role=user_has_role(target_user, AUTHOR_ROLE),
+            extra_roles=parse_role_names(target_user.get('roles')) + ['editor'],
+        )
+        update_data = {
+            'rolename': 'editor',
+            'roles': new_roles,
+            'editor_specialization': _clean_text(request.form.get('editor_specialization')),
+            'editor_admin_id': editor_admin_id,
+            'is_hidden': False,
+            'is_blocked': False,
+            'deleted_at': None,
+        }
+        if password_hash:
+            update_data['password'] = password_hash
+
+        db.users.all().equal(id=user_id).update(**update_data).exec()
+        new_alert(
+            _msg_text(
+                "Foydalanuvchiga muharrir roli berildi",
+                'Пользователю назначена роль редактора',
+                'The editor role was assigned to the user',
+            ),
+            'success',
+        )
+        return redirect(url_for('users'))
+
+    return render_template(
+        'users/users/assign_editor.html',
+        target_user=target_user,
+        current_user=current_user,
+        active_admins=active_admins,
+        can_manage_users=can_manage_users,
+        password_required=not bool(target_user.get('password')),
     )
 
 
@@ -6100,7 +6459,7 @@ def users_bulk_action():
 
 
 @bp.route('/fmadmin/users/authors')
-@users_required
+@authors_required
 def authors():
     page = request.args.get('page', 1, type=int)
     per_page = 20
@@ -6452,7 +6811,7 @@ def _merge_author_profiles_for_users(cursor, column_cache, primary_user_id, seco
 
 
 @bp.route('/fmadmin/users/authors/<int:author_id>', methods=['GET', 'POST'])
-@users_required
+@authors_required
 def author_edit(author_id):
     column_cache = {}
     cursor = db.conn.cursor()
@@ -6546,7 +6905,7 @@ def author_edit(author_id):
 
 
 @bp.route('/fmadmin/users/authors/<int:author_id>/merge', methods=['POST'])
-@users_required
+@authors_required
 def author_merge_users(author_id):
     """Merge a duplicate user account into the primary user linked to this author."""
     primary_user_id = request.form.get('primary_user_id', type=int)
@@ -6722,7 +7081,7 @@ def author_merge_users(author_id):
 
 
 @bp.route('/fmadmin/users/authors/<int:author_id>/link-user', methods=['POST'])
-@users_required
+@authors_required
 def author_link_user(author_id):
     candidate_user_id = request.form.get('user_id', type=int)
     if not candidate_user_id:
@@ -11754,8 +12113,6 @@ def submission_revision_send_for_rereview(submission_id):
         return redirect(url_for('submission_detail', submission_id=submission_id))
 
     now_ts = int(datetime.datetime.now().timestamp())
-    acceptance_deadline_at = now_ts + EDITOR_ASSIGNMENT_DEFAULT_ACCEPTANCE_SECONDS
-    completion_deadline_at = now_ts + EDITOR_ASSIGNMENT_DEFAULT_COMPLETION_SECONDS
     current_revision = _parse_int(submission.get('revision_number')) or 1
     submission_title = _submission_title(submission)
     created_count = 0
@@ -11764,6 +12121,10 @@ def submission_revision_send_for_rereview(submission_id):
         editor_id = _parse_int(previous_assignment.get('editor_id'))
         if editor_id is None:
             continue
+        # Each reviewer keeps the window the admin granted them last round.
+        acceptance_window, completion_window = _assignment_windows_from(previous_assignment)
+        acceptance_deadline_at = now_ts + acceptance_window
+        completion_deadline_at = now_ts + completion_window
         try:
             created = db.editor_assignments.add(
                 submission_id=submission_id,
@@ -11883,8 +12244,13 @@ def auto_assign_editor(submission_id):
 
     editor_id = _parse_int(selected_editor.get('id'))
     now_ts = int(datetime.datetime.now().timestamp())
-    acceptance_deadline_at = now_ts + EDITOR_ASSIGNMENT_DEFAULT_ACCEPTANCE_SECONDS
-    completion_deadline_at = now_ts + EDITOR_ASSIGNMENT_DEFAULT_COMPLETION_SECONDS
+    # No form here, so inherit whatever window the admin last set on this
+    # submission; the defaults only apply to a first-ever assignment.
+    acceptance_window, completion_window = _assignment_windows_from(
+        _latest_assignment_for_submission(submission_id)
+    )
+    acceptance_deadline_at = now_ts + acceptance_window
+    completion_deadline_at = now_ts + completion_window
 
     assignment_row = db.editor_assignments.add(
         submission_id=submission_id,
@@ -11974,12 +12340,13 @@ def assign_editors(submission_id):
     # deadline is rendered back and how the POST value is parsed.
     min_deadline_datetime = ui_datetime_input_value(now_ts)
     max_acceptance_datetime = ui_datetime_input_value(max_acceptance_ts)
-    default_acceptance_deadline = ui_datetime_input_value(
-        now_ts + EDITOR_ASSIGNMENT_DEFAULT_ACCEPTANCE_SECONDS
+    # Pre-fill with the window this submission was last given, so an admin who
+    # already decided on (say) ten days is not silently handed 24h again.
+    default_acceptance_window, default_completion_window = _assignment_windows_from(
+        _latest_assignment_for_submission(submission_id)
     )
-    default_completion_deadline = ui_datetime_input_value(
-        now_ts + EDITOR_ASSIGNMENT_DEFAULT_COMPLETION_SECONDS
-    )
+    default_acceptance_deadline = ui_datetime_input_value(now_ts + default_acceptance_window)
+    default_completion_deadline = ui_datetime_input_value(now_ts + default_completion_window)
 
     if request.method == 'POST':
         if not is_antiplag_ready:
@@ -12121,6 +12488,14 @@ def assign_editors(submission_id):
                 update_payload['deadline_at'] = completion_deadline_at
                 update_payload['acceptance_reminder_level'] = ''
                 update_payload['completion_reminder_level'] = ''
+                if existing_assignment.get('status') == EDITOR_ASSIGNMENT_EXPIRED_STATUS:
+                    # Re-inviting an editor whose invitation lapsed: revive the
+                    # parked row with the fresh deadline instead of leaving it
+                    # expired, which would keep the task invisible to them.
+                    update_payload['status'] = 'pending'
+                    update_payload['accepted_at'] = None
+                    update_payload['expired_at'] = None
+                    update_payload['expired_reason'] = None
                 if existing_assignment.get('admin_decision') == 'revision_requested':
                     update_payload['admin_decision'] = 'pending'
 

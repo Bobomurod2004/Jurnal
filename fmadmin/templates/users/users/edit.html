@@ -182,16 +182,28 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Parol{% if user.id == 0 %} <span class="text-danger">*</span>{% endif %}</label>
-                                <input type="password" class="form-control" name="password" {% if user.id == 0 %}required{% endif %}
-                                    placeholder="{% if user.id == 0 %}Yangi parol{% else %}Parolni almashtirish uchun kiriting{% endif %}">
+                                <div class="input-group">
+                                    <input id="user-password" type="password" class="form-control" name="password" {% if user.id == 0 %}required{% endif %}
+                                        placeholder="{% if user.id == 0 %}Yangi parol{% else %}Parolni almashtirish uchun kiriting{% endif %}">
+                                    <button type="button" class="btn btn-outline-secondary" data-password-toggle="user-password"
+                                        aria-label="Parolni ko‘rsatish" title="Parolni ko‘rsatish" aria-pressed="false">
+                                        <i class="ti ti-eye" aria-hidden="true"></i>
+                                    </button>
+                                </div>
                                 <div class="form-text">User rolidan Admin/Tahrirchiga o'tkazganda yangi parol kiritish shart.</div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Parolni tasdiqlash{% if user.id == 0 %} <span class="text-danger">*</span>{% endif %}</label>
-                                <input type="password" class="form-control" name="password_confirm" {% if user.id == 0 %}required{% endif %}
-                                    placeholder="Parolni qayta kiriting">
+                                <div class="input-group">
+                                    <input id="user-password-confirm" type="password" class="form-control" name="password_confirm" {% if user.id == 0 %}required{% endif %}
+                                        placeholder="Parolni qayta kiriting">
+                                    <button type="button" class="btn btn-outline-secondary" data-password-toggle="user-password-confirm"
+                                        aria-label="Parolni ko‘rsatish" title="Parolni ko‘rsatish" aria-pressed="false">
+                                        <i class="ti ti-eye" aria-hidden="true"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -417,6 +429,21 @@
 {% block scripts %}
 <script>
     const isCreateUser = {{ 'true' if user.id == 0 else 'false' }};
+
+    document.querySelectorAll('[data-password-toggle]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const input = document.getElementById(button.dataset.passwordToggle);
+            const icon = button.querySelector('i');
+            if (!input || !icon) return;
+
+            const showPassword = input.type === 'password';
+            input.type = showPassword ? 'text' : 'password';
+            icon.className = showPassword ? 'ti ti-eye-off' : 'ti ti-eye';
+            button.setAttribute('aria-pressed', String(showPassword));
+            button.setAttribute('aria-label', showPassword ? 'Parolni yashirish' : 'Parolni ko‘rsatish');
+            button.setAttribute('title', showPassword ? 'Parolni yashirish' : 'Parolni ko‘rsatish');
+        });
+    });
 
     document.getElementById('save-user-btn-top').addEventListener('click', function () {
         document.getElementById('save-user-btn').click();

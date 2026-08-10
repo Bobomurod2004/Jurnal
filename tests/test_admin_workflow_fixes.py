@@ -11,6 +11,8 @@ wrong:
 """
 import datetime
 
+from flask import Flask
+
 from fmadmin.routes import web as fmadmin_web
 from fmadmin.utils.filters import (
     UI_TZ_OFFSET_SECONDS,
@@ -275,3 +277,257 @@ def test_untracked_count_survives_a_database_failure(monkeypatch):
     monkeypatch.setattr(fmadmin_web, 'db', _Boom())
 
     assert fmadmin_web._untracked_submission_count() == 0
+
+
+# --------------------------------------------------------------------------
+# Assignment deadlines: the admin's chosen window survives the next round
+# --------------------------------------------------------------------------
+
+HOUR = 60 * 60
+DAY = 24 * HOUR
+
+ACCEPTANCE_DEFAULT = fmadmin_web.EDITOR_ASSIGNMENT_DEFAULT_ACCEPTANCE_SECONDS
+COMPLETION_DEFAULT = fmadmin_web.EDITOR_ASSIGNMENT_DEFAULT_COMPLETION_SECONDS
+
+
+def _previous(assigned_at=1_000_000, acceptance=None, completion=None, **extra):
+    row = {'assigned_at': assigned_at}
+    if acceptance is not None:
+        row['acceptance_deadline_at'] = assigned_at + acceptance
+    if completion is not None:
+        row['completion_deadline_at'] = assigned_at + completion
+    row.update(extra)
+    return row
+
+
+def test_ten_day_acceptance_window_is_carried_into_the_next_round():
+    # The reported bug: an admin allowed ten days to accept, the next round
+    # silently reset it to 24h and the invitation was deleted after one day.
+    previous = _previous(acceptance=10 * DAY, completion=20 * DAY)
+
+    acceptance, completion = fmadmin_web._assignment_windows_from(previous)
+
+    assert acceptance == 10 * DAY
+    assert completion == 20 * DAY
+
+
+def test_defaults_apply_only_when_there_is_nothing_to_inherit():
+    for previous in (None, {}, {'acceptance_deadline_at': 123}):
+        acceptance, completion = fmadmin_web._assignment_windows_from(previous)
+        assert (acceptance, completion) == (ACCEPTANCE_DEFAULT, COMPLETION_DEFAULT)
+
+
+def test_created_at_stands_in_when_assigned_at_is_missing():
+    previous = {'created_at': 1_000_000, 'acceptance_deadline_at': 1_000_000 + 3 * DAY}
+
+    acceptance, _completion = fmadmin_web._assignment_windows_from(previous)
+
+    assert acceptance == 3 * DAY
+
+
+def test_legacy_deadline_at_is_used_when_completion_is_absent():
+    previous = {'assigned_at': 1_000_000, 'deadline_at': 1_000_000 + 7 * DAY}
+
+    _acceptance, completion = fmadmin_web._assignment_windows_from(previous)
+
+    assert completion == 7 * DAY
+
+
+def test_acceptance_window_never_exceeds_the_one_month_ceiling():
+    previous = _previous(acceptance=90 * DAY, completion=120 * DAY)
+
+    acceptance, _completion = fmadmin_web._assignment_windows_from(previous)
+
+    assert acceptance == fmadmin_web.EDITOR_ASSIGNMENT_MAX_ACCEPTANCE_SECONDS
+
+
+def test_a_review_is_never_due_before_the_invitation_may_be_accepted():
+    # A row where completion landed before acceptance would create an
+    # assignment that expires the moment it is made.
+    previous = _previous(acceptance=10 * DAY, completion=2 * DAY)
+
+    acceptance, completion = fmadmin_web._assignment_windows_from(previous)
+
+    assert completion > acceptance
+
+
+def test_a_corrupted_span_falls_back_instead_of_expiring_immediately():
+    # Deadline before the assignment start: intent unrecoverable.
+    previous = _previous(acceptance=-5 * DAY, completion=-1 * DAY)
+
+    acceptance, completion = fmadmin_web._assignment_windows_from(previous)
+
+    assert acceptance == ACCEPTANCE_DEFAULT
+    assert completion > acceptance
+
+
+def test_latest_assignment_wins_when_a_submission_has_several(monkeypatch):
+    rows = [
+        {'id': 1, 'assigned_at': 100, 'acceptance_deadline_at': 100 + DAY},
+        {'id': 2, 'assigned_at': 500, 'acceptance_deadline_at': 500 + 10 * DAY},
+        {'id': 3, 'assigned_at': 300, 'acceptance_deadline_at': 300 + 2 * DAY},
+    ]
+
+    class _Db:
+        class editor_assignments:
+            @staticmethod
+            def all():
+                return _Db.editor_assignments
+
+            @staticmethod
+            def equal(**kwargs):
+                return _Db.editor_assignments
+
+            @staticmethod
+            def exec():
+                return rows
+
+    monkeypatch.setattr(fmadmin_web, 'db', _Db())
+
+    latest = fmadmin_web._latest_assignment_for_submission(42)
+
+    assert latest['id'] == 2
+    acceptance, _completion = fmadmin_web._assignment_windows_from(latest)
+    assert acceptance == 10 * DAY
+
+
+def test_no_previous_assignment_is_not_an_error(monkeypatch):
+    class _Db:
+        class editor_assignments:
+            @staticmethod
+            def all():
+                return _Db.editor_assignments
+
+            @staticmethod
+            def equal(**kwargs):
+                return _Db.editor_assignments
+
+            @staticmethod
+            def exec():
+                return []
+
+    monkeypatch.setattr(fmadmin_web, 'db', _Db())
+
+    assert fmadmin_web._latest_assignment_for_submission(42) is None
+    assert fmadmin_web._latest_assignment_for_submission(None) is None
+
+
+def test_default_window_reads_hours_from_the_environment(monkeypatch):
+    monkeypatch.setenv('EDITOR_ACCEPTANCE_DEFAULT_HOURS', '72')
+    assert fmadmin_web._default_window_seconds('EDITOR_ACCEPTANCE_DEFAULT_HOURS', 24) == 72 * HOUR
+
+    # Nonsense and non-positive values keep the built-in fallback.
+    for bad in ('', '   ', 'abc', '0', '-5'):
+        monkeypatch.setenv('EDITOR_ACCEPTANCE_DEFAULT_HOURS', bad)
+        assert fmadmin_web._default_window_seconds('EDITOR_ACCEPTANCE_DEFAULT_HOURS', 24) == 24 * HOUR
+
+
+# --------------------------------------------------------------------------
+# A missed deadline parks the assignment instead of deleting it
+# --------------------------------------------------------------------------
+
+def test_expired_is_a_known_status():
+    # `_normalize_assignment_status` maps anything unknown back to 'pending'.
+    # If 'expired' were not registered, the automation would keep re-expiring
+    # the same row and re-notifying everyone forever.
+    assert fmadmin_web.EDITOR_ASSIGNMENT_EXPIRED_STATUS in fmadmin_web.EDITOR_ASSIGNMENT_STATUS_VALUES
+    assert fmadmin_web._normalize_assignment_status('expired') == 'expired'
+
+
+def test_expired_counts_as_neither_active_nor_reviewed():
+    expired = fmadmin_web.EDITOR_ASSIGNMENT_EXPIRED_STATUS
+    assert expired not in fmadmin_web.EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES
+    assert expired not in fmadmin_web.EDITOR_ASSIGNMENT_REVIEWED_STATUS_VALUES
+
+
+def test_expired_assignments_do_not_count_as_pending_work():
+    stats = fmadmin_web._assignment_stats([
+        {'status': 'expired'},
+        {'status': 'expired'},
+        {'status': 'pending'},
+    ])
+
+    assert stats['pending'] == 1
+    assert stats['reviewed'] == 0
+    assert stats['rejected'] == 0
+    # The expired rows are still part of the history.
+    assert stats['total'] == 3
+
+
+def test_automation_only_loads_live_assignments():
+    # The expiry pass queries by active status, so a parked row is never
+    # picked up a second time.
+    assert 'expired' not in fmadmin_web.EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES
+
+
+def test_an_expired_round_reads_as_unassigned_so_a_replacement_can_be_invited(monkeypatch):
+    # Dropping the expired rows has to leave the round empty, the same state
+    # the old hard delete produced -- otherwise the submission would sit in
+    # `under_review` with nobody reviewing it.
+    captured = {}
+
+    class _Table:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def all(self):
+            return self
+
+        def equal(self, **kwargs):
+            return self
+
+        def update(self, **kwargs):
+            captured.update(kwargs)
+            return self
+
+        def exec(self):
+            return self._rows
+
+    class _Db:
+        submissions = _Table([{'id': 7, 'status': 'under_review', 'revision_number': 1}])
+        editor_assignments = _Table([
+            {'id': 1, 'status': 'expired', 'revision_round': 1, 'admin_decision': 'pending'},
+            {'id': 2, 'status': 'expired', 'revision_round': 1, 'admin_decision': 'pending'},
+        ])
+
+    monkeypatch.setattr(fmadmin_web, 'db', _Db())
+
+    review_status = fmadmin_web._refresh_submission_editor_review_status(7)
+
+    assert review_status == 'not_assigned'
+    # `not_assigned` must not push the submission backwards down the pipeline.
+    assert 'status' not in captured
+
+
+def test_a_live_assignment_alongside_an_expired_one_still_counts(monkeypatch):
+    class _Table:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def all(self):
+            return self
+
+        def equal(self, **kwargs):
+            return self
+
+        def update(self, **kwargs):
+            return self
+
+        def exec(self):
+            return self._rows
+
+    class _Db:
+        submissions = _Table([{'id': 7, 'status': 'under_review', 'revision_number': 1}])
+        editor_assignments = _Table([
+            {'id': 1, 'status': 'expired', 'revision_round': 1, 'admin_decision': 'pending'},
+            {'id': 2, 'status': 'pending', 'revision_round': 1, 'admin_decision': 'pending'},
+        ])
+
+    monkeypatch.setattr(fmadmin_web, 'db', _Db())
+
+    # Decorating a live assignment reaches for translations, which need a
+    # request context.
+    app = Flask(__name__)
+    app.secret_key = 'test'
+    with app.test_request_context('/fmadmin/'):
+        assert fmadmin_web._refresh_submission_editor_review_status(7) == 'assigned'

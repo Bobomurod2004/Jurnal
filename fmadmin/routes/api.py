@@ -22,8 +22,8 @@ api_site_required = api_permission_required('fmadmin.site.manage', 'Site managem
 # The author picker is opened both from article editing and the authors
 # directory, so it accepts either side's permission.
 api_author_picker_required = api_any_permission_required(
-    ('fmadmin.content.manage', 'fmadmin.users.manage'),
-    'Content or user management access required'
+    ('fmadmin.content.manage', 'fmadmin.authors.manage', 'fmadmin.users.manage'),
+    'Content or author management access required'
 )
 TARIFF_ENTITLEMENT_SCOPES = {'all', 'archive'}
 DEFAULT_ARCHIVE_DAYS_THRESHOLD = 365

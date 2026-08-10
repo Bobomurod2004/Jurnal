@@ -23,10 +23,15 @@ ROLE_PERMISSIONS = {
         'fmadmin.assignments.view',
         'fmadmin.assignments.manage',
         'fmadmin.notifications.view',
-        # Day-to-day journal operations: issues, articles, news, announcements.
+        # Full day-to-day journal operations: create, edit, and delete issues,
+        # articles, news, and announcements.
         'fmadmin.content.manage',
-        # Adding and maintaining the editors an admin assigns work to.
-        'fmadmin.editors.manage',
+        'fmadmin.content.delete',
+        # Full author-profile management without broader user administration.
+        'fmadmin.authors.manage',
+        # Assign the editor role to regular user accounts without granting
+        # general user administration or editor-directory management.
+        'fmadmin.editor_roles.manage',
         # Confirming/rejecting incoming payments. Pricing (tariffs, payment
         # guide) stays with superadmin via `fmadmin.finance.manage`.
         'fmadmin.payments.manage',
@@ -39,6 +44,8 @@ ROLE_PERMISSIONS = {
         'fmadmin.assignments.manage',
         'fmadmin.notifications.view',
         'fmadmin.users.manage',
+        'fmadmin.authors.manage',
+        'fmadmin.editor_roles.manage',
         'fmadmin.content.manage',
         'fmadmin.content.delete',
         'fmadmin.editors.manage',
@@ -60,6 +67,8 @@ CAPABILITY_PERMISSION_MAP = {
     'can_review_assignments': 'fmadmin.assignments.review',
     'can_view_notifications': 'fmadmin.notifications.view',
     'can_manage_users': 'fmadmin.users.manage',
+    'can_manage_authors': 'fmadmin.authors.manage',
+    'can_assign_editor_roles': 'fmadmin.editor_roles.manage',
     'can_manage_content': 'fmadmin.content.manage',
     'can_delete_content': 'fmadmin.content.delete',
     'can_manage_editors': 'fmadmin.editors.manage',

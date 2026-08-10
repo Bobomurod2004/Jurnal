@@ -141,7 +141,7 @@
                 class="btn btn-icon btn-outline-info bg-info-lt btn-sm px-2 py-1 me-2">
                 {{ t("admin_btn_content") }}
               </a>
-              {# Maqola o'chirish faqat superadmin'da (fmadmin.content.delete). #}
+              {# Maqolani admin va superadmin o'chira oladi (fmadmin.content.delete). #}
               {% if user_caps.can_delete_content %}
               <button type="button" class="btn btn-icon btn-outline-danger bg-danger-lt btn-sm px-2 py-1"
                 data-bs-toggle="modal"

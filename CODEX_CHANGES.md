@@ -2,6 +2,18 @@
 
 Bu fayl Claude Code bilan parallel ishlashda Codex qilgan o'zgarishlarni kuzatish uchun yuritiladi.
 
+## 2026-08-10 — Administratorning jurnal kontenti va mualliflar bo'yicha to'liq ruxsati
+
+- `admin` roli jurnal sonlari va maqolalarini yaratish, tahrirlash hamda o'chirish huquqiga ega. Bu huquq `fmadmin.content.delete` orqali berildi; ro'yxat sahifalaridagi o'chirish tugmalari admin uchun ham ko'rinadi.
+- Aniqlashtirilgan talabga ko'ra adminning `muharrirlar` bo'limi ruxsati olib tashlanib, uning o'rniga alohida `fmadmin.authors.manage` ruxsati berildi. Endi admin mualliflarni yaratishi, tahrirlashi, birlashtirishi va foydalanuvchi hisobiga bog'lashi mumkin, biroq umumiy foydalanuvchilar yoki tahririyat jamoasini boshqara olmaydi.
+- Keyingi aniqlashtirish: admin endi oddiy foydalanuvchilar ro'yxatini ko'rib, ularga maxsus `fmadmin.editor_roles.manage` ruxsati orqali muharrir rolini bera oladi. Yangi `assign-editor` sahifasi foydalanuvchini adminning o'ziga biriktiradi; admin/superadmin hisoblari, mavjud muharrirlar, umumiy user tahriri va superadmin tayinlash bu oqimdan qat'iy yopiq.
+- Foydalanuvchi nomi bosilganda tegishli sahifa ochiladi: admin uchun xavfsiz muharrir tayinlash formasi, superadmin uchun to'liq user tahriri. Muharrir tayinlash hamda umumiy user tahriri formalaridagi ikki parol maydoniga parolni ko'rsatish/yashirish ko'zcha tugmalari qo'shildi.
+- Super Admin tayinlash oqimi mustahkamlandi: Super Admin tanlanganda qolib ketgan `admin` yoki `editor` checkboxlari saqlanmaydi, faqat `superadmin` (va avval tanlangan bo'lsa `user`) roli yoziladi. Saqlangan qator alohida tekshiriladi; rol bazaga yozilmasa muvaffaqiyat xabari emas, aniq xatolik chiqadi.
+- Ruxsatlar `fmadmin` va `mainweb`dagi umumiy rol modulida bir xil yangilandi, shu sabab sessiya qaysi ilovadan ochilganidan qat'i nazar huquq bir xil ishlaydi. Mualliflar sahifalari va author-picker API ham yangi ruxsat bilan himoyalandi.
+- Superadmin uchun mo'ljallangan sayt sozlamalari, foydalanuvchilar, tarif/moliya va tizim boshqaruvi admin roliga berilmadi.
+- Regression testlar adminning maqola/sonlarni o'chirish, mualliflarni boshqarish va oddiy foydalanuvchini muharrirga tayinlash sahifalariga kira olishini tekshiradi. Muharrirlar direktoriyasi, umumiy foydalanuvchi tahriri va yuqori rollarni tayinlash esa yopiq qoladi.
+- Tegilgan fayllar: `fmadmin/utils/roles.py`, `mainweb/utils/roles.py`, `fmadmin/routes/web.py`, `fmadmin/routes/api.py`, `fmadmin/utils/auth.py`, `fmadmin/templates/basic.html`, `fmadmin/templates/users/users/users.html`, `fmadmin/templates/users/users/assign_editor.html`, `fmadmin/templates/users/users/edit.html`, `fmadmin/templates/website/articles/articles.html`, `fmadmin/templates/website/issues/issues.html`, `tests/test_role_permissions.py`, `CODEX_CHANGES.md`.
+
 ## 2026-08-06 — Soddalashtirilgan tuzatish va qayta tahriz oqimi
 
 - Raund raqami noto'g'ri "Tahrir #" bo'lib chiqqan barcha review belgilarining o'zbekcha nomi "Taqriz #"ga o'zgartirildi. Admin, muharrir va muallif sahifalarida bitta atama ishlaydi; ruscha "Рецензия #", inglizcha "Review #" ko'rinishida chiqadi. Oddiy tahrirlash (edit qilish) amallari bu o'zgarishga kirmaydi.

@@ -26,6 +26,7 @@
         <option value="in_review" {% if status_filter=='in_review' %}selected{% endif %}>Jarayonda</option>
         <option value="reviewed" {% if status_filter=='reviewed' %}selected{% endif %}>{{ t("admin_stats_reviewed") }}
         </option>
+        <option value="expired" {% if status_filter=='expired' %}selected{% endif %}>Muddati o'tgan</option>
         <option value="rejected" {% if status_filter=='rejected' %}selected{% endif %}>{{ t("admin_stats_rejected") }}
         </option>
       </select>
@@ -172,6 +173,13 @@
             <span class="badge bg-success-lt">{{ t("admin_stats_reviewed") }}</span>
             {% elif assignment.status == 'rejected' %}
             <span class="badge bg-danger-lt">{{ t("admin_stats_rejected") }}</span>
+            {% elif assignment.status == 'expired' %}
+            {# Kept as history: the invitation lapsed, nobody reviewed it. #}
+            <span class="badge bg-secondary-lt">Muddati o'tgan</span>
+            <div class="text-secondary small mt-1">
+              {% if assignment.expired_reason == 'completion' %}Topshirmadi{% else %}Qabul qilmadi{% endif %}
+              {% if assignment.expired_at %} · {{ assignment.expired_at | timestamp_to_datetime }}{% endif %}
+            </div>
             {% else %}
             <span class="badge bg-secondary-lt">{{ assignment.status }}</span>
             {% endif %}

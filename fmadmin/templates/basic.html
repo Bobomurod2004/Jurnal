@@ -142,12 +142,14 @@
             {% set home_endpoint = 'index' if user_caps.can_access_admin_dashboard else 'editor_dashboard' %}
             {{ sidebar_link(home_endpoint, 'ti-home', t('admin_home'), ['index', 'editor_dashboard']) }}
 
-            <!-- Foydalanuvchilar: ro'yxatlar superadmin'da, Muharrirlar admin'da ham -->
-            {% if user_caps.can_manage_users or user_caps.can_manage_editors %}
-            {% set _users_active = ['users', 'user_edit', 'authors', 'author_edit', 'editors', 'editor_edit', 'editorial_members', 'editorial_member_edit'] %}
+            <!-- Foydalanuvchilar: umumiy ro'yxatlar superadmin'da, mualliflar admin'da ham -->
+            {% if user_caps.can_manage_users or user_caps.can_manage_authors or user_caps.can_manage_editors or user_caps.can_assign_editor_roles %}
+            {% set _users_active = ['users', 'user_edit', 'assign_editor_role', 'authors', 'author_edit', 'editors', 'editor_edit', 'editorial_members', 'editorial_member_edit'] %}
             {% call sidebar_group('users', 'ti-users', t('admin_users'), _users_active) %}
-            {% if user_caps.can_manage_users %}
-            {{ sidebar_link('users', 'ti-user', t('admin_users'), ['users', 'user_edit']) }}
+            {% if user_caps.can_manage_users or user_caps.can_assign_editor_roles %}
+            {{ sidebar_link('users', 'ti-user', t('admin_users'), ['users', 'user_edit', 'assign_editor_role']) }}
+            {% endif %}
+            {% if user_caps.can_manage_users or user_caps.can_manage_authors %}
             {{ sidebar_link('authors', 'ti-id-badge-2', t('admin_authors'), ['authors', 'author_edit']) }}
             {% endif %}
             {% if user_caps.can_manage_editors %}
