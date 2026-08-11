@@ -127,6 +127,31 @@
         })();
     </script>
 
+    {% if session.user_id and not session.user.timezone_name %}
+    <script>
+        // Silently report this browser's IANA timezone -- but only ONCE
+        // ever, while the account has no stored preference at all. Once any
+        // value exists (this, or the profile page's manual field), this
+        // must stop touching it, or a returning visit would keep clobbering
+        // a deliberate manual choice back to whatever the browser reports.
+        (function () {
+            try {
+                var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                if (!tz) {
+                    return;
+                }
+                fetch('/api/profile/timezone', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ timezone: tz })
+                });
+            } catch (e) {
+                // Intl unavailable in an ancient browser -- keep the Tashkent default.
+            }
+        })();
+    </script>
+    {% endif %}
+
     {% block scripts %}{% endblock %}
 
     

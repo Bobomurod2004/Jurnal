@@ -812,6 +812,27 @@
                 e.preventDefault();
 
                 const formData = new FormData(this);
+                const submitButton = form.querySelector('button[type="submit"]');
+                const originalButtonText = submitButton ? submitButton.textContent : '';
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.textContent = {{ t('admin_feedback_saving_title') | tojson }};
+                }
+
+                function restoreSubmitButton() {
+                    if (!submitButton) return;
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalButtonText;
+                }
+
+                function showSaveFeedback(options) {
+                    if (typeof window.showFmadminFeedback === 'function') {
+                        return window.showFmadminFeedback(options);
+                    }
+                    window.alert(options.message || options.title || '');
+                    if (typeof options.onHidden === 'function') options.onHidden();
+                    return null;
+                }
 
                 fetch('/fmadmin/submissions/edit', {
                     method: 'POST',
@@ -820,14 +841,31 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            location.reload();
+                            const feedback = data.feedback || {};
+                            showSaveFeedback({
+                                category: feedback.category || 'success',
+                                title: feedback.title,
+                                message: feedback.message || {{ t('admin_feedback_success_title') | tojson }},
+                                autoHide: 3000,
+                                onHidden: function () { window.location.reload(); }
+                            });
                         } else {
-                            alert("{{ t('admin_js_error_saving') }}" + (data.error || 'Unknown error'));
+                            restoreSubmitButton();
+                            showSaveFeedback({
+                                category: 'danger',
+                                message: data.error || {{ t('admin_msg_unknown_error') | tojson }},
+                                autoHide: false
+                            });
                         }
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        alert("{{ t('admin_js_error_request') }}");
+                        restoreSubmitButton();
+                        showSaveFeedback({
+                            category: 'danger',
+                            message: {{ t('admin_js_error_request') | tojson }},
+                            autoHide: false
+                        });
                     });
             });
         }

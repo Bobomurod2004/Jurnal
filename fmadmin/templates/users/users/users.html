@@ -1,355 +1,356 @@
 {% extends 'basic.html' %}
 
-
 {% block content %}
 {% set is_superadmin = current_user and current_user.rolename == 'superadmin' %}
 
-<div class="page-header d-print-none">
-  <div class="row align-items-center">
-    <div class="col">
-      <h2 class="page-title">{{ 'Foydalanuvchilardan muharrir tayinlash' if can_assign_editor_roles and not can_manage_users else t("admin_users_title") }}</h2>
-    </div>
-    <div class="col-auto ms-auto">
-      <div class="btn-list">
-        {% if can_manage_users %}
-        <a href="{{ url_for('user_edit', user_id=0) }}" class="btn btn-primary d-none d-sm-inline-block">
-          <i class="ti ti-plus"></i>
-          {{ t("admin_users_add_btn") }}
+<style>
+  .fm-users-directory { --fm-users-hero-start: #172b4d; --fm-users-hero-end: #274c77; }
+
+  .fm-users-directory .fm-users-hero {
+    background: linear-gradient(125deg, var(--fm-users-hero-start), var(--fm-users-hero-end));
+    border-radius: var(--tblr-border-radius-lg);
+    box-shadow: 0 0.5rem 1.5rem rgba(23, 43, 77, 0.16);
+    color: #fff;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .fm-users-directory .fm-users-hero::after {
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.17) 0, rgba(255, 255, 255, 0) 67%);
+    content: '';
+    height: 17rem;
+    pointer-events: none;
+    position: absolute;
+    right: -5rem;
+    top: -9rem;
+    width: 17rem;
+  }
+
+  .fm-users-directory .fm-users-hero .text-secondary { color: rgba(255, 255, 255, 0.72) !important; }
+  .fm-users-directory .fm-users-hero-icon { font-size: 2rem; opacity: 0.9; }
+
+  .fm-users-directory .fm-users-kpi {
+    border: 0;
+    border-radius: var(--tblr-border-radius-lg);
+    color: inherit;
+    display: block;
+    min-height: 8.5rem;
+    overflow: hidden;
+    padding: 1.15rem;
+    position: relative;
+    text-decoration: none;
+    transition: box-shadow 0.18s ease, transform 0.18s ease;
+  }
+
+  .fm-users-directory .fm-users-kpi:hover,
+  .fm-users-directory .fm-users-kpi:focus-visible {
+    box-shadow: 0 0.65rem 1.25rem rgba(29, 50, 84, 0.16);
+    color: inherit;
+    outline: none;
+    transform: translateY(-2px);
+  }
+
+  .fm-users-directory .fm-users-kpi.is-active { box-shadow: inset 0 0 0 2px currentColor; }
+  .fm-users-directory .fm-users-kpi-total { background: linear-gradient(135deg, #e9f2ff, #dce9ff); color: #285caa; }
+  .fm-users-directory .fm-users-kpi-active { background: linear-gradient(135deg, #e2fbf4, #d9f5ec); color: #0d8063; }
+  .fm-users-directory .fm-users-kpi-blocked { background: linear-gradient(135deg, #ffebe9, #ffe1dc); color: #bd4b3c; }
+  .fm-users-directory .fm-users-kpi-staff { background: linear-gradient(135deg, #f2eaff, #e9ddff); color: #7444ae; }
+  .fm-users-directory .fm-users-kpi-label { font-size: 0.73rem; font-weight: 700; letter-spacing: 0.075em; text-transform: uppercase; }
+  .fm-users-directory .fm-users-kpi-value { font-size: 2rem; font-weight: 750; line-height: 1.1; margin-top: 0.75rem; }
+  .fm-users-directory .fm-users-kpi-hint { font-size: 0.77rem; margin-top: 0.45rem; opacity: 0.8; }
+
+  .fm-users-directory .fm-users-filter-card,
+  .fm-users-directory .fm-users-table-card { border-radius: var(--tblr-border-radius-lg); }
+  .fm-users-directory .fm-user-filter-pill { border-radius: 99px; font-size: 0.8rem; font-weight: 600; padding: 0.32rem 0.82rem; }
+  .fm-users-directory table > thead th { color: var(--tblr-secondary); font-size: 0.7rem; letter-spacing: 0.055em; text-transform: uppercase; white-space: nowrap; }
+  .fm-users-directory tbody td { vertical-align: middle; }
+  .fm-users-directory .fm-user-row-link { cursor: pointer; }
+  .fm-users-directory .fm-user-row-link:focus-visible { outline: 2px solid var(--tblr-primary); outline-offset: -2px; }
+  .fm-users-directory .fm-user-row-chevron { color: var(--tblr-border-color); transition: color 0.15s ease, transform 0.15s ease; }
+  .fm-users-directory .fm-user-row-link:hover .fm-user-row-chevron,
+  .fm-users-directory .fm-user-row-link:focus-visible .fm-user-row-chevron { color: var(--tblr-primary); transform: translateX(2px); }
+  .fm-users-directory .fm-user-avatar { font-size: 0.7rem; font-weight: 700; overflow: hidden; }
+  .fm-users-directory .fm-user-avatar img { height: 100%; object-fit: cover; width: 100%; }
+  .fm-users-directory .fm-user-name { color: var(--tblr-body-color); font-size: 0.9rem; font-weight: 650; line-height: 1.25; }
+  .fm-users-directory .fm-user-email { color: var(--tblr-secondary); font-size: 0.76rem; margin-top: 0.15rem; max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fm-users-directory .fm-user-meta { color: var(--tblr-secondary); font-size: 0.74rem; line-height: 1.35; margin-top: 0.3rem; }
+
+  @media (max-width: 575.98px) {
+    .fm-users-directory .fm-users-hero { border-radius: var(--tblr-border-radius); }
+    .fm-users-directory .fm-users-hero .btn { width: 100%; }
+    .fm-users-directory .fm-users-kpi { min-height: 7.4rem; }
+  }
+</style>
+
+<div class="fm-users-directory">
+  <div class="fm-users-hero p-4 p-md-5 mb-4">
+    <div class="row align-items-center position-relative" style="z-index: 1;">
+      <div class="col">
+        <div class="d-flex align-items-center gap-3">
+          <i class="ti ti-users-group fm-users-hero-icon" aria-hidden="true"></i>
+          <div>
+            <h2 class="page-title text-white mb-1">{{ t('admin_users_assign_editor_title') if can_assign_editor_roles and not can_manage_users else t('admin_users_title') }}</h2>
+            <div class="text-secondary">{{ t('admin_users_assign_editor_description') if can_assign_editor_roles and not can_manage_users else t('admin_users_directory_description') }}</div>
+          </div>
+        </div>
+      </div>
+      {% if can_manage_users %}
+      <div class="col-12 col-md-auto mt-3 mt-md-0">
+        <a href="{{ url_for('user_edit', user_id=0) }}" class="btn btn-light fw-semibold">
+          <i class="ti ti-user-plus me-1" aria-hidden="true"></i>{{ t('admin_users_add_btn') }}
         </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Submissions with no track reach no admin at all -- only the superadmin sees them. #}
+  {% if untracked_submission_count %}
+  <div class="alert alert-info" role="alert">
+    <div class="d-flex">
+      <div class="me-2"><i class="ti ti-info-circle icon"></i></div>
+      <div>
+        <h4 class="alert-title">Yo'nalishi ko'rsatilmagan {{ untracked_submission_count }} ta ariza</h4>
+        <div class="text-secondary">Bu arizalarda yo'nalish belgilanmagan va admin ham biriktirilmagan, shuning uchun ular faqat superadminga ko'rinadi. Ularni ko'rish uchun <a href="{{ url_for('submissions') }}">Arizalar</a> bo'limiga o'ting.</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if uncovered_tracks %}
+  <div class="alert alert-warning" role="alert">
+    <div class="d-flex">
+      <div class="me-2"><i class="ti ti-alert-triangle icon"></i></div>
+      <div>
+        <h4 class="alert-title">Yo'nalishsiz arizalar bor</h4>
+        <div class="text-secondary">Quyidagi yo'nalishlarga biror admin biriktirilmagan, shuning uchun ularning arizalari hech kimga tushmayapti:
+          <ul class="mt-2 mb-2">
+            {% for item in uncovered_tracks %}
+            <li><strong>{{ item.label }}</strong> — {{ item.count }} ta ariza kutmoqda</li>
+            {% endfor %}
+          </ul>
+          Tuzatish uchun kerakli adminni tahrirlab, "Admin yo'nalishlari" dan shu yo'nalishni belgilang.
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="row g-3 mb-4" aria-label="{{ t('admin_users_title') }} statistikasi">
+    <div class="col-12 col-sm-6 col-xl-3">
+      <a href="{{ url_for('users') }}" class="fm-users-kpi fm-users-kpi-total {{ 'is-active' if not directory_filter else '' }}">
+        <div class="fm-users-kpi-label">{{ t('admin_users_summary_total') }}</div>
+        <div class="fm-users-kpi-value">{{ user_summary.total }}</div>
+        <div class="fm-users-kpi-hint">{{ t('admin_users_filter_all') }}</div>
+      </a>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+      <a href="{{ url_for('users', filter='active') }}" class="fm-users-kpi fm-users-kpi-active {{ 'is-active' if directory_filter == 'active' else '' }}">
+        <div class="fm-users-kpi-label">{{ t('admin_users_summary_active') }}</div>
+        <div class="fm-users-kpi-value">{{ user_summary.active }}</div>
+        <div class="fm-users-kpi-hint">{{ t('admin_users_status_active') }}</div>
+      </a>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+      <a href="{{ url_for('users', filter='blocked') }}" class="fm-users-kpi fm-users-kpi-blocked {{ 'is-active' if directory_filter == 'blocked' else '' }}">
+        <div class="fm-users-kpi-label">{{ t('admin_users_blocked') }}</div>
+        <div class="fm-users-kpi-value">{{ user_summary.blocked }}</div>
+        <div class="fm-users-kpi-hint">{{ t('admin_label_status') }}</div>
+      </a>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+      <a href="{{ url_for('users', filter='staff') }}" class="fm-users-kpi fm-users-kpi-staff {{ 'is-active' if directory_filter == 'staff' else '' }}">
+        <div class="fm-users-kpi-label">{{ t('admin_users_summary_staff') }}</div>
+        <div class="fm-users-kpi-value">{{ user_summary.staff }}</div>
+        <div class="fm-users-kpi-hint">{{ t('admin_users_filter_role_all') }}</div>
+      </a>
+    </div>
+  </div>
+
+  <div class="card fm-users-filter-card mb-3">
+    <div class="card-body">
+      <form method="get" action="{{ url_for('users') }}">
+        <input type="hidden" name="filter" value="{{ directory_filter }}">
+        <div class="row g-2 align-items-end">
+          <div class="col-12 col-md-5">
+            <label class="form-label" for="user-filter-name">{{ t('admin_users_name') }}</label>
+            <div class="input-icon"><span class="input-icon-addon"><i class="ti ti-search" aria-hidden="true"></i></span><input id="user-filter-name" type="search" class="form-control" placeholder="{{ t('admin_users_name_placeholder') }}" name="name" value="{{ search_name }}"></div>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label" for="user-filter-email">{{ t('admin_users_email') }}</label>
+            <input id="user-filter-email" type="search" class="form-control" placeholder="{{ t('admin_users_email_placeholder') }}" name="email" value="{{ search_email }}">
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label" for="user-filter-role">{{ t('admin_users_role') }}</label>
+            <select id="user-filter-role" class="form-select" name="role">
+              <option value="">{{ t('admin_users_filter_role_all') }}</option>
+              <option value="user" {% if role_filter == 'user' %}selected{% endif %}>{{ t('admin_users_role_author') }}</option>
+              <option value="editor" {% if role_filter == 'editor' %}selected{% endif %}>{{ t('admin_role_editor') }}</option>
+              <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>{{ t('admin_role_admin') }}</option>
+              <option value="superadmin" {% if role_filter == 'superadmin' %}selected{% endif %}>{{ t('admin_role_superadmin') }}</option>
+            </select>
+          </div>
+          <div class="col-12 d-flex flex-wrap justify-content-end gap-2 mt-3">
+            <a href="{{ url_for('users') }}" class="btn btn-ghost-secondary">{{ t('admin_btn_clear') }}</a>
+            <button class="btn btn-primary" type="submit"><i class="ti ti-search me-1" aria-hidden="true"></i>{{ t('admin_btn_search') }}</button>
+          </div>
+        </div>
+      </form>
+
+      <div class="d-flex flex-wrap align-items-center gap-2 mt-3 pt-3 border-top">
+        <a href="{{ url_for('users') }}" class="btn btn-sm fm-user-filter-pill {{ 'btn-dark' if not directory_filter else 'btn-outline-secondary' }}">{{ t('admin_users_filter_all') }} <span class="opacity-75 ms-1">{{ user_summary.total }}</span></a>
+        <a href="{{ url_for('users', filter='active') }}" class="btn btn-sm fm-user-filter-pill {{ 'btn-success' if directory_filter == 'active' else 'btn-outline-secondary' }}">{{ t('admin_users_summary_active') }} <span class="opacity-75 ms-1">{{ user_summary.active }}</span></a>
+        <a href="{{ url_for('users', filter='blocked') }}" class="btn btn-sm fm-user-filter-pill {{ 'btn-danger' if directory_filter == 'blocked' else 'btn-outline-secondary' }}">{{ t('admin_users_blocked') }} <span class="opacity-75 ms-1">{{ user_summary.blocked }}</span></a>
+        {% if is_superadmin %}
+        <a href="{{ url_for('users', filter='hidden') }}" class="btn btn-sm fm-user-filter-pill {{ 'btn-dark' if directory_filter == 'hidden' else 'btn-outline-secondary' }}">{{ t('admin_users_status_hidden') }} <span class="opacity-75 ms-1">{{ user_summary.hidden }}</span></a>
         {% endif %}
       </div>
     </div>
   </div>
-</div>
 
-{# Submissions with no track reach no admin at all -- only the superadmin sees them. #}
-{% if untracked_submission_count %}
-<div class="alert alert-info" role="alert">
-  <div class="d-flex">
-    <div class="me-2"><i class="ti ti-info-circle icon"></i></div>
-    <div>
-      <h4 class="alert-title">Yo'nalishi ko'rsatilmagan {{ untracked_submission_count }} ta ariza</h4>
-      <div class="text-secondary">
-        Bu arizalarda yo'nalish belgilanmagan va admin ham biriktirilmagan, shuning uchun
-        ular faqat superadminga ko'rinadi. Ularni ko'rish uchun
-        <a href="{{ url_for('submissions') }}">Arizalar</a> bo'limiga o'ting.
-      </div>
+  {% if is_superadmin %}
+  <div class="card fm-users-filter-card mb-3">
+    <div class="card-body d-flex flex-wrap gap-2 align-items-center">
+      <button type="button" class="btn btn-outline-warning btn-sm" data-bulk-action="block_selected">Tanlanganlarni bloklash</button>
+      <button type="button" class="btn btn-outline-success btn-sm" data-bulk-action="unblock_selected">Tanlanganlarni ochish</button>
+      <button type="button" class="btn btn-outline-danger btn-sm" data-bulk-action="hide_selected">Tanlanganlarni yashirish</button>
+      <button type="button" class="btn btn-outline-primary btn-sm" data-bulk-action="restore_selected">Tanlanganlarni tiklash</button>
+      <button type="button" class="btn btn-danger btn-sm" data-bulk-action="hide_others">Tanlanganlardan boshqasini yashirish</button>
+      <span class="text-secondary small" id="selected-users-count">Tanlangan: 0</span>
     </div>
   </div>
-</div>
-{% endif %}
+  {% endif %}
 
-{# Submissions whose track no admin covers stay unassigned silently -- say so. #}
-{% if uncovered_tracks %}
-<div class="alert alert-warning" role="alert">
-  <div class="d-flex">
-    <div class="me-2"><i class="ti ti-alert-triangle icon"></i></div>
-    <div>
-      <h4 class="alert-title">Yo'nalishsiz arizalar bor</h4>
-      <div class="text-secondary">
-        Quyidagi yo'nalishlarga biror admin biriktirilmagan, shuning uchun ularning arizalari
-        hech kimga tushmayapti:
-        <ul class="mt-2 mb-2">
-          {% for item in uncovered_tracks %}
-          <li><strong>{{ item.label }}</strong> — {{ item.count }} ta ariza kutmoqda</li>
+  <div class="card fm-users-table-card">
+    <div class="table-responsive">
+      <table class="table card-table table-hover">
+        <thead>
+          <tr>
+            {% if is_superadmin %}<th class="w-1"><input class="form-check-input" type="checkbox" id="select-all-users" aria-label="Barchasini tanlash"></th>{% endif %}
+            <th>{{ t('admin_users_table_user') }}</th>
+            <th>{{ t('admin_users_role') }}</th>
+            <th>{{ t('admin_label_status') }}</th>
+            <th>{{ t('admin_users_tariff') }}</th>
+            <th>{{ t('admin_users_valid_until') }}</th>
+            <th class="w-1"><span class="visually-hidden">{{ t('admin_label_actions') }}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+          {% set full_name = ((user.name or '') ~ ' ' ~ (user.second_name or '') ~ ' ' ~ (user.father_name or '')) | trim %}
+          {% set initials = ((user.name or '')[:1] ~ (user.second_name or '')[:1]) | upper %}
+          {% if not initials %}{% set initials = (user.email or '?')[:1] | upper %}{% endif %}
+          <tr class="{{ 'fm-user-row-link' if user.directory_url else '' }}" {% if user.directory_url %}data-user-url="{{ user.directory_url }}" role="link" tabindex="0" aria-label="{{ t('admin_users_open_user') }}: {{ full_name or user.email }}"{% endif %}>
+            {% if is_superadmin %}
+            <td class="align-middle"><input class="form-check-input user-select" type="checkbox" value="{{ user.id }}" aria-label="{{ full_name or user.email }}"></td>
+            {% endif %}
+            <td class="align-middle">
+              <div class="d-flex align-items-center gap-2">
+                <span class="avatar avatar-sm fm-user-avatar bg-blue-lt text-blue">
+                  {% if user.avatar_url %}
+                    <img src="{{ user.avatar_url }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'; this.nextElementSibling.hidden=false;">
+                    <span hidden>{{ initials }}</span>
+                  {% else %}{{ initials }}{% endif %}
+                </span>
+                <div class="mw-100">
+                  {% if user.directory_url %}<a href="{{ user.directory_url }}" class="fm-user-name">{{ full_name or user.email }}</a>{% else %}<div class="fm-user-name">{{ full_name or user.email }}</div>{% endif %}
+                  <div class="fm-user-email">{{ user.email or '—' }}</div>
+                </div>
+              </div>
+            </td>
+            <td class="align-middle">
+              <div class="d-flex flex-wrap gap-1">
+                {% for role_name in user.roles or [user.rolename] %}
+                  {% if role_name == 'superadmin' %}<span class="badge bg-purple-lt">{{ t('admin_role_superadmin') }}</span>
+                  {% elif role_name == 'admin' %}<span class="badge bg-blue-lt">{{ t('admin_role_admin') }}</span>
+                  {% elif role_name == 'editor' %}<span class="badge bg-azure-lt">{{ t('admin_role_editor') }}</span>
+                  {% elif role_name == 'user' %}<span class="badge bg-secondary-lt">{{ t('admin_users_role_author') }}</span>
+                  {% else %}<span class="badge bg-secondary-lt">{{ role_name }}</span>{% endif %}
+                {% endfor %}
+              </div>
+            </td>
+            <td class="align-middle">
+              {% if user.is_hidden %}<span class="badge bg-dark-lt">{{ t('admin_users_status_hidden') }}</span>
+              {% elif user.is_blocked %}<span class="badge bg-red-lt">{{ t('admin_users_blocked') }}</span>
+              {% else %}<span class="badge bg-green-lt">{{ t('admin_users_status_active') }}</span>{% endif %}
+            </td>
+            <td class="align-middle">{% if user.tariff_id and user.tariff_id in tariffs_map %}{{ tariffs_map[user.tariff_id].name }}{% else %}—{% endif %}</td>
+            <td class="align-middle">{% if user.subscription_end_date %}{{ user.subscription_end_date | datetimeformat }}{% else %}—{% endif %}</td>
+            <td class="align-middle">
+              <div class="d-flex align-items-center justify-content-end gap-1">
+                {% if user.directory_url %}<a href="{{ user.directory_url }}" class="btn btn-icon btn-outline-primary btn-sm" title="{{ t('admin_btn_edit') }}"><i class="ti ti-pencil" aria-hidden="true"></i><span class="visually-hidden">{{ t('admin_btn_edit') }}</span></a>{% endif %}
+                {% if is_superadmin and user.id != current_user.id %}
+                <form method="post" action="{{ url_for('user_state_change', user_id=user.id) }}">
+                  <input type="hidden" name="action" value="{{ 'unblock' if user.is_blocked else 'block' }}">
+                  <button type="submit" class="btn btn-outline-{{ 'success' if user.is_blocked else 'warning' }} btn-sm px-2">{{ 'Ochish' if user.is_blocked else 'Blok' }}</button>
+                </form>
+                <form method="post" action="{{ url_for('user_state_change', user_id=user.id) }}">
+                  <input type="hidden" name="action" value="{{ 'restore' if user.is_hidden else 'hide' }}">
+                  <button type="submit" class="btn btn-outline-{{ 'primary' if user.is_hidden else 'danger' }} btn-sm px-2">{{ 'Tiklash' if user.is_hidden else 'Yashirish' }}</button>
+                </form>
+                {% endif %}
+                {% if user.directory_url %}<i class="ti ti-chevron-right fm-user-row-chevron" aria-hidden="true"></i>{% endif %}
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="{{ 7 if is_superadmin else 6 }}" class="text-center text-secondary py-5"><i class="ti ti-users-minus fs-1 d-block mb-2" aria-hidden="true"></i>{{ t('admin_users_no_results') }}</td></tr>
           {% endfor %}
-        </ul>
-        Tuzatish uchun kerakli adminni tahrirlab, "Admin yo'nalishlari" dan shu yo'nalishni belgilang.
-      </div>
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer d-flex flex-wrap align-items-center gap-2">
+      <p class="m-0 text-secondary">{{ t('admin_pagination_showing') }} <span>{{ users|length }}</span> {{ t('admin_pagination_of') }} <span>{{ total_users }}</span> {{ t('admin_pagination_entries') }}</p>
+      {% if total_pages > 1 %}
+      <ul class="pagination m-0 ms-sm-auto">
+        <li class="page-item {{ 'disabled' if page <= 1 else '' }}"><a class="page-link" href="{{ url_for('users', page=page-1, name=search_name, email=search_email, filter=directory_filter, role=role_filter) }}" {% if page <= 1 %}tabindex="-1" aria-disabled="true"{% endif %}><i class="ti ti-chevron-left"></i></a></li>
+        {% for p in range(1, total_pages + 1) %}<li class="page-item {{ 'active' if p == page else '' }}"><a class="page-link" href="{{ url_for('users', page=p, name=search_name, email=search_email, filter=directory_filter, role=role_filter) }}">{{ p }}</a></li>{% endfor %}
+        <li class="page-item {{ 'disabled' if page >= total_pages else '' }}"><a class="page-link" href="{{ url_for('users', page=page+1, name=search_name, email=search_email, filter=directory_filter, role=role_filter) }}" {% if page >= total_pages %}tabindex="-1" aria-disabled="true"{% endif %}><i class="ti ti-chevron-right"></i></a></li>
+      </ul>
+      {% endif %}
     </div>
   </div>
 </div>
-{% endif %}
-
-<form method="get" action="{{ url_for('users') }}">
-  <div class="row mb-3">
-    <div class="col-md-4">
-      <div class="form-label">{{ t("admin_users_name") }}</div>
-      <input type="text" class="form-control" placeholder="{{ t('admin_users_name_placeholder') }}" name="name"
-        value="{{ search_name|default('') }}">
-    </div>
-    <div class="col-md-4">
-      <div class="form-label">{{ t("admin_users_email") }}</div>
-      <input type="text" class="form-control" placeholder="{{ t('admin_users_email_placeholder') }}" name="email"
-        value="{{ search_email|default('') }}">
-    </div>
-    <div class="col-md-4">
-      <div class="form-label">{{ t("admin_users_author_orcid") }}</div>
-      <input type="text" class="form-control" placeholder="{{ t('admin_users_orcid_placeholder') }}" name="orcid"
-        value="{{ search_orcid|default('') }}">
-    </div>
-    {% if is_superadmin %}
-    <div class="col-md-4 mt-3">
-      <label class="form-check">
-        <input type="checkbox" class="form-check-input" name="include_hidden" value="1" {% if include_hidden %}checked{% endif %}>
-        <span class="form-check-label">Yashirilgan foydalanuvchilarni ko'rsatish</span>
-      </label>
-    </div>
-    {% endif %}
-    <div class="col-12 mt-3">
-      <div class="d-flex justify-content-end">
-        <button class="btn btn-ghost-danger me-2" type="button"
-          onclick="window.location.href='{{ url_for('users') }}';">
-          <i class="ti ti-x pe-2"></i>
-          {{ t("admin_btn_clear") }}
-        </button>
-        <button class="btn btn-primary" type="submit">
-          <i class="ti ti-search pe-2"></i>
-          {{ t("admin_btn_search") }}
-        </button>
-      </div>
-    </div>
-  </div>
-</form>
-
-{% if is_superadmin %}
-<div class="card mb-3">
-  <div class="card-body d-flex flex-wrap gap-2 align-items-center">
-    <button type="button" class="btn btn-outline-warning btn-sm" data-bulk-action="block_selected">Tanlanganlarni bloklash</button>
-    <button type="button" class="btn btn-outline-success btn-sm" data-bulk-action="unblock_selected">Tanlanganlarni ochish</button>
-    <button type="button" class="btn btn-outline-danger btn-sm" data-bulk-action="hide_selected">Tanlanganlarni yashirish</button>
-    <button type="button" class="btn btn-outline-primary btn-sm" data-bulk-action="restore_selected">Tanlanganlarni tiklash</button>
-    <button type="button" class="btn btn-danger btn-sm" data-bulk-action="hide_others">Tanlanganlardan boshqasini yashirish</button>
-    <span class="text-secondary small" id="selected-users-count">Tanlangan: 0</span>
-  </div>
-</div>
-{% endif %}
-
-<div class="card mt-4">
-  <div class="table-responsive">
-    <table class="table card-table table-hover">
-      <thead>
-        <tr>
-          {% if is_superadmin %}
-          <th class="w-1">
-            <input class="form-check-input" type="checkbox" id="select-all-users">
-          </th>
-          {% endif %}
-          <th>{{ t("admin_users_name") }}</th>
-          <th>{{ t("admin_users_email") }}</th>
-          <th>{{ t("admin_users_role") }}</th>
-          <th>Status</th>
-          <th>{{ t("admin_authors") }}</th>
-          <th>{{ t("admin_users_tariff") }}</th>
-          <th>{{ t("admin_users_valid_until") }}</th>
-          <th class="w-1"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for user in users %}
-        <tr>
-          {% if is_superadmin %}
-          <td class="align-middle">
-            <input class="form-check-input user-select" type="checkbox" value="{{ user.id }}">
-          </td>
-          {% endif %}
-          <td class="align-middle">
-            {% if can_manage_users %}
-            <a href="{{ url_for('user_edit', user_id=user.id) }}" class="link-primary text-decoration-underline fw-medium">
-              {{ user.name }} {{ user.second_name }} {{ user.father_name or '' }}
-            </a>
-            {% elif can_assign_editor_roles and 'editor' not in (user.roles or []) %}
-            <a href="{{ url_for('assign_editor_role', user_id=user.id) }}" class="link-primary text-decoration-underline fw-medium">
-              {{ user.name }} {{ user.second_name }} {{ user.father_name or '' }}
-            </a>
-            {% else %}
-            {{ user.name }} {{ user.second_name }} {{ user.father_name or '' }}
-            {% endif %}
-          </td>
-          <td class="align-middle">{{ user.email }}</td>
-          <td class="align-middle">
-            <div class="d-flex flex-wrap gap-1">
-              {% for role_name in user.roles or [user.rolename] %}
-                {% if role_name == 'superadmin' %}
-                <span class="badge bg-purple-lt">Super Admin</span>
-                {% elif role_name == 'admin' %}
-                <span class="badge bg-blue-lt">{{ t("admin_role_admin") }}</span>
-                {% elif role_name == 'editor' %}
-                <span class="badge bg-azure-lt">{{ t("admin_role_editor") }}</span>
-                {% elif role_name == 'user' %}
-                <span class="badge bg-secondary-lt">Muallif</span>
-                {% else %}
-                <span class="badge bg-secondary-lt">{{ role_name }}</span>
-                {% endif %}
-              {% endfor %}
-            </div>
-            <div class="text-secondary small mt-1">Asosiy rol: {{ user.rolename }}</div>
-            {% if user.admin_tracks_labels %}
-            <div class="text-secondary small mt-1">{{ user.admin_tracks_labels | join(', ') }}</div>
-            {% endif %}
-            {% if 'editor' in (user.roles or []) %}
-            {% set assigned_admin = admin_map.get(user.editor_admin_id) %}
-            {% if assigned_admin %}
-            <div class="text-secondary small mt-1">Admin: {{ assigned_admin.name }}</div>
-            {% else %}
-            <div class="text-secondary small mt-1">Admin: biriktirilmagan</div>
-            {% endif %}
-            {% endif %}
-          </td>
-          <td class="align-middle">
-            {% if user.is_hidden %}
-            <span class="badge bg-dark-lt">Yashirilgan</span>
-            {% elif user.is_blocked %}
-            <span class="badge bg-red-lt">{{ t("admin_users_blocked") }}</span>
-            {% else %}
-            <span class="badge bg-green-lt">Faol</span>
-            {% endif %}
-          </td>
-          <td class="align-middle">
-            {% if user.id in author_map %}
-            {{ author_map[user.id].name }}{% if author_map[user.id].orcid %} ({{ author_map[user.id].orcid }}){% endif
-            %}
-            {% else %}
-            —
-            {% endif %}
-          </td>
-          <td class="align-middle">
-            {% if user.tariff_id and user.tariff_id in tariffs_map %}
-            {{ tariffs_map[user.tariff_id].name }}
-            {% else %}
-            —
-            {% endif %}
-          </td>
-          <td class="align-middle">
-            {% if user.subscription_end_date %}
-            {{ user.subscription_end_date | datetimeformat }}
-            {% else %}
-            —
-            {% endif %}
-          </td>
-          <td class="align-middle">
-            <div class="d-flex gap-1">
-              {% if can_manage_users %}
-              <a href="{{ url_for('user_edit', user_id=user.id) }}"
-                class="btn btn-icon btn-outline-primary bg-primary-lt btn-sm px-2 py-1">
-                {{ t("admin_btn_edit") }}
-              </a>
-              {% elif can_assign_editor_roles and 'editor' not in (user.roles or []) %}
-              <a href="{{ url_for('assign_editor_role', user_id=user.id) }}"
-                class="btn btn-outline-primary btn-sm px-2 py-1">
-                <i class="ti ti-user-check"></i> Muharrir qilish
-              </a>
-              {% endif %}
-              {% if is_superadmin and user.id != current_user.id %}
-              <form method="post" action="{{ url_for('user_state_change', user_id=user.id) }}">
-                {% if user.is_blocked %}
-                <input type="hidden" name="action" value="unblock">
-                <button type="submit" class="btn btn-outline-success btn-sm px-2 py-1">Ochish</button>
-                {% else %}
-                <input type="hidden" name="action" value="block">
-                <button type="submit" class="btn btn-outline-warning btn-sm px-2 py-1">Blok</button>
-                {% endif %}
-              </form>
-              <form method="post" action="{{ url_for('user_state_change', user_id=user.id) }}">
-                {% if user.is_hidden %}
-                <input type="hidden" name="action" value="restore">
-                <button type="submit" class="btn btn-outline-primary btn-sm px-2 py-1">Tiklash</button>
-                {% else %}
-                <input type="hidden" name="action" value="hide">
-                <button type="submit" class="btn btn-outline-danger btn-sm px-2 py-1">Yashirish</button>
-                {% endif %}
-              </form>
-              {% endif %}
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <div class="card-footer d-flex align-items-center">
-    <p class="m-0 text-secondary">{{ t("admin_pagination_showing") }} <span>{{ users|length }}</span> {{
-      t("admin_pagination_of") }} <span>{{ total_users }}</span> {{ t("admin_pagination_entries") }}</p>
-    <ul class="pagination m-0 ms-auto">
-      <li class="page-item {% if page <= 1 %}disabled{% endif %}">
-        <a class="page-link"
-          href="{{ url_for('users', page=page-1, name=search_name, email=search_email, orcid=search_orcid, include_hidden='1' if include_hidden else none) }}"
-          tabindex="-1" aria-disabled="true">
-          <i class="ti ti-chevron-left"></i>
-        </a>
-      </li>
-      {% for p in range(1, total_pages+1) %}
-      <li class="page-item {% if p == page %}active{% endif %}"><a class="page-link"
-          href="{{ url_for('users', page=p, name=search_name, email=search_email, orcid=search_orcid, include_hidden='1' if include_hidden else none) }}">{{ p }}</a>
-      </li>
-      {% endfor %}
-      <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-        <a class="page-link"
-          href="{{ url_for('users', page=page+1, name=search_name, email=search_email, orcid=search_orcid, include_hidden='1' if include_hidden else none) }}">
-          <i class="ti ti-chevron-right"></i>
-        </a>
-      </li>
-    </ul>
-  </div>
-</div>
-
-
-
-
 {% endblock %}
 
 {% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const ignoredRowTargets = 'a, button, input, select, textarea, label, form, [data-row-ignore]';
+    document.querySelectorAll('[data-user-url]').forEach(function (row) {
+      function openUser() { window.location.assign(row.dataset.userUrl); }
+      row.addEventListener('click', function (event) {
+        if (!event.target.closest(ignoredRowTargets)) openUser();
+      });
+      row.addEventListener('keydown', function (event) {
+        if (event.target !== row || (event.key !== 'Enter' && event.key !== ' ')) return;
+        event.preventDefault();
+        openUser();
+      });
+    });
+  });
+</script>
+
 {% if is_superadmin %}
 <form id="bulk-action-form" method="post" action="{{ url_for('users_bulk_action') }}" class="d-none">
   <input type="hidden" name="action" id="bulk-action-input">
   <input type="hidden" name="confirm_phrase" id="bulk-confirm-input">
 </form>
 <div class="modal modal-blur fade" id="bulk-action-confirm-modal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 class="modal-title" id="bulk-action-title">Amalni tasdiqlang</h3>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p class="mb-2" id="bulk-action-message"></p>
-        <div id="bulk-confirm-phrase-wrap" class="d-none">
-          <label class="form-label" for="bulk-confirm-phrase">Tasdiqlash matni</label>
-          <input type="text" class="form-control" id="bulk-confirm-phrase" autocomplete="off">
-          <div class="form-hint">Davom etish uchun <strong>HIDE_OTHERS</strong> deb yozing.</div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Bekor qilish</button>
-        <button type="button" class="btn btn-primary" id="bulk-action-confirm-button">Tasdiqlash</button>
-      </div>
-    </div>
-  </div>
+  <div class="modal-dialog modal-sm modal-dialog-centered" role="document"><div class="modal-content">
+    <div class="modal-header"><h3 class="modal-title" id="bulk-action-title">Amalni tasdiqlang</h3><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body"><p class="mb-2" id="bulk-action-message"></p><div id="bulk-confirm-phrase-wrap" class="d-none"><label class="form-label" for="bulk-confirm-phrase">Tasdiqlash matni</label><input type="text" class="form-control" id="bulk-confirm-phrase" autocomplete="off"><div class="form-hint">Davom etish uchun <strong>HIDE_OTHERS</strong> deb yozing.</div></div></div>
+    <div class="modal-footer"><button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Bekor qilish</button><button type="button" class="btn btn-primary" id="bulk-action-confirm-button">Tasdiqlash</button></div>
+  </div></div>
 </div>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const bulkActions = {
-      block_selected: {
-        title: 'Tanlanganlarni bloklash',
-        message: 'Tanlangan foydalanuvchilar tizimga kira olmaydi.',
-        buttonText: 'Bloklash',
-        buttonClass: 'btn-warning'
-      },
-      unblock_selected: {
-        title: 'Tanlanganlarni ochish',
-        message: 'Tanlangan foydalanuvchilar blokdan chiqariladi.',
-        buttonText: 'Ochish',
-        buttonClass: 'btn-success'
-      },
-      hide_selected: {
-        title: 'Tanlanganlarni yashirish',
-        message: 'Tanlangan foydalanuvchilar yashiriladi va bloklanadi.',
-        buttonText: 'Yashirish',
-        buttonClass: 'btn-danger'
-      },
-      restore_selected: {
-        title: 'Tanlanganlarni tiklash',
-        message: "Tanlangan foydalanuvchilar qayta faol holatga o'tadi.",
-        buttonText: 'Tiklash',
-        buttonClass: 'btn-primary'
-      },
-      hide_others: {
-        title: 'Tanlanganlardan boshqasini yashirish',
-        message: "Tanlanmagan barcha foydalanuvchilar yashiriladi va bloklanadi. Bu keng ta'sirli amal.",
-        buttonText: 'Yashirish',
-        buttonClass: 'btn-danger',
-        confirmPhrase: 'HIDE_OTHERS'
-      }
+      block_selected: { title: 'Tanlanganlarni bloklash', message: 'Tanlangan foydalanuvchilar tizimga kira olmaydi.', buttonText: 'Bloklash', buttonClass: 'btn-warning' },
+      unblock_selected: { title: 'Tanlanganlarni ochish', message: 'Tanlangan foydalanuvchilar blokdan chiqariladi.', buttonText: 'Ochish', buttonClass: 'btn-success' },
+      hide_selected: { title: 'Tanlanganlarni yashirish', message: 'Tanlangan foydalanuvchilar yashiriladi va bloklanadi.', buttonText: 'Yashirish', buttonClass: 'btn-danger' },
+      restore_selected: { title: 'Tanlanganlarni tiklash', message: "Tanlangan foydalanuvchilar qayta faol holatga o'tadi.", buttonText: 'Tiklash', buttonClass: 'btn-primary' },
+      hide_others: { title: 'Tanlanganlardan boshqasini yashirish', message: "Tanlanmagan barcha foydalanuvchilar yashiriladi va bloklanadi. Bu keng ta'sirli amal.", buttonText: 'Yashirish', buttonClass: 'btn-danger', confirmPhrase: 'HIDE_OTHERS' }
     };
     const selectAll = document.getElementById('select-all-users');
     const selectedCount = document.getElementById('selected-users-count');
@@ -362,90 +363,29 @@
     const confirmInput = document.getElementById('bulk-confirm-input');
     const confirmButton = document.getElementById('bulk-action-confirm-button');
     let pendingAction = null;
-
-    function selectedUserIds() {
-      return Array.from(document.querySelectorAll('.user-select:checked')).map(cb => cb.value);
-    }
-
-    function updateSelectedCount() {
-      if (selectedCount) {
-        selectedCount.textContent = 'Tanlangan: ' + selectedUserIds().length;
-      }
-    }
-
+    function selectedUserIds() { return Array.from(document.querySelectorAll('.user-select:checked')).map(function (checkbox) { return checkbox.value; }); }
+    function updateSelectedCount() { if (selectedCount) selectedCount.textContent = 'Tanlangan: ' + selectedUserIds().length; }
     function prepareSubmit(action) {
-      const selected = selectedUserIds();
       const form = document.getElementById('bulk-action-form');
-      form.querySelectorAll('input[name="selected_user_ids"]').forEach(node => node.remove());
+      form.querySelectorAll('input[name="selected_user_ids"]').forEach(function (node) { node.remove(); });
       document.getElementById('bulk-action-input').value = action;
       confirmInput.value = phraseInput && !phraseWrap.classList.contains('d-none') ? phraseInput.value.trim() : '';
-      selected.forEach(id => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'selected_user_ids';
-        input.value = id;
-        form.appendChild(input);
-      });
+      selectedUserIds().forEach(function (id) { const input = document.createElement('input'); input.type = 'hidden'; input.name = 'selected_user_ids'; input.value = id; form.appendChild(input); });
       form.submit();
     }
-
-    if (selectAll) {
-      selectAll.addEventListener('change', function () {
-        document.querySelectorAll('.user-select').forEach(cb => cb.checked = selectAll.checked);
-        updateSelectedCount();
-      });
-    }
-
-    document.querySelectorAll('.user-select').forEach(cb => {
-      cb.addEventListener('change', function () {
-        if (selectAll && !cb.checked) {
-          selectAll.checked = false;
-        }
-        updateSelectedCount();
-      });
-    });
-
-    document.querySelectorAll('[data-bulk-action]').forEach(button => {
-      button.addEventListener('click', function () {
-        const action = button.dataset.bulkAction;
-        const config = bulkActions[action];
-        if (!config) {
-          return;
-        }
-        if (selectedUserIds().length === 0) {
-          alert('Kamida bitta foydalanuvchi tanlang.');
-          return;
-        }
-        pendingAction = action;
-        titleEl.textContent = config.title;
-        messageEl.textContent = config.message;
-        confirmButton.textContent = config.buttonText;
-        confirmButton.className = 'btn ' + config.buttonClass;
-        if (config.confirmPhrase) {
-          phraseWrap.classList.remove('d-none');
-          phraseInput.value = '';
-        } else {
-          phraseWrap.classList.add('d-none');
-        }
-        modal.show();
-      });
-    });
-
-    confirmButton.addEventListener('click', function () {
-      const config = bulkActions[pendingAction];
-      if (!config) {
-        return;
-      }
-      if (config.confirmPhrase && phraseInput.value.trim() !== config.confirmPhrase) {
-        phraseInput.focus();
-        return;
-      }
-      prepareSubmit(pendingAction);
-    });
-
+    if (selectAll) selectAll.addEventListener('change', function () { document.querySelectorAll('.user-select').forEach(function (checkbox) { checkbox.checked = selectAll.checked; }); updateSelectedCount(); });
+    document.querySelectorAll('.user-select').forEach(function (checkbox) { checkbox.addEventListener('change', function () { if (selectAll && !checkbox.checked) selectAll.checked = false; updateSelectedCount(); }); });
+    document.querySelectorAll('[data-bulk-action]').forEach(function (button) { button.addEventListener('click', function () {
+      const action = button.dataset.bulkAction; const config = bulkActions[action];
+      if (!config || !modal) return;
+      if (!selectedUserIds().length) { alert('Kamida bitta foydalanuvchi tanlang.'); return; }
+      pendingAction = action; titleEl.textContent = config.title; messageEl.textContent = config.message; confirmButton.textContent = config.buttonText; confirmButton.className = 'btn ' + config.buttonClass;
+      if (config.confirmPhrase) { phraseWrap.classList.remove('d-none'); phraseInput.value = ''; } else phraseWrap.classList.add('d-none');
+      modal.show();
+    }); });
+    if (confirmButton) confirmButton.addEventListener('click', function () { const config = bulkActions[pendingAction]; if (!config) return; if (config.confirmPhrase && phraseInput.value.trim() !== config.confirmPhrase) { phraseInput.focus(); return; } prepareSubmit(pendingAction); });
     updateSelectedCount();
   });
 </script>
 {% endif %}
-
 {% endblock %}

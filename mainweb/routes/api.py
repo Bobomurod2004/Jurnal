@@ -32,6 +32,7 @@ from shared.submission_status import (
     STATUSES_REQUIRING_ANTIPLAGIARISM_FILE,
     is_resubmittable,
 )
+from shared.user_timezone import is_valid_timezone_name
 
 
 SUBMISSION_TRACK_ABSTRACT_WORD_LIMITS = {
@@ -3520,6 +3521,30 @@ def app__api_profile_change_password():
     return jsonify({'success': True, 'message': 'Password updated successfully'})
 
 
+def app__api_profile_update_timezone():
+    """Store the browser-detected IANA timezone for the logged-in user.
+
+    Called silently by basic.html on page load so a foreign author sees
+    dates in their own local time instead of the shared Tashkent default --
+    see shared/user_timezone.py.
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'success': False}), 401
+
+    data = request.get_json(silent=True) if request.is_json else None
+    timezone_name = ((data or {}).get('timezone') or '').strip()
+    if not is_valid_timezone_name(timezone_name):
+        return jsonify({'success': False}), 400
+
+    dbc.users.get(id=user_id).update(timezone_name=timezone_name).exec()
+    session_user = session.get('user') or {}
+    if session_user:
+        session_user['timezone_name'] = timezone_name
+        session['user'] = session_user
+    return jsonify({'success': True})
+
+
 def app__api_createauthor():
     if not request.is_json:
         return jsonify({'success': False, 'message': 'Invalid request format - JSON expected'})
@@ -3611,4 +3636,5 @@ def register(app):
     app.add_url_rule('/api/article/purchase', view_func=login_required(app__api_article_purchase), methods=['POST'])
     app.add_url_rule('/api/translations/clear_cache', view_func=app__api_translations_clear_cache, methods=['POST'])
     app.add_url_rule('/api/profile/change_password', view_func=login_required(app__api_profile_change_password), methods=['POST'])
+    app.add_url_rule('/api/profile/timezone', view_func=login_required(app__api_profile_update_timezone), methods=['POST'])
     app.add_url_rule('/api/createauthor', view_func=author_login_required(app__api_createauthor), methods=['POST'])

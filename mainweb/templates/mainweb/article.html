@@ -19,6 +19,7 @@
     {% endfor %}
     {% if scholar_meta.publication_date %}<meta name="citation_publication_date" content="{{ scholar_meta.publication_date }}">{% endif %}
     {% if scholar_meta.journal_title %}<meta name="citation_journal_title" content="{{ scholar_meta.journal_title }}">{% endif %}
+    {% if scholar_meta.issn %}<meta name="citation_issn" content="{{ scholar_meta.issn }}">{% endif %}
     {% if scholar_meta.volume %}<meta name="citation_volume" content="{{ scholar_meta.volume }}">{% endif %}
     {% if scholar_meta.issue %}<meta name="citation_issue" content="{{ scholar_meta.issue }}">{% endif %}
     {% if scholar_meta.first_page %}<meta name="citation_firstpage" content="{{ scholar_meta.first_page }}">{% endif %}
@@ -26,7 +27,9 @@
     {% if scholar_meta.doi %}<meta name="citation_doi" content="{{ scholar_meta.doi }}">{% endif %}
     {% if scholar_meta.abstract_url %}
         <meta name="citation_abstract_html_url" content="{{ scholar_meta.abstract_url }}">
-        <meta name="citation_fulltext_html_url" content="{{ scholar_meta.abstract_url }}">
+    {% endif %}
+    {% if scholar_meta.fulltext_html_url %}
+        <meta name="citation_fulltext_html_url" content="{{ scholar_meta.fulltext_html_url }}">
     {% endif %}
     {% if scholar_meta.pdf_url %}<meta name="citation_pdf_url" content="{{ scholar_meta.pdf_url }}">{% endif %}
     {% if scholar_meta.is_world_readable %}<meta name="citation_fulltext_world_readable" content="1">{% endif %}

@@ -63,6 +63,7 @@ from shared.submission_status import (
     EMAIL_NOTIFIED_STATUSES,
     submission_status_label,
 )
+from shared.user_timezone import format_for_user, is_valid_timezone_name
 
 bp = Blueprint('fmadmin_web', __name__)
 logger = logging.getLogger(__name__)
@@ -1022,6 +1023,61 @@ def _normalize_article_page_range(value):
     text = re.sub(r'\s*-\s*', '-', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text[:50] or None
+
+
+def _article_has_visible_abstract(value):
+    """Treat CKEditor markup containing only tags/spaces as an empty abstract."""
+    text = html_unescape(str(value or ''))
+    text = re.sub(r'(?is)<[^>]+>', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return bool(text)
+
+
+def _scholar_publication_missing_fields(
+    *,
+    abstract,
+    main_author_id,
+    issue_id,
+    date_publish,
+    file_ids=None,
+    is_paid=False,
+    subscription_enable=False,
+):
+    """Return the Scholar-critical fields missing from a publication form.
+
+    A publication is immediately reachable from the public journal site, so
+    the metadata Scholar needs must be present at save time.  ``file_ids`` is
+    optional during the first validation pass, before newly uploaded files
+    have been persisted.
+    """
+    missing = []
+    if not _article_has_visible_abstract(abstract):
+        missing.append('abstract')
+    if (_parse_int(main_author_id) or 0) <= 0:
+        missing.append('main_author')
+    if (_parse_int(issue_id) or 0) <= 0:
+        missing.append('issue')
+    if not date_publish:
+        missing.append('publication_date')
+    if file_ids is not None and not (is_paid or subscription_enable) and not _parse_int_list(file_ids):
+        missing.append('open_access_pdf')
+    return missing
+
+
+def _scholar_publication_missing_fields_message(missing_fields):
+    labels = {
+        'abstract': _msg_text('inglizcha annotatsiya', 'аннотация на английском', 'English abstract'),
+        'main_author': _msg_text('asosiy muallif', 'основной автор', 'main author'),
+        'issue': _msg_text('jurnal soni', 'выпуск журнала', 'journal issue'),
+        'publication_date': _msg_text('nashr sanasi', 'дата публикации', 'publication date'),
+        'open_access_pdf': _msg_text('ochiq kirish PDF fayli', 'PDF-файл открытого доступа', 'open-access PDF file'),
+    }
+    missing_labels = [labels[field] for field in missing_fields if field in labels]
+    return _msg_text(
+        f"Google Scholar uchun quyidagi maydonlar majburiy: {', '.join(missing_labels)}.",
+        f"Для Google Scholar обязательны следующие поля: {', '.join(missing_labels)}.",
+        f"The following fields are required for Google Scholar: {', '.join(missing_labels)}.",
+    )
 
 
 def _sanitize_article_block_html(raw_html):
@@ -2761,12 +2817,18 @@ def _refresh_submission_editor_review_status(submission_id):
     return review_status
 
 
-def _deadline_ts_label(timestamp_value):
+def _deadline_ts_label(timestamp_value, for_user=None):
     ts = _parse_int(timestamp_value)
     if ts is None:
         return '-'
     try:
-        return datetime.datetime.fromtimestamp(ts).strftime('%d.%m.%Y %H:%M')
+        # This label is baked into notification/email text ahead of time for
+        # a specific recipient (`for_user`), so -- unlike the page-render
+        # filters in fmadmin/utils/filters.py, which read the *viewer's*
+        # session -- it must resolve that recipient's own stored timezone
+        # explicitly. No `for_user` (or no stored preference) falls back to
+        # the shared Tashkent default, same as before this existed.
+        return format_for_user(ts, for_user, '%d.%m.%Y %H:%M')
     except Exception:
         return '-'
 
@@ -2965,10 +3027,26 @@ def _expire_assignment_due_deadline(
         return False
 
     deadline_ts = _parse_int((assignment or {}).get('acceptance_deadline_at' if reason == 'acceptance' else 'completion_deadline_at'))
-    deadline_label = _deadline_ts_label(deadline_ts)
     submission_title = _submission_title(submission or {})
     editor_name = _assignment_editor_name(editor_user, editor_id)
     current_ts = _parse_int(now_ts) or int(datetime.datetime.now().timestamp())
+
+    admin_user_id = _parse_int((submission or {}).get('assigned_admin_id'))
+    if admin_user_id is None:
+        admin_user_id = _parse_int((assignment or {}).get('assigned_by'))
+    admin_user = None
+    if admin_user_id is not None and admin_user_id != editor_id:
+        admin_rows = db.users.all().equal(id=admin_user_id).exec()
+        admin_user = admin_rows[0] if admin_rows else None
+
+    # Each recipient sees the deadline that missed in their own timezone --
+    # the editor and the assigned admin can be in different countries.
+    editor_deadline_label = _deadline_ts_label(
+        deadline_ts, for_user=editor_user
+    )
+    admin_deadline_label = _deadline_ts_label(
+        deadline_ts, for_user=admin_user
+    )
 
     # Park the assignment instead of deleting it. The row carries who was
     # invited, the deadline they missed and the whole admin/editor chat --
@@ -2976,7 +3054,15 @@ def _expire_assignment_due_deadline(
     # DELETE CASCADE, so the old hard delete silently took the conversation
     # with it and left nothing to explain the gap.
     try:
-        db.editor_assignments.all().equal(id=assignment_id).update(
+        # Guard on the still-active statuses and check what actually got
+        # updated: fmadmin runs as several gunicorn worker processes with no
+        # shared lock around this sweep, so two workers can race to expire
+        # the same overdue assignment. Whichever one loses the race sees an
+        # empty RETURNING set here and bails out before sending a second
+        # "assignment removed" notification/email for the same event.
+        updated_rows = db.editor_assignments.all().equal(id=assignment_id).any(
+            status=list(EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES)
+        ).update(
             status=EDITOR_ASSIGNMENT_EXPIRED_STATUS,
             expired_at=current_ts,
             expired_reason=reason,
@@ -2987,6 +3073,9 @@ def _expire_assignment_due_deadline(
             db.conn.rollback()
         except Exception:
             pass
+        return False
+
+    if not updated_rows:
         return False
 
     # The editor's inbox entry is the actionable part, and the task is no
@@ -3009,14 +3098,14 @@ def _expire_assignment_due_deadline(
             "Review submission deadline passed"
         )
         editor_message = localized_texts(
-            f'"{submission_title}" bo\'yicha taqriz topshirish muddati ({deadline_label}) tugadi. Topshiriq bekor qilindi.',
-            f'Срок отправки рецензии по "{submission_title}" ({deadline_label}) истёк. Назначение отменено.',
-            f'The review deadline for "{submission_title}" ({deadline_label}) has passed. Assignment was removed.'
+            f'"{submission_title}" bo\'yicha taqriz topshirish muddati ({editor_deadline_label}) tugadi. Topshiriq bekor qilindi.',
+            f'Срок отправки рецензии по "{submission_title}" ({editor_deadline_label}) истёк. Назначение отменено.',
+            f'The review deadline for "{submission_title}" ({editor_deadline_label}) has passed. Assignment was removed.'
         )
         admin_message = localized_texts(
-            f'{editor_name} uchun "{submission_title}" bo\'yicha topshirish muddati ({deadline_label}) o\'tdi. Topshiriq olib tashlandi.',
-            f'У {editor_name} истёк дедлайн по "{submission_title}" ({deadline_label}). Назначение удалено.',
-            f'Deadline for {editor_name} on "{submission_title}" ({deadline_label}) has passed. Assignment was removed.'
+            f'{editor_name} uchun "{submission_title}" bo\'yicha topshirish muddati ({admin_deadline_label}) o\'tdi. Topshiriq olib tashlandi.',
+            f'У {editor_name} истёк дедлайн по "{submission_title}" ({admin_deadline_label}). Назначение удалено.',
+            f'Deadline for {editor_name} on "{submission_title}" ({admin_deadline_label}) has passed. Assignment was removed.'
         )
     else:
         editor_title = localized_texts(
@@ -3025,14 +3114,14 @@ def _expire_assignment_due_deadline(
             "Assignment acceptance deadline passed"
         )
         editor_message = localized_texts(
-            f'"{submission_title}" topshirig\'ini qabul qilish muddati ({deadline_label}) tugadi. Topshiriq bekor qilindi.',
-            f'Срок принятия задания "{submission_title}" ({deadline_label}) истёк. Назначение отменено.',
-            f'The acceptance deadline for "{submission_title}" ({deadline_label}) has passed. Assignment was removed.'
+            f'"{submission_title}" topshirig\'ini qabul qilish muddati ({editor_deadline_label}) tugadi. Topshiriq bekor qilindi.',
+            f'Срок принятия задания "{submission_title}" ({editor_deadline_label}) истёк. Назначение отменено.',
+            f'The acceptance deadline for "{submission_title}" ({editor_deadline_label}) has passed. Assignment was removed.'
         )
         admin_message = localized_texts(
-            f'{editor_name} "{submission_title}" topshirig\'ini vaqtida qabul qilmadi ({deadline_label}). Topshiriq olib tashlandi.',
-            f'{editor_name} не принял задание "{submission_title}" в срок ({deadline_label}). Назначение удалено.',
-            f'{editor_name} did not accept "{submission_title}" before {deadline_label}. Assignment was removed.'
+            f'{editor_name} "{submission_title}" topshirig\'ini vaqtida qabul qilmadi ({admin_deadline_label}). Topshiriq olib tashlandi.',
+            f'{editor_name} не принял задание "{submission_title}" в срок ({admin_deadline_label}). Назначение удалено.',
+            f'{editor_name} did not accept "{submission_title}" before {admin_deadline_label}. Assignment was removed.'
         )
 
     if editor_id is not None:
@@ -3049,9 +3138,6 @@ def _expire_assignment_due_deadline(
             actor_user_id=actor_user_id
         )
 
-    admin_user_id = _parse_int((submission or {}).get('assigned_admin_id'))
-    if admin_user_id is None:
-        admin_user_id = _parse_int((assignment or {}).get('assigned_by'))
     if admin_user_id is not None and admin_user_id != editor_id:
         admin_action_url = url_for('submission_detail', submission_id=submission_id) if submission_id is not None else url_for('editor_assignments')
         _create_role_notification(
@@ -3144,11 +3230,24 @@ def _process_editor_assignments_deadline_cycle(actor_user_id=None):
         completion_remaining_seconds = assignment.get('completion_remaining_seconds')
 
         # Remove task if acceptance window is missed before opening the assignment.
+        # A pending, never-accepted row belongs here even when
+        # acceptance_deadline_at is NULL: rows created before the
+        # acceptance/completion split only ever got completion_deadline_at
+        # backfilled (see _ensure_editor_assignment_columns), so without this
+        # fallback they fell through to the completion branch below and were
+        # expired with reason='completion' -- "review submission deadline
+        # passed" -- even though they were never accepted in the first place.
         if (
             assignment_status == 'pending'
             and accepted_at is None
-            and acceptance_deadline_at is not None
-            and acceptance_deadline_at <= now_ts
+            and (
+                (acceptance_deadline_at is not None and acceptance_deadline_at <= now_ts)
+                or (
+                    acceptance_deadline_at is None
+                    and completion_deadline_at is not None
+                    and completion_deadline_at <= now_ts
+                )
+            )
         ):
             if _expire_assignment_due_deadline(
                 assignment,
@@ -3162,8 +3261,12 @@ def _process_editor_assignments_deadline_cycle(actor_user_id=None):
             continue
 
         # Remove task if completion deadline is missed while still active.
+        # Requires accepted_at: an unaccepted row is always handled by the
+        # acceptance branch above, so this only ever fires for assignments
+        # the editor actually opened.
         if (
             assignment_status in EDITOR_ASSIGNMENT_ACTIVE_STATUS_VALUES
+            and accepted_at is not None
             and completion_deadline_at is not None
             and completion_deadline_at <= now_ts
         ):
@@ -3302,6 +3405,16 @@ def _extract_selected_roles(data, primary_role_name, allowed_roles=None, fallbac
         roles = [role_name for role_name in roles if role_name in allowed_set]
 
     primary = (primary_role_name or '').strip().lower() or AUTHOR_ROLE
+    # The role-checkbox list is the more direct intent when a Super Admin is
+    # selected.  Older browser state (and the previous UI) could still submit
+    # ``rolename=user`` while posting ``roles=superadmin``; treating the
+    # stale select as authoritative silently discarded the promotion.  This
+    # remains safe because the submitted role is filtered through
+    # ``allowed_set`` first, which only includes superadmin for a superadmin
+    # actor.
+    if 'superadmin' in roles and (not allowed_set or 'superadmin' in allowed_set):
+        primary = 'superadmin'
+
     if primary in allowed_set or not allowed_set:
         roles = build_user_roles(primary, include_author_role=False, extra_roles=roles)
 
@@ -4780,6 +4893,30 @@ def _status_label_text(status, lang='uz'):
     return STATUS_LABEL_TRANSLATIONS.get(key, {}).get(lang, key)
 
 
+def _submission_save_feedback(status, status_changed):
+    """Build the visible FMAdmin response after an AJAX submission save."""
+    status_label = submission_status_label(status, _admin_language())
+    if status_changed:
+        message = _msg_text(
+            f"Maqola saqlandi. Yangi holat: {status_label}.",
+            f"Статья сохранена. Новый статус: {status_label}.",
+            f"Submission saved. New status: {status_label}.",
+        )
+    else:
+        message = _msg_text(
+            f"Maqola ma'lumotlari saqlandi. Joriy holat: {status_label}.",
+            f"Данные статьи сохранены. Текущий статус: {status_label}.",
+            f"Submission details saved. Current status: {status_label}.",
+        )
+    return {
+        'category': 'success',
+        'title': _msg_text('Maqola saqlandi', 'Статья сохранена', 'Submission saved'),
+        'message': message,
+        'status_label': status_label,
+        'status_changed': bool(status_changed),
+    }
+
+
 def _workflow_stage_label_text(stage, lang='uz'):
     key = _clean_text(stage).lower()
     if not key:
@@ -4929,7 +5066,10 @@ def _session_admin_user_payload(user_row):
         'capabilities': hydrated_user.get('capabilities'),
         'editor_specialization': hydrated_user.get('editor_specialization'),
         'admin_tracks': hydrated_user.get('admin_tracks'),
-        'editor_admin_id': hydrated_user.get('editor_admin_id')
+        'editor_admin_id': hydrated_user.get('editor_admin_id'),
+        # Cached so the display-timezone filters (utils/filters.py) can read
+        # it straight off the session instead of hitting the DB per request.
+        'timezone_name': hydrated_user.get('timezone_name'),
     }
 
 
@@ -5187,6 +5327,183 @@ def logout():
     flash(t('admin_success_logout'), 'info')
     return redirect(url_for('login'))
 
+
+@bp.route('/fmadmin/profile/timezone', methods=['POST'])
+def update_own_timezone():
+    """Store the browser-detected IANA timezone for the logged-in user.
+
+    Called silently by basic.html on page load so a foreign editor/admin
+    sees deadlines and notifications in their own local time instead of the
+    shared Tashkent default -- see shared/user_timezone.py.
+    """
+    if 'fmadmin_user' not in session:
+        return jsonify({'success': False}), 401
+
+    payload = request.get_json(silent=True) or {}
+    timezone_name = _clean_text(payload.get('timezone'))
+    if not is_valid_timezone_name(timezone_name):
+        return jsonify({'success': False}), 400
+
+    user_id = _parse_int(session['fmadmin_user'].get('id'))
+    if user_id is None:
+        return jsonify({'success': False}), 401
+
+    db.users.all().equal(id=user_id).update(timezone_name=timezone_name).exec()
+    session['fmadmin_user']['timezone_name'] = timezone_name
+    session.modified = True
+    return jsonify({'success': True})
+
+
+USER_DIRECTORY_FILTER_VALUES = {'active', 'blocked', 'hidden', 'staff'}
+USER_DIRECTORY_ROLE_FILTER_VALUES = {'user', 'editor', 'admin', 'superadmin'}
+
+
+def _user_avatar_url(user):
+    """Return a safe public avatar URL stored on a user account.
+
+    Mainweb stores uploaded profile images beneath ``/static/uploads/avatars``
+    while OAuth providers may store an HTTPS profile-photo URL.  The FMAdmin
+    redesign originally rendered initials unconditionally, so valid database
+    avatars were never used even though Nginx already served the shared volume.
+    """
+    avatar = _clean_text((user or {}).get('avatar'))
+    if not avatar:
+        return ''
+
+    upload_prefix = '/static/uploads/avatars/'
+    if avatar.startswith(upload_prefix):
+        filename = avatar[len(upload_prefix):]
+        if filename and '/' not in filename and filename == secure_filename(filename):
+            return avatar
+        return ''
+
+    parsed = urlparse(avatar)
+    if parsed.scheme in {'http', 'https'} and parsed.netloc:
+        return avatar
+    return ''
+
+
+def _user_directory_flag(value):
+    """Interpret legacy boolean values consistently for list filtering."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def _user_directory_is_hidden(user):
+    return _user_directory_flag((user or {}).get('is_hidden'))
+
+
+def _user_directory_is_blocked(user):
+    return _user_directory_flag((user or {}).get('is_blocked'))
+
+
+def _normalize_user_directory_filter(value):
+    candidate = _clean_text(value).lower()
+    return candidate if candidate in USER_DIRECTORY_FILTER_VALUES else ''
+
+
+def _normalize_user_directory_role_filter(value):
+    candidate = _clean_text(value).lower()
+    return candidate if candidate in USER_DIRECTORY_ROLE_FILTER_VALUES else ''
+
+
+def _user_directory_scope_users(users, can_manage_users, current_role):
+    """Return only the accounts the current directory role may inspect."""
+    if can_manage_users:
+        if current_role == 'superadmin':
+            return list(users)
+        return [user for user in users if not user_has_role(user, 'superadmin')]
+
+    # Admins assigning editors retain the existing restricted directory: no
+    # upper-level accounts, hidden accounts, or blocked accounts are exposed.
+    # Role checks intentionally use hydrated roles, not only legacy rolename.
+    return [
+        user for user in users
+        if not user_has_any_role(user, ADMIN_ROLE_NAMES)
+        and not _user_directory_is_hidden(user)
+        and not _user_directory_is_blocked(user)
+    ]
+
+
+def _build_user_directory_summary(users):
+    """Build non-overlapping state metrics from the permission-scoped rows."""
+    visible_users = [user for user in users if not _user_directory_is_hidden(user)]
+    return {
+        'total': len(visible_users),
+        'active': sum(not _user_directory_is_blocked(user) for user in visible_users),
+        'blocked': sum(_user_directory_is_blocked(user) for user in visible_users),
+        'staff': sum(
+            user_has_any_role(user, PRIVILEGED_ROLES)
+            for user in visible_users
+        ),
+        'hidden': sum(_user_directory_is_hidden(user) for user in users),
+    }
+
+
+def _user_directory_matches_search(user, search_name='', search_email=''):
+    name_query = _clean_text(search_name).casefold()
+    email_query = _clean_text(search_email).casefold()
+    if name_query:
+        full_name = ' '.join(
+            _clean_text((user or {}).get(field))
+            for field in ('name', 'second_name', 'father_name')
+        ).casefold()
+        if name_query not in full_name:
+            return False
+    if email_query and email_query not in _clean_text((user or {}).get('email')).casefold():
+        return False
+    return True
+
+
+def _filter_user_directory_users(
+    users,
+    directory_filter='',
+    role_filter='',
+    search_name='',
+    search_email='',
+):
+    """Apply directory status, role, and text filters before pagination."""
+    selected_filter = _normalize_user_directory_filter(directory_filter)
+    selected_role = _normalize_user_directory_role_filter(role_filter)
+
+    if selected_filter == 'active':
+        filtered_users = [
+            user for user in users
+            if not _user_directory_is_hidden(user)
+            and not _user_directory_is_blocked(user)
+        ]
+    elif selected_filter == 'blocked':
+        filtered_users = [
+            user for user in users
+            if not _user_directory_is_hidden(user)
+            and _user_directory_is_blocked(user)
+        ]
+    elif selected_filter == 'hidden':
+        filtered_users = [user for user in users if _user_directory_is_hidden(user)]
+    elif selected_filter == 'staff':
+        filtered_users = [
+            user for user in users
+            if not _user_directory_is_hidden(user)
+            and user_has_any_role(user, PRIVILEGED_ROLES)
+        ]
+    else:
+        filtered_users = [user for user in users if not _user_directory_is_hidden(user)]
+
+    if selected_role:
+        filtered_users = [
+            user for user in filtered_users
+            if user_has_role(user, selected_role)
+        ]
+
+    return [
+        user for user in filtered_users
+        if _user_directory_matches_search(user, search_name, search_email)
+    ]
+
+
 @bp.route('/fmadmin/users/users')
 @user_directory_required
 def users():
@@ -5195,73 +5512,53 @@ def users():
     can_manage_users = user_has_permission(current_user, 'fmadmin.users.manage')
     can_assign_editor_roles = user_has_permission(current_user, 'fmadmin.editor_roles.manage')
 
-    page = request.args.get('page', 1, type=int)
+    page = max(request.args.get('page', 1, type=int) or 1, 1)
     per_page = 20
     search_name = request.args.get('name', '').strip()
     search_email = request.args.get('email', '').strip()
-    search_orcid = request.args.get('orcid', '').strip()
-    include_hidden = request.args.get('include_hidden') == '1' if current_role == 'superadmin' else False
+    directory_filter = _normalize_user_directory_filter(request.args.get('filter'))
+    role_filter = _normalize_user_directory_role_filter(request.args.get('role'))
 
-    if can_manage_users:
-        query = db.users.all().order_by('id')
-        if not include_hidden:
-            query = query.unequal(is_hidden=True)
-        if current_role != 'superadmin':
-            query = query.unequal(rolename='superadmin')
-        if search_name:
-            query = query.like(name=search_name)
-        if search_email:
-            query = query.like(email=search_email)
+    all_users = [
+        hydrate_user_roles(user)
+        for user in db.users.all().order_by('id').exec()
+    ]
+    scoped_users = _user_directory_scope_users(
+        all_users,
+        can_manage_users=can_manage_users,
+        current_role=current_role,
+    )
+    user_summary = _build_user_directory_summary(scoped_users)
+    filtered_users = _filter_user_directory_users(
+        scoped_users,
+        directory_filter=directory_filter,
+        role_filter=role_filter,
+        search_name=search_name,
+        search_email=search_email,
+    )
 
-        total_users = query.copy().count().exec()
-        users = [hydrate_user_roles(user) for user in query.per_page(per_page).page(page).exec()]
-    else:
-        # Admins assigning editors can only browse regular, active accounts.
-        # Filtering in Python is intentional: an account may carry an admin
-        # role while its legacy `rolename` still says `user`.
-        candidate_users = [
-            hydrate_user_roles(user)
-            for user in db.users.all().order_by('id').unequal(is_hidden=True).exec()
-        ]
-        candidate_users = [
-            user for user in candidate_users
-            if not user_has_any_role(user, ADMIN_ROLE_NAMES)
-            and not user.get('is_blocked')
-        ]
-        if search_name:
-            search_name_lower = search_name.lower()
-            candidate_users = [
-                user for user in candidate_users
-                if search_name_lower in _clean_text(user.get('name')).lower()
-                or search_name_lower in _clean_text(user.get('second_name')).lower()
-                or search_name_lower in _clean_text(user.get('father_name')).lower()
-            ]
-        if search_email:
-            search_email_lower = search_email.lower()
-            candidate_users = [
-                user for user in candidate_users
-                if search_email_lower in _clean_text(user.get('email')).lower()
-            ]
-        total_users = len(candidate_users)
-        start = max(page - 1, 0) * per_page
-        users = candidate_users[start:start + per_page]
+    total_users = len(filtered_users)
+    start = (page - 1) * per_page
+    users = filtered_users[start:start + per_page]
     total_pages = (total_users + per_page - 1) // per_page
 
     for user in users:
-        user['has_author_role'] = user_has_role(user, AUTHOR_ROLE)
-        user['admin_tracks_labels'] = _admin_tracks_label_list(user) if user_has_role(user, 'admin') else []
+        user['avatar_url'] = _user_avatar_url(user)
+        if can_manage_users:
+            user['directory_url'] = url_for('user_edit', user_id=user['id'])
+        elif can_assign_editor_roles and 'editor' not in (user.get('roles') or []):
+            user['directory_url'] = url_for('assign_editor_role', user_id=user['id'])
+        else:
+            user['directory_url'] = ''
 
-    author_profiles = db.author_profile.all().exec()
-    author_map = {a['user_id']: a for a in author_profiles if a['user_id'] is not None}
     tariffs = db.tariffs.all().exec()
     tariffs_map = {t['id']: t for t in tariffs}
-    admin_users = _active_admins()
-    admin_map = {admin.get('id'): admin for admin in admin_users if admin.get('id')}
 
     return render_template('users/users/users.html', users=users, page=page, total_users=total_users, total_pages=total_pages,
-                           search_name=search_name, search_email=search_email, search_orcid=search_orcid,
-                           author_map=author_map, tariffs_map=tariffs_map,
-                           include_hidden=include_hidden, current_user=current_user, admin_map=admin_map,
+                           search_name=search_name, search_email=search_email,
+                           directory_filter=directory_filter, role_filter=role_filter,
+                           user_summary=user_summary, tariffs_map=tariffs_map,
+                           current_user=current_user,
                            can_manage_users=can_manage_users,
                            can_assign_editor_roles=can_assign_editor_roles,
                            uncovered_tracks=_uncovered_admin_tracks(),
@@ -6141,6 +6438,7 @@ def user_edit(user_id):
     else:
         user = existing_user
     user = hydrate_user_roles(user)
+    user['avatar_url'] = _user_avatar_url(user)
     user['has_author_role'] = user_has_role(user, AUTHOR_ROLE)
     user['admin_tracks'] = _admin_tracks_for_user(user)
     countries = db.fix_country.all().exec()
@@ -7974,10 +8272,9 @@ def article_edit(article_id):
         else:
             keywords_ru = []
         additional = request.form.get('additional')
-        main_author_id = request.form.get('main_author_id') or None
-        subauthor_ids = request.form.getlist('subauthor_ids')
-        subauthor_ids = [int(i) for i in subauthor_ids if i]
-        issue_id = request.form.get('issue_id') or None
+        main_author_id = _parse_int(request.form.get('main_author_id'))
+        subauthor_ids = _parse_int_list(request.form.getlist('subauthor_ids'))
+        issue_id = _parse_int(request.form.get('issue_id'))
         doi = request.form.get('doi')
         doi_link = request.form.get('doi_link')
         page_range = _normalize_article_page_range(request.form.get('page_range'))
@@ -8059,6 +8356,15 @@ def article_edit(article_id):
         date_accept = parse_date(request.form.get('date_accept'), with_time=True)
         # Publish date is date-only in UI; storing without time avoids timezone day-shift issues.
         date_publish = parse_date(request.form.get('date_publish'), with_time=False)
+        scholar_missing_fields = _scholar_publication_missing_fields(
+            abstract=abstract,
+            main_author_id=main_author_id,
+            issue_id=issue_id,
+            date_publish=date_publish,
+        )
+        if scholar_missing_fields:
+            new_alert(_scholar_publication_missing_fields_message(scholar_missing_fields), 'danger')
+            return redirect(url_for('article_edit', article_id=article_id))
         comments = request.form.get('comments')
         current_file_ids = []
         if article_id != 0:
@@ -8103,11 +8409,30 @@ def article_edit(article_id):
                         ),
                         'danger'
                     )
-        is_paid = bool(request.form.get('is_paid'))
+        # ``access_type`` is the visible control.  The hidden checkbox is
+        # retained for existing UI behaviour, but relying on it alone would
+        # turn a paid article into an open one when JavaScript is unavailable.
+        access_type = _clean_text(request.form.get('access_type')).lower()
+        if access_type in {'free', 'paid'}:
+            is_paid = access_type == 'paid'
+        else:
+            is_paid = bool(request.form.get('is_paid'))
         price = request.form.get('price', 0, float)
         price_uz = request.form.get('price_uz', 0, float)
         price_ru = request.form.get('price_ru', 0, float)
         subscription_enable = bool(request.form.get('subscription_enable'))
+        scholar_missing_fields = _scholar_publication_missing_fields(
+            abstract=abstract,
+            main_author_id=main_author_id,
+            issue_id=issue_id,
+            date_publish=date_publish,
+            file_ids=file_ids,
+            is_paid=is_paid,
+            subscription_enable=subscription_enable,
+        )
+        if scholar_missing_fields:
+            new_alert(_scholar_publication_missing_fields_message(scholar_missing_fields), 'danger')
+            return redirect(url_for('article_edit', article_id=article_id))
         created_at = parse_date(request.form.get('created_at'), with_time=True)
         if article_id != 0 and not created_at:
             # Never wipe the original creation timestamp on edit — public
@@ -10501,7 +10826,11 @@ def submission_edit():
 
         submission_id_int = _parse_int(submission_id)
         if submission_id_int is None or status not in SUBMISSION_STATUS_KEYS:
-            return jsonify({'success': False, 'error': 'Не все обязательные поля заполнены'})
+            return jsonify({'success': False, 'error': _msg_text(
+                "Majburiy maydonlar to'ldirilmagan yoki holat noto'g'ri",
+                'Не все обязательные поля заполнены или статус недопустим',
+                'Required fields are missing or the status is invalid',
+            )})
 
         if status in STATUSES_REQUIRING_NOTE and not _clean_text(notes):
             return jsonify({
@@ -10543,7 +10872,9 @@ def submission_edit():
 
         submission_rows = db.submissions.all().equal(id=submission_id_int).exec()
         if not submission_rows:
-            return jsonify({'success': False, 'error': 'Подача не найдена'})
+            return jsonify({'success': False, 'error': _msg_text(
+                'Maqola topilmadi', 'Статья не найдена', 'Submission not found'
+            )})
         submission = submission_rows[0]
         old_status = _clean_text(submission.get('status')).lower()
         old_notes = _clean_text(submission.get('notes'))
@@ -10645,7 +10976,11 @@ def submission_edit():
             # generic one here to avoid notifying the author twice for the
             # same transition.
             if (status_changed and not entered_plagiarism_check) or notes_changed:
-                changed_at_label = datetime.datetime.fromtimestamp(now_ts).strftime('%d.%m.%Y %H:%M')
+                # Recipient's own timezone, not the server's raw clock --
+                # see _deadline_ts_label for why that used to be wrong.
+                changed_at_label = _deadline_ts_label(
+                    now_ts, for_user=author_user
+                )
                 note_already_in_message = status_changed and new_status in STATUSES_REQUIRING_NOTE
                 if status_changed:
                     if new_status == 'published':
@@ -10802,14 +11137,23 @@ def submission_edit():
                 )
             return jsonify({
                 'success': True,
+                'feedback': _submission_save_feedback(new_status, status_changed),
                 'publication_missing_for_web': publication_missing_for_web
             })
         else:
-            return jsonify({'success': False, 'error': 'Подача не найдена'})
+            return jsonify({'success': False, 'error': _msg_text(
+                'Maqola saqlanmadi. Qayta urinib ko\'ring.',
+                'Статья не сохранена. Повторите попытку.',
+                'Submission was not saved. Please try again.',
+            )})
             
     except Exception:
         logger.exception('Submission edit failed in submission_edit')
-        return jsonify({'success': False, 'error': 'Internal server error'})
+        return jsonify({'success': False, 'error': _msg_text(
+            'Saqlashda ichki xatolik yuz berdi. Qayta urinib ko\'ring.',
+            'При сохранении произошла внутренняя ошибка. Повторите попытку.',
+            'An internal error occurred while saving. Please try again.',
+        )})
 
 
 @bp.route('/fmadmin/submissions/bulk', methods=['POST'])
@@ -12334,6 +12678,9 @@ def assign_editors(submission_id):
     else:
         editors_list = get_editors()
     allowed_editor_ids = {editor.get('id') for editor in editors_list if editor.get('id')}
+    editors_by_id = {
+        editor.get('id'): editor for editor in editors_list if editor.get('id')
+    }
     now_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
     max_acceptance_ts = now_ts + EDITOR_ASSIGNMENT_MAX_ACCEPTANCE_SECONDS
     # The pickers show the admin's wall clock (UTC+5), matching how the saved
@@ -12523,6 +12870,7 @@ def assign_editors(submission_id):
             ).exec()
             assignment_id = _extract_inserted_id(assignment_id)
             created_count += 1
+            editor_user = editors_by_id.get(editor_id)
 
             message = localized_texts(
                 f'Sizga "{submission.get("title") or submission_id}" maqolasi biriktirildi',
@@ -12536,14 +12884,18 @@ def assign_editors(submission_id):
                     f'{message["en"]}. Anti-plagiarism checked file is attached'
                 )
             if acceptance_deadline_at:
-                acceptance_label = _deadline_ts_label(acceptance_deadline_at)
+                acceptance_label = _deadline_ts_label(
+                    acceptance_deadline_at, for_user=editor_user
+                )
                 message = localized_texts(
                     f'{message["uz"]}. Qabul qilish muddati: {acceptance_label}',
                     f'{message["ru"]}. Срок принятия: {acceptance_label}',
                     f'{message["en"]}. Acceptance deadline: {acceptance_label}'
                 )
             if completion_deadline_at:
-                completion_label = _deadline_ts_label(completion_deadline_at)
+                completion_label = _deadline_ts_label(
+                    completion_deadline_at, for_user=editor_user
+                )
                 message = localized_texts(
                     f'{message["uz"]}. Topshirish muddati: {completion_label}',
                     f'{message["ru"]}. Срок отправки: {completion_label}',

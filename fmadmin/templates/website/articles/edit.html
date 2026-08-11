@@ -61,7 +61,8 @@
                     </div>
                     <div class="mb-3 lang-field lang-en">
                         <label class="form-label">{{ t("admin_label_abstract") }} (en)</label>
-                        <textarea class="form-control ckeditor-word" id="abstract_en" name="abstract" rows="4" data-editor-height="220">{{ article.abstract or '' }}</textarea>
+                        <textarea class="form-control ckeditor-word" id="abstract_en" name="abstract" rows="4" data-editor-height="220" required>{{ article.abstract or '' }}</textarea>
+                        <div class="form-hint">{{ t('admin_scholar_abstract_hint') }}</div>
                     </div>
                     <div class="mb-3 lang-field lang-uz">
                         <label class="form-label">{{ t("admin_label_abstract") }} (uz)</label>
@@ -96,7 +97,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_issue") }}</label>
-                        <select class="form-select" name="issue_id">
+                        <select class="form-select" name="issue_id" required>
                             <option value="">{{ t("admin_label_not_selected") }}</option>
                             {% for issue in issues %}
                             <option value="{{ issue.id }}" {% if article.issue_id==issue.id %}selected{% endif %}>{{
@@ -108,7 +109,7 @@
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_main_author") }}</label>
                         <div class="input-group">
-                            <select class="form-select" name="main_author_id" id="main_author_id_select">
+                            <select class="form-select" name="main_author_id" id="main_author_id_select" required>
                                 <option value="">{{ t("admin_label_not_selected") }}</option>
                                 {% for author in authors %}
                                 <option value="{{ author.id }}" {% if article.main_author_id==author.id %}selected{%
@@ -214,7 +215,7 @@
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_announcement_published_at") }}</label>
                         <input type="date" class="form-control" name="date_publish"
-                            value="{{ article.date_publish | date_to_form }}">
+                            value="{{ article.date_publish | date_to_form }}" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_comment") }}</label>
@@ -262,7 +263,7 @@
                             accept=".pdf"
                             multiple
                             data-current-files-text="{{ article_current_files_text }}">
-                        <small class="form-hint">{{ t("admin_hint_pdf_upload") }}</small>
+                        <small class="form-hint">{{ t("admin_hint_pdf_upload") }} {{ t('admin_scholar_pdf_hint') }}</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Maqola turi</label>

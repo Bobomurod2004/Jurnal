@@ -1,535 +1,357 @@
 {% extends 'basic.html' %}
 
-
 {% block content %}
 {% set is_superadmin = current_user and current_user.rolename == 'superadmin' %}
+{% set full_name = ((user.name or '') ~ ' ' ~ (user.second_name or '') ~ ' ' ~ (user.father_name or '')) | trim %}
+{% set initials = ((user.name or '')[:1] ~ (user.second_name or '')[:1]) | upper %}
+{% if not initials %}{% set initials = (user.email or '?')[:1] | upper %}{% endif %}
+
 <style>
-    .user-360-card .metric-label {
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--tblr-secondary);
-        font-weight: 700;
-    }
-
-    .user-360-card .metric-value {
-        font-size: 1.35rem;
-        font-weight: 700;
-        line-height: 1.1;
-    }
-
-    .user-360-list-item {
-        border-bottom: 1px solid var(--tblr-border-color-translucent);
-        padding: 0.7rem 0;
-    }
-
-    .user-360-list-item:first-child {
-        padding-top: 0;
-    }
-
-    .user-360-list-item:last-child {
-        border-bottom: 0;
-        padding-bottom: 0;
-    }
-
-    .user-360-timeline-item {
-        border-bottom: 1px solid var(--tblr-border-color-translucent);
-        padding: 0.85rem 1.25rem;
-    }
-
-    .user-360-timeline-item:last-child {
-        border-bottom: 0;
-    }
+  .fm-user-editor { --fm-user-hero-start: #162b4d; --fm-user-hero-end: #345f8e; }
+  .fm-user-editor .fm-user-back-link { color: var(--tblr-secondary); font-size: 0.85rem; text-decoration: none; }
+  .fm-user-editor .fm-user-back-link:hover { color: var(--tblr-primary); }
+  .fm-user-editor .fm-user-hero {
+    background: linear-gradient(125deg, var(--fm-user-hero-start), var(--fm-user-hero-end));
+    border-radius: var(--tblr-border-radius-lg);
+    box-shadow: 0 0.9rem 1.8rem rgba(23, 44, 76, 0.18);
+    color: #fff;
+    overflow: hidden;
+    position: relative;
+  }
+  .fm-user-editor .fm-user-hero::after {
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.18) 0, rgba(255, 255, 255, 0) 68%);
+    content: '';
+    height: 21rem;
+    pointer-events: none;
+    position: absolute;
+    right: -6rem;
+    top: -11rem;
+    width: 21rem;
+  }
+  .fm-user-editor .fm-user-hero .text-secondary { color: rgba(255, 255, 255, 0.75) !important; }
+  .fm-user-editor .fm-user-hero-avatar {
+    background: linear-gradient(145deg, #fff, #cfe3ff);
+    box-shadow: 0 0.55rem 1rem rgba(7, 22, 42, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    color: #255b9e;
+    font-size: 1.1rem;
+    font-weight: 800;
+    height: 3.8rem;
+    width: 3.8rem;
+  }
+  .fm-user-editor .fm-user-hero-avatar img { border-radius: inherit; height: 100%; object-fit: cover; width: 100%; }
+  .fm-user-editor .fm-user-hero-title { font-size: clamp(1.35rem, 2.5vw, 2rem); font-weight: 750; line-height: 1.15; }
+  .fm-user-editor .fm-user-hero .badge { box-shadow: 0 0.3rem 0.6rem rgba(10, 25, 45, 0.2); }
+  .fm-user-editor .fm-user-tabs { border: 0; gap: 0.55rem; }
+  .fm-user-editor .fm-user-tabs .nav-link {
+    border: 0;
+    border-radius: 99px;
+    color: var(--tblr-secondary);
+    font-weight: 650;
+    padding: 0.6rem 1rem;
+  }
+  .fm-user-editor .fm-user-tabs .nav-link.active {
+    background: var(--tblr-primary);
+    box-shadow: 0 0.4rem 0.8rem rgba(var(--tblr-primary-rgb), 0.25);
+    color: #fff;
+  }
+  .fm-user-editor .fm-edit-card {
+    border: 0;
+    border-radius: var(--tblr-border-radius-lg);
+    box-shadow: 0 0.35rem 0.85rem rgba(30, 46, 76, 0.08);
+    height: 100%;
+    transition: box-shadow 0.18s ease, transform 0.18s ease;
+  }
+  .fm-user-editor .fm-edit-card:hover { box-shadow: 0 0.85rem 1.4rem rgba(30, 46, 76, 0.15); transform: perspective(900px) translateY(-3px) rotateX(1deg); }
+  .fm-user-editor .fm-edit-card .card-header { border-bottom-color: var(--tblr-border-color-translucent); padding: 1rem 1.25rem; }
+  .fm-user-editor .fm-section-icon {
+    align-items: center;
+    border-radius: 0.75rem;
+    display: inline-flex;
+    height: 2.25rem;
+    justify-content: center;
+    width: 2.25rem;
+  }
+  .fm-user-editor .fm-section-title { font-size: 1rem; font-weight: 750; margin: 0; }
+  .fm-user-editor .fm-section-hint { color: var(--tblr-secondary); font-size: 0.78rem; margin-top: 0.15rem; }
+  .fm-user-editor .fm-readonly-id { background: var(--tblr-bg-surface-secondary); font-size: 0.82rem; }
+  .fm-user-editor .fm-role-option .form-selectgroup-label { border-radius: 0.65rem; transition: box-shadow 0.15s ease, transform 0.15s ease; }
+  .fm-user-editor .fm-role-option .form-selectgroup-input:checked + .form-selectgroup-label { box-shadow: 0 0.35rem 0.7rem rgba(var(--tblr-primary-rgb), 0.2); transform: translateY(-1px); }
+  .fm-user-editor .fm-account-switch {
+    align-items: center;
+    border-bottom: 1px solid var(--tblr-border-color-translucent);
+    display: flex;
+    justify-content: space-between;
+    padding: 0.72rem 0;
+  }
+  .fm-user-editor .fm-account-switch:first-child { padding-top: 0; }
+  .fm-user-editor .fm-account-switch:last-child { border-bottom: 0; padding-bottom: 0; }
+  .fm-user-editor .fm-account-switch .form-check { margin: 0; }
+  .fm-user-editor .fm-account-switch .form-check-input { margin-left: 0.8rem; }
+  .fm-user-editor .fm-account-stat { border-bottom: 1px solid var(--tblr-border-color-translucent); display: flex; font-size: 0.82rem; gap: 1rem; justify-content: space-between; padding: 0.56rem 0; }
+  .fm-user-editor .fm-account-stat:first-child { padding-top: 0; }
+  .fm-user-editor .fm-account-stat:last-child { border-bottom: 0; padding-bottom: 0; }
+  .fm-user-editor .fm-account-stat-label { color: var(--tblr-secondary); }
+  .fm-user-editor .fm-360-metric { border: 0; border-radius: 0.9rem; min-height: 8rem; padding: 1rem; position: relative; overflow: hidden; }
+  .fm-user-editor .fm-360-metric::after { border-radius: 999px; content: ''; height: 5rem; opacity: 0.45; position: absolute; right: -1.6rem; top: -1.8rem; width: 5rem; }
+  .fm-user-editor .fm-360-metric-blue { background: #e8f1ff; color: #245ea7; }.fm-user-editor .fm-360-metric-blue::after { background: #b7d4ff; }
+  .fm-user-editor .fm-360-metric-green { background: #e4f9f0; color: #138265; }.fm-user-editor .fm-360-metric-green::after { background: #b5efd8; }
+  .fm-user-editor .fm-360-metric-purple { background: #f1eaff; color: #7543ae; }.fm-user-editor .fm-360-metric-purple::after { background: #d8c2ff; }
+  .fm-user-editor .fm-360-metric-orange { background: #fff0e1; color: #b96917; }.fm-user-editor .fm-360-metric-orange::after { background: #ffd1a2; }
+  .fm-user-editor .fm-metric-label { font-size: 0.7rem; font-weight: 750; letter-spacing: 0.06em; text-transform: uppercase; }
+  .fm-user-editor .fm-metric-value { font-size: 1.7rem; font-weight: 800; line-height: 1.1; margin-top: 0.65rem; }
+  .fm-user-editor .fm-activity-item { border-bottom: 1px solid var(--tblr-border-color-translucent); padding: 0.85rem 1.25rem; }
+  .fm-user-editor .fm-activity-item:last-child { border-bottom: 0; }
+  .fm-user-editor .fm-compact-list-item { border-bottom: 1px solid var(--tblr-border-color-translucent); padding: 0.7rem 0; }
+  .fm-user-editor .fm-compact-list-item:first-child { padding-top: 0; }
+  .fm-user-editor .fm-compact-list-item:last-child { border-bottom: 0; padding-bottom: 0; }
+  .fm-user-save-overlay { align-items: center; background: rgba(18, 35, 62, 0.35); backdrop-filter: blur(4px); display: flex; inset: 0; justify-content: center; position: fixed; z-index: 1090; }
+  .fm-user-save-overlay[hidden] { display: none; }
+  .fm-user-save-overlay-card { align-items: center; background: #fff; border-radius: 1.2rem; box-shadow: 0 1rem 3rem rgba(10, 25, 46, 0.28); display: flex; flex-direction: column; gap: 0.4rem; max-width: 20rem; padding: 1.8rem 2.2rem; text-align: center; }
+  .fm-user-save-overlay-card > span:last-child { color: var(--tblr-secondary); font-size: 0.86rem; }
+  .fm-user-save-spinner { align-items: center; animation: fm-user-save-spin 1.1s linear infinite; background: linear-gradient(145deg, #e3f8ec, #c4f0d6); border-radius: 50%; color: #168151; display: inline-flex; font-size: 1.45rem; height: 3.5rem; justify-content: center; margin-bottom: 0.3rem; width: 3.5rem; }
+  @keyframes fm-user-save-spin { to { transform: rotate(360deg); } }
+  @media (max-width: 575.98px) {
+    .fm-user-editor .fm-user-hero { border-radius: var(--tblr-border-radius); }
+    .fm-user-editor .fm-user-hero .btn { width: 100%; }
+    .fm-user-editor .fm-user-tabs { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0.25rem; }
+  }
+  @media (prefers-reduced-motion: reduce) { .fm-user-save-spinner { animation: none; } }
 </style>
 
-<div class="page-header d-print-none mb-4">
-    <div class="row align-items-center">
-        <div class="col">
-            <h2 class="page-title">{{ t("admin_users_edit_title") }}</h2>
-            <a href="{{ url_for('users') }}" class="">
-                <i class="ti ti-arrow-left"></i>
-                {{ t("admin_btn_back") }}
-            </a>
-        </div>
-        <div class="col-auto ms-auto">
-            <div class="btn-list">
-                <button id="save-user-btn-top" type="button" class="btn btn-primary d-none d-sm-inline-block">
-                    <i class="ti ti-check icon icon-1"></i>
-                    {{ t("admin_btn_save") }}
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+<div class="fm-user-editor">
+  <a href="{{ url_for('users') }}" class="fm-user-back-link d-inline-flex align-items-center gap-1 mb-3"><i class="ti ti-arrow-left" aria-hidden="true"></i>{{ t('admin_btn_back') }}</a>
 
-<form id="main-user-form" method="post" enctype="multipart/form-data">
+  <form id="main-user-form" method="post" enctype="multipart/form-data" data-fm-save-feedback>
     <input type="hidden" id="original_role" value="{{ user.rolename or 'user' }}">
     <input type="hidden" id="original_roles" value="{{ (user.roles or ['user']) | join(',') }}">
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="card">
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label">{{ t("admin_label_id") }}</label>
-                        <input type="text" class="form-control" value="{{ user.id }}" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ t("admin_users_name") }}</label>
-                        <input type="text" class="form-control" name="name" value="{{ user.name }}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ t("admin_users_surname") }}</label>
-                        <input type="text" class="form-control" name="second_name" value="{{ user.second_name }}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ t("admin_users_patronymic") }}</label>
-                        <input type="text" class="form-control" name="father_name" value="{{ user.father_name or '' }}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ t("admin_users_email") }}</label>
-                        <input type="email" class="form-control" name="email" value="{{ user.email }}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ t("admin_users_country") }}</label>
-                        <select class="form-select" name="country_id">
-                            <option value="">{{ t("admin_option_not_selected") }}</option>
-                            {% for country in countries %}
-                            <option value="{{ country.id }}" {% if user.country_id==country.id %}selected{% endif %}>{{
-                                country.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ t("admin_users_region") }}</label>
-                        <input type="text" class="form-control" name="region" value="{{ user.region or '' }}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ t("admin_users_role") }}</label>
-                        <select class="form-select" name="rolename" id="rolename_select">
-                            <option value="user" {% if user.rolename=='user' %}selected{% endif %}>{{
-                                t("admin_role_user") }}</option>
-                            <option value="admin" {% if user.rolename=='admin' %}selected{% endif %}>{{
-                                t("admin_role_admin") }}</option>
-                            <option value="editor" {% if user.rolename=='editor' %}selected{% endif %}>{{
-                                t("admin_role_editor") }}</option>
-                            {% if is_superadmin %}
-                            <option value="superadmin" {% if user.rolename=='superadmin' %}selected{% endif %}>Super Admin</option>
-                            {% endif %}
-                        </select>
-                        <div class="form-text">Asosiy rol default dashboard va staff oqimidagi ustuvor xatti-harakatni belgilaydi.</div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Berilgan rollar</label>
-                        <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column gap-2">
-                            {% for role_value, role_label in role_choices %}
-                            <label class="form-selectgroup-item">
-                                <input
-                                    type="checkbox"
-                                    name="roles"
-                                    value="{{ role_value }}"
-                                    class="form-selectgroup-input role-checkbox"
-                                    data-role-name="{{ role_value }}"
-                                    {% if role_value in (user.roles or []) %}checked{% endif %}>
-                                <span class="form-selectgroup-label">{{ role_label }}</span>
-                            </label>
-                            {% endfor %}
-                        </div>
-                        <div class="form-text" id="role_help">Masalan: `admin + muallif` uchun `admin` va `Muallif / Author` birga belgilanadi.</div>
-                    </div>
-                    <div class="mb-3 role-dependent" data-role="admin">
-                        <label class="form-label">Admin yo'nalishlari</label>
-                        <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column gap-2">
-                            {% for track_key, track_label in admin_track_choices %}
-                            <label class="form-selectgroup-item">
-                                <input type="checkbox" name="admin_tracks" value="{{ track_key }}" class="form-selectgroup-input"
-                                    {% if track_key in (user.admin_tracks or []) %}checked{% endif %}>
-                                <span class="form-selectgroup-label">{{ track_label }}</span>
-                            </label>
-                            {% endfor %}
-                        </div>
-                        <div class="form-text">Belgilangan yo'nalishdagi maqolalar shu adminga tushadi.</div>
-                    </div>
-                    <div class="mb-3 role-dependent" data-role="editor">
-                        <label class="form-label">Biriktirilgan admin</label>
-                        <select class="form-select" name="editor_admin_id">
-                            <option value="">Tanlanmagan</option>
-                            {% for admin_user in active_admins %}
-                            <option value="{{ admin_user.id }}" {% if user.editor_admin_id == admin_user.id %}selected{% endif %}>
-                                {{ admin_user.name }} ({{ admin_user.email }})
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <div class="form-text">Superadmin tahrirchini qaysi admin bilan ishlashini shu yerda belgilaydi.</div>
-                    </div>
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" name="is_blocked" id="is_blocked" {% if
-                            user.is_blocked %}checked{% endif %}>
-                        <label class="form-check-label" for="is_blocked">{{ t("admin_users_blocked") }}</label>
-                    </div>
-                    {% if is_superadmin %}
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" name="is_hidden" id="is_hidden" {% if
-                            user.is_hidden %}checked{% endif %}>
-                        <label class="form-check-label" for="is_hidden">Yashirilgan (soft delete)</label>
-                    </div>
-                    {% endif %}
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" name="is_notify" id="is_notify" {% if
-                            user.is_notify %}checked{% endif %}>
-                        <label class="form-check-label" for="is_notify">{{ t("admin_users_notifications") }}</label>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Parol{% if user.id == 0 %} <span class="text-danger">*</span>{% endif %}</label>
-                                <div class="input-group">
-                                    <input id="user-password" type="password" class="form-control" name="password" {% if user.id == 0 %}required{% endif %}
-                                        placeholder="{% if user.id == 0 %}Yangi parol{% else %}Parolni almashtirish uchun kiriting{% endif %}">
-                                    <button type="button" class="btn btn-outline-secondary" data-password-toggle="user-password"
-                                        aria-label="Parolni ko‘rsatish" title="Parolni ko‘rsatish" aria-pressed="false">
-                                        <i class="ti ti-eye" aria-hidden="true"></i>
-                                    </button>
-                                </div>
-                                <div class="form-text">User rolidan Admin/Tahrirchiga o'tkazganda yangi parol kiritish shart.</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Parolni tasdiqlash{% if user.id == 0 %} <span class="text-danger">*</span>{% endif %}</label>
-                                <div class="input-group">
-                                    <input id="user-password-confirm" type="password" class="form-control" name="password_confirm" {% if user.id == 0 %}required{% endif %}
-                                        placeholder="Parolni qayta kiriting">
-                                    <button type="button" class="btn btn-outline-secondary" data-password-toggle="user-password-confirm"
-                                        aria-label="Parolni ko‘rsatish" title="Parolni ko‘rsatish" aria-pressed="false">
-                                        <i class="ti ti-eye" aria-hidden="true"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ t("admin_users_rules_accepted") }}</label>
-                        <input type="datetime-local" class="form-control"
-                            value="{{ user.accept_rules_time | date_to_form_full }}" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ t("admin_users_last_online") }}</label>
-                        <input type="datetime-local" class="form-control"
-                            value="{{ user.last_online | date_to_form_full }}" readonly>
-                    </div>
-                    {% if user.id != 0 %}
-                    <div class="mb-3">
-                        <label class="form-label">{{ t("admin_users_created_at") }}</label>
-                        <input type="datetime-local" class="form-control"
-                            value="{{ user.created_at | date_to_form_full }}" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ t("admin_users_registered_at") }}</label>
-                        <input type="datetime-local" class="form-control"
-                            value="{{ user.register_time | date_to_form_full }}" readonly>
-                    </div>
-                    {% endif %}
-                    <div class="mb-3">
-                        <label class="form-label">{{ t("admin_users_tariff") }}</label>
-                        <select class="form-select" name="tariff_id">
-                            <option value="">{{ t("admin_option_not_selected") }}</option>
-                            {% for tariff in tariffs %}
-                            <option value="{{ tariff.id }}" {% if user.tariff_id==tariff.id %}selected{% endif %}>
-                                {{ tariff.name }}
-                                {% if tariff.is_verified %} 🔒 {{ t("admin_tariff_verified_only") }}{% endif %}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <div class="form-text">🔒 {{ t("admin_tariff_verified_hint") }}</div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ t("admin_users_sub_end_date") }}</label>
-                        <input type="date" class="form-control" name="subscription_end_date"
-                            value="{{ user.subscription_end_date | date_to_form }}">
-                    </div>
-                    <div class="d-flex justify-content-end">
-                        <button id="save-user-btn" type="submit" class="btn btn-primary">{{ t("admin_btn_save")
-                            }}</button>
-                    </div>
-                </div>
+
+    <div class="fm-user-hero p-4 p-md-5">
+      <div class="row align-items-center position-relative" style="z-index: 1;">
+        <div class="col">
+          <div class="d-flex align-items-center gap-3">
+            <span class="avatar fm-user-hero-avatar">
+              {% if user.avatar_url %}
+                <img src="{{ user.avatar_url }}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'; this.nextElementSibling.hidden=false;">
+                <span hidden>{{ initials }}</span>
+              {% else %}{{ initials }}{% endif %}
+            </span>
+            <div>
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <h2 class="fm-user-hero-title mb-0">{{ full_name or t('admin_users_edit_title') }}</h2>
+                {% for role_name in user.roles or [user.rolename] %}
+                  {% if role_name == 'superadmin' %}<span class="badge bg-purple text-purple-fg">{{ t('admin_role_superadmin') }}</span>
+                  {% elif role_name == 'admin' %}<span class="badge bg-blue text-blue-fg">{{ t('admin_role_admin') }}</span>
+                  {% elif role_name == 'editor' %}<span class="badge bg-azure text-azure-fg">{{ t('admin_role_editor') }}</span>
+                  {% elif role_name == 'user' %}<span class="badge bg-secondary text-secondary-fg">{{ t('admin_users_role_author') }}</span>{% endif %}
+                {% endfor %}
+                {% if user.is_hidden %}<span class="badge bg-dark text-dark-fg">{{ t('admin_users_status_hidden') }}</span>
+                {% elif user.is_blocked %}<span class="badge bg-red text-red-fg">{{ t('admin_users_blocked') }}</span>
+                {% else %}<span class="badge bg-green text-green-fg">{{ t('admin_users_status_active') }}</span>{% endif %}
+              </div>
+              <div class="text-secondary mt-2">{{ user.email or t('admin_users_directory_description') }}</div>
             </div>
-
-            {% if user.id != 0 and user_360 %}
-            <div class="card mt-3 user-360-card">
-                <div class="card-header">
-                    <h3 class="card-title">360 Profile</h3>
-                    <div class="card-actions text-secondary small">
-                        {% if user_360.profile.last_activity_at %}
-                        Oxirgi faoliyat: {{ user_360.profile.last_activity_at | timestamp_to_datetime }}
-                        {% else %}
-                        Faoliyat topilmadi
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="row g-2 mb-3">
-                        <div class="col-6 col-md-3">
-                            <div class="border rounded p-2 h-100">
-                                <div class="metric-label">Submissions</div>
-                                <div class="metric-value mt-1">{{ user_360.submission_stats.total }}</div>
-                                <div class="text-secondary small mt-1">Published: {{ user_360.submission_stats.published }}</div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="border rounded p-2 h-100">
-                                <div class="metric-label">Payments</div>
-                                <div class="metric-value mt-1">{{ user_360.payment_stats.total }}</div>
-                                <div class="text-secondary small mt-1">
-                                    Paid summa: {{ user_360.payment_stats.paid_amount | round(2) }}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="border rounded p-2 h-100">
-                                <div class="metric-label">Notifications</div>
-                                <div class="metric-value mt-1">{{ user_360.profile.notifications_incoming }}</div>
-                                <div class="text-secondary small mt-1">
-                                    Unread: {{ user_360.profile.notifications_unread }}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="border rounded p-2 h-100">
-                                <div class="metric-label">Documents</div>
-                                <div class="metric-value mt-1">{{ user_360.profile.documents_total }}</div>
-                                <div class="text-secondary small mt-1">
-                                    Verified: {{ user_360.profile.documents_verified }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row g-3">
-                        <div class="col-lg-6">
-                            <h4 class="mb-2">Submissions statistikasi</h4>
-                            <div class="d-flex flex-wrap gap-1 mb-2">
-                                {% for item in user_360.submission_stats.status_breakdown %}
-                                <span class="badge bg-{{ item.tone }}-lt">{{ item.label }}: {{ item.count }}</span>
-                                {% endfor %}
-                            </div>
-                            <div class="d-flex flex-wrap gap-1 mb-3">
-                                {% for item in user_360.submission_stats.review_breakdown %}
-                                <span class="badge bg-{{ item.tone }}-lt">{{ item.label }}: {{ item.count }}</span>
-                                {% endfor %}
-                            </div>
-                            {% if user_360.submission_stats.recent %}
-                            {% for item in user_360.submission_stats.recent %}
-                            <div class="user-360-list-item">
-                                <div class="d-flex justify-content-between gap-2">
-                                    <a href="{{ url_for('submission_detail', submission_id=item.id) }}" class="fw-semibold text-decoration-none">
-                                        {{ item.title[:88] }}{% if item.title|length > 88 %}...{% endif %}
-                                    </a>
-                                    <span class="badge bg-{{ item.status_tone }}-lt">{{ item.status_label }}</span>
-                                </div>
-                                <div class="text-secondary small mt-1">
-                                    {% if item.review_label %}
-                                    {{ item.review_label }}
-                                    {% endif %}
-                                    {% if item.workflow_stage_label %}
-                                    • {{ item.workflow_stage_label }}
-                                    {% endif %}
-                                    {% if item.activity_at %}
-                                    • {{ item.activity_at | timestamp_to_datetime }}
-                                    {% endif %}
-                                </div>
-                            </div>
-                            {% endfor %}
-                            {% else %}
-                            <div class="text-secondary small">Submissionlar topilmadi.</div>
-                            {% endif %}
-                        </div>
-
-                        <div class="col-lg-6">
-                            <h4 class="mb-2">Payments statistikasi</h4>
-                            <div class="d-flex flex-wrap gap-1 mb-2">
-                                {% for item in user_360.payment_stats.status_breakdown %}
-                                <span class="badge bg-{{ item.tone }}-lt">
-                                    {{ item.label }}: {{ item.count }} ({{ item.amount | round(2) }})
-                                </span>
-                                {% endfor %}
-                            </div>
-                            {% if user_360.payment_stats.recent %}
-                            {% for item in user_360.payment_stats.recent %}
-                            <div class="user-360-list-item">
-                                <div class="d-flex justify-content-between gap-2">
-                                    <a href="{{ url_for('payments', status=item.status) }}" class="fw-semibold text-decoration-none">
-                                        {{ item.payment_type_label }}
-                                    </a>
-                                    <span class="badge bg-{{ item.status_tone }}-lt">{{ item.status_label }}</span>
-                                </div>
-                                <div class="text-secondary small mt-1">
-                                    {{ item.amount_text }}
-                                    {% if item.activity_at %}
-                                    • {{ item.activity_at | timestamp_to_datetime }}
-                                    {% endif %}
-                                </div>
-                            </div>
-                            {% endfor %}
-                            {% else %}
-                            <div class="text-secondary small">Paymentlar topilmadi.</div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card mt-3 user-360-card">
-                <div class="card-header">
-                    <h3 class="card-title">Activity timeline</h3>
-                    <div class="card-actions text-secondary small">
-                        Oxirgi eventlar: {{ user_360.timeline | length }}
-                    </div>
-                </div>
-                <div class="card-body p-0">
-                    {% if user_360.timeline %}
-                    {% for event in user_360.timeline %}
-                    <div class="user-360-timeline-item">
-                        <div class="d-flex align-items-start gap-3">
-                            <span class="avatar avatar-sm bg-{{ event.tone }}-lt text-{{ event.tone }}">
-                                <i class="ti {{ event.icon }}"></i>
-                            </span>
-                            <div class="flex-fill min-w-0">
-                                {% if event.url %}
-                                <a href="{{ event.url }}" class="fw-semibold text-decoration-none d-block">
-                                    {{ event.title }}
-                                </a>
-                                {% else %}
-                                <div class="fw-semibold">{{ event.title }}</div>
-                                {% endif %}
-                                {% if event.subtitle %}
-                                <div class="text-secondary small mt-1">{{ event.subtitle }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="text-secondary small text-nowrap">
-                                {{ event.timestamp | timestamp_to_datetime if event.timestamp else '-' }}
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                    {% if user_360.timeline_has_more %}
-                    <div class="p-3 text-secondary small">Yana ko'proq eventlar mavjud.</div>
-                    {% endif %}
-                    {% else %}
-                    <div class="p-3 text-secondary small">Faoliyat yozuvlari topilmadi.</div>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
+          </div>
         </div>
+        <div class="col-12 col-md-auto mt-3 mt-md-0">
+          <button id="save-user-btn-top" type="button" class="btn btn-light fw-semibold"><i class="ti ti-check me-1" aria-hidden="true"></i>{{ t('admin_btn_save') }}</button>
+        </div>
+      </div>
     </div>
-</form>
 
+    <ul class="nav fm-user-tabs mt-3 mb-4" role="tablist">
+      <li class="nav-item" role="presentation"><button class="nav-link active" id="user-details-tab" data-bs-toggle="tab" data-bs-target="#user-details-pane" type="button" role="tab" aria-controls="user-details-pane" aria-selected="true"><i class="ti ti-user-circle me-1" aria-hidden="true"></i>{{ t('admin_users_tab_details') }}</button></li>
+      <li class="nav-item" role="presentation"><button class="nav-link" id="user-activity-tab" data-bs-toggle="tab" data-bs-target="#user-activity-pane" type="button" role="tab" aria-controls="user-activity-pane" aria-selected="false" {% if user.id == 0 %}disabled{% endif %}><i class="ti ti-chart-dots-3 me-1" aria-hidden="true"></i>{{ t('admin_users_tab_activity') }}</button></li>
+    </ul>
+
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="user-details-pane" role="tabpanel" aria-labelledby="user-details-tab" tabindex="0">
+        <div class="row g-3">
+          <div class="col-xl-8">
+            <div class="d-grid gap-3">
+              <section class="card fm-edit-card">
+                <div class="card-header"><span class="fm-section-icon bg-blue-lt text-blue me-2"><i class="ti ti-user" aria-hidden="true"></i></span><div><h3 class="fm-section-title">{{ t('admin_users_section_personal') }}</h3><div class="fm-section-hint">{{ t('admin_users_directory_description') }}</div></div></div>
+                <div class="card-body">
+                  <div class="row g-3">
+                    <div class="col-12"><label class="form-label">{{ t('admin_label_id') }}</label><input type="text" class="form-control fm-readonly-id" value="{{ user.id }}" readonly></div>
+                    <div class="col-md-6"><label class="form-label">{{ t('admin_users_name') }}</label><input type="text" class="form-control" name="name" value="{{ user.name }}"></div>
+                    <div class="col-md-6"><label class="form-label">{{ t('admin_users_surname') }}</label><input type="text" class="form-control" name="second_name" value="{{ user.second_name }}"></div>
+                    <div class="col-md-6"><label class="form-label">{{ t('admin_users_patronymic') }}</label><input type="text" class="form-control" name="father_name" value="{{ user.father_name or '' }}"></div>
+                    <div class="col-md-6"><label class="form-label">{{ t('admin_users_email') }}</label><input type="email" class="form-control" name="email" value="{{ user.email }}"></div>
+                    <div class="col-md-6"><label class="form-label">{{ t('admin_users_country') }}</label><select class="form-select" name="country_id"><option value="">{{ t('admin_option_not_selected') }}</option>{% for country in countries %}<option value="{{ country.id }}" {% if user.country_id == country.id %}selected{% endif %}>{{ country.name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-6"><label class="form-label">{{ t('admin_users_region') }}</label><input type="text" class="form-control" name="region" value="{{ user.region or '' }}"></div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="card fm-edit-card">
+                <div class="card-header"><span class="fm-section-icon bg-purple-lt text-purple me-2"><i class="ti ti-shield-lock" aria-hidden="true"></i></span><div><h3 class="fm-section-title">{{ t('admin_users_section_access') }}</h3><div class="fm-section-hint">{{ t('admin_users_access_hint') }}</div></div></div>
+                <div class="card-body">
+                  <div class="mb-4"><label class="form-label">{{ t('admin_users_role') }}</label><select class="form-select" name="rolename" id="rolename_select"><option value="user" {% if user.rolename == 'user' %}selected{% endif %}>{{ t('admin_role_user') }}</option><option value="admin" {% if user.rolename == 'admin' %}selected{% endif %}>{{ t('admin_role_admin') }}</option><option value="editor" {% if user.rolename == 'editor' %}selected{% endif %}>{{ t('admin_role_editor') }}</option>{% if is_superadmin %}<option value="superadmin" {% if user.rolename == 'superadmin' %}selected{% endif %}>{{ t('admin_role_superadmin') }}</option>{% endif %}</select></div>
+                  <label class="form-label">{{ t('admin_users_assigned_roles') }}</label>
+                  <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column gap-2 mb-2">
+                    {% for role_value, role_label in role_choices %}
+                    <label class="form-selectgroup-item fm-role-option"><input type="checkbox" name="roles" value="{{ role_value }}" class="form-selectgroup-input role-checkbox" data-role-name="{{ role_value }}" {% if role_value in (user.roles or []) %}checked{% endif %}><span class="form-selectgroup-label">{{ role_label }}</span></label>
+                    {% endfor %}
+                  </div>
+                  <div class="form-text" id="role_help">{{ t('admin_users_role_help') }}</div>
+                  <div class="role-dependent mt-4" data-role="admin"><label class="form-label">{{ t('admin_users_admin_tracks') }}</label><div class="form-selectgroup form-selectgroup-boxes d-flex flex-column gap-2">{% for track_key, track_label in admin_track_choices %}<label class="form-selectgroup-item fm-role-option"><input type="checkbox" name="admin_tracks" value="{{ track_key }}" class="form-selectgroup-input" {% if track_key in (user.admin_tracks or []) %}checked{% endif %}><span class="form-selectgroup-label">{{ track_label }}</span></label>{% endfor %}</div><div class="form-text">{{ t('admin_users_admin_tracks_hint') }}</div></div>
+                  <div class="role-dependent mt-4" data-role="editor"><label class="form-label">{{ t('admin_users_editor_admin') }}</label><select class="form-select" name="editor_admin_id"><option value="">{{ t('admin_option_not_selected') }}</option>{% for admin_user in active_admins %}<option value="{{ admin_user.id }}" {% if user.editor_admin_id == admin_user.id %}selected{% endif %}>{{ admin_user.name }} ({{ admin_user.email }})</option>{% endfor %}</select><div class="form-text">{{ t('admin_users_editor_admin_hint') }}</div></div>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <div class="col-xl-4">
+            <div class="d-grid gap-3">
+              <section class="card fm-edit-card">
+                <div class="card-header"><span class="fm-section-icon bg-orange-lt text-orange me-2"><i class="ti ti-settings" aria-hidden="true"></i></span><div><h3 class="fm-section-title">{{ t('admin_users_section_account') }}</h3><div class="fm-section-hint">{{ t('admin_label_status') }}</div></div></div>
+                <div class="card-body">
+                  <div class="fm-account-switch"><label class="form-check-label" for="is_blocked">{{ t('admin_users_blocked') }}</label><label class="form-check form-switch"><input class="form-check-input" type="checkbox" name="is_blocked" id="is_blocked" {% if user.is_blocked %}checked{% endif %}></label></div>
+                  {% if is_superadmin %}<div class="fm-account-switch"><label class="form-check-label" for="is_hidden">{{ t('admin_users_status_hidden') }}</label><label class="form-check form-switch"><input class="form-check-input" type="checkbox" name="is_hidden" id="is_hidden" {% if user.is_hidden %}checked{% endif %}></label></div>{% endif %}
+                  <div class="fm-account-switch"><label class="form-check-label" for="is_notify">{{ t('admin_users_notifications') }}</label><label class="form-check form-switch"><input class="form-check-input" type="checkbox" name="is_notify" id="is_notify" {% if user.is_notify %}checked{% endif %}></label></div>
+                </div>
+              </section>
+
+              <section class="card fm-edit-card">
+                <div class="card-header"><span class="fm-section-icon bg-red-lt text-red me-2"><i class="ti ti-key" aria-hidden="true"></i></span><div><h3 class="fm-section-title">{{ t('admin_users_section_security') }}</h3><div class="fm-section-hint">{{ t('admin_users_security_hint') }}</div></div></div>
+                <div class="card-body">
+                  <div class="mb-3"><label class="form-label">{{ t('admin_users_password') }}{% if user.id == 0 %} <span class="text-danger">*</span>{% endif %}</label><div class="input-group"><input id="user-password" type="password" class="form-control" name="password" {% if user.id == 0 %}required{% endif %} placeholder="{{ t('admin_users_password_hint') }}"><button type="button" class="btn btn-outline-secondary" data-password-toggle="user-password" aria-label="Parolni ko‘rsatish" title="Parolni ko‘rsatish" aria-pressed="false"><i class="ti ti-eye" aria-hidden="true"></i></button></div></div>
+                  <div><label class="form-label">{{ t('admin_users_password_confirm') }}{% if user.id == 0 %} <span class="text-danger">*</span>{% endif %}</label><div class="input-group"><input id="user-password-confirm" type="password" class="form-control" name="password_confirm" {% if user.id == 0 %}required{% endif %} placeholder="{{ t('admin_users_password_confirm_hint') }}"><button type="button" class="btn btn-outline-secondary" data-password-toggle="user-password-confirm" aria-label="Parolni ko‘rsatish" title="Parolni ko‘rsatish" aria-pressed="false"><i class="ti ti-eye" aria-hidden="true"></i></button></div></div>
+                </div>
+              </section>
+
+              <section class="card fm-edit-card">
+                <div class="card-header"><span class="fm-section-icon bg-green-lt text-green me-2"><i class="ti ti-credit-card" aria-hidden="true"></i></span><div><h3 class="fm-section-title">{{ t('admin_users_section_subscription') }}</h3><div class="fm-section-hint">{{ t('admin_users_tariff') }}</div></div></div>
+                <div class="card-body"><div class="mb-3"><label class="form-label">{{ t('admin_users_tariff') }}</label><select class="form-select" name="tariff_id"><option value="">{{ t('admin_option_not_selected') }}</option>{% for tariff in tariffs %}<option value="{{ tariff.id }}" {% if user.tariff_id == tariff.id %}selected{% endif %}>{{ tariff.name }}{% if tariff.is_verified %} 🔒 {{ t('admin_tariff_verified_only') }}{% endif %}</option>{% endfor %}</select><div class="form-text">🔒 {{ t('admin_tariff_verified_hint') }}</div></div><div><label class="form-label">{{ t('admin_users_sub_end_date') }}</label><input type="date" class="form-control" name="subscription_end_date" value="{{ user.subscription_end_date | date_to_form }}"></div></div>
+              </section>
+
+              {% if user.id != 0 %}
+              <section class="card fm-edit-card">
+                <div class="card-header"><span class="fm-section-icon bg-azure-lt text-azure me-2"><i class="ti ti-history" aria-hidden="true"></i></span><div><h3 class="fm-section-title">{{ t('admin_users_section_account_activity') }}</h3><div class="fm-section-hint">{{ t('admin_users_last_online') }}</div></div></div>
+                <div class="card-body">
+                  <div class="fm-account-stat"><span class="fm-account-stat-label">{{ t('admin_users_rules_accepted') }}</span><span>{{ user.accept_rules_time | timestamp_to_datetime if user.accept_rules_time else '—' }}</span></div>
+                  <div class="fm-account-stat"><span class="fm-account-stat-label">{{ t('admin_users_last_online') }}</span><span>{{ user.last_online | timestamp_to_datetime if user.last_online else '—' }}</span></div>
+                  <div class="fm-account-stat"><span class="fm-account-stat-label">{{ t('admin_users_created_at') }}</span><span>{{ user.created_at | timestamp_to_datetime if user.created_at else '—' }}</span></div>
+                  <div class="fm-account-stat"><span class="fm-account-stat-label">{{ t('admin_users_registered_at') }}</span><span>{{ user.register_time | timestamp_to_datetime if user.register_time else '—' }}</span></div>
+                </div>
+              </section>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="d-flex justify-content-end mt-4"><button id="save-user-btn" type="submit" class="btn btn-primary px-4"><i class="ti ti-device-floppy me-1" aria-hidden="true"></i>{{ t('admin_btn_save') }}</button></div>
+      </div>
+
+      <div class="tab-pane fade" id="user-activity-pane" role="tabpanel" aria-labelledby="user-activity-tab" tabindex="0">
+        {% if user.id != 0 and user_360 %}
+        <section class="card fm-edit-card mb-3">
+          <div class="card-header d-flex flex-wrap align-items-center gap-2"><span class="fm-section-icon bg-purple-lt text-purple me-2"><i class="ti ti-chart-dots-3" aria-hidden="true"></i></span><div><h3 class="fm-section-title">{{ t('admin_users_tab_activity') }}</h3><div class="fm-section-hint">{% if user_360.profile.last_activity_at %}{{ t('admin_users_last_online') }}: {{ user_360.profile.last_activity_at | timestamp_to_datetime }}{% else %}{{ t('admin_users_no_activity') }}{% endif %}</div></div></div>
+          <div class="card-body">
+            <div class="row g-3 mb-4">
+              <div class="col-6 col-xl-3"><div class="fm-360-metric fm-360-metric-blue"><i class="ti ti-file-description" aria-hidden="true"></i><div class="fm-metric-label mt-2">Submissions</div><div class="fm-metric-value">{{ user_360.submission_stats.total }}</div><div class="small mt-1">Nashr: {{ user_360.submission_stats.published }}</div></div></div>
+              <div class="col-6 col-xl-3"><div class="fm-360-metric fm-360-metric-green"><i class="ti ti-credit-card" aria-hidden="true"></i><div class="fm-metric-label mt-2">Payments</div><div class="fm-metric-value">{{ user_360.payment_stats.total }}</div><div class="small mt-1">{{ user_360.payment_stats.paid_amount | round(2) }}</div></div></div>
+              <div class="col-6 col-xl-3"><div class="fm-360-metric fm-360-metric-purple"><i class="ti ti-bell" aria-hidden="true"></i><div class="fm-metric-label mt-2">Notifications</div><div class="fm-metric-value">{{ user_360.profile.notifications_incoming }}</div><div class="small mt-1">O'qilmagan: {{ user_360.profile.notifications_unread }}</div></div></div>
+              <div class="col-6 col-xl-3"><div class="fm-360-metric fm-360-metric-orange"><i class="ti ti-file-check" aria-hidden="true"></i><div class="fm-metric-label mt-2">Documents</div><div class="fm-metric-value">{{ user_360.profile.documents_total }}</div><div class="small mt-1">Tasdiqlangan: {{ user_360.profile.documents_verified }}</div></div></div>
+            </div>
+            <div class="row g-3">
+              <div class="col-lg-6"><h4 class="h3 mb-3">Submissions statistikasi</h4><div class="d-flex flex-wrap gap-1 mb-2">{% for item in user_360.submission_stats.status_breakdown %}<span class="badge bg-{{ item.tone }}-lt">{{ item.label }}: {{ item.count }}</span>{% endfor %}</div><div class="d-flex flex-wrap gap-1 mb-3">{% for item in user_360.submission_stats.review_breakdown %}<span class="badge bg-{{ item.tone }}-lt">{{ item.label }}: {{ item.count }}</span>{% endfor %}</div>{% if user_360.submission_stats.recent %}{% for item in user_360.submission_stats.recent %}<div class="fm-compact-list-item"><div class="d-flex justify-content-between gap-2"><a href="{{ url_for('submission_detail', submission_id=item.id) }}" class="fw-semibold text-decoration-none">{{ item.title[:88] }}{% if item.title|length > 88 %}...{% endif %}</a><span class="badge bg-{{ item.status_tone }}-lt">{{ item.status_label }}</span></div><div class="text-secondary small mt-1">{% if item.review_label %}{{ item.review_label }}{% endif %}{% if item.workflow_stage_label %} • {{ item.workflow_stage_label }}{% endif %}{% if item.activity_at %} • {{ item.activity_at | timestamp_to_datetime }}{% endif %}</div></div>{% endfor %}{% else %}<div class="text-secondary small">Submissionlar topilmadi.</div>{% endif %}</div>
+              <div class="col-lg-6"><h4 class="h3 mb-3">Payments statistikasi</h4><div class="d-flex flex-wrap gap-1 mb-3">{% for item in user_360.payment_stats.status_breakdown %}<span class="badge bg-{{ item.tone }}-lt">{{ item.label }}: {{ item.count }} ({{ item.amount | round(2) }})</span>{% endfor %}</div>{% if user_360.payment_stats.recent %}{% for item in user_360.payment_stats.recent %}<div class="fm-compact-list-item"><div class="d-flex justify-content-between gap-2"><a href="{{ url_for('payments', status=item.status) }}" class="fw-semibold text-decoration-none">{{ item.payment_type_label }}</a><span class="badge bg-{{ item.status_tone }}-lt">{{ item.status_label }}</span></div><div class="text-secondary small mt-1">{{ item.amount_text }}{% if item.activity_at %} • {{ item.activity_at | timestamp_to_datetime }}{% endif %}</div></div>{% endfor %}{% else %}<div class="text-secondary small">Paymentlar topilmadi.</div>{% endif %}</div>
+            </div>
+          </div>
+        </section>
+        <section class="card fm-edit-card"><div class="card-header"><span class="fm-section-icon bg-azure-lt text-azure me-2"><i class="ti ti-activity" aria-hidden="true"></i></span><div><h3 class="fm-section-title">Activity timeline</h3><div class="fm-section-hint">Oxirgi eventlar: {{ user_360.timeline | length }}</div></div></div><div class="card-body p-0">{% if user_360.timeline %}{% for event in user_360.timeline %}<div class="fm-activity-item"><div class="d-flex align-items-start gap-3"><span class="avatar avatar-sm bg-{{ event.tone }}-lt text-{{ event.tone }}"><i class="ti {{ event.icon }}"></i></span><div class="flex-fill min-w-0">{% if event.url %}<a href="{{ event.url }}" class="fw-semibold text-decoration-none d-block">{{ event.title }}</a>{% else %}<div class="fw-semibold">{{ event.title }}</div>{% endif %}{% if event.subtitle %}<div class="text-secondary small mt-1">{{ event.subtitle }}</div>{% endif %}</div><div class="text-secondary small text-nowrap">{{ event.timestamp | timestamp_to_datetime if event.timestamp else '-' }}</div></div></div>{% endfor %}{% if user_360.timeline_has_more %}<div class="p-3 text-secondary small">Yana ko'proq eventlar mavjud.</div>{% endif %}{% else %}<div class="p-3 text-secondary small">{{ t('admin_users_no_activity') }}</div>{% endif %}</div></section>
+        {% else %}
+        <div class="card fm-edit-card"><div class="card-body text-center text-secondary py-5"><i class="ti ti-chart-dots-3 fs-1 d-block mb-2" aria-hidden="true"></i>{{ t('admin_users_no_activity') }}</div></div>
+        {% endif %}
+      </div>
+    </div>
+  </form>
+</div>
+<div class="fm-user-save-overlay" id="fm-user-save-overlay" aria-live="assertive" aria-busy="true" hidden>
+  <div class="fm-user-save-overlay-card" role="status">
+    <span class="fm-user-save-spinner" aria-hidden="true"><i class="ti ti-device-floppy"></i></span>
+    <strong>{{ t('admin_feedback_saving_title') }}</strong>
+    <span>{{ t('admin_feedback_saving_hint') }}</span>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    const isCreateUser = {{ 'true' if user.id == 0 else 'false' }};
+  const isCreateUser = {{ 'true' if user.id == 0 else 'false' }};
 
-    document.querySelectorAll('[data-password-toggle]').forEach(function (button) {
-        button.addEventListener('click', function () {
-            const input = document.getElementById(button.dataset.passwordToggle);
-            const icon = button.querySelector('i');
-            if (!input || !icon) return;
-
-            const showPassword = input.type === 'password';
-            input.type = showPassword ? 'text' : 'password';
-            icon.className = showPassword ? 'ti ti-eye-off' : 'ti ti-eye';
-            button.setAttribute('aria-pressed', String(showPassword));
-            button.setAttribute('aria-label', showPassword ? 'Parolni yashirish' : 'Parolni ko‘rsatish');
-            button.setAttribute('title', showPassword ? 'Parolni yashirish' : 'Parolni ko‘rsatish');
-        });
+  const userForm = document.getElementById('main-user-form');
+  const saveOverlay = document.getElementById('fm-user-save-overlay');
+  if (userForm && saveOverlay) {
+    userForm.addEventListener('submit', function () {
+      if (!userForm.checkValidity()) return;
+      saveOverlay.hidden = false;
+      document.getElementById('save-user-btn').disabled = true;
+      document.getElementById('save-user-btn-top').disabled = true;
     });
+  }
 
-    document.getElementById('save-user-btn-top').addEventListener('click', function () {
-        document.getElementById('save-user-btn').click();
+  document.querySelectorAll('[data-password-toggle]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      const input = document.getElementById(button.dataset.passwordToggle);
+      const icon = button.querySelector('i');
+      if (!input || !icon) return;
+      const showPassword = input.type === 'password';
+      input.type = showPassword ? 'text' : 'password';
+      icon.className = showPassword ? 'ti ti-eye-off' : 'ti ti-eye';
+      button.setAttribute('aria-pressed', String(showPassword));
+      button.setAttribute('aria-label', showPassword ? 'Parolni yashirish' : 'Parolni ko‘rsatish');
+      button.setAttribute('title', showPassword ? 'Parolni yashirish' : 'Parolni ko‘rsatish');
     });
+  });
 
-    function toggleRoleDependentFields() {
-        const roleSelect = document.getElementById('rolename_select');
-        if (!roleSelect) return;
-        const roleCheckboxes = Array.from(document.querySelectorAll('.role-checkbox'));
-        const selectedRoles = roleCheckboxes.filter(node => node.checked).map(node => node.value);
-        const selectedRole = roleSelect.value;
-        const originalRoles = (document.getElementById('original_roles')?.value || 'user')
-            .split(',')
-            .map(value => value.trim().toLowerCase())
-            .filter(Boolean);
-        const roleHelp = document.getElementById('role_help');
-        const wasPrivileged = originalRoles.some(role => ['admin', 'editor', 'superadmin'].includes(role));
-        const isPrivileged = selectedRoles.some(role => ['admin', 'editor', 'superadmin'].includes(role));
-        const shouldRequirePassword = !wasPrivileged && isPrivileged;
-        const passwordInput = document.querySelector('input[name="password"]');
-        const passwordConfirmInput = document.querySelector('input[name="password_confirm"]');
+  document.getElementById('save-user-btn-top').addEventListener('click', function () {
+    document.getElementById('save-user-btn').click();
+  });
 
-        if (!selectedRoles.includes(selectedRole)) {
-            const primaryCheckbox = roleCheckboxes.find(node => node.value === selectedRole);
-            if (primaryCheckbox) {
-                primaryCheckbox.checked = true;
-            }
-        }
+  function toggleRoleDependentFields() {
+    const roleSelect = document.getElementById('rolename_select');
+    if (!roleSelect) return;
+    const roleCheckboxes = Array.from(document.querySelectorAll('.role-checkbox'));
+    const selectedRoles = roleCheckboxes.filter(node => node.checked).map(node => node.value);
+    const selectedRole = roleSelect.value;
+    const originalRoles = (document.getElementById('original_roles')?.value || 'user').split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
+    const roleHelp = document.getElementById('role_help');
+    const wasPrivileged = originalRoles.some(role => ['admin', 'editor', 'superadmin'].includes(role));
+    const isPrivileged = selectedRoles.some(role => ['admin', 'editor', 'superadmin'].includes(role));
+    const shouldRequirePassword = !wasPrivileged && isPrivileged;
+    const passwordInput = document.querySelector('input[name="password"]');
+    const passwordConfirmInput = document.querySelector('input[name="password_confirm"]');
 
-        const superadminCheckbox = roleCheckboxes.find(node => node.value === 'superadmin');
-        if (roleSelect.value !== 'superadmin' && superadminCheckbox && superadminCheckbox.checked) {
-            superadminCheckbox.checked = false;
-        }
-        if (roleSelect.value === 'superadmin' && superadminCheckbox && !superadminCheckbox.checked) {
-            superadminCheckbox.checked = true;
-        }
-        const updatedSelectedRoles = roleCheckboxes.filter(node => node.checked).map(node => node.value);
-
-        document.querySelectorAll('.role-dependent').forEach(function (node) {
-            const visibleFor = node.getAttribute('data-role');
-            node.style.display = updatedSelectedRoles.includes(visibleFor) ? '' : 'none';
-        });
-        if (passwordInput && passwordConfirmInput) {
-            passwordInput.required = isCreateUser || shouldRequirePassword;
-            passwordConfirmInput.required = isCreateUser || shouldRequirePassword;
-        }
-        if (roleHelp) {
-            if (updatedSelectedRoles.includes('user') && updatedSelectedRoles.some(role => ['admin', 'editor', 'superadmin'].includes(role))) {
-                roleHelp.textContent = "Bu foydalanuvchi staff huquqlaridan tashqari website author dashboard'ga ham kira oladi.";
-            } else if (updatedSelectedRoles.includes('user')) {
-                roleHelp.textContent = "Muallif roli website dashboard va maqola yuborish huquqini beradi.";
-            } else {
-                roleHelp.textContent = "Faqat staff rollari tanlangan. Muallif dashboard kerak bo'lsa `Muallif / Author` ni ham belgilang.";
-            }
-        }
+    if (!selectedRoles.includes(selectedRole)) {
+      const primaryCheckbox = roleCheckboxes.find(node => node.value === selectedRole);
+      if (primaryCheckbox) primaryCheckbox.checked = true;
     }
+    const superadminCheckbox = roleCheckboxes.find(node => node.value === 'superadmin');
+    if (roleSelect.value !== 'superadmin' && superadminCheckbox && superadminCheckbox.checked) superadminCheckbox.checked = false;
+    if (roleSelect.value === 'superadmin' && superadminCheckbox && !superadminCheckbox.checked) superadminCheckbox.checked = true;
+    const updatedSelectedRoles = roleCheckboxes.filter(node => node.checked).map(node => node.value);
+    document.querySelectorAll('.role-dependent').forEach(function (node) { node.style.display = updatedSelectedRoles.includes(node.getAttribute('data-role')) ? '' : 'none'; });
+    if (passwordInput && passwordConfirmInput) { passwordInput.required = isCreateUser || shouldRequirePassword; passwordConfirmInput.required = isCreateUser || shouldRequirePassword; }
+    if (roleHelp) {
+      if (updatedSelectedRoles.includes('user') && updatedSelectedRoles.some(role => ['admin', 'editor', 'superadmin'].includes(role))) roleHelp.textContent = "Bu foydalanuvchi staff huquqlaridan tashqari website author dashboard'ga ham kira oladi.";
+      else if (updatedSelectedRoles.includes('user')) roleHelp.textContent = "Muallif roli website dashboard va maqola yuborish huquqini beradi.";
+      else roleHelp.textContent = "Faqat staff rollari tanlangan. Muallif dashboard kerak bo'lsa `Muallif / Author` ni ham belgilang.";
+    }
+  }
 
-    document.addEventListener('DOMContentLoaded', function () {
-        const roleSelect = document.getElementById('rolename_select');
-        const roleCheckboxes = Array.from(document.querySelectorAll('.role-checkbox'));
-        const ROLE_PRIORITY = ['superadmin', 'admin', 'editor', 'user'];
-
-        function highestCheckedRole() {
-            const checked = roleCheckboxes.filter(node => node.checked).map(node => node.value);
-            for (const role of ROLE_PRIORITY) {
-                if (checked.includes(role)) return role;
-            }
-            return 'user';
-        }
-
-        if (roleSelect) {
-            roleSelect.addEventListener('change', toggleRoleDependentFields);
-        }
-        roleCheckboxes.forEach(function (checkbox) {
-            checkbox.addEventListener('change', function () {
-                // When the user unchecks the role that is currently the primary
-                // one (e.g. "superadmin"), demote the primary to the next highest
-                // checked role so the role is actually removed instead of being
-                // re-applied by the sync below.
-                if (roleSelect && !this.checked && this.value === roleSelect.value) {
-                    roleSelect.value = highestCheckedRole();
-                }
-                toggleRoleDependentFields();
-            });
-        });
-        toggleRoleDependentFields();
-    });
+  document.addEventListener('DOMContentLoaded', function () {
+    const roleSelect = document.getElementById('rolename_select');
+    const roleCheckboxes = Array.from(document.querySelectorAll('.role-checkbox'));
+    const ROLE_PRIORITY = ['superadmin', 'admin', 'editor', 'user'];
+    function highestCheckedRole() { const checked = roleCheckboxes.filter(node => node.checked).map(node => node.value); for (const role of ROLE_PRIORITY) { if (checked.includes(role)) return role; } return 'user'; }
+    if (roleSelect) roleSelect.addEventListener('change', toggleRoleDependentFields);
+    roleCheckboxes.forEach(function (checkbox) { checkbox.addEventListener('change', function () {
+      if (roleSelect && this.checked && this.value === 'superadmin') roleSelect.value = 'superadmin';
+      if (roleSelect && !this.checked && this.value === roleSelect.value) roleSelect.value = highestCheckedRole();
+      toggleRoleDependentFields();
+    }); });
+    toggleRoleDependentFields();
+  });
 </script>
 {% endblock %}

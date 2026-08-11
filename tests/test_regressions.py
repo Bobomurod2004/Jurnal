@@ -1,9 +1,10 @@
+import importlib.util
 import os
 import re
 import threading
 
 import pytest
-from flask import Flask, render_template, session
+from flask import Flask, flash, render_template, session
 
 from mainweb.modules import connector as mainweb_connector
 from fmadmin import connector as fmadmin_connector
@@ -13,6 +14,16 @@ from mainweb.routes import context as context_routes
 from mainweb.routes import dashboard as dashboard_routes
 from mainweb.routes import public as public_routes
 from fmadmin.routes import web as fmadmin_web
+
+
+def _load_scholar_readiness_audit_module():
+    script_path = os.path.join(
+        os.path.dirname(__file__), '..', 'mainweb', 'scripts', 'scholar_readiness_audit.py'
+    )
+    spec = importlib.util.spec_from_file_location('scholar_readiness_audit_test', script_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_publication_recent_sort_key_prefers_publish_date_then_id():
@@ -73,6 +84,73 @@ def test_publication_author_ids_supports_main_and_legacy_coauthor_storage():
     assert public_routes._publication_author_ids(
         {'main_author_id': 12, 'sub_author_ids': '{13,14,12}'}
     ) == [12, 13, 14]
+
+
+def test_dashboard_publication_author_ids_support_main_and_legacy_coauthor_storage():
+    assert dashboard_routes._publication_author_profile_ids(
+        {'main_author_id': '12', 'subauthor_ids': ['13', 14]}
+    ) == [12, 13, 14]
+    assert dashboard_routes._publication_author_profile_ids(
+        {'main_author_id': 12, 'sub_author_ids': '{13,14,12}'}
+    ) == [12, 13, 14]
+
+
+def test_dashboard_articles_exposes_only_publications_linked_to_current_author(monkeypatch):
+    fake_dbc = type('FakeDBC', (), {
+        'submissions': _FakeTable([{
+            'id': 1,
+            'user_id': 7,
+            'status': 'under_review',
+            'title': 'Dashboard submission',
+            'main_author_id': 10,
+            'subauthor_ids': [],
+        }]),
+        'author_profile': _FakeTable([
+            {'id': 10, 'user_id': 7, 'name': 'Current Author'},
+            {'id': 11, 'user_id': None, 'name': 'Other Author'},
+            {'id': 12, 'user_id': 8, 'name': 'Unrelated User'},
+        ]),
+        'publications': _FakeTable([
+            {'id': 101, 'title': 'Current author publication', 'main_author_id': 10, 'subauthor_ids': [], 'date_publish': 100},
+            {'id': 102, 'title': 'Current co-author publication', 'main_author_id': 11, 'subauthor_ids': [10], 'date_publish': 200},
+            {'id': 103, 'title': 'Unrelated publication', 'main_author_id': 12, 'subauthor_ids': [], 'date_publish': 300},
+        ]),
+    })()
+    monkeypatch.setattr(dashboard_routes, 'dbc', fake_dbc)
+    monkeypatch.setattr(dashboard_routes, 'translate', lambda row: row)
+    monkeypatch.setattr(dashboard_routes, '_decorate_submission_with_workflow', lambda row: row)
+    monkeypatch.setattr(dashboard_routes, '_load_revision_rounds', lambda _submission_id: [])
+    monkeypatch.setattr(dashboard_routes, '_get_payment_guide_html_for_lang', lambda _lang: '')
+    monkeypatch.setattr(dashboard_routes, '_get_payment_guide_qr_image', lambda: '')
+    monkeypatch.setattr(dashboard_routes, 'render_template', lambda _template, **context: context)
+
+    app = Flask(__name__)
+    app.secret_key = 'test'
+    with app.test_request_context('/dashboard/articles'):
+        session['user_id'] = 7
+        session['language'] = 'en'
+
+        context = dashboard_routes.app__dashboard_articles()
+
+    assert [submission['id'] for submission in context['submissions']] == [1]
+    assert [publication['id'] for publication in context['publications']] == [102, 101]
+    assert context['publications'][0]['viewer_author_role'] == 'coauthor'
+    assert context['publications'][1]['viewer_author_role'] == 'main'
+    assert context['author_profiles'][10]['name'] == 'Current Author'
+    assert context['author_profiles'][11]['name'] == 'Other Author'
+
+
+def test_dashboard_articles_template_includes_registered_publication_cards():
+    template_path = os.path.join(
+        os.path.dirname(__file__), '..', 'mainweb', 'templates', 'dashboard', 'articles.html'
+    )
+    with open(template_path, encoding='utf-8') as template_file:
+        template = template_file.read()
+
+    assert "{% if submissions or publications %}" in template
+    assert "registered_publications_title" in template
+    assert "url_for('app__article', article_id=publication.id)" in template
+    assert "registered_publications_admin_note" in template
 
 
 def test_author_tooltip_names_link_to_the_author_article_filter():
@@ -253,6 +331,28 @@ class _FakeQuery:
         filtered = self._rows
         for key, value in kwargs.items():
             filtered = [row for row in filtered if row.get(key) == value]
+        return _FakeQuery(filtered)
+
+    def unequal(self, **kwargs):
+        filtered = self._rows
+        for key, value in kwargs.items():
+            filtered = [row for row in filtered if row.get(key) != value]
+        return _FakeQuery(filtered)
+
+    def any(self, **kwargs):
+        filtered = self._rows
+        for key, values in kwargs.items():
+            allowed_values = set(values if isinstance(values, (list, tuple, set)) else [values])
+            filtered = [row for row in filtered if row.get(key) in allowed_values]
+        return _FakeQuery(filtered)
+
+    def contains(self, **kwargs):
+        filtered = self._rows
+        for key, value in kwargs.items():
+            filtered = [
+                row for row in filtered
+                if value in (row.get(key) or [])
+            ]
         return _FakeQuery(filtered)
 
     def order_by(self, *_args):
@@ -887,7 +987,9 @@ def test_build_scholar_meta_for_open_article_includes_pdf_url(monkeypatch):
     assert meta['first_page'] == '12'
     assert meta['last_page'] == '19'
     assert meta['doi'] == '10.1000/example-doi'
+    assert meta['issn'] == '1994-4233'
     assert meta['is_world_readable'] is True
+    assert meta['fulltext_html_url'] == 'https://journal.example/article/15'
     assert meta['pdf_url'] == 'https://journal.example/article/download/15'
 
 
@@ -919,8 +1021,114 @@ def test_build_scholar_meta_for_paid_article_hides_pdf_url(monkeypatch):
     assert meta['first_page'] == '55'
     assert meta['last_page'] == '55'
     assert meta['is_world_readable'] is False
+    assert meta['fulltext_html_url'] == ''
     assert meta['pdf_url'] == ''
     assert meta['language'] == 'uz'
+
+
+def test_scholar_article_template_uses_issn_and_hides_paid_fulltext_url():
+    template_path = os.path.join(
+        os.path.dirname(__file__), '..', 'mainweb', 'templates', 'mainweb', 'article.html'
+    )
+    with open(template_path, encoding='utf-8') as template_file:
+        template = template_file.read()
+
+    assert 'name="citation_issn"' in template
+    assert 'scholar_meta.fulltext_html_url' in template
+    assert 'citation_fulltext_html_url" content="{{ scholar_meta.fulltext_html_url }}"' in template
+
+
+def test_scholar_publication_validation_requires_public_metadata_and_open_pdf():
+    missing = fmadmin_web._scholar_publication_missing_fields(
+        abstract='<p>&nbsp;</p>',
+        main_author_id=None,
+        issue_id='',
+        date_publish=None,
+        file_ids=[],
+        is_paid=False,
+        subscription_enable=False,
+    )
+
+    assert missing == ['abstract', 'main_author', 'issue', 'publication_date', 'open_access_pdf']
+    assert fmadmin_web._scholar_publication_missing_fields(
+        abstract='<p>Complete author-written abstract.</p>',
+        main_author_id='12',
+        issue_id='4',
+        date_publish=1735689600,
+        file_ids=['91'],
+        is_paid=False,
+        subscription_enable=False,
+    ) == []
+    assert fmadmin_web._scholar_publication_missing_fields(
+        abstract='Paid article abstract',
+        main_author_id=12,
+        issue_id=4,
+        date_publish=1735689600,
+        file_ids=[],
+        is_paid=True,
+        subscription_enable=False,
+    ) == []
+
+
+def test_scholar_readiness_audit_checks_abstract_page_range_and_pdf_record():
+    scholar_audit = _load_scholar_readiness_audit_module()
+    issue = {'id': 4, 'vol_no': '56', 'issue_no': '2', 'year': 2026}
+
+    incomplete = scholar_audit._publication_report_item(
+        {
+            'id': 80,
+            'title': 'Incomplete publication',
+            'abstract': '<p>&nbsp;</p>',
+            'issue_id': 4,
+            'date_publish': 1760000000,
+            'page_range': '',
+            'file_ids': [77],
+            'is_paid': False,
+            'subscription_enable': False,
+        },
+        issue,
+        ['Author One'],
+        file_map={},
+    )
+
+    assert 'missing_abstract' in incomplete['blockers']
+    assert 'missing_page_range' in incomplete['blockers']
+    assert 'missing_pdf_file_record' in incomplete['blockers']
+
+    complete = scholar_audit._publication_report_item(
+        {
+            'id': 81,
+            'title': 'Complete publication',
+            'abstract': '<p>A complete abstract.</p>',
+            'issue_id': 4,
+            'date_publish': 1760000000,
+            'page_range': '3-18',
+            'file_ids': [78],
+            'is_paid': False,
+            'subscription_enable': False,
+        },
+        issue,
+        ['Author One'],
+        file_map={78: {'id': 78, 'name': 'article.pdf', 'filepath': '/static/uploads/articles/article.pdf'}},
+    )
+
+    assert complete['ready'] is True
+    assert complete['pdf_reference_status'] == 'ok'
+    assert scholar_audit._publication_pdf_reference_status(
+        {'file_ids': [78]},
+        {78: {'id': 78, 'name': 'article.pdf', 'filepath': '/static/uploads/articles/article.pdf'}},
+        verify_files=True,
+        save_path='/tmp/nonexistent-scholar-upload-root',
+    ) == 'missing_pdf_on_disk'
+    # The public download endpoint prefers the newest attachment.  A stale
+    # file record must therefore not hide a newer usable PDF in the audit.
+    assert scholar_audit._publication_pdf_reference_status(
+        {'file_ids': [77, 78]},
+        {
+            77: {'id': 77, 'name': 'old.pdf', 'filepath': '/static/uploads/articles/old.pdf'},
+            78: {'id': 78, 'name': 'new.pdf', 'filepath': '/static/uploads/articles/new.pdf'},
+        },
+    ) == 'ok'
 
 
 def test_sitemap_excludes_masters_content_when_series_mode_disabled(monkeypatch):
@@ -972,6 +1180,24 @@ def test_extract_selected_roles_allows_superadmin_demotion():
 
     assert selection['primary_role'] == 'user'
     assert selection['roles'] == ['user', 'admin']
+
+
+def test_extract_selected_roles_promotes_an_allowed_superadmin_checkbox():
+    # A user may choose Super Admin from the checkbox list before the primary
+    # role select is synchronised. The backend must not silently turn that
+    # authorised promotion back into a normal user role.
+    data = {'rolename': 'user', 'roles': ['user', 'superadmin']}
+
+    selection = fmadmin_web._extract_selected_roles(
+        data,
+        'user',
+        allowed_roles=['user', 'admin', 'editor', 'superadmin'],
+    )
+
+    assert selection['primary_role'] == 'superadmin'
+    assert fmadmin_web._roles_for_primary_role(
+        selection['primary_role'], selection['roles']
+    ) == ['superadmin', 'user']
 
 
 def test_public_editorial_groups_follow_new_role_order_and_legacy_aliases():
@@ -1483,6 +1709,273 @@ def _fmadmin_template_app():
         }
 
     return app
+
+
+def _render_users_directory(path='/fmadmin/users/users', **overrides):
+    user = {
+        'id': 8,
+        'name': 'Dilnoza',
+        'second_name': 'Yoqubova',
+        'father_name': '',
+        'email': 'dilnoza@example.com',
+        'roles': ['editor'],
+        'rolename': 'editor',
+        'is_hidden': False,
+        'is_blocked': False,
+        'tariff_id': 3,
+        'subscription_end_date': None,
+        'editor_admin_id': None,
+        'admin_tracks_labels': [],
+        'directory_url': '/fmadmin/users/users/8',
+        'avatar_url': '/static/uploads/avatars/avatar_8_123.png',
+    }
+    context = {
+        'users': [user],
+        'page': 1,
+        'total_users': 21,
+        'total_pages': 2,
+        'search_name': 'Dilnoza',
+        'search_email': '',
+        'directory_filter': 'active',
+        'role_filter': 'editor',
+        'user_summary': {'total': 21, 'active': 19, 'blocked': 2, 'staff': 5, 'hidden': 1},
+        'tariffs_map': {3: {'id': 3, 'name': 'Premium'}},
+        'current_user': {'id': 1, 'rolename': 'superadmin'},
+        'can_manage_users': True,
+        'can_assign_editor_roles': True,
+        'uncovered_tracks': [],
+        'untracked_submission_count': 0,
+    }
+    context.update(overrides)
+
+    app = _fmadmin_template_app()
+    with app.test_request_context(path):
+        session['fmadmin_user'] = {
+            'id': 1,
+            'name': 'Admin',
+            'rolename': 'superadmin',
+            'capabilities': ADMIN_CAPABILITIES,
+        }
+        return render_template('users/users/users.html', **context)
+
+
+def test_user_directory_filters_and_summary_prioritize_hidden_users():
+    users = [
+        {'id': 1, 'name': 'Active', 'roles': ['user'], 'is_hidden': False, 'is_blocked': False},
+        {'id': 2, 'name': 'Blocked', 'roles': ['user'], 'is_hidden': False, 'is_blocked': True},
+        {'id': 3, 'name': 'Hidden editor', 'roles': ['editor'], 'is_hidden': True, 'is_blocked': True},
+        {'id': 4, 'name': 'Admin', 'roles': ['admin'], 'is_hidden': False, 'is_blocked': False},
+        {'id': 5, 'name': 'Editor', 'roles': ['editor'], 'is_hidden': False, 'is_blocked': False},
+    ]
+
+    summary = fmadmin_web._build_user_directory_summary(users)
+
+    assert summary == {'total': 4, 'active': 3, 'blocked': 1, 'staff': 2, 'hidden': 1}
+    assert [row['id'] for row in fmadmin_web._filter_user_directory_users(users)] == [1, 2, 4, 5]
+    assert [row['id'] for row in fmadmin_web._filter_user_directory_users(users, directory_filter='active')] == [1, 4, 5]
+    assert [row['id'] for row in fmadmin_web._filter_user_directory_users(users, directory_filter='blocked')] == [2]
+    assert [row['id'] for row in fmadmin_web._filter_user_directory_users(users, directory_filter='hidden')] == [3]
+    assert [row['id'] for row in fmadmin_web._filter_user_directory_users(users, directory_filter='staff')] == [4, 5]
+    assert [row['id'] for row in fmadmin_web._filter_user_directory_users(users, role_filter='editor')] == [5]
+
+
+def test_user_avatar_url_accepts_shared_uploads_and_oauth_urls_only():
+    assert fmadmin_web._user_avatar_url({
+        'avatar': '/static/uploads/avatars/avatar_18_1775454319.webp'
+    }) == '/static/uploads/avatars/avatar_18_1775454319.webp'
+    assert fmadmin_web._user_avatar_url({
+        'avatar': 'https://lh3.googleusercontent.com/a/profile-photo'
+    }) == 'https://lh3.googleusercontent.com/a/profile-photo'
+    assert fmadmin_web._user_avatar_url({
+        'avatar': '/static/uploads/avatars/../../private.png'
+    }) == ''
+    assert fmadmin_web._user_avatar_url({'avatar': 'javascript:alert(1)'}) == ''
+
+
+def test_user_directory_searches_full_name_and_keeps_the_admin_scope_safe():
+    users = [
+        {'id': 1, 'name': 'Dilnoza', 'second_name': 'Yoqubova', 'roles': ['user'], 'is_hidden': False, 'is_blocked': False},
+        {'id': 2, 'name': 'Editor', 'roles': ['editor'], 'is_hidden': False, 'is_blocked': False},
+        {'id': 3, 'name': 'Admin', 'roles': ['admin'], 'is_hidden': False, 'is_blocked': False},
+        {'id': 4, 'name': 'Super', 'roles': ['superadmin'], 'is_hidden': False, 'is_blocked': False},
+        {'id': 5, 'name': 'Hidden', 'roles': ['user'], 'is_hidden': True, 'is_blocked': False},
+    ]
+
+    scoped_for_admin = fmadmin_web._user_directory_scope_users(
+        users, can_manage_users=False, current_role='admin'
+    )
+    searched = fmadmin_web._filter_user_directory_users(
+        scoped_for_admin, search_name='dilnoza yoqubova'
+    )
+
+    assert [row['id'] for row in scoped_for_admin] == [1, 2]
+    assert [row['id'] for row in searched] == [1]
+
+
+def test_users_directory_template_renders_kpis_filters_and_safe_row_navigation():
+    html = _render_users_directory()
+
+    assert 'href="/fmadmin/users/users?filter=active"' in html
+    assert 'href="/fmadmin/users/users?filter=staff"' in html
+    assert 'href="/fmadmin/users/users?filter=hidden"' in html
+    assert 'name="role"' in html
+    assert 'data-user-url="/fmadmin/users/users/8"' in html
+    assert 'src="/static/uploads/avatars/avatar_8_123.png"' in html
+    assert 'role="link" tabindex="0"' in html
+    assert 'name="orcid"' not in html
+    assert 'admin_users_primary_role' not in html
+    assert 'admin_users_assigned_admin' not in html
+    assert 'filter=active&amp;role=editor' in html
+
+
+def _render_user_edit_template():
+    context = {
+        'user': {
+            'id': 8,
+            'name': 'Dilnoza',
+            'second_name': 'Yoqubova',
+            'father_name': '',
+            'email': 'dilnoza@example.com',
+            'country_id': None,
+            'region': 'Toshkent',
+            'roles': ['user'],
+            'rolename': 'user',
+            'is_blocked': False,
+            'is_hidden': False,
+            'is_notify': True,
+            'accept_rules_time': None,
+            'last_online': None,
+            'created_at': None,
+            'register_time': None,
+            'tariff_id': None,
+            'subscription_end_date': None,
+            'admin_tracks': [],
+            'editor_admin_id': None,
+            'avatar_url': '/static/uploads/avatars/avatar_8_123.png',
+        },
+        'countries': [],
+        'tariffs': [],
+        'current_user': {'id': 1, 'rolename': 'superadmin'},
+        'active_admins': [],
+        'admin_track_choices': [],
+        'role_choices': [
+            ('user', 'Muallif / Author'),
+            ('superadmin', 'Super Admin'),
+        ],
+        'user_360': None,
+    }
+    app = _fmadmin_template_app()
+    with app.test_request_context('/fmadmin/users/users/8'):
+        session['fmadmin_user'] = {
+            'id': 1,
+            'name': 'Admin',
+            'rolename': 'superadmin',
+            'capabilities': ADMIN_CAPABILITIES,
+        }
+        return render_template('users/users/edit.html', **context)
+
+
+def test_user_edit_template_groups_fields_into_visual_tabs_without_changing_form_inputs():
+    html = _render_user_edit_template()
+
+    assert 'class="fm-user-hero' in html
+    assert 'src="/static/uploads/avatars/avatar_8_123.png"' in html
+    assert 'class="nav-link active" id="user-details-tab"' in html
+    assert 'data-bs-target="#user-activity-pane"' in html
+    assert 'class="card fm-edit-card"' in html
+    assert 'name="name" value="Dilnoza"' in html
+    assert 'name="email" value="dilnoza@example.com"' in html
+    assert 'name="roles" value="user"' in html
+    assert 'name="roles" value="superadmin"' in html
+    assert "this.checked && this.value === 'superadmin'" in html
+    assert 'name="tariff_id"' in html
+    assert 'id="save-user-btn-top"' in html
+    assert 'id="save-user-btn"' in html
+    assert 'data-fm-save-feedback' in html
+    assert 'id="fm-user-save-overlay"' in html
+
+
+def _render_fmadmin_feedback(category, message):
+    app = _fmadmin_template_app()
+    with app.test_request_context('/fmadmin/users/users/8'):
+        session['fmadmin_user'] = {
+            'id': 1,
+            'name': 'Admin',
+            'rolename': 'superadmin',
+            'capabilities': ADMIN_CAPABILITIES,
+        }
+        flash(message, category)
+        return render_template('basic.html')
+
+
+def test_fmadmin_feedback_modal_uses_lottie_success_and_shows_error_reason():
+    success_html = _render_fmadmin_feedback('success', 'User saved successfully')
+    error_html = _render_fmadmin_feedback('danger', 'Password must contain at least 6 characters')
+
+    assert 'id="fmadmin-feedback-modal"' in success_html
+    assert 'data-feedback-kind="success"' in success_html
+    assert 'User saved successfully' in success_html
+    assert '@lottiefiles/dotlottie-web/+esm' in success_html
+    assert 'assets10.lottiefiles.com/packages/lf20_jbrw3hcz.json' in success_html
+    assert 'window.showFmadminFeedback = function' in success_html
+    assert 'alert alert-success' not in success_html
+
+    assert 'data-feedback-kind="danger"' in error_html
+    assert 'admin_feedback_error_reason' in error_html
+    assert 'Password must contain at least 6 characters' in error_html
+
+
+def test_fmadmin_feedback_texts_exist_in_uzbek_russian_and_english():
+    from fmadmin.modules.translate import STATIC_TRANSLATIONS
+
+    expected_titles = {
+        'uz': 'Muvaffaqiyatli saqlandi',
+        'ru': 'Успешно сохранено',
+        'en': 'Saved successfully',
+    }
+    for language, success_title in expected_titles.items():
+        texts = STATIC_TRANSLATIONS[language]
+        assert texts['admin_feedback_success_title'] == success_title
+        assert texts['admin_feedback_error_reason']
+        assert texts['admin_feedback_saving_title']
+
+
+def test_submission_save_feedback_reports_the_localized_new_status():
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    with app.test_request_context('/'):
+        session['language'] = 'en'
+        feedback = fmadmin_web._submission_save_feedback('published', status_changed=True)
+        assert feedback == {
+            'category': 'success',
+            'title': 'Submission saved',
+            'message': 'Submission saved. New status: Published.',
+            'status_label': 'Published',
+            'status_changed': True,
+        }
+
+        session['language'] = 'ru'
+        unchanged_feedback = fmadmin_web._submission_save_feedback('under_review', status_changed=False)
+        assert unchanged_feedback['title'] == 'Статья сохранена'
+        assert unchanged_feedback['status_label'] == 'На рецензировании'
+        assert 'Текущий статус' in unchanged_feedback['message']
+
+
+def test_submission_detail_uses_the_shared_centered_feedback_for_ajax_saves():
+    app = _fmadmin_template_app()
+    app.jinja_env.get_template('submissions/detail.html')
+
+    template_path = os.path.join(
+        os.path.dirname(__file__), '..', 'fmadmin', 'templates', 'submissions', 'detail.html'
+    )
+    with open(template_path, encoding='utf-8') as template_file:
+        template = template_file.read()
+
+    assert 'window.showFmadminFeedback' in template
+    assert 'data.feedback' in template
+    assert 'onHidden: function () { window.location.reload(); }' in template
+    assert "alert(\"{{ t('admin_js_error_saving') }}" not in template
 
 
 # Stands in for a superadmin: every sidebar group must render for them.

@@ -272,6 +272,19 @@ docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d -
 `GRAFANA_ADMIN_PASSWORD` **must** be set in `.env` first — the stack refuses to
 start without it.
 
+That value only **seeds** the admin account on Grafana's very first start, while
+the `grafana_data` volume is still empty. Afterwards the password lives inside
+`grafana.db`, and editing `.env` has no effect — you keep getting "Invalid
+username or password" for the value written right there in the file. To change
+the password on a Grafana that has already run:
+
+```bash
+docker exec journal_grafana grafana cli --homepath /usr/share/grafana \
+    admin reset-admin-password 'the-password-you-want'
+```
+
+It applies immediately; no restart required.
+
 Grafana UI:
 - `http://127.0.0.1:3000` on the server host
 - user: `${GRAFANA_ADMIN_USER}`

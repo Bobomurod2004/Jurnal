@@ -38,6 +38,12 @@ GEOIP_DB_PATH = os.getenv(
     os.path.join(os.path.dirname(__file__), '..', '..', 'shared', 'geoip', 'GeoLite2-Country.mmdb')
 )
 
+# Keep the identifier used in Google Scholar's Highwire metadata aligned with
+# the ISSN printed in the journal's published PDFs.  The electronic ISSN is
+# shown in the site footer; Scholar's ``citation_issn`` field accepts the
+# journal's canonical citation ISSN.
+JOURNAL_CITATION_ISSN = '1994-4233'
+
 EDITORIAL_MEMBER_TYPE_LABELS = {
     'en': {
         'editor_in_chief': "Editor-in-Chief",
@@ -670,6 +676,7 @@ def _build_scholar_meta(publication, issue, author_names, article_id, current_la
 
     requires_access = bool(publication_row.get('is_paid') or publication_row.get('subscription_enable'))
     is_world_readable = not requires_access
+    abstract_url = url_for('app__article', article_id=article_id, _external=True)
     pdf_url = url_for('app__download_article', article_id=article_id, _external=True) if is_world_readable else ''
 
     meta = {
@@ -677,12 +684,17 @@ def _build_scholar_meta(publication, issue, author_names, article_id, current_la
         'authors': unique_authors,
         'publication_date': publication_date,
         'journal_title': _clean_text(t('website_title')) or 'Philology Matters',
+        'issn': JOURNAL_CITATION_ISSN,
         'volume': _clean_text(issue_row.get('vol_no')),
         'issue': _clean_text(issue_row.get('issue_no')),
         'first_page': first_page,
         'last_page': last_page,
         'doi': _clean_text(publication_row.get('doi')),
-        'abstract_url': url_for('app__article', article_id=article_id, _external=True),
+        'abstract_url': abstract_url,
+        # Paid articles expose their abstract publicly, not a public full-text
+        # HTML version.  Advertising that URL as full text confuses Scholar's
+        # parser and can make a paywalled article look like a broken download.
+        'fulltext_html_url': abstract_url if is_world_readable else '',
         'pdf_url': pdf_url,
         'language': _clean_text(current_lang).lower(),
         'is_world_readable': is_world_readable,

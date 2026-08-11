@@ -6,6 +6,7 @@ import re
 import sys
 import time
 from collections import Counter
+from html import unescape
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MAINWEB_DIR = os.path.dirname(SCRIPT_DIR)
@@ -27,6 +28,21 @@ def _parse_int(value):
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _parse_int_list(value):
+    if isinstance(value, (list, tuple, set)):
+        raw_items = value
+    else:
+        raw_text = _clean_text(value).strip('{}[]')
+        raw_items = [item.strip().strip('"').strip("'") for item in raw_text.split(',') if item.strip()]
+
+    result = []
+    for raw_item in raw_items:
+        item_id = _parse_int(raw_item)
+        if item_id is not None and item_id not in result:
+            result.append(item_id)
+    return result
 
 
 def _has_page_bounds(page_range_value):
@@ -74,6 +90,19 @@ def _load_issue_map(dbc):
     return issue_map
 
 
+def _load_file_map(dbc):
+    file_map = {}
+    try:
+        rows = dbc.files.get().exec() or []
+    except Exception:
+        return file_map
+    for row in rows:
+        file_id = _parse_int(row.get("id"))
+        if file_id is not None:
+            file_map[file_id] = row
+    return file_map
+
+
 def _publication_has_world_readable_access(publication):
     return not bool((publication or {}).get("is_paid") or (publication or {}).get("subscription_enable"))
 
@@ -88,10 +117,7 @@ def _publication_author_names(publication, author_map):
         author_ids.append(main_author_id)
 
     co_author_ids = publication_row.get("subauthor_ids") or publication_row.get("sub_author_ids") or []
-    for author_id in co_author_ids:
-        parsed = _parse_int(author_id)
-        if parsed is not None:
-            author_ids.append(parsed)
+    author_ids.extend(_parse_int_list(co_author_ids))
 
     seen = set()
     for author_id in author_ids:
@@ -106,21 +132,74 @@ def _publication_author_names(publication, author_map):
     return result
 
 
-def _publication_report_item(publication, issue, author_names):
+def _public_pdf_exists(file_row, save_path):
+    stored_path = _clean_text((file_row or {}).get("filepath"))
+    root_path = os.path.abspath(os.path.join(_clean_text(save_path), "static", "uploads"))
+    if not stored_path.startswith("/static/uploads/") or not _clean_text(save_path):
+        return False
+
+    candidate_path = os.path.abspath(os.path.join(_clean_text(save_path), stored_path.lstrip("/")))
+    try:
+        if os.path.commonpath([candidate_path, root_path]) != root_path:
+            return False
+    except ValueError:
+        return False
+    return os.path.isfile(candidate_path)
+
+
+def _publication_pdf_reference_status(publication, file_map, verify_files=False, save_path=""):
+    file_ids = _parse_int_list((publication or {}).get("file_ids"))
+    if not file_ids:
+        return "missing_pdf_reference"
+
+    # Public download resolves newer files first, so readiness must not report
+    # a stale older attachment as a blocker when a newer valid PDF is usable.
+    file_rows = [file_map[file_id] for file_id in reversed(file_ids) if file_id in file_map]
+    if not file_rows:
+        return "missing_pdf_file_record"
+
+    pdf_rows = []
+    for file_row in file_rows:
+        name = _clean_text(file_row.get("name")).lower()
+        filepath = _clean_text(file_row.get("filepath")).lower()
+        if name.endswith(".pdf") or filepath.endswith(".pdf"):
+            pdf_rows.append(file_row)
+    if not pdf_rows:
+        return "invalid_pdf_file_reference"
+    if not verify_files or not _clean_text(save_path):
+        return "ok"
+    if any(_public_pdf_exists(file_row, save_path) for file_row in pdf_rows):
+        return "ok"
+    return "missing_pdf_on_disk"
+
+
+def _has_visible_abstract(value):
+    abstract_text = re.sub(r"(?is)<[^>]+>", " ", unescape(_clean_text(value)))
+    return bool(re.sub(r"\s+", " ", abstract_text).strip())
+
+
+def _publication_report_item(publication, issue, author_names, file_map=None, verify_files=False, save_path=""):
     publication_row = publication or {}
     issue_row = issue or {}
+    files = file_map or {}
 
     title = _clean_text(publication_row.get("title"))
     has_title = bool(title)
     has_authors = bool(author_names)
+    has_abstract = _has_visible_abstract(publication_row.get("abstract"))
     has_issue = bool(issue_row)
     has_volume = bool(_clean_text(issue_row.get("vol_no")))
     has_issue_no = bool(_clean_text(issue_row.get("issue_no")))
     has_publish_date = bool(_parse_int(publication_row.get("date_publish")) or _parse_int(issue_row.get("year")))
     has_page_range = _has_page_bounds(publication_row.get("page_range"))
     has_doi = bool(_clean_text(publication_row.get("doi")))
-    has_pdf_file = bool(publication_row.get("file_ids"))
     is_world_readable = _publication_has_world_readable_access(publication_row)
+    pdf_reference_status = _publication_pdf_reference_status(
+        publication_row,
+        files,
+        verify_files=verify_files,
+        save_path=save_path,
+    )
 
     blockers = []
     warnings = []
@@ -129,6 +208,8 @@ def _publication_report_item(publication, issue, author_names):
         blockers.append("missing_title")
     if not has_authors:
         blockers.append("missing_author")
+    if not has_abstract:
+        blockers.append("missing_abstract")
     if not has_issue:
         blockers.append("missing_issue")
     if not has_publish_date:
@@ -137,11 +218,11 @@ def _publication_report_item(publication, issue, author_names):
         blockers.append("missing_volume")
     if not has_issue_no:
         blockers.append("missing_issue_number")
-    if is_world_readable and not has_pdf_file:
-        blockers.append("missing_pdf_for_open_access")
-
     if not has_page_range:
-        warnings.append("missing_page_range")
+        blockers.append("missing_page_range")
+    if is_world_readable and pdf_reference_status != "ok":
+        blockers.append(pdf_reference_status)
+
     if not has_doi:
         warnings.append("missing_doi")
 
@@ -151,15 +232,18 @@ def _publication_report_item(publication, issue, author_names):
         "title": title,
         "is_world_readable": is_world_readable,
         "author_names": author_names,
+        "has_abstract": has_abstract,
+        "pdf_reference_status": pdf_reference_status,
         "blockers": blockers,
         "warnings": warnings,
         "ready": not blockers,
     }
 
 
-def _build_report(dbc, limit=None):
+def _build_report(dbc, limit=None, verify_files=False, save_path=""):
     author_map = _load_author_names(dbc)
     issue_map = _load_issue_map(dbc)
+    file_map = _load_file_map(dbc)
     publication_rows = dbc.publications.get().exec()
     publication_rows = sorted(publication_rows, key=lambda row: _parse_int(row.get("id")) or 0, reverse=True)
     if limit and limit > 0:
@@ -175,7 +259,14 @@ def _build_report(dbc, limit=None):
         issue_id = _parse_int(publication.get("issue_id"))
         issue = issue_map.get(issue_id)
         author_names = _publication_author_names(publication, author_map)
-        item = _publication_report_item(publication, issue, author_names)
+        item = _publication_report_item(
+            publication,
+            issue,
+            author_names,
+            file_map=file_map,
+            verify_files=verify_files,
+            save_path=save_path,
+        )
         items.append(item)
         blocker_counter.update(item["blockers"])
         warning_counter.update(item["warnings"])
@@ -256,13 +347,23 @@ def _parse_args():
         default="",
         help="Optional path to save full JSON report.",
     )
+    parser.add_argument(
+        "--verify-files",
+        action="store_true",
+        help="Check that referenced open-access PDFs exist beneath SAVE_PATH.",
+    )
     return parser.parse_args()
 
 
 def main():
     args = _parse_args()
     dbc = _build_connector()
-    report = _build_report(dbc, limit=args.limit if args.limit > 0 else None)
+    report = _build_report(
+        dbc,
+        limit=args.limit if args.limit > 0 else None,
+        verify_files=args.verify_files,
+        save_path=os.getenv("SAVE_PATH", ""),
+    )
     _print_console_report(report, show_problem_limit=max(args.show_problem_limit, 1))
 
     if args.json_out:

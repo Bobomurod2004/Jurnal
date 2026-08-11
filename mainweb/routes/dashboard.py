@@ -21,6 +21,7 @@ from utils.notifications import apply_localized_notification_content, dashboard_
 from utils.private_uploads import build_private_upload_ref, extract_private_upload_key, private_upload_abspath, upload_access_url
 from utils.uploads import allowed_file
 from shared.submission_status import SUBMISSION_STATUSES, is_resubmittable, submission_status_label
+from shared.user_timezone import TIMEZONE_CHOICES, is_valid_timezone_name
 
 
 SUBMISSION_TRACKS = {
@@ -549,6 +550,91 @@ def _format_publication_year(publication):
     return time.strftime('%Y', time.gmtime(timestamp + 5 * 60 * 60))
 
 
+def _publication_author_profile_ids(publication):
+    """Return every author-profile id stored on a publication record.
+
+    ``subauthor_ids`` is an integer array in the current schema, while some
+    legacy data can reach the application as a PostgreSQL-style text array.
+    Normalising it here gives the dashboard one safe ownership check for both
+    formats.
+    """
+    row = publication or {}
+    raw_ids = [row.get('main_author_id')]
+    raw_ids.extend(_parse_text_array(row.get('subauthor_ids') or row.get('sub_author_ids')))
+
+    author_ids = []
+    for raw_id in raw_ids:
+        author_id = _parse_int(raw_id)
+        if author_id is not None and author_id > 0 and author_id not in author_ids:
+            author_ids.append(author_id)
+    return author_ids
+
+
+def _load_dashboard_publications(user_id):
+    """Load publications attached to the current user's author profile.
+
+    Manually registered publications do not have a ``user_id`` of their own.
+    They are visible in the author dashboard only when the account is linked
+    to the matching author profile and that profile is the main author or a
+    co-author.  This deliberately avoids name/email guessing, which could
+    expose another author's publication.
+    """
+    try:
+        author_profiles = dbc.author_profile.get(user_id=user_id).exec() or []
+    except Exception:
+        current_app.logger.exception('Failed to load author profiles for dashboard user %s', user_id)
+        return [], set()
+
+    linked_author_ids = {
+        author_id
+        for author_id in (_parse_int(profile.get('id')) for profile in author_profiles)
+        if author_id is not None and author_id > 0
+    }
+    if not linked_author_ids:
+        return [], linked_author_ids
+
+    # Query main authors in one request and co-authors by the PostgreSQL
+    # array membership operator.  The final Python membership check below is
+    # kept as defence in depth and also handles legacy array serialisation.
+    try:
+        candidates = list(
+            dbc.publications.get().any(main_author_id=sorted(linked_author_ids)).exec() or []
+        )
+        for author_id in linked_author_ids:
+            candidates.extend(
+                dbc.publications.get().contains(subauthor_ids=author_id).exec() or []
+            )
+    except Exception:
+        current_app.logger.exception('Failed to load linked publications for dashboard user %s', user_id)
+        return [], linked_author_ids
+
+    publications_by_id = {}
+    for publication in candidates:
+        publication_id = _parse_int(publication.get('id'))
+        if publication_id is None:
+            continue
+        author_ids = _publication_author_profile_ids(publication)
+        if not linked_author_ids.intersection(author_ids):
+            continue
+        if publication_id not in publications_by_id:
+            publication_copy = dict(publication)
+            publication_copy['author_profile_ids'] = author_ids
+            publication_copy['viewer_author_role'] = (
+                'main' if _parse_int(publication_copy.get('main_author_id')) in linked_author_ids else 'coauthor'
+            )
+            publication_copy['display_timestamp'] = _resolve_publication_timestamp(publication_copy)
+            publications_by_id[publication_id] = publication_copy
+
+    return sorted(
+        publications_by_id.values(),
+        key=lambda publication: (
+            _resolve_publication_timestamp(publication) or 0,
+            _parse_int(publication.get('id')) or 0,
+        ),
+        reverse=True,
+    ), linked_author_ids
+
+
 def _decode_row_strings(row):
     if not row:
         return row
@@ -1043,7 +1129,9 @@ def _author_visible_revision_instruction(value):
 
 
 def app__dashboard_articles():
-    submissions = dbc.submissions.get().equal(user_id=session['user_id']).unequal(status='draft').order_by('id').exec()
+    user_id = session['user_id']
+    submissions = dbc.submissions.get().equal(user_id=user_id).unequal(status='draft').order_by('id').exec()
+    publications, linked_author_ids = _load_dashboard_publications(user_id)
     author_profiles = {}
 
     # Collect unique author IDs first to avoid repeated DB lookups in template rendering.
@@ -1060,6 +1148,17 @@ def app__dashboard_articles():
         for author_id in co_author_ids:
             author_ids.add(author_id)
 
+    for publication in publications:
+        translate(publication)
+        publication['author_profile_ids'] = _publication_author_profile_ids(publication)
+        publication['viewer_author_role'] = (
+            'main' if _parse_int(publication.get('main_author_id')) in linked_author_ids else 'coauthor'
+        )
+        publication['display_timestamp'] = _resolve_publication_timestamp(publication)
+        if publication.get('doi') and not publication.get('doi_link'):
+            publication['doi_link'] = f"https://doi.org/{publication.get('doi')}"
+        author_ids.update(publication['author_profile_ids'])
+
     for author_id in author_ids:
         author = dbc.author_profile.get(id=author_id).exec()
         if author:
@@ -1069,6 +1168,7 @@ def app__dashboard_articles():
     return render_template(
         'dashboard/articles.html',
         submissions=submissions,
+        publications=publications,
         author_profiles=author_profiles,
         payment_guide_html=_get_payment_guide_html_for_lang(lang),
         payment_guide_qr_image=_get_payment_guide_qr_image()
@@ -1509,12 +1609,29 @@ def app__dashboard_profile():
                 flash("Ism, familiya va sharif maydonlari majburiy", 'error')
                 return redirect(url_for('app__dashboard_profile'))
 
+            # Optional: only overrides the browser auto-detected value
+            # (see basic.html) if the user picked something themselves.
+            submitted_timezone = (request.form.get('timezone_name') or '').strip()
+            timezone_update = {}
+            if submitted_timezone:
+                if not is_valid_timezone_name(submitted_timezone):
+                    flash('Invalid timezone selected', 'error')
+                    return redirect(url_for('app__dashboard_profile'))
+                timezone_update['timezone_name'] = submitted_timezone
+
             dbc.users.get(id=session['user_id']).update(
                 name=first_name,
                 second_name=second_name,
                 father_name=father_name,
-                country_id=country_id
+                country_id=country_id,
+                **timezone_update
             ).exec()
+
+            if timezone_update:
+                session_user = session.get('user') or {}
+                if session_user:
+                    session_user['timezone_name'] = timezone_update['timezone_name']
+                    session['user'] = session_user
 
             academic_position = (request.form.get('academic_position') or '').strip().lower()
             if not academic_position:
@@ -1739,6 +1856,7 @@ def app__dashboard_profile():
                          document_type_choices=_document_type_choices(),
                          document_ui_labels=_profile_document_ui_labels(),
                          fix_country=fix_country,
+                         timezone_choices=TIMEZONE_CHOICES,
                          profile_completion=profile_completion)
 
 

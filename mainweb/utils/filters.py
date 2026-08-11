@@ -1,13 +1,15 @@
+import datetime
 import os
 import re
-import time
 from html import escape as html_escape
 from html import unescape
 from html.parser import HTMLParser
 from urllib.parse import urlparse
 
-from flask import url_for
+from flask import has_request_context, session, url_for
 from markupsafe import Markup
+
+from shared.user_timezone import resolve_zone
 
 try:
     import mainweb.settings as settings
@@ -81,12 +83,25 @@ def cover_or_default(public_path, default=DEFAULT_ISSUE_COVER):
     return public_path
 
 
+def _session_user_row():
+    # Outside a request (e.g. a plain unit test calling this filter
+    # directly) there is no viewer to personalise for -- fall back to the
+    # shared default (Tashkent) exactly like before this existed.
+    if not has_request_context():
+        return {}
+    return session.get('user') or {}
+
+
+def _viewer_zone():
+    return resolve_zone(_session_user_row().get('timezone_name'))
+
+
 def timestamp_to_date(timestamp):
     if not timestamp:
         return ''
-    utc_plus_5_offset = 5 * 60 * 60
-    local_timestamp = timestamp + utc_plus_5_offset
-    return time.strftime('%d.%m.%Y', time.gmtime(local_timestamp))
+    zone = _viewer_zone()
+    localized = datetime.datetime.fromtimestamp(int(timestamp), tz=zone)
+    return localized.strftime('%d.%m.%Y')
 
 
 def status_color(status):

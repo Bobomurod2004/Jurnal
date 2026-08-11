@@ -15,20 +15,27 @@ from flask import Flask
 
 from fmadmin.routes import web as fmadmin_web
 from fmadmin.utils.filters import (
-    UI_TZ_OFFSET_SECONDS,
     parse_ui_date,
     parse_ui_datetime,
     timestamp_to_datetime,
     ui_datetime_input_value,
 )
+from shared.user_timezone import DEFAULT_ZONE_NAME
 
 
 # --------------------------------------------------------------------------
 # Admin timezone
+#
+# These filters now resolve the *viewer's own* stored timezone (see
+# shared/user_timezone.py) instead of a single hardcoded offset, so a
+# foreign editor/author sees their own local time. Every test below calls
+# the filters with no active Flask session, which is exactly the "no
+# preference set yet" case -- they must keep behaving exactly as before,
+# falling back to the shared Tashkent default.
 # --------------------------------------------------------------------------
 
 def test_ui_offset_defaults_to_tashkent():
-    assert UI_TZ_OFFSET_SECONDS == 5 * 60 * 60
+    assert DEFAULT_ZONE_NAME == 'Asia/Tashkent'
 
 
 def test_picked_deadline_reads_back_as_the_same_wall_clock_time():

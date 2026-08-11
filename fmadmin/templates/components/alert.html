@@ -1,6 +1,174 @@
-{% for category, message in get_flashed_messages(with_categories=True) %}
-  <div class="alert alert-{{ category }} bg-{{ category }}-lt border-{{ category }} alert-dismissible fade show" role="alert">
-    {{ message }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+<style>
+  .fm-feedback-modal .modal-content { border: 0; border-radius: 1.35rem; box-shadow: 0 1.25rem 3.75rem rgba(22, 43, 77, 0.24); overflow: hidden; }
+  .fm-feedback-modal .modal-body { padding: 2rem 1.75rem 1.5rem; }
+  .fm-feedback-modal .fm-feedback-visual { align-items: center; display: flex; height: 8.25rem; justify-content: center; margin: -0.45rem auto 0.25rem; position: relative; width: 8.25rem; }
+  .fm-feedback-modal .fm-feedback-lottie { height: 8.25rem; left: 0; position: absolute; top: 0; width: 8.25rem; z-index: 2; }
+  .fm-feedback-modal .fm-feedback-fallback { align-items: center; border-radius: 50%; display: inline-flex; font-size: 3.25rem; height: 5.6rem; justify-content: center; transition: opacity 0.2s ease; width: 5.6rem; }
+  .fm-feedback-modal .fm-feedback-lottie.is-ready + .fm-feedback-fallback { opacity: 0; }
+  .fm-feedback-modal .fm-feedback-fallback-success { background: radial-gradient(circle at 30% 24%, #dff8e8, #b7efcf); color: #138255; box-shadow: 0 0.7rem 1.4rem rgba(19, 130, 85, 0.18), inset 0 1px rgba(255, 255, 255, 0.8); }
+  .fm-feedback-modal .fm-feedback-fallback-danger { animation: fm-feedback-error-pulse 1.6s ease-in-out infinite; background: radial-gradient(circle at 30% 24%, #ffe5e6, #ffc5c9); color: #c63c47; box-shadow: 0 0.7rem 1.4rem rgba(198, 60, 71, 0.18), inset 0 1px rgba(255, 255, 255, 0.8); }
+  .fm-feedback-modal .fm-feedback-fallback-warning { background: radial-gradient(circle at 30% 24%, #fff3c4, #ffe29a); color: #ae7200; box-shadow: 0 0.7rem 1.4rem rgba(174, 114, 0, 0.16), inset 0 1px rgba(255, 255, 255, 0.8); }
+  .fm-feedback-modal .fm-feedback-fallback-info { background: radial-gradient(circle at 30% 24%, #e2efff, #bedcff); color: #2867aa; box-shadow: 0 0.7rem 1.4rem rgba(40, 103, 170, 0.16), inset 0 1px rgba(255, 255, 255, 0.8); }
+  .fm-feedback-modal .fm-feedback-title { font-size: 1.3rem; font-weight: 750; letter-spacing: -0.02em; margin: 0.65rem 0 0.4rem; }
+  .fm-feedback-modal .fm-feedback-reason-label { color: var(--tblr-secondary); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; margin: 1rem 0 0.35rem; text-transform: uppercase; }
+  .fm-feedback-modal .fm-feedback-message { background: var(--tblr-bg-surface-secondary); border-radius: 0.85rem; color: var(--tblr-body-color); display: flex; font-size: 0.93rem; gap: 0.55rem; line-height: 1.45; padding: 0.8rem 0.9rem; text-align: left; }
+  .fm-feedback-modal .fm-feedback-message i { flex: 0 0 auto; margin-top: 0.08rem; }
+  .fm-feedback-modal .fm-feedback-footer { border-top: 0; justify-content: center; padding: 0 1.75rem 1.7rem; }
+  .fm-feedback-modal[data-feedback-kind="success"] .fm-feedback-title { color: #138255; }
+  .fm-feedback-modal[data-feedback-kind="danger"] .fm-feedback-title { color: #c63c47; }
+  .fm-feedback-modal[data-feedback-kind="warning"] .fm-feedback-title { color: #9d6500; }
+  @keyframes fm-feedback-error-pulse { 50% { box-shadow: 0 0.95rem 1.75rem rgba(198, 60, 71, 0.28), inset 0 1px rgba(255, 255, 255, 0.8); transform: scale(1.045); } }
+  @media (prefers-reduced-motion: reduce) { .fm-feedback-modal .fm-feedback-fallback-danger { animation: none; } }
+</style>
+
+<script>
+  window.fmadminFeedbackLabels = {
+    successTitle: {{ t('admin_feedback_success_title') | tojson }},
+    errorTitle: {{ t('admin_feedback_error_title') | tojson }},
+    warningTitle: {{ t('admin_feedback_warning_title') | tojson }},
+    infoTitle: {{ t('admin_feedback_info_title') | tojson }},
+    errorReason: {{ t('admin_feedback_error_reason') | tojson }},
+    close: {{ t('admin_feedback_close') | tojson }}
+  };
+
+  window.initFmadminSuccessAnimation = function (canvas) {
+    if (!canvas || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    import('https://cdn.jsdelivr.net/npm/@lottiefiles/dotlottie-web/+esm').then(function (module) {
+      const animation = new module.DotLottie({
+        canvas: canvas,
+        src: 'https://assets10.lottiefiles.com/packages/lf20_jbrw3hcz.json',
+        autoplay: true,
+        loop: false,
+        renderConfig: { autoResize: true }
+      });
+      animation.addEventListener('load', function () { canvas.classList.add('is-ready'); });
+    }).catch(function () {
+      // The visible checkmark is an intentional offline/CDN fallback.
+    });
+  };
+
+  window.showFmadminFeedback = function (options) {
+    const settings = options || {};
+    const labels = window.fmadminFeedbackLabels || {};
+    const category = String(settings.category || 'info').toLowerCase();
+    const kind = category === 'error' ? 'danger' : (['success', 'danger', 'warning'].includes(category) ? category : 'info');
+    const title = settings.title || (kind === 'success' ? labels.successTitle : (kind === 'danger' ? labels.errorTitle : (kind === 'warning' ? labels.warningTitle : labels.infoTitle)));
+    const iconClass = kind === 'success' ? 'ti-check' : (kind === 'danger' ? 'ti-x' : (kind === 'warning' ? 'ti-alert-triangle' : 'ti-info-circle'));
+    const message = settings.message || '';
+    const onHidden = typeof settings.onHidden === 'function' ? settings.onHidden : function () {};
+
+    if (!window.bootstrap || !window.bootstrap.Modal) {
+      window.alert(message || title || '');
+      onHidden();
+      return null;
+    }
+
+    const modalElement = document.createElement('div');
+    modalElement.className = 'modal modal-blur fade fm-feedback-modal';
+    modalElement.tabIndex = -1;
+    modalElement.setAttribute('aria-hidden', 'true');
+    modalElement.dataset.feedbackKind = kind;
+    const dialog = document.createElement('div');
+    dialog.className = 'modal-dialog modal-dialog-centered';
+    const content = document.createElement('div');
+    content.className = 'modal-content';
+    const body = document.createElement('div');
+    body.className = 'modal-body text-center';
+    const visual = document.createElement('div');
+    visual.className = 'fm-feedback-visual';
+    visual.setAttribute('aria-hidden', 'true');
+    if (kind === 'success') {
+      const canvas = document.createElement('canvas');
+      canvas.className = 'fm-feedback-lottie';
+      const fallback = document.createElement('span');
+      fallback.className = 'fm-feedback-fallback fm-feedback-fallback-success';
+      fallback.innerHTML = '<i class="ti ti-check"></i>';
+      visual.append(canvas, fallback);
+      window.initFmadminSuccessAnimation(canvas);
+    } else {
+      const fallback = document.createElement('span');
+      fallback.className = 'fm-feedback-fallback fm-feedback-fallback-' + kind;
+      fallback.innerHTML = '<i class="ti ' + iconClass + '"></i>';
+      visual.appendChild(fallback);
+    }
+    const heading = document.createElement('h2');
+    heading.className = 'fm-feedback-title';
+    heading.textContent = title;
+    body.append(visual, heading);
+    if (kind === 'danger') {
+      const reason = document.createElement('div');
+      reason.className = 'fm-feedback-reason-label';
+      reason.textContent = labels.errorReason || 'Reason';
+      body.appendChild(reason);
+    }
+    const messages = Array.isArray(message) ? message : [message];
+    const messageList = document.createElement('div');
+    messageList.className = 'd-grid gap-2';
+    messages.filter(Boolean).forEach(function (item) {
+      const itemElement = document.createElement('div');
+      itemElement.className = 'fm-feedback-message';
+      itemElement.innerHTML = '<i class="ti ' + iconClass + '" aria-hidden="true"></i>';
+      const text = document.createElement('span');
+      text.textContent = String(item);
+      itemElement.appendChild(text);
+      messageList.appendChild(itemElement);
+    });
+    body.appendChild(messageList);
+    const footer = document.createElement('div');
+    footer.className = 'modal-footer fm-feedback-footer';
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'btn btn-' + (kind === 'danger' ? 'danger' : (kind === 'warning' ? 'warning' : (kind === 'success' ? 'success' : 'primary'))) + ' px-4';
+    closeButton.textContent = labels.close || 'Close';
+    footer.appendChild(closeButton);
+    content.append(body, footer);
+    dialog.appendChild(content);
+    modalElement.appendChild(dialog);
+    document.body.appendChild(modalElement);
+    const modal = new window.bootstrap.Modal(modalElement);
+    closeButton.addEventListener('click', function () { modal.hide(); });
+    modalElement.addEventListener('hidden.bs.modal', function () {
+      modal.dispose();
+      modalElement.remove();
+      onHidden();
+    }, { once: true });
+    modal.show();
+    if (kind === 'success' && settings.autoHide !== false) {
+      window.setTimeout(function () { modal.hide(); }, Number(settings.autoHide) || 3000);
+    }
+    return modal;
+  };
+</script>
+
+{% with feedback_messages = get_flashed_messages(with_categories=True) %}
+{% if feedback_messages %}
+  {% set feedback_category = (feedback_messages[-1][0] or 'info') | lower %}
+  {% set feedback_is_success = feedback_category == 'success' %}
+  {% set feedback_is_error = feedback_category in ['danger', 'error'] %}
+  {% set feedback_is_warning = feedback_category == 'warning' %}
+  {% if feedback_is_success %}{% set feedback_title = t('admin_feedback_success_title') %}{% set feedback_icon = 'ti-circle-check' %}
+  {% elif feedback_is_error %}{% set feedback_title = t('admin_feedback_error_title') %}{% set feedback_icon = 'ti-alert-circle' %}
+  {% elif feedback_is_warning %}{% set feedback_title = t('admin_feedback_warning_title') %}{% set feedback_icon = 'ti-alert-triangle' %}
+  {% else %}{% set feedback_title = t('admin_feedback_info_title') %}{% set feedback_icon = 'ti-info-circle' %}{% endif %}
+  <div class="modal modal-blur fade fm-feedback-modal" id="fmadmin-feedback-modal" tabindex="-1" aria-labelledby="fmadmin-feedback-title" aria-describedby="fmadmin-feedback-message" aria-hidden="true" data-feedback-kind="{{ 'success' if feedback_is_success else ('danger' if feedback_is_error else ('warning' if feedback_is_warning else 'info')) }}">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-body text-center">
+      <div class="fm-feedback-visual" aria-hidden="true">{% if feedback_is_success %}<canvas id="fmadmin-feedback-lottie" class="fm-feedback-lottie" aria-label="{{ t('admin_feedback_success_title') }}" role="img"></canvas><span class="fm-feedback-fallback fm-feedback-fallback-success"><i class="ti ti-check"></i></span>{% elif feedback_is_error %}<span class="fm-feedback-fallback fm-feedback-fallback-danger"><i class="ti ti-x"></i></span>{% elif feedback_is_warning %}<span class="fm-feedback-fallback fm-feedback-fallback-warning"><i class="ti ti-alert-triangle"></i></span>{% else %}<span class="fm-feedback-fallback fm-feedback-fallback-info"><i class="ti ti-info-circle"></i></span>{% endif %}</div>
+      <h2 class="fm-feedback-title" id="fmadmin-feedback-title">{{ feedback_title }}</h2>
+      {% if feedback_is_error %}<div class="fm-feedback-reason-label">{{ t('admin_feedback_error_reason') }}</div>{% endif %}
+      <div id="fmadmin-feedback-message" class="d-grid gap-2">{% for message_category, message in feedback_messages %}<div class="fm-feedback-message"><i class="ti {{ feedback_icon }}" aria-hidden="true"></i><span>{{ message }}</span></div>{% endfor %}</div>
+    </div><div class="modal-footer fm-feedback-footer"><button type="button" class="btn btn-{{ 'success' if feedback_is_success else ('danger' if feedback_is_error else ('warning' if feedback_is_warning else 'primary')) }} px-4" data-bs-dismiss="modal">{{ t('admin_feedback_close') }}</button></div></div></div>
   </div>
-{% endfor %} 
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const modalElement = document.getElementById('fmadmin-feedback-modal');
+      if (!modalElement || !window.bootstrap || !window.bootstrap.Modal) return;
+      const feedbackModal = new bootstrap.Modal(modalElement);
+      feedbackModal.show();
+      if (modalElement.dataset.feedbackKind === 'success') {
+        window.setTimeout(function () { feedbackModal.hide(); }, 4200);
+        window.initFmadminSuccessAnimation(document.getElementById('fmadmin-feedback-lottie'));
+      }
+    });
+  </script>
+{% endif %}
+{% endwith %}

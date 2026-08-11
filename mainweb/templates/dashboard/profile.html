@@ -64,6 +64,19 @@
                                 </div>
 
                                 <div class="col-span-6">
+                                    <label for="timezone_name" class="block mb-2 text-sm font-medium text-gray-900">{{ t('timezone') if t('timezone') != 'timezone' else "Vaqt zonasi" }}</label>
+                                    <input type="text" id="timezone_name" name="timezone_name" list="timezone_name_options" value="{{ user.timezone_name or '' }}" autocomplete="off"
+                                           class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                                           placeholder="{{ t('timezone_search_placeholder') if t('timezone_search_placeholder') != 'timezone_search_placeholder' else 'Qidirish uchun shahar/davlat nomini yozing (masalan: Tashkent)' }}" />
+                                    <datalist id="timezone_name_options">
+                                        {% for tz_name in timezone_choices %}
+                                        <option value="{{ tz_name }}"></option>
+                                        {% endfor %}
+                                    </datalist>
+                                    <small class="text-gray-400">{{ t('timezone_hint') if t('timezone_hint') != 'timezone_hint' else "Sanalar shu vaqt zonasida ko'rsatiladi. Bo'sh qoldirilsa, brauzeringiz asosida avtomatik aniqlanadi." }}</small>
+                                </div>
+
+                                <div class="col-span-6">
                                     <label for="academic_position" class="block mb-2 text-sm font-medium text-gray-900">{{ t('academic_position') if t('academic_position') != 'academic_position' else "Ilmiy daraja / faoliyat turi" }}</label>
                                     <select id="academic_position" name="academic_position" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
                                         <option value="" {% if not user_doc_upload or not user_doc_upload.work_title %}selected{% endif %}>{{ t('not_specified') if t('not_specified') != 'not_specified' else "Tanlanmagan" }}</option>

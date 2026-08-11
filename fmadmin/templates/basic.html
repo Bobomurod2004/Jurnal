@@ -335,7 +335,7 @@
           </div>
 
           <div class="nav-item dropdown">
-            <a href="#" class="nav-link d-flex lh-1 p-0 px-2" data-bs-toggle="dropdown" aria-label="Open user menu">
+            <a href="#" id="fmadminUserMenuToggle" class="nav-link d-flex lh-1 p-0 px-2" data-bs-toggle="dropdown" aria-label="Open user menu">
               {% if fmadmin_user %}
               <span class="avatar avatar-sm">{{ fmadmin_user.name[0] if fmadmin_user.name else 'U'
                 }}</span>
@@ -361,7 +361,7 @@
               </div>
               {% endif %}
             </a>
-            <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+            <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow" data-bs-auto-close="outside">
               {% if fmadmin_user %}
               {% if user_caps.can_manage_users %}
               <a href="{{ url_for('user_edit', user_id=fmadmin_user.id) }}" class="dropdown-item">
@@ -376,6 +376,18 @@
                 {{ t('admin_settings') }}
               </a>
               {% endif %}
+              <div class="dropdown-divider"></div>
+              {% set current_tz = fmadmin_user.timezone_name or 'Asia/Tashkent' %}
+              <div class="px-3 py-2">
+                <label for="fmadmin_timezone_select" class="form-label mb-1 small text-secondary">
+                  {{ t('admin_timezone_label') if t('admin_timezone_label') != 'admin_timezone_label' else "Vaqt zonasi" }}
+                </label>
+                <select id="fmadmin_timezone_select" class="form-select form-select-sm">
+                  {% for tz_name in timezone_choices %}
+                  <option value="{{ tz_name }}" {% if tz_name==current_tz %}selected{% endif %}>{{ tz_name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
               <div class="dropdown-divider"></div>
               <form action="{{ url_for('logout') }}" method="post" class="m-0">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -466,6 +478,68 @@
       return originalFetch(input, requestInit);
     };
   </script>
+
+  {% if session.fmadmin_user %}
+  <script>
+    {% if not fmadmin_user.timezone_name %}
+    // Silently report this browser's IANA timezone -- but only ONCE ever,
+    // while the account has no stored preference at all. The moment any
+    // value exists (from this or the manual dropdown below), this must stop
+    // touching it, or a returning visit on a VPN/shared machine would keep
+    // clobbering a deliberate manual override right back to the wrong zone.
+    (function () {
+      try {
+        var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (!tz) {
+          return;
+        }
+        fetch('/fmadmin/profile/timezone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ timezone: tz })
+        });
+      } catch (e) {
+        // Intl unavailable in an ancient browser -- keep the Tashkent default.
+      }
+    })();
+    {% endif %}
+
+    // Manual override in the account dropdown (in case auto-detect guessed
+    // wrong -- a VPN, a shared machine, an old browser). Tom Select turns
+    // the plain 448-entry <select> into a type-to-filter combobox; it keeps
+    // firing native 'change' events on the same element, so the save
+    // handler below needs no knowledge of it.
+    (function () {
+      var select = document.getElementById('fmadmin_timezone_select');
+      var toggle = document.getElementById('fmadminUserMenuToggle');
+      if (!select) {
+        return;
+      }
+      function enableSearch() {
+        if (select.tomselect || typeof TomSelect === 'undefined') {
+          return;
+        }
+        new TomSelect(select, { maxOptions: 500 });
+      }
+      // Initialised only once the menu is actually opened: this control
+      // starts out inside a display:none dropdown, and Tom Select measures
+      // its container on init.
+      if (toggle) {
+        toggle.addEventListener('shown.bs.dropdown', enableSearch);
+      } else {
+        enableSearch();
+      }
+
+      select.addEventListener('change', function () {
+        fetch('/fmadmin/profile/timezone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ timezone: select.value })
+        });
+      });
+    })();
+  </script>
+  {% endif %}
 
   <!-- Author Search Modal -->
   {% include 'components/author_search_modal.html' %}

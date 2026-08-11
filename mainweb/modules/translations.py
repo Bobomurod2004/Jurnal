@@ -72,7 +72,14 @@ UZ = {
 
     # Articles page
     'my_articles_title': 'Mening maqolalarim',
-    'my_articles_desc': 'Bu yerda siz maqolalaringizni boshqarishingiz yoki yangi maqolalar yuborishingiz mumkin',
+    'my_articles_desc': 'Bu yerda yuborgan va profilingizga biriktirilgan maqolalaringizni ko‘rishingiz mumkin',
+    'registered_publications_title': 'Tizimga kiritilgan maqolalar',
+    'registered_publications_desc': 'Profilingizga biriktirilgan nashr qilingan maqolalar.',
+    'registered_publication_badge': 'Tizimga kiritilgan',
+    'registered_publications_admin_note': 'Ma’lumotlarni tahrirlash uchun administratorga murojaat qiling.',
+    'main_author': 'Asosiy muallif',
+    'co_author': 'Hammuallif',
+    'published_on': 'Nashr sanasi',
     'no_articles': 'Siz hali maqola yubormadingiz.',
     'submit_first_article': 'Birinchi maqolangizni yuboring',
     'created': 'Yaratilgan',
@@ -633,7 +640,14 @@ RU = {
 
     # Articles page
     'my_articles_title': 'Мои статьи',
-    'my_articles_desc': 'Здесь вы можете управлять своими статьями или подавать новые',
+    'my_articles_desc': 'Здесь отображаются отправленные вами статьи и публикации, привязанные к вашему профилю',
+    'registered_publications_title': 'Статьи, добавленные в систему',
+    'registered_publications_desc': 'Опубликованные статьи, привязанные к вашему профилю.',
+    'registered_publication_badge': 'Добавлено в систему',
+    'registered_publications_admin_note': 'Для редактирования данных обратитесь к администратору.',
+    'main_author': 'Основной автор',
+    'co_author': 'Соавтор',
+    'published_on': 'Дата публикации',
     'no_articles': 'Вы еще не подали ни одной статьи.',
     'submit_first_article': 'Подать первую статью',
     'created': 'Создано',
@@ -1418,7 +1432,14 @@ EN = {
 
     # Dashboard pages
     'my_articles_title': 'My Articles',
-    'my_articles_desc': 'Your submitted articles and their status.',
+    'my_articles_desc': 'View your submitted articles and publications linked to your profile.',
+    'registered_publications_title': 'Articles added to the system',
+    'registered_publications_desc': 'Published articles linked to your author profile.',
+    'registered_publication_badge': 'Added to the system',
+    'registered_publications_admin_note': 'Contact an administrator to edit these details.',
+    'main_author': 'Main author',
+    'co_author': 'Co-author',
+    'published_on': 'Publication date',
     'submission_status': 'Submission Status',
     'status_draft': 'Draft',
     'status_submitted': 'Submitted',

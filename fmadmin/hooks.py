@@ -20,6 +20,7 @@ from shared.submission_status import (
     submission_status_label,
 )
 from shared.audit import record_request_audit_event
+from shared.user_timezone import TIMEZONE_CHOICES
 
 
 # Successful requests to these are not logged: probes and scrapes run every
@@ -56,6 +57,9 @@ def _fmadmin_session_payload(user_row):
         'editor_specialization': hydrated_user.get('editor_specialization'),
         'admin_tracks': hydrated_user.get('admin_tracks'),
         'editor_admin_id': hydrated_user.get('editor_admin_id'),
+        # Cached so the display-timezone filters (utils/filters.py) can read
+        # it straight off the session instead of hitting the DB per request.
+        'timezone_name': hydrated_user.get('timezone_name'),
     }
 
 
@@ -134,9 +138,18 @@ def register(app):
             '/fmadmin/files/',
             '/fmadmin/healthz',
         )
-        return request.path.startswith('/fmadmin/') and not any(
+        if request.path.startswith('/fmadmin/') and not any(
             request.path.startswith(prefix) for prefix in ignored_prefixes
-        )
+        ):
+            # The editor's own assignment page is excluded: running the
+            # deadline sweep in before_request, ahead of the handler, could
+            # expire this very assignment a moment before review_assignment()
+            # gets a chance to mark it accepted -- the editor loses the race
+            # against their own click.
+            if request.path.startswith('/fmadmin/editor-assignments/') and request.path.endswith('/review'):
+                return False
+            return True
+        return False
 
     def _ensure_csrf_token():
         token = session.get('csrf_token')
@@ -238,6 +251,7 @@ def register(app):
             'role_notifications_unread_count': notifications['count'],
             'role_notifications_preview': notifications['preview'],
             'app_version': settings.APP_VERSION,
+            'timezone_choices': TIMEZONE_CHOICES,
             'submission_status_label': lambda status, lang=None: submission_status_label(status, lang or current_lang),
             'submission_status_badge_tone': lambda status: SUBMISSION_STATUS_BADGE_TONE.get(status, 'secondary'),
             'anti_plagiarism_status_label': lambda status, lang=None: anti_plagiarism_status_label(status, lang or current_lang),
