@@ -2,6 +2,11 @@
 
 Bu fayl Claude Code bilan parallel ishlashda Codex qilgan o'zgarishlarni kuzatish uchun yuritiladi.
 
+## 2026-08-11 — Google Search Console egaligini tasdiqlash
+
+- `philmatt.uzswlu.uz` URL-prefix resursi uchun berilgan Google Search Console `google-site-verification` meta-tegi mainweb umumiy `<head>` qismiga qo‘shildi. Shuning uchun ommaviy sahifalarning hammasida tekshiruv tegi chiqadi; FMAdmin sahifalari o‘zgarmadi.
+- Tekshiruvdan keyin tegni olib tashlamaslik kerak, aks holda Search Console sayt egaligini keyingi tekshiruvda yo‘qotishi mumkin.
+
 ## 2026-08-11 — Google Scholar metadata va nashr sifat nazorati
 
 - Ommaviy maqola sahifalarining Highwire metadata’siga jurnalning kanonik `citation_issn=1994-4233` tegi qo‘shildi. Bu PDF sarlavhasidagi jurnal ISSN’i bilan bir xil; mavjud title, muallif, nashr sanasi, jurnal, volume/issue, page range, DOI, abstract URL va ochiq PDF metadata’lari saqlanib qoldi.
