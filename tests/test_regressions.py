@@ -1,10 +1,12 @@
 import importlib.util
+import io
 import os
 import re
 import threading
 
 import pytest
 from flask import Flask, flash, render_template, session
+from werkzeug.datastructures import FileStorage
 
 from mainweb.modules import connector as mainweb_connector
 from fmadmin import connector as fmadmin_connector
@@ -151,6 +153,35 @@ def test_dashboard_articles_template_includes_registered_publication_cards():
     assert "registered_publications_title" in template
     assert "url_for('app__article', article_id=publication.id)" in template
     assert "registered_publications_admin_note" in template
+
+
+def test_payments_template_allows_reupload_while_pending():
+    template_path = os.path.join(
+        os.path.dirname(__file__), '..', 'mainweb', 'templates', 'dashboard', 'payments.html'
+    )
+    with open(template_path, encoding='utf-8') as template_file:
+        template = template_file.read()
+
+    assert "payment.status in ['unpaid', 'pending', 'rejected']" in template
+
+
+def test_articles_template_blocks_payment_proof_reupload_after_finalization():
+    template_path = os.path.join(
+        os.path.dirname(__file__), '..', 'mainweb', 'templates', 'dashboard', 'articles.html'
+    )
+    with open(template_path, encoding='utf-8') as template_file:
+        template = template_file.read()
+
+    assert "can_update_payment_proof = submission.payment_status in ['unpaid', 'pending', 'rejected']" in template
+    assert "{{ t('reupload_proof') }}" in template
+
+
+def test_translations_define_reupload_proof_label():
+    from mainweb.modules import translations
+
+    assert translations.UZ['reupload_proof'] == 'Qayta yuklash'
+    assert translations.RU['reupload_proof'] == 'Загрузить заново'
+    assert translations.EN['reupload_proof'] == 'Upload Again'
 
 
 def test_author_tooltip_names_link_to_the_author_article_filter():
@@ -665,6 +696,45 @@ def test_create_or_get_pending_payment_creates_new_record(monkeypatch):
     assert result == {'created': True, 'payment_id': 1}
     assert len(fake_dbc.conn.payments) == 1
     assert fake_dbc.conn.payments[0]['ids'] == [501]
+
+
+def test_payment_submit_proof_handles_sanitized_filename_without_extension_dot(monkeypatch, tmp_path):
+    fake_dbc = type('FakeDBC', (), {
+        'payments': _FakeMutableTable([
+            {'id': 9, 'user_id': 44, 'status': 'unpaid', 'proof': None, 'payment_date': None},
+        ]),
+    })()
+
+    monkeypatch.setattr(api_routes, 'dbc', fake_dbc)
+    monkeypatch.setattr(api_routes.settings, 'SAVE_PATH', str(tmp_path))
+    monkeypatch.setattr(api_routes.time, 'time', lambda: 1700000000)
+    monkeypatch.setattr(api_routes, 'build_private_upload_ref', lambda folder, filename: f'{folder}/{filename}')
+    monkeypatch.setattr(api_routes, 'upload_access_url', lambda path: f'/files/{path}')
+
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    with app.test_request_context(
+        '/api/payment/submit_proof',
+        method='POST',
+        data={
+            'payment_id': '9',
+            'note': 'bank receipt',
+            'payment_proof': (io.BytesIO(b'%PDF-1.4 fake'), '.pdf'),
+        },
+        content_type='multipart/form-data',
+    ):
+        session['user_id'] = 44
+        response = api_routes.app__api_payment_submit_proof()
+
+    payload = response.get_json()
+
+    assert payload['success'] is True
+    assert payload['proof'] == '/files/payments/payment_proof_44_1700000000.pdf'
+    saved_path = tmp_path / 'private_uploads' / 'payments' / 'payment_proof_44_1700000000.pdf'
+    assert saved_path.exists()
+    assert fake_dbc.payments.get(id=9, user_id=44).exec()[0]['status'] == 'pending'
+    assert fake_dbc.payments.get(id=9, user_id=44).exec()[0]['proof'] == 'payments/payment_proof_44_1700000000.pdf'
 
 
 def test_article_html_sanitizer_removes_unsafe_and_noisy_markup():

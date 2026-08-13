@@ -195,7 +195,7 @@
                             <div class="text-gray-500">{{ t('payment_amount') }}: {{ payment.amount|format_currency(payment.currency or 'usd') }}</div>
                         </div>
                         <div class="flex gap-2">
-                            {% if payment.status in ['unpaid', 'rejected'] %}
+                            {% if payment.status in ['unpaid', 'pending', 'rejected'] %}
                             {% if payment.status == 'unpaid' %}
                             <button data-payment-id="{{ payment.id }}" class="delete-payment text-nowrap flex items-center justify-center gap-x-1.5 rounded-md bg-red-50 px-6 py-2 text-sm font-semibold text-red-700 hover:bg-red-200 hover:cursor-pointer transition-colors">{{ t('delete_payment') }}</button>
                             {% endif %}

@@ -335,6 +335,7 @@
 
                     {% if submission.workflow_stage_key == 'payment_pending' %}
                         <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50/70 px-4 py-4">
+                            {% set can_update_payment_proof = submission.payment_status in ['unpaid', 'pending', 'rejected'] %}
                             {% if submission.payment_status == 'pending' %}
                                 <div class="mb-3 flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">
                                     <iconify-icon icon="solar:clock-circle-bold-duotone" class="text-base"></iconify-icon>
@@ -360,32 +361,37 @@
                             </div>
 
                             <div class="mt-4 flex flex-wrap items-center gap-2">
-                                <input
-                                    type="file"
-                                    id="payment_proof_file_{{ submission.id }}"
-                                    class="payment-proof-file-input hidden"
-                                    data-payment-id="{{ submission.payment_id }}"
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                >
-                                <button
-                                    type="button"
-                                    class="upload-payment-proof inline-flex items-center justify-center gap-1.5 rounded-md border border-amber-300 bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-200"
-                                    data-payment-id="{{ submission.payment_id }}"
-                                    data-input-id="payment_proof_file_{{ submission.id }}"
-                                    {% if not submission.payment_id %}disabled{% endif %}
-                                >
-                                    <iconify-icon icon="solar:upload-bold-duotone" class="text-base"></iconify-icon>
-                                    {% if submission.payment_proof %}
-                                        To'lov tasdiqnomasini qayta yuklash
-                                    {% else %}
-                                        To'lov tasdiqnomasini yuklash
-                                    {% endif %}
-                                </button>
+                                {% if can_update_payment_proof %}
+                                    <input
+                                        type="file"
+                                        id="payment_proof_file_{{ submission.id }}"
+                                        class="payment-proof-file-input hidden"
+                                        data-payment-id="{{ submission.payment_id }}"
+                                        accept=".pdf,.jpg,.jpeg,.png"
+                                    >
+                                    <button
+                                        type="button"
+                                        class="upload-payment-proof inline-flex items-center justify-center gap-1.5 rounded-md border border-amber-300 bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-200"
+                                        data-payment-id="{{ submission.payment_id }}"
+                                        data-input-id="payment_proof_file_{{ submission.id }}"
+                                        {% if not submission.payment_id %}disabled{% endif %}
+                                    >
+                                        <iconify-icon icon="solar:upload-bold-duotone" class="text-base"></iconify-icon>
+                                        {% if submission.payment_proof %}
+                                            {{ t('reupload_proof') }}
+                                        {% else %}
+                                            {{ t('upload_proof') }}
+                                        {% endif %}
+                                    </button>
+                                {% endif %}
                                 {% if submission.payment_proof %}
                                     <a href="{{ upload_access_url(submission.payment_proof) }}" target="_blank" class="inline-flex items-center justify-center gap-1.5 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                                         <iconify-icon icon="solar:file-download-bold-duotone" class="text-base"></iconify-icon>
                                         Yuklangan tasdiqnoma
                                     </a>
+                                {% endif %}
+                                {% if submission.payment_status not in ['unpaid', 'pending', 'rejected'] %}
+                                    <span class="text-sm text-gray-500">To'lov tasdiqlandi, qayta yuklab bo'lmaydi.</span>
                                 {% endif %}
                             </div>
                         </div>

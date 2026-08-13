@@ -3051,8 +3051,11 @@ def app__api_payment_submit_proof():
         return jsonify({'success': False, 'message': 'No file selected'})
 
     if file and allowed_file(file.filename, {'pdf', 'jpg', 'jpeg', 'png'}):
-        filename = secure_filename(file.filename)
-        filename = f"payment_proof_{user_id}_{int(time.time())}.{filename.rsplit('.', 1)[1].lower()}"
+        if '.' not in file.filename:
+            return jsonify({'success': False, 'message': 'Invalid file type'})
+
+        extension = file.filename.rsplit('.', 1)[1].lower()
+        filename = f"payment_proof_{user_id}_{int(time.time())}.{extension}"
 
         payments_folder = os.path.join(settings.SAVE_PATH, 'private_uploads', 'payments')
         os.makedirs(payments_folder, exist_ok=True)
