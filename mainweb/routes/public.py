@@ -691,10 +691,11 @@ def _build_scholar_meta(publication, issue, author_names, article_id, current_la
         'last_page': last_page,
         'doi': _clean_text(publication_row.get('doi')),
         'abstract_url': abstract_url,
-        # Paid articles expose their abstract publicly, not a public full-text
-        # HTML version.  Advertising that URL as full text confuses Scholar's
-        # parser and can make a paywalled article look like a broken download.
-        'fulltext_html_url': abstract_url if is_world_readable else '',
+        # This page is the public abstract landing page, not a complete HTML
+        # rendering of the article.  The full text, when it is openly
+        # available, is provided only through ``citation_pdf_url`` below.
+        # Do not advertise the abstract URL as ``citation_fulltext_html_url``:
+        # Scholar can otherwise treat the abstract as a malformed full text.
         'pdf_url': pdf_url,
         'language': _clean_text(current_lang).lower(),
         'is_world_readable': is_world_readable,

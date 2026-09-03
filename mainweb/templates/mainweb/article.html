@@ -28,9 +28,6 @@
     {% if scholar_meta.abstract_url %}
         <meta name="citation_abstract_html_url" content="{{ scholar_meta.abstract_url }}">
     {% endif %}
-    {% if scholar_meta.fulltext_html_url %}
-        <meta name="citation_fulltext_html_url" content="{{ scholar_meta.fulltext_html_url }}">
-    {% endif %}
     {% if scholar_meta.pdf_url %}<meta name="citation_pdf_url" content="{{ scholar_meta.pdf_url }}">{% endif %}
     {% if scholar_meta.is_world_readable %}<meta name="citation_fulltext_world_readable" content="1">{% endif %}
     {% if scholar_meta.language %}<meta name="citation_language" content="{{ scholar_meta.language }}">{% endif %}

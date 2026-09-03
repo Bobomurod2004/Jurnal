@@ -1059,7 +1059,7 @@ def test_build_scholar_meta_for_open_article_includes_pdf_url(monkeypatch):
     assert meta['doi'] == '10.1000/example-doi'
     assert meta['issn'] == '1994-4233'
     assert meta['is_world_readable'] is True
-    assert meta['fulltext_html_url'] == 'https://journal.example/article/15'
+    assert 'fulltext_html_url' not in meta
     assert meta['pdf_url'] == 'https://journal.example/article/download/15'
 
 
@@ -1091,12 +1091,12 @@ def test_build_scholar_meta_for_paid_article_hides_pdf_url(monkeypatch):
     assert meta['first_page'] == '55'
     assert meta['last_page'] == '55'
     assert meta['is_world_readable'] is False
-    assert meta['fulltext_html_url'] == ''
+    assert 'fulltext_html_url' not in meta
     assert meta['pdf_url'] == ''
     assert meta['language'] == 'uz'
 
 
-def test_scholar_article_template_uses_issn_and_hides_paid_fulltext_url():
+def test_scholar_article_template_uses_issn_and_does_not_label_an_abstract_as_fulltext():
     template_path = os.path.join(
         os.path.dirname(__file__), '..', 'mainweb', 'templates', 'mainweb', 'article.html'
     )
@@ -1104,8 +1104,9 @@ def test_scholar_article_template_uses_issn_and_hides_paid_fulltext_url():
         template = template_file.read()
 
     assert 'name="citation_issn"' in template
-    assert 'scholar_meta.fulltext_html_url' in template
-    assert 'citation_fulltext_html_url" content="{{ scholar_meta.fulltext_html_url }}"' in template
+    assert 'name="citation_abstract_html_url"' in template
+    assert 'name="citation_pdf_url"' in template
+    assert 'citation_fulltext_html_url' not in template
 
 
 def test_scholar_publication_validation_requires_public_metadata_and_open_pdf():
@@ -2104,7 +2105,7 @@ def test_dashboard_status_labels_cover_every_status_in_three_languages():
     # raw codes. Labels now come from shared/submission_status.py -- which
     # therefore has to stay complete in all three languages.
     from fmadmin.services import stats as fmadmin_stats
-    from shared.submission_status import SUBMISSION_STATUSES, SUBMISSION_STATUS_LABELS
+    from shared.submission_status import SUBMISSION_STATUS_LABELS, SUBMISSION_STATUSES
 
     for status in SUBMISSION_STATUSES:
         labels = SUBMISSION_STATUS_LABELS.get(status)

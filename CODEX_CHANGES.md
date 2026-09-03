@@ -2,6 +2,18 @@
 
 Bu fayl Claude Code bilan parallel ishlashda Codex qilgan o'zgarishlarni kuzatish uchun yuritiladi.
 
+## 2026-08-30 — Scholar production deployment tekshiruvi
+
+- Google Scholar’dagi uchta aniq maqola sarlavhasi bo‘yicha public audit hali natija bermaganini tasdiqladi. Bu Scholar indeksining jurnal saytidagi to‘liq maqola versiyasiga hali ulanmaganini ko‘rsatadi.
+- Asosiy sabab aniqlandi: production `https://philmatt.uzswlu.uz/article/229` manbasi haligacha `citation_fulltext_html_url` tegini qaytaryapti. Bu 2026-08-27dagi metadata tuzatishi serverga deploy qilinmaganini isbotlaydi; local kod va testlar to‘g‘ri, ammo crawler faqat productiondagi eski kodni ko‘ra oladi.
+- Deploydan so‘ng manbada `citation_fulltext_html_url` bo‘lmasligi, `citation_abstract_html_url` va ochiq maqolalarda `citation_pdf_url` qolishi tekshiriladi. Scholar uchun kuzatuv muddati deploy sanasidan boshlab hisoblanadi.
+
+## 2026-08-27 — Google Scholar abstract va PDF metadata aniqligi
+
+- Google Scholar’dagi aniq sarlavha bo‘yicha tekshiruv uchta turli yildagi maqola hali Scholar indeksiga kirmaganini ko‘rsatdi. Production tekshiruvda maqola sahifasi ham, matni qidiriladigan PDF ham Googlebot uchun `200 OK` qaytarishi, Highwire citation maydonlari, DOI va `REFERENCES` bo‘limi mavjudligi tasdiqlandi.
+- Scholar parseriga noto‘g‘ri signal berayotgan `citation_fulltext_html_url` olib tashlandi: ommaviy maqola sahifasi faqat annotatsiyani ko‘rsatadi, to‘liq maqola esa PDF’da. Endi sahifa doim aniq `citation_abstract_html_url` beradi, ochiq maqolada esa qo‘shimcha `citation_pdf_url` beradi; annotatsiya hech qachon to‘liq HTML maqola deb e’lon qilinmaydi.
+- Regression testlar ochiq va pullik maqolalarda noto‘g‘ri full-text HTML maydoni yo‘qligini, lekin ISSN, abstract URL va ochiq PDF metadata’lari qolishini tekshiradi. Deploydan keyin yangi metadata Scholar crawleriga yetishi uchun bir necha hafta kuzatuv davom ettiriladi.
+
 ## 2026-08-11 — Google Search Console egaligini tasdiqlash
 
 - `philmatt.uzswlu.uz` URL-prefix resursi uchun berilgan Google Search Console `google-site-verification` meta-tegi mainweb umumiy `<head>` qismiga qo‘shildi. Shuning uchun ommaviy sahifalarning hammasida tekshiruv tegi chiqadi; FMAdmin sahifalari o‘zgarmadi.
@@ -10,7 +22,7 @@ Bu fayl Claude Code bilan parallel ishlashda Codex qilgan o'zgarishlarni kuzatis
 ## 2026-08-11 — Google Scholar metadata va nashr sifat nazorati
 
 - Ommaviy maqola sahifalarining Highwire metadata’siga jurnalning kanonik `citation_issn=1994-4233` tegi qo‘shildi. Bu PDF sarlavhasidagi jurnal ISSN’i bilan bir xil; mavjud title, muallif, nashr sanasi, jurnal, volume/issue, page range, DOI, abstract URL va ochiq PDF metadata’lari saqlanib qoldi.
-- To‘lovli/obunali maqolalarda avval abstract sahifasi noto‘g‘ri `citation_fulltext_html_url` deb berilar edi. Endi barcha maqolalarda `citation_abstract_html_url` bor, lekin `citation_fulltext_html_url` hamda `citation_pdf_url` faqat crawler haqiqatda ochishi mumkin bo‘lgan ochiq maqolalarda beriladi.
+- Dastlab to‘lovli/obunali maqolalarda abstract sahifasi noto‘g‘ri `citation_fulltext_html_url` deb berilishini to‘xtatish uchun URL faqat ochiq maqolalarda berilgan edi. Bu yechim 2026-08-27dagi aniqroq tuzatish bilan almashtirildi: annotatsiya sahifasi hech bir holatda full-text HTML deb e’lon qilinmaydi; ochiq PDF uchun faqat `citation_pdf_url` ishlatiladi.
 - FMAdmin maqola formasi Google Scholar uchun zarur inglizcha annotatsiya, asosiy muallif, jurnal soni va nashr sanasisiz saqlanmaydi. Ochiq kirish maqolasida kamida bitta PDF ham majburiy. Frontend `required` belgilari hamda server validatsiyasi birgalikda ishlaydi; xatolar o‘zbek/rus/ingliz tilida ko‘rsatiladi. Pullik/obunali maqolada PDF majburiy qilinmadi, chunki ochiq abstract indekslanishda qoladi.
 - `mainweb/scripts/scholar_readiness_audit.py` kengaytirildi: u endi bo‘sh HTML annotatsiyasini, page range’ni, PDF reference’ni, `files` jadvalidagi PDF yozuvini va `--verify-files` bilan upload hajmidagi haqiqiy PDF faylini ham tekshiradi. U aynan public download oqimi kabi eng yangi yaroqli PDFni tanlaydi, shuning uchun eski buzilgan attachment yangi faylni noto‘g‘ri blocker qilmaydi. DOI esa Scholar uchun majburiy bo‘lmagani sabab warning bo‘lib qoladi. Lokal audit 4 yozuvdan `#123 test6` uchun PDF reference yo‘qligini va bitta DOI warningini topdi; bu lokal development bazasi natijasi, production bazasi uchun deploydan keyin alohida audit ishlatiladi.
 - Tekshiruvlar: Python kompilyatsiyasi, ikki Jinja shablon kompilyatsiyasi, `git diff --check`, `.venv-test/bin/pytest -q tests/test_regressions.py -k 'scholar or build_scholar_meta'` — 5 test va `.venv-test/bin/pytest -q tests/test_role_permissions.py` — 19 test muvaffaqiyatli o‘tdi. Ular ISSN, pullik maqoladagi full-text URL yashirilishi, metadata/PDF validatsiyasi, kengaytirilgan audit va ruxsatlarni tekshiradi.
