@@ -24,7 +24,10 @@
     {% if scholar_meta.issue %}<meta name="citation_issue" content="{{ scholar_meta.issue }}">{% endif %}
     {% if scholar_meta.first_page %}<meta name="citation_firstpage" content="{{ scholar_meta.first_page }}">{% endif %}
     {% if scholar_meta.last_page %}<meta name="citation_lastpage" content="{{ scholar_meta.last_page }}">{% endif %}
-    {% if scholar_meta.doi %}<meta name="citation_doi" content="{{ scholar_meta.doi }}">{% endif %}
+    {# citation_doi is intentionally omitted: our DOIs are not deposited with
+       Crossref, so doi.org does not resolve them yet. Advertising a dead DOI
+       to Scholar's crawler is worse than omitting the tag. Restore this once
+       DOIs are actually registered. #}
     {% if scholar_meta.abstract_url %}
         <meta name="citation_abstract_html_url" content="{{ scholar_meta.abstract_url }}">
     {% endif %}

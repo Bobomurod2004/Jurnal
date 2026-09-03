@@ -1107,6 +1107,9 @@ def test_scholar_article_template_uses_issn_and_does_not_label_an_abstract_as_fu
     assert 'name="citation_abstract_html_url"' in template
     assert 'name="citation_pdf_url"' in template
     assert 'citation_fulltext_html_url' not in template
+    # DOIs are not yet deposited with Crossref (doi.org does not resolve
+    # them), so the tag is withheld until registration is wired up.
+    assert 'name="citation_doi"' not in template
 
 
 def test_scholar_publication_validation_requires_public_metadata_and_open_pdf():
