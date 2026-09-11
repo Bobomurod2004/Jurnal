@@ -36,11 +36,12 @@
         </section>
         {% endif %}
 
-        <!-- Board groups (auto-scrolling streams) -->
+        <!-- Board groups (static grid, first N members with a "show all" toggle) -->
         {% if board_groups %}
-        <div id="editorial-groups" class="scroll-mt-24">
+        {% set initial_visible = 8 %}
+        <div id="editorial-groups" class="scroll-mt-24 space-y-7">
             {% for group in board_groups %}
-            <section class="rounded-2xl border bg-white shadow-xs overflow-hidden mb-7" id="group-{{ group.key }}" style="border-color: {{ group.theme.border }};">
+            <section class="rounded-2xl border bg-white shadow-xs overflow-hidden" id="group-{{ group.key }}" style="border-color: {{ group.theme.border }};">
                 <!-- Group header band -->
                 {% set other_labels = [] %}
                 {% for lang_key in ('uz', 'en', 'ru') %}
@@ -66,34 +67,30 @@
                     </span>
                 </div>
 
-                <!-- Stream viewport -->
-                <div class="relative overflow-hidden p-4 md:p-5" style="background-color: {{ group.theme.soft }};">
-                    <div class="absolute inset-y-0 left-0 w-10 md:w-16 z-10 pointer-events-none" style="background: linear-gradient(to right, {{ group.theme.soft }}, transparent);"></div>
-                    <div class="absolute inset-y-0 right-0 w-10 md:w-16 z-10 pointer-events-none" style="background: linear-gradient(to left, {{ group.theme.soft }}, transparent);"></div>
-
-                    {% set set_repeats = 1 %}
-                    {% if group.count == 1 %}
-                        {% set set_repeats = 4 %}
-                    {% elif group.count == 2 %}
-                        {% set set_repeats = 2 %}
-                    {% elif group.count == 3 %}
-                        {% set set_repeats = 2 %}
-                    {% endif %}
-                    {% set stream_seconds = [group.count * set_repeats * 7, 28]|max %}
-
-                    <div class="editorial-stream__track" style="--stream-duration: {{ stream_seconds }}s;">
-                        {% for copy_index in range(2) %}
-                        <div class="editorial-stream__half" {% if copy_index > 0 %}aria-hidden="true"{% endif %}>
-                            {% for _ in range(set_repeats) %}
-                                {% for editor_data in group.members %}
-                                <div class="editorial-stream-card flex-shrink-0">
-                                    {{ member_card(editor_data, group) }}
-                                </div>
-                                {% endfor %}
-                            {% endfor %}
+                <!-- Member grid -->
+                <div class="p-4 md:p-5" style="background-color: {{ group.theme.soft }};">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {% for editor_data in group.members %}
+                        <div{% if loop.index > initial_visible %} class="hidden" data-editorial-extra{% endif %}>
+                            {{ member_card(editor_data, group) }}
                         </div>
                         {% endfor %}
                     </div>
+
+                    {% if group.count > initial_visible %}
+                    <div class="mt-4 text-center">
+                        <button type="button"
+                                class="editorial-show-more-btn inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold border bg-white transition-colors cursor-pointer"
+                                style="color: {{ group.theme.accent }}; border-color: {{ group.theme.border }};"
+                                data-editorial-show-more
+                                data-show-label="{{ editorial_ui.show_more }} ({{ group.count - initial_visible }})"
+                                data-hide-label="{{ editorial_ui.show_less }}"
+                                aria-expanded="false">
+                            <iconify-icon icon="tabler:chevron-down" data-show-more-icon></iconify-icon>
+                            <span data-show-more-label>{{ editorial_ui.show_more }} ({{ group.count - initial_visible }})</span>
+                        </button>
+                    </div>
+                    {% endif %}
                 </div>
             </section>
             {% endfor %}
@@ -120,25 +117,6 @@
 
 {% block scripts %}
 <style>
-    .editorial-stream__track {
-        display: flex;
-        gap: 1rem;
-        width: max-content;
-        animation: editorial-marquee var(--stream-duration, 32s) linear infinite;
-        will-change: transform;
-    }
-
-    .editorial-stream__half {
-        display: flex;
-        gap: 1rem;
-        padding-right: 1rem;
-    }
-
-    .editorial-stream-card {
-        width: min(330px, calc(100vw - 3rem));
-        height: 168px;
-    }
-
     .editorial-member-card__name {
         display: -webkit-box;
         -webkit-line-clamp: 1;
@@ -146,15 +124,12 @@
         overflow: hidden;
     }
 
-    @media (min-width: 768px) {
-        .editorial-stream-card {
-            width: 420px;
-        }
+    .editorial-show-more-btn iconify-icon {
+        transition: transform 0.2s ease;
     }
 
-    .editorial-stream__track:hover,
-    .editorial-stream__track:focus-within {
-        animation-play-state: paused;
+    .editorial-show-more-btn[aria-expanded="true"] iconify-icon {
+        transform: rotate(180deg);
     }
 
     .editorial-rich-text p {
@@ -188,22 +163,6 @@
     .editorial-rich-text a {
         color: #2563eb;
         text-decoration: underline;
-    }
-
-    @keyframes editorial-marquee {
-        from { transform: translateX(0); }
-        to { transform: translateX(-50%); }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .editorial-stream__track {
-            animation: none;
-            width: auto;
-            overflow-x: auto;
-        }
-        .editorial-stream__half[aria-hidden="true"] {
-            display: none;
-        }
     }
 
     /* Modal display */
@@ -245,6 +204,26 @@
             body.classList.add('editorial-modal-open');
         }
 
+        function toggleShowMore(button) {
+            var section = button.closest('section');
+            if (!section) return;
+            var expanded = button.getAttribute('aria-expanded') === 'true';
+            var extraCards = section.querySelectorAll('[data-editorial-extra]');
+            extraCards.forEach(function (card) {
+                card.classList.toggle('hidden', expanded);
+            });
+            button.setAttribute('aria-expanded', String(!expanded));
+            var label = button.querySelector('[data-show-more-label]');
+            if (label) {
+                label.textContent = expanded
+                    ? button.getAttribute('data-show-label')
+                    : button.getAttribute('data-hide-label');
+            }
+            if (expanded) {
+                section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
         document.addEventListener('click', function (event) {
             var openButton = event.target.closest('[data-editorial-open]');
             if (openButton) {
@@ -254,6 +233,11 @@
             var closeButton = event.target.closest('[data-editorial-close]');
             if (closeButton) {
                 closeModal(closeButton.closest('.editorial-modal'));
+                return;
+            }
+            var showMoreButton = event.target.closest('[data-editorial-show-more]');
+            if (showMoreButton) {
+                toggleShowMore(showMoreButton);
             }
         });
 

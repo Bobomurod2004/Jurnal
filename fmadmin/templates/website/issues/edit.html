@@ -71,7 +71,7 @@
                     <div class="mb-3">
                         <label class="form-label">Seriya</label>
 
-                        <select name="category" class="form-select" id="">
+                        <select name="category" class="form-select" id="issue-category">
                             <option value="">{{ t("admin_label_not_specified") }}</option>
                             {% for category in issue_categories %}
                             <option value="{{ category.alias }}" {% if issue.category==category.alias %}selected{% endif
@@ -156,6 +156,7 @@
                         <input type="hidden" name="table_of_contents_file" value="{{ issue.table_of_contents_file }}">
                         <div class="form-hint">{{ t("admin_hint_issue_toc_file") }}</div>
                     </div>
+                    {% include 'website/issues/special_metadata.html' %}
                     <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_created_at") }}</label>
                         <input type="date" class="form-control" name="created_at"
@@ -170,6 +171,8 @@
         </div>
     </div>
 </form>
+
+{% include 'website/issues/special_documents.html' %}
 
 {% endblock %}
 
@@ -194,6 +197,34 @@
 
     document.getElementById('save-issue-btn-top').addEventListener('click', function () {
         document.getElementById('save-issue-btn').click();
+    });
+    const specialCategories = {{ special_categories | tojson }};
+    const issueCategory = document.getElementById('issue-category');
+    const specialFields = document.getElementById('special-issue-fields');
+    const documentsPanel = document.getElementById('special-documents');
+    function toggleSpecialIssueFields() {
+        const active = specialCategories.includes(issueCategory.value);
+        specialFields.hidden = !active;
+        specialFields.disabled = !active;
+        if (documentsPanel) documentsPanel.hidden = !active;
+    }
+    issueCategory.addEventListener('change', toggleSpecialIssueFields);
+    toggleSpecialIssueFields();
+    document.querySelectorAll('[data-document-replace]').forEach(button => {
+        button.addEventListener('click', () => {
+            const form = document.getElementById('special-document-form');
+            form.elements.replace_id.value = button.dataset.documentReplace;
+            form.elements.title.value = button.dataset.title;
+            form.elements.kind.value = button.dataset.kind;
+            form.elements.language.value = button.dataset.language;
+            document.getElementById('document-upload-label').textContent = 'Hujjatni almashtirish';
+            form.scrollIntoView({behavior: 'smooth', block: 'center'});
+            form.elements.document.focus();
+        });
+    });
+    const documentForm = document.getElementById('special-document-form');
+    if (documentForm) documentForm.addEventListener('reset', () => {
+        document.getElementById('document-upload-label').textContent = "Hujjat qo'shish";
     });
 </script>
 {% endblock %}

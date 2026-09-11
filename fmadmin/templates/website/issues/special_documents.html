@@ -1,0 +1,46 @@
+<div id="special-documents" class="row justify-content-center mt-4" {% if issue.category not in special_categories %}hidden{% endif %}>
+<div class="col-lg-8"><div class="card">
+    <div class="card-header"><h3 class="card-title">Axborot xati va qo‘shimcha hujjatlar</h3></div>
+    <div class="card-body">
+        <p class="text-secondary">Bu hujjatlar saytda hammaga ochiq bo‘ladi. Axborot xatini har bir tilda alohida yuklash mumkin.</p>
+        {% if not issue.id or issue.category not in special_categories %}
+        <div class="alert alert-info">Hujjat yuklash uchun avval maxsus sonni saqlang.</div>
+        {% else %}
+        {% for document in special_documents %}
+        <div class="border rounded p-3 mb-3">
+            <div class="d-flex justify-content-between gap-3 flex-wrap">
+                <div>
+                    <strong>{{ special_ui.letter if document.kind == 'letter' else document.title }}</strong>
+                    <div class="text-secondary small">{{ special_languages.get(document.language, document.language) }} · {{ document.format }} · {{ document.filename }}</div>
+                </div>
+                <div class="d-flex gap-1 flex-wrap align-items-start">
+                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('issue_document_download', issue_id=issue.id, document_id=document.id) }}">Yuklab olish</a>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-document-replace="{{ document.id }}" data-kind="{{ document.kind }}" data-title="{{ document.title }}" data-language="{{ document.language }}">Almashtirish</button>
+                    {% for action, label in [('up', '↑'), ('down', '↓'), ('delete', 'O‘chirish')] %}
+                    <form method="post" action="{{ url_for('issue_document_action', issue_id=issue.id, document_id=document.id, action=action) }}" {% if action == 'delete' %}onsubmit="return confirm('Ushbu hujjat o‘chirilsinmi?')"{% endif %}>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button class="btn btn-sm {{ 'btn-outline-danger' if action == 'delete' else 'btn-outline-secondary' }}" aria-label="{{ 'Yuqoriga' if action == 'up' else ('Pastga' if action == 'down' else 'O‘chirish') }}">{{ label }}</button>
+                    </form>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-secondary">Hozircha hujjatlar yuklanmagan.</p>
+        {% endfor %}
+        <form method="post" enctype="multipart/form-data" action="{{ url_for('issue_document_upload', issue_id=issue.id) }}" id="special-document-form" class="border-top pt-3 mt-3">
+            <h4 id="document-upload-label">Hujjat qo‘shish</h4>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="replace_id" value="">
+            <div class="row g-3">
+                <div class="col-sm-6"><label class="form-label" for="document-kind">Hujjat turi</label><select id="document-kind" name="kind" class="form-select" required>{% for kind in special_document_kinds %}<option value="{{ kind }}">{{ special_ui[kind] }}</option>{% endfor %}</select></div>
+                <div class="col-sm-6"><label class="form-label" for="document-language">Til</label><select id="document-language" name="language" class="form-select" required>{% for key, label in special_languages.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></div>
+                <div class="col-12"><label class="form-label" for="document-title">Hujjat nomi <span class="text-secondary small">(axborot xati uchun shart emas)</span></label><input id="document-title" name="title" class="form-control" maxlength="200"></div>
+                <div class="col-12"><label class="form-label" for="document-file">Fayl</label><input id="document-file" type="file" name="document" class="form-control" accept=".pdf,.doc,.docx" required><div class="form-hint">PDF / DOC / DOCX · Maksimal 10 MB</div></div>
+                <div class="col-12 d-flex gap-2"><button class="btn btn-primary">Hujjatni saqlash</button><button type="reset" class="btn btn-outline-secondary">Tozalash</button></div>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+</div></div>
+</div>

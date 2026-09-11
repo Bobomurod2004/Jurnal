@@ -58,6 +58,8 @@ APP_BASE_URL = _get_env(
     'APP_BASE_URL',
     f"{'https' if IS_PRODUCTION else 'http'}://{APP_HOST}"
 ).rstrip('/')
+if IS_PRODUCTION and APP_BASE_URL.startswith('http://'):
+    APP_BASE_URL = 'https://' + APP_BASE_URL[len('http://'):]
 
 APP_VERSION = _get_env('APP_VERSION', '0.0.0')
 LOG_LEVEL = _get_env('LOG_LEVEL', 'INFO')

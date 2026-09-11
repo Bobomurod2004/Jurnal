@@ -1,0 +1,21 @@
+<fieldset id="special-issue-fields" class="border rounded p-3 mb-4" {% if issue.category not in special_categories %}hidden disabled{% endif %}>
+    <input type="hidden" name="special_fields_present" value="1">
+    <legend class="float-none w-auto px-2 fs-4">Maxsus son ma’lumotlari</legend>
+    <p class="text-secondary small">Bu ma’lumotlar maxsus sonning saytdagi sahifasida ko‘rsatiladi. Bo‘sh maydonlar ko‘rsatilmaydi.</p>
+    {% for lang in special_languages %}
+    <div class="lang-field lang-{{ lang }}">
+        <div class="mb-3">
+            <label class="form-label" for="special-description-{{ lang }}">Tavsif ({{ lang|upper }})</label>
+            <textarea id="special-description-{{ lang }}" name="special_description_{{ lang }}" class="form-control" rows="4" maxlength="12000">{{ special_data.get('description', {}).get(lang, '') }}</textarea>
+        </div>
+        {% for field in ['organizer', 'venue', 'publication_languages'] %}
+        <div class="mb-3">
+            <label class="form-label" for="special-{{ field }}-{{ lang }}">{{ special_ui[field] }} ({{ lang|upper }})</label>
+            <input id="special-{{ field }}-{{ lang }}" name="special_{{ field }}_{{ lang }}" class="form-control" maxlength="500" value="{{ special_data.get(field, {}).get(lang, '') }}">
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    <label class="form-label" for="special-event-date">{{ special_ui.event_date }}</label>
+    <input id="special-event-date" name="special_event_date" type="date" class="form-control" value="{{ special_data.get('event_date', '') }}">
+</fieldset>

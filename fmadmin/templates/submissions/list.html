@@ -72,7 +72,7 @@
 
 <div class="fm-submissions">
 
-{% set has_advanced_filters = submission_id_filter or user_id_filter or track_filter or assigned_admin_filter or editor_id_filter or author_filter or created_from or created_to %}
+{% set has_advanced_filters = submission_id_filter or user_id_filter or assigned_admin_filter or editor_id_filter or author_filter or created_from or created_to %}
 {# Status pills are plain links, so carry the other active filters over by hand. #}
 {% set status_pill_args = request.args.to_dict() %}
 {% set _ = status_pill_args.pop('status', None) %}
@@ -104,13 +104,19 @@
           </button>
           <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 260px;">
             <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="editor" checked> <span class="form-check-label">Muharrir</span></label>
-            <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="track" checked> <span class="form-check-label">Yo'nalish</span></label>
+            <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="track" checked> <span class="form-check-label">Seriya</span></label>
             <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="assigned-admin" checked> <span class="form-check-label">Biriktirilgan admin</span></label>
             <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="classification" checked> <span class="form-check-label">Tasniflar</span></label>
             <label class="form-check mb-2"><input class="form-check-input column-toggle" type="checkbox" data-col="author" checked> <span class="form-check-label">Muallif</span></label>
             <label class="form-check"><input class="form-check-input column-toggle" type="checkbox" data-col="created-date" checked> <span class="form-check-label">Sana</span></label>
           </div>
         </div>
+        <select class="form-select" id="submission-series" name="track" aria-label="Seriya" style="width: auto; max-width: 100%; flex: 0 1 330px;">
+          <option value="">Barcha seriyalar</option>
+          {% for track_key, track_label in admin_track_choices %}
+          <option value="{{ track_key }}" {% if track_filter==track_key %}selected{% endif %}>{{ track_label }}</option>
+          {% endfor %}
+        </select>
         <button type="submit" class="btn btn-primary">{{ t("admin_btn_apply") }}</button>
         <a href="{{ url_for('submissions') }}" class="btn btn-link">{{ t("admin_btn_reset") }}</a>
       </div>
@@ -144,15 +150,6 @@
           <div class="col-sm-6 col-lg-2">
             <label class="form-label small text-secondary mb-1">{{ t("admin_submissions_col_author") }}</label>
             <input type="text" class="form-control form-control-sm" name="author" value="{{ author_filter }}" placeholder="Muallif">
-          </div>
-          <div class="col-sm-6 col-lg-2">
-            <label class="form-label small text-secondary mb-1">Yo'nalish</label>
-            <select class="form-select form-select-sm" name="track">
-              <option value="">{{ t("admin_label_all") }}</option>
-              {% for track_key, track_label in admin_track_choices %}
-              <option value="{{ track_key }}" {% if track_filter==track_key %}selected{% endif %}>{{ track_label }}</option>
-              {% endfor %}
-            </select>
           </div>
           <div class="col-sm-6 col-lg-2">
             <label class="form-label small text-secondary mb-1">Muharrir</label>
@@ -212,7 +209,7 @@
           <th class="w-1">ID</th>
           <th>{{ t("admin_submissions_col_title") }} / {{ t("admin_submissions_col_user") }}</th>
           <th class="col-editor">Muharrir</th>
-          <th class="col-track">Yo'nalish</th>
+          <th class="col-track">Seriya</th>
           <th class="col-assigned-admin">Admin</th>
           <th class="col-classification">Tasniflar</th>
           <th class="col-author">{{ t("admin_submissions_col_author") }}</th>

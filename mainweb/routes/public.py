@@ -178,6 +178,8 @@ EDITORIAL_UI_TEXTS = {
         'team_heading_uz': 'TAHRIRIY JAMOA',
         'team_heading_ru': 'РЕДАКЦИОННАЯ КОМАНДА',
         'leadership_label': 'Leadership',
+        'show_more': 'Show all',
+        'show_less': 'Show less',
     },
     'uz': {
         'total_members': "Umumiy a'zolar",
@@ -203,6 +205,8 @@ EDITORIAL_UI_TEXTS = {
         'team_heading_uz': 'TAHRIRIY JAMOA',
         'team_heading_ru': 'РЕДАКЦИОННАЯ КОМАНДА',
         'leadership_label': 'Rahbariyat',
+        'show_more': "Barchasini ko'rish",
+        'show_less': "Kamroq ko'rsatish",
     },
     'ru': {
         'total_members': 'Всего участников',
@@ -228,6 +232,8 @@ EDITORIAL_UI_TEXTS = {
         'team_heading_uz': 'TAHRIRIY JAMOA',
         'team_heading_ru': 'РЕДАКЦИОННАЯ КОМАНДА',
         'leadership_label': 'Руководство',
+        'show_more': 'Показать всех',
+        'show_less': 'Показать меньше',
     }
 }
 ISSUE_UI_TEXTS = {
@@ -352,6 +358,13 @@ ACTIVITY_EVENT_TYPES = {'view', 'download'}
 UNKNOWN_COUNTRY_KEY = 'unknown'
 OTHER_COUNTRY_KEY = 'other'
 OTHER_COUNTRY_NAME = 'Other countries'
+# Free-text profile fields (e.g. author "country") sometimes hold a
+# placeholder instead of a real country name. Treat these as "no country
+# given" rather than letting them become fake entries in the stats.
+COUNTRY_NAME_DENYLIST = {
+    'none', 'null', 'n/a', 'na', 'nil', 'undefined', 'unknown', 'other',
+    '-', '--', '—', '.', 'test', "yo'q", "yoq", 'x', 'xxx', 'yo`q',
+}
 ACTIVITY_EVENTS_BOOTSTRAP_MIGRATION = 'bootstrap_legacy_stats_v1'
 ACTIVITY_EVENTS_BOOTSTRAP_LOCK_ID = 741920531
 
@@ -525,6 +538,167 @@ def _invalidate_editorial_members_cache():
     with _editorial_members_cache_lock:
         _editorial_members_cache = None
         _editorial_members_cache_timestamp = 0.0
+
+
+# Computing the homepage "country statistics" widget scans every author
+# profile plus does a full GROUP BY over activity_events (a table that grows
+# by one row per view/download and is never pruned). Recomputing that on
+# every single homepage request gets slower as the site accumulates traffic,
+# so cache the (language-independent) aggregation the same way the country
+# catalogue and editorial board are cached above; per-request code only
+# applies localized display names on top of the cached numbers.
+COUNTRY_STATS_CACHE_TTL = 300
+_country_stats_raw_cache = None
+_country_stats_raw_cache_timestamp = 0.0
+_country_stats_raw_cache_lock = threading.Lock()
+
+
+def _compute_country_stats_raw():
+    """Aggregate author/view/download counts per country (uncached, unlocalized)."""
+    author_rows_map = {}
+    for profile in (dbc.author_profile.get().exec() or []):
+        country_name = _normalize_country_name(profile.get('address_country'))
+        if not country_name:
+            continue
+        author_rows_map[country_name] = author_rows_map.get(country_name, 0) + 1
+    author_rows = list(author_rows_map.items())
+
+    activity_rows = []
+    if _ensure_activity_events_ready():
+        cursor = dbc.conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT
+                    country_key,
+                    country_name,
+                    COALESCE(SUM(CASE WHEN event_type = 'view' THEN 1 ELSE 0 END), 0) AS views_count,
+                    COALESCE(SUM(CASE WHEN event_type = 'download' THEN 1 ELSE 0 END), 0) AS downloads_count
+                FROM activity_events
+                GROUP BY country_key, country_name
+                """
+            )
+            activity_rows = cursor.fetchall() or []
+        finally:
+            cursor.close()
+
+    aggregated = {}
+
+    def _merge_country_row(country_name='', country_key='', authors=0, views=0, downloads=0):
+        bucket_key, display_name, iso = _resolved_country_bucket(
+            country_name=country_name,
+            country_key=country_key,
+        )
+
+        if not bucket_key:
+            return
+
+        if bucket_key not in aggregated:
+            aggregated[bucket_key] = {
+                'country_key': bucket_key,
+                'name': display_name,
+                'authors': 0,
+                'count': 0,
+                'views': 0,
+                'downloads': 0,
+                'iso': iso,
+            }
+
+        item = aggregated[bucket_key]
+        item['authors'] += max(0, _parse_int(authors) or 0)
+        item['views'] += max(0, _parse_int(views) or 0)
+        item['downloads'] += max(0, _parse_int(downloads) or 0)
+        if iso and not item.get('iso'):
+            item['iso'] = iso
+            item['name'] = COUNTRY_DISPLAY_BY_ISO.get(iso) or display_name
+
+    for country_name, authors_cnt in author_rows:
+        _merge_country_row(country_name=country_name, authors=authors_cnt)
+
+    for country_key, country_name, views_cnt, downloads_cnt in activity_rows:
+        _merge_country_row(
+            country_name=country_name,
+            country_key=country_key,
+            views=views_cnt,
+            downloads=downloads_cnt,
+        )
+
+    for item in aggregated.values():
+        a = max(0, _parse_int(item.get('authors')) or 0)
+        v = max(0, _parse_int(item.get('views')) or 0)
+        d = max(0, _parse_int(item.get('downloads')) or 0)
+        item['authors'] = a
+        item['views'] = v
+        item['downloads'] = d
+        item['count'] = v + d
+        item['total'] = a + v + d
+
+    # Traffic whose country could not be resolved (GeoIP/CDN header miss) is
+    # aggregated under this bucket — keep it so it can be folded into the
+    # "Other countries" row below instead of silently disappearing.
+    unresolved_item = aggregated.get(OTHER_COUNTRY_KEY)
+
+    real_items = [
+        item
+        for item in aggregated.values()
+        if item['total'] > 0
+        and not _is_other_country_bucket_key(item.get('country_key'))
+    ]
+    sorted_stats = sorted(
+        real_items,
+        key=lambda item: (
+            -item['total'],
+            -item['count'],
+            -item['authors'],
+            (item.get('name') or '').lower(),
+        )
+    )
+    max_total = max((item['total'] for item in sorted_stats), default=1)
+    max_total = max(max_total, 1)
+
+    top10 = sorted_stats[:10]
+    rest = sorted_stats[10:]
+    other_parts = list(rest)
+    if unresolved_item and unresolved_item.get('total', 0) > 0:
+        other_parts.append(unresolved_item)
+
+    other_row = None
+    if other_parts:
+        other_row = {
+            'authors': sum(r['authors'] for r in other_parts),
+            'views': sum(r['views'] for r in other_parts),
+            'downloads': sum(r['downloads'] for r in other_parts),
+            'count': sum(r['count'] for r in other_parts),
+            'total': sum(r['total'] for r in other_parts),
+        }
+
+    return {
+        'sorted_stats': sorted_stats,
+        'other_row': other_row,
+        'max_total': max_total,
+    }
+
+
+def _country_stats_raw_data():
+    global _country_stats_raw_cache, _country_stats_raw_cache_timestamp
+
+    now = time.monotonic()
+    with _country_stats_raw_cache_lock:
+        if _country_stats_raw_cache is not None and now - _country_stats_raw_cache_timestamp < COUNTRY_STATS_CACHE_TTL:
+            return _country_stats_raw_cache
+
+        try:
+            data = _compute_country_stats_raw()
+        except Exception:
+            try:
+                dbc.conn.rollback()
+            except Exception:
+                pass
+            return _country_stats_raw_cache or {'sorted_stats': [], 'other_row': None, 'max_total': 1}
+
+        _country_stats_raw_cache = data
+        _country_stats_raw_cache_timestamp = now
+        return data
 
 
 def _parse_int(value):
@@ -1187,7 +1361,7 @@ def _country_code_to_flag(country_code):
 
 def _country_stat_bucket(country_name):
     normalized_name = _normalize_country_name(country_name)
-    if not normalized_name:
+    if not normalized_name or normalized_name.lower() in COUNTRY_NAME_DENYLIST:
         return '', '', ''
     iso = _country_iso_for_name(normalized_name)
     if iso:
@@ -2791,130 +2965,35 @@ def app__index():
     country_stats_ui = _country_stats_ui_texts()
     author_tooltip_ui = _author_tooltip_ui_texts()
     try:
-        # Use ALL author profiles (not just visible-publication authors) so every
-        # registered author's country contributes to the global-reach map.
-        author_rows_map = {}
-        for profile in (dbc.author_profile.get().exec() or []):
-            country_name = _normalize_country_name(profile.get('address_country'))
-            if not country_name:
-                continue
-            author_rows_map[country_name] = author_rows_map.get(country_name, 0) + 1
-        author_rows = list(author_rows_map.items())
+        # The underlying aggregation (a full author_profile scan + a GROUP BY
+        # over the whole activity_events table) is cached for a few minutes —
+        # see _country_stats_raw_data — so only the cheap, language-specific
+        # display formatting happens on every request.
+        raw = _country_stats_raw_data()
+        max_total = raw.get('max_total') or 1
 
-        activity_rows = []
-        if _ensure_activity_events_ready():
-            cursor = dbc.conn.cursor()
-            try:
-                cursor.execute(
-                    """
-                    SELECT
-                        country_key,
-                        country_name,
-                        COALESCE(SUM(CASE WHEN event_type = 'view' THEN 1 ELSE 0 END), 0) AS views_count,
-                        COALESCE(SUM(CASE WHEN event_type = 'download' THEN 1 ELSE 0 END), 0) AS downloads_count
-                    FROM activity_events
-                    GROUP BY country_key, country_name
-                    """
-                )
-                activity_rows = cursor.fetchall() or []
-            finally:
-                cursor.close()
-
-        aggregated = {}
-
-        def _merge_country_row(country_name='', country_key='', authors=0, views=0, downloads=0):
-            bucket_key, display_name, iso = _resolved_country_bucket(
-                country_name=country_name,
-                country_key=country_key,
-            )
-
-            if not bucket_key:
-                return
-
-            if bucket_key not in aggregated:
-                aggregated[bucket_key] = {
-                    'country_key': bucket_key,
-                    'name': display_name,
-                    'authors': 0,
-                    'count': 0,
-                    'views': 0,
-                    'downloads': 0,
-                    'iso': iso,
-                }
-
-            item = aggregated[bucket_key]
-            item['authors'] += max(0, _parse_int(authors) or 0)
-            item['views'] += max(0, _parse_int(views) or 0)
-            item['downloads'] += max(0, _parse_int(downloads) or 0)
-            if iso and not item.get('iso'):
-                item['iso'] = iso
-                item['name'] = COUNTRY_DISPLAY_BY_ISO.get(iso) or display_name
-
-        for country_name, authors_cnt in author_rows:
-            _merge_country_row(country_name=country_name, authors=authors_cnt)
-
-        for country_key, country_name, views_cnt, downloads_cnt in activity_rows:
-            _merge_country_row(
-                country_name=country_name,
-                country_key=country_key,
-                views=views_cnt,
-                downloads=downloads_cnt,
-            )
-
-        for item in aggregated.values():
-            a = max(0, _parse_int(item.get('authors')) or 0)
-            v = max(0, _parse_int(item.get('views')) or 0)
-            d = max(0, _parse_int(item.get('downloads')) or 0)
-            item['authors'] = a
-            item['views'] = v
-            item['downloads'] = d
-            item['count'] = v + d
-            item['total'] = a + v + d
-
-        real_items = [
-            item
-            for item in aggregated.values()
-            if item['total'] > 0
-            and not _is_other_country_bucket_key(item.get('country_key'))
-        ]
-        sorted_stats = sorted(
-            real_items,
-            key=lambda item: (
-                -item['total'],
-                -item['count'],
-                -item['authors'],
-                (item.get('name') or '').lower(),
-            )
-        )
-        max_total = max((item['total'] for item in sorted_stats), default=1)
-        max_total = max(max_total, 1)
-
-        for item in sorted_stats:
-            item['pct'] = round(item['total'] / max_total * 100)
+        sorted_stats = []
+        for raw_item in raw.get('sorted_stats') or []:
+            item = dict(raw_item)
+            item['pct'] = round(item['total'] / max_total * 100) if max_total > 0 else 0
             if item.get('iso'):
                 item['name'] = _localized_country_display_name(
                     item.get('iso'),
                     fallback_name=item.get('name'),
                     lang=current_lang,
                 )
+            sorted_stats.append(item)
 
         country_stats = sorted_stats
         top10 = sorted_stats[:10]
-        rest = sorted_stats[10:]
-        if rest:
-            _ui = country_stats_ui
-            other_row = {
-                'country_key': 'other',
-                'name': _ui.get('unknown_country', 'Other countries'),
-                'iso': '',
-                'authors': sum(r['authors'] for r in rest),
-                'views': sum(r['views'] for r in rest),
-                'downloads': sum(r['downloads'] for r in rest),
-                'count': sum(r['count'] for r in rest),
-                'total': sum(r['total'] for r in rest),
-                'pct': 0,
-                'is_other': True,
-            }
+
+        other_row_raw = raw.get('other_row')
+        if other_row_raw:
+            other_row = dict(other_row_raw)
+            other_row['country_key'] = 'other'
+            other_row['name'] = country_stats_ui.get('unknown_country', 'Other countries')
+            other_row['iso'] = ''
+            other_row['is_other'] = True
             other_row['pct'] = round(other_row['total'] / max_total * 100) if max_total > 0 else 0
             country_stats_top = top10 + [other_row]
         else:

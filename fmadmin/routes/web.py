@@ -64,6 +64,7 @@ from shared.submission_status import (
     submission_status_label,
 )
 from shared.user_timezone import format_for_user, is_valid_timezone_name
+from shared import special_issues
 
 bp = Blueprint('fmadmin_web', __name__)
 logger = logging.getLogger(__name__)
@@ -3501,7 +3502,7 @@ def _role_notification_access_clause(current_user):
     return build_role_notification_access_clause(current_user)
 
 
-def _uncovered_admin_tracks():
+def _uncovered_admin_tracks(submissions=None):
     """Tracks that have live submissions but no admin able to receive them.
 
     A submission whose track nobody covers is simply left with
@@ -3509,11 +3510,16 @@ def _uncovered_admin_tracks():
     nothing else says so -- it just sits in the queue unowned.  Surfacing the
     gap is what turns it into something a superadmin can act on.
 
+    `submissions` lets a caller that already fetched the non-draft queue
+    (e.g. alongside `_untracked_submission_count`) pass it in instead of
+    triggering a second identical full-table scan.
+
     Returns a list of dicts: track key, label and how many submissions wait.
     """
     try:
         admins = _active_admins()
-        submissions = db.submissions.all().unequal(status='draft').exec()
+        if submissions is None:
+            submissions = db.submissions.all().unequal(status='draft').exec()
     except Exception:
         logger.exception("Could not determine uncovered admin tracks")
         return []
@@ -3540,14 +3546,18 @@ def _uncovered_admin_tracks():
     ]
 
 
-def _untracked_submission_count():
+def _untracked_submission_count(submissions=None):
     """Live submissions that reach no admin: no track and no owner.
 
     They are invisible to every track admin by design (see
     `_user_has_track_access`), so the superadmin has to be told they exist.
+
+    `submissions` lets a caller pass in an already-fetched non-draft queue
+    (see `_uncovered_admin_tracks`) instead of scanning the table again.
     """
     try:
-        submissions = db.submissions.all().unequal(status='draft').exec()
+        if submissions is None:
+            submissions = db.submissions.all().unequal(status='draft').exec()
     except Exception:
         logger.exception("Could not count untracked submissions")
         return 0
@@ -5094,6 +5104,13 @@ def _submission_track_label(track):
     return ADMIN_TRACK_LABELS.get(normalized_track, normalized_track or t("admin_label_not_specified"))
 
 
+def _submission_series_key(submission):
+    track = _normalize_admin_track(submission.get('submission_track'))
+    if track and _parse_bool(submission.get('is_special')):
+        return f'special_{track}'
+    return track
+
+
 def _can_access_submission(current_user, submission):
     if user_has_role(current_user, 'superadmin'):
         return True
@@ -5554,6 +5571,14 @@ def users():
     tariffs = db.tariffs.all().exec()
     tariffs_map = {t['id']: t for t in tariffs}
 
+    # Both helpers below scan the same non-draft submissions queue -- fetch
+    # it once here instead of each doing its own full-table read.
+    try:
+        active_submissions_for_tracks = db.submissions.all().unequal(status='draft').exec()
+    except Exception:
+        logger.exception("Could not load submissions for the track-coverage widgets")
+        active_submissions_for_tracks = []
+
     return render_template('users/users/users.html', users=users, page=page, total_users=total_users, total_pages=total_pages,
                            search_name=search_name, search_email=search_email,
                            directory_filter=directory_filter, role_filter=role_filter,
@@ -5561,8 +5586,8 @@ def users():
                            current_user=current_user,
                            can_manage_users=can_manage_users,
                            can_assign_editor_roles=can_assign_editor_roles,
-                           uncovered_tracks=_uncovered_admin_tracks(),
-                           untracked_submission_count=_untracked_submission_count())
+                           uncovered_tracks=_uncovered_admin_tracks(active_submissions_for_tracks),
+                           untracked_submission_count=_untracked_submission_count(active_submissions_for_tracks))
 
 
 def _to_bool(value):
@@ -7681,6 +7706,15 @@ def parse_date(date_str, with_time=False):
 @content_required
 def issue_edit(issue_id):
     if request.method == 'POST':
+        special_metadata = None
+        if request.form.get('special_fields_present') and special_issues.is_special_issue(request.form):
+            try:
+                special_metadata = special_issues.metadata_from_form(request.form)
+                if not special_issues.ensure_schema(db.conn, settings.RUNTIME_SCHEMA_SYNC_ENABLED):
+                    raise ValueError('Maxsus son uchun 20260911_000001 migratsiyasini ishga tushiring.')
+            except ValueError as exc:
+                new_alert(str(exc), 'danger')
+                return redirect(url_for('issue_edit', issue_id=issue_id))
         toc_upload_requested = bool(
             request.files.get('table_of_contents_file')
             and request.files['table_of_contents_file'].filename
@@ -7765,6 +7799,8 @@ def issue_edit(issue_id):
             issue_id_new = db.issues.add(**create_data).exec()
             if issue_id_new:
                 issue_id_new = issue_id_new[0]['id']
+                if special_metadata is not None:
+                    _save_issue_special_metadata(issue_id_new, special_metadata)
                 new_alert(_msg_text("Nashr soni muvaffaqiyatli yaratildi", 'Выпуск успешно создан', 'Issue created successfully'), 'success')
             else:
                 issue_id_new = 0
@@ -7806,6 +7842,8 @@ def issue_edit(issue_id):
                 else:
                     update_data['table_of_contents_file'] = data.get('table_of_contents_file')
             db.issues.all().equal(id=issue_id).update(**update_data).exec()
+            if special_metadata is not None:
+                _save_issue_special_metadata(issue_id, special_metadata)
             new_alert(_msg_text("Nashr soni muvaffaqiyatli saqlandi", 'Выпуск успешно сохранён', 'Issue saved successfully'), 'success')
             return redirect(url_for('issue_edit', issue_id=issue_id))
 
@@ -7839,7 +7877,119 @@ def issue_edit(issue_id):
 
     admin_lang = _admin_language()
     issue_categories = _issue_series_options(admin_lang)
-    return render_template('website/issues/edit.html', issue=issue, issue_categories = issue_categories)
+    special_data = special_issues.load_details(db.conn, issue_id) if issue_id and special_issues.is_special_issue(issue) else {}
+    return render_template('website/issues/edit.html', issue=issue, issue_categories=issue_categories,
+                           special_data=special_data, special_documents=special_issues.documents_from(special_data),
+                           special_categories=special_issues.SPECIAL_CATEGORIES,
+                           special_languages=special_issues.LANGUAGES,
+                           special_ui=special_issues.ui_texts(admin_lang),
+                           special_document_kinds=special_issues.DOCUMENT_KINDS)
+
+
+def _save_issue_special_metadata(issue_id, metadata):
+    special_issues.save_metadata(db.conn, issue_id, metadata)
+
+
+def _require_special_issue(issue_id):
+    rows = db.issues.all().equal(id=issue_id).exec()
+    if not rows or not special_issues.is_special_issue(rows[0]):
+        abort(404)
+    return rows[0]
+
+
+def _cleanup_special_document(document):
+    try:
+        special_issues.remove_document_file(settings.SAVE_PATH, document)
+    except OSError:
+        logger.exception('Could not remove special-issue document file')
+
+
+@bp.route('/fmadmin/website/issues/<int:issue_id>/documents', methods=['POST'])
+@content_required
+def issue_document_upload(issue_id):
+    _require_special_issue(issue_id)
+    saved = None
+    try:
+        if not special_issues.ensure_schema(db.conn, settings.RUNTIME_SCHEMA_SYNC_ENABLED):
+            raise ValueError('Maxsus son uchun 20260911_000001 migratsiyasini ishga tushiring.')
+        kind = request.form.get('kind', '')
+        language = request.form.get('language', '')
+        title = _clean_text(request.form.get('title'))
+        replace_id = _clean_text(request.form.get('replace_id'))
+        if kind not in special_issues.DOCUMENT_KINDS or language not in special_issues.LANGUAGES:
+            raise ValueError("Hujjat turi yoki tili noto'g'ri.")
+        if kind != 'letter' and (not title or len(title) > 200):
+            raise ValueError('Hujjat nomini kiriting (maksimal 200 belgi).')
+        upload = request.files.get('document')
+        if not upload or not upload.filename:
+            raise ValueError('Hujjat faylini tanlang.')
+        saved = special_issues.save_document(settings.SAVE_PATH, upload)
+        document = dict(saved, id=uuid.uuid4().hex, kind=kind, language=language, title=title)
+
+        def update(documents):
+            old = next((doc for doc in documents if doc['id'] == replace_id), None) if replace_id else None
+            if replace_id and old is None:
+                raise ValueError('Almashtiriladigan hujjat topilmadi.')
+            if kind == 'letter' and any(doc.get('kind') == 'letter' and doc.get('language') == language and doc is not old for doc in documents):
+                raise ValueError('Bu tildagi axborot xati mavjud. Uning Almashtirish tugmasidan foydalaning.')
+            if old:
+                document['id'] = old['id']
+                documents[documents.index(old)] = document
+            else:
+                if len(documents) >= special_issues.MAX_DOCUMENTS:
+                    raise ValueError('Bitta son uchun maksimal 30 ta hujjat yuklash mumkin.')
+                documents.append(document)
+            return old
+
+        replaced = special_issues.edit_documents(db.conn, issue_id, update)
+        if replaced:
+            _cleanup_special_document(replaced)
+        new_alert('Hujjat saqlandi.', 'success')
+    except ValueError as exc:
+        if saved:
+            _cleanup_special_document(saved)
+        new_alert(str(exc), 'danger')
+    except Exception:
+        if saved:
+            _cleanup_special_document(saved)
+        logger.exception('Special-issue document upload failed')
+        new_alert('Hujjat saqlanmadi. Qayta urinib ko‘ring.', 'danger')
+    return redirect(url_for('issue_edit', issue_id=issue_id, _anchor='special-documents'))
+
+
+@bp.route('/fmadmin/website/issues/<int:issue_id>/documents/<string:document_id>/<string:action>', methods=['POST'])
+@content_required
+def issue_document_action(issue_id, document_id, action):
+    _require_special_issue(issue_id)
+    if action not in ('delete', 'up', 'down'):
+        abort(404)
+
+    def update(documents):
+        index = next((i for i, doc in enumerate(documents) if doc['id'] == document_id), None)
+        if index is None:
+            abort(404)
+        if action == 'delete':
+            return documents.pop(index)
+        target = index + (-1 if action == 'up' else 1)
+        if 0 <= target < len(documents):
+            documents[index], documents[target] = documents[target], documents[index]
+
+    removed = special_issues.edit_documents(db.conn, issue_id, update)
+    if removed:
+        _cleanup_special_document(removed)
+    return redirect(url_for('issue_edit', issue_id=issue_id, _anchor='special-documents'))
+
+
+@bp.route('/fmadmin/website/issues/<int:issue_id>/documents/<string:document_id>')
+@content_required
+def issue_document_download(issue_id, document_id):
+    _require_special_issue(issue_id)
+    documents = special_issues.documents_from(special_issues.load_details(db.conn, issue_id))
+    document = next((doc for doc in documents if doc['id'] == document_id), None)
+    path = special_issues.document_path(settings.SAVE_PATH, document.get('filepath')) if document else None
+    if not path or not os.path.isfile(path):
+        abort(404)
+    return send_file(path, as_attachment=True, download_name=document['filename'])
 
 
 def _parse_int_list(value):
@@ -8199,25 +8349,36 @@ def articles():
             else:
                 query = query.any(main_author_id=[-1])
 
-    articles = query.exec()
-    if search_title:
-        title_query = search_title.lower()
-        articles = [
-            article for article in articles
-            if title_query in _clean_text(article.get('title')).lower()
-            or title_query in _clean_text(article.get('title_uz')).lower()
-            or title_query in _clean_text(article.get('title_ru')).lower()
-        ]
-    if search_missing_page_range:
-        articles = [
-            article for article in articles
-            if not _clean_text(article.get('page_range'))
-        ]
+    if search_title or search_missing_page_range:
+        # These two match across localized title columns / an empty
+        # page_range, which the query builder can't express as SQL -- fall
+        # back to fetching the (already issue/author/orcid-scoped) matches
+        # and filtering + paginating in Python, as before.
+        articles = query.exec()
+        if search_title:
+            title_query = search_title.lower()
+            articles = [
+                article for article in articles
+                if title_query in _clean_text(article.get('title')).lower()
+                or title_query in _clean_text(article.get('title_uz')).lower()
+                or title_query in _clean_text(article.get('title_ru')).lower()
+            ]
+        if search_missing_page_range:
+            articles = [
+                article for article in articles
+                if not _clean_text(article.get('page_range'))
+            ]
 
-    total_articles = len(articles)
-    start = max(page - 1, 0) * per_page
-    end = start + per_page
-    articles = articles[start:end]
+        total_articles = len(articles)
+        start = max(page - 1, 0) * per_page
+        end = start + per_page
+        articles = articles[start:end]
+    else:
+        # The common case (browsing/filtering by issue or author only) does
+        # not need every matching row in memory -- paginate at the DB level,
+        # the same way authors()/payments() already do.
+        total_articles = query.copy().count().exec()
+        articles = query.per_page(per_page).page(page).exec()
     total_pages = (total_articles + per_page - 1) // per_page
 
     for article in articles:
@@ -10478,6 +10639,16 @@ def serve_static_any(filename):
 def submissions():
     current_user = get_current_user() or {}
     current_role = _role_of(current_user)
+    series_choices = [
+        (key, "Professor-o'qituvchilar" if key == 'teacher' else label)
+        for key, label in ADMIN_TRACK_CHOICES
+    ]
+    series_choices.extend(
+        (option['alias'], option['name_display'])
+        for option in _issue_series_options('uz')
+        if option['alias'].startswith('special_')
+    )
+    series_labels = dict(series_choices)
     page = request.args.get('page', 1, type=int)
     per_page = 20
     status_filter = request.args.get('status', '').strip()
@@ -10495,21 +10666,30 @@ def submissions():
     created_to_ts = _parse_date_to_timestamp(created_to, end_of_day=True) if created_to else None
 
     query = db.submissions.all().unequal(status='draft').order_by('id')
+    submissions_rows = query.exec()
 
-    # Получаем пользователей и авторов для отображения имен и фильтрации
-    users = db.users.all().exec()
-    users_map = {u['id']: u for u in users}
-
-    authors = db.author_profile.all().exec()
-    authors_map = {a['id']: a for a in authors}
     admin_options = _active_admins()
     current_user_id = _parse_int(current_user.get('id'))
     editor_options = get_editors(admin_id=current_user_id) if current_role == 'admin' else get_editors()
 
-    submissions_rows = query.exec()
+    # Only the authors referenced by these submissions are ever looked up
+    # below (author_filter matching, per-row display) -- fetching the whole
+    # author_profile table here doesn't scale with its size.
+    referenced_author_ids = sorted({
+        author_id
+        for author_id in (
+            _parse_int(submission.get('main_author_id')) for submission in submissions_rows
+        )
+        if author_id is not None
+    })
+    authors = db.author_profile.all().any(id=referenced_author_ids).exec() if referenced_author_ids else []
+    authors_map = {a['id']: a for a in authors}
+
     title_filter_lower = title_filter.lower() if title_filter else ''
     author_filter_lower = author_filter.lower() if author_filter else ''
-    normalized_track_filter = _normalize_admin_track(track_filter) if track_filter else ''
+    normalized_series_filter = (
+        track_filter if track_filter in series_labels else _normalize_admin_track(track_filter)
+    )
     user_id_filter_value = _parse_int(user_id_filter)
     submission_ids = [submission.get('id') for submission in submissions_rows if submission.get('id') is not None]
     assignment_rows = []
@@ -10541,9 +10721,8 @@ def submissions():
             continue
         if title_filter_lower and title_filter_lower not in _clean_text(submission.get('title')).lower():
             continue
-        if normalized_track_filter:
-            submission_track = _normalize_admin_track(submission.get('submission_track'))
-            if submission_track != normalized_track_filter:
+        if normalized_series_filter:
+            if _submission_series_key(submission) != normalized_series_filter:
                 continue
         if assigned_admin_filter is not None:
             if _parse_int(submission.get('assigned_admin_id')) != assigned_admin_filter:
@@ -10593,11 +10772,29 @@ def submissions():
     admin_lang = _admin_language()
     classification_lookup = _classification_catalog_lookup(admin_lang)
 
+    # users_map only needs to cover the current page (submitter, assigned
+    # admin, assigned editors) -- not every user in the system.
+    referenced_user_ids = set()
+    for submission in submissions_list:
+        submitter_id = _parse_int(submission.get('user_id'))
+        if submitter_id is not None:
+            referenced_user_ids.add(submitter_id)
+        admin_id = _parse_int(submission.get('assigned_admin_id'))
+        if admin_id is not None:
+            referenced_user_ids.add(admin_id)
+        for editor_id in assignments_by_submission.get(submission.get('id'), []):
+            referenced_user_ids.add(editor_id)
+    users = db.users.all().any(id=list(referenced_user_ids)).exec() if referenced_user_ids else []
+    users_map = {u['id']: u for u in users}
+
     for submission in submissions_list:
         stage_key = submission.get('workflow_stage') or _infer_workflow_stage(submission)
         submission['workflow_stage'] = stage_key
         submission['workflow_stage_label'] = WORKFLOW_STAGE_LABELS.get(stage_key, stage_key)
-        submission['submission_track_label'] = _submission_track_label(submission.get('submission_track'))
+        submission['submission_track_label'] = series_labels.get(
+            _submission_series_key(submission),
+            _submission_track_label(submission.get('submission_track')),
+        )
         assigned_admin = users_map.get(_parse_int(submission.get('assigned_admin_id')))
         submission['assigned_admin_name'] = assigned_admin.get('name') if assigned_admin else t("admin_label_not_specified")
         assigned_editor_ids = assignments_by_submission.get(submission.get('id'), [])
@@ -10647,7 +10844,7 @@ def submissions():
                          users_map=users_map,
                          authors_map=authors_map,
                          admin_options=admin_options,
-                         admin_track_choices=ADMIN_TRACK_CHOICES,
+                         admin_track_choices=series_choices,
                          editor_options=editor_options,
                          current_user=current_user,
                          workflow_stage_choices=_submission_status_choices(_admin_language()),
@@ -11968,9 +12165,21 @@ def editor_assignments():
         all_assignments = []
     all_assignments = [_decorate_assignment(item) for item in all_assignments]
 
-    # Получаем все статьи для фильтрации
+    # Only the submissions these assignments actually reference are needed
+    # below (RBAC check, title filter, per-row display) -- not every
+    # submission in the system.
+    referenced_submission_ids = sorted({
+        submission_id
+        for submission_id in (
+            _parse_int(assignment.get('submission_id')) for assignment in all_assignments
+        )
+        if submission_id is not None
+    })
     try:
-        all_submissions = db.submissions.all().exec()
+        all_submissions = (
+            db.submissions.all().any(id=referenced_submission_ids).exec()
+            if referenced_submission_ids else []
+        )
     except:
         all_submissions = []
 

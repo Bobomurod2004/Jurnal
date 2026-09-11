@@ -1,5 +1,7 @@
 # flake8: noqa
 import datetime
+import threading
+import time
 from extensions import db
 from shared.submission_status import (
     SUBMISSION_STATUSES,
@@ -121,7 +123,39 @@ def _load_all_dashboard_data():
     return submissions, publications, users, authors
 
 
+# The admin homepage (and a few report helpers below) used to rebuild this
+# snapshot from scratch on every request by fully scanning submissions,
+# publications, users AND author_profile -- four unbounded table reads plus
+# all the Python-side aggregation below, on the page every admin/editor
+# lands on after login and every time they navigate back to it. Cache the
+# result briefly per (args, lang) so a burst of admin navigation reuses one
+# computation instead of repeating it; a short TTL keeps counts close to
+# live for an internal dashboard.
+_DASHBOARD_SNAPSHOT_CACHE_TTL = 60
+_dashboard_snapshot_cache = {}
+_dashboard_snapshot_cache_lock = threading.Lock()
+
+
 def get_dashboard_snapshot(months=6, recent_limit=6, top_limit=6, stale_days=14, lang='uz'):
+    cache_key = (months, recent_limit, top_limit, stale_days, lang)
+    now_mono = time.monotonic()
+
+    with _dashboard_snapshot_cache_lock:
+        cached = _dashboard_snapshot_cache.get(cache_key)
+        if cached is not None and now_mono - cached[0] < _DASHBOARD_SNAPSHOT_CACHE_TTL:
+            return cached[1]
+
+    snapshot = _compute_dashboard_snapshot(
+        months=months, recent_limit=recent_limit, top_limit=top_limit,
+        stale_days=stale_days, lang=lang,
+    )
+
+    with _dashboard_snapshot_cache_lock:
+        _dashboard_snapshot_cache[cache_key] = (now_mono, snapshot)
+    return snapshot
+
+
+def _compute_dashboard_snapshot(months=6, recent_limit=6, top_limit=6, stale_days=14, lang='uz'):
     try:
         now = datetime.datetime.now()
         now_ts = int(now.timestamp())
