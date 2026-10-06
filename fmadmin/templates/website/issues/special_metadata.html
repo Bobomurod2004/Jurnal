@@ -8,7 +8,7 @@
             <label class="form-label" for="special-description-{{ lang }}">Tavsif ({{ lang|upper }})</label>
             <textarea id="special-description-{{ lang }}" name="special_description_{{ lang }}" class="form-control" rows="4" maxlength="12000">{{ special_data.get('description', {}).get(lang, '') }}</textarea>
         </div>
-        {% for field in ['organizer', 'venue', 'publication_languages'] %}
+        {% for field in ['organizer', 'publication_languages'] %}
         <div class="mb-3">
             <label class="form-label" for="special-{{ field }}-{{ lang }}">{{ special_ui[field] }} ({{ lang|upper }})</label>
             <input id="special-{{ field }}-{{ lang }}" name="special_{{ field }}_{{ lang }}" class="form-control" maxlength="500" value="{{ special_data.get(field, {}).get(lang, '') }}">

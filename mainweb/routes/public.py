@@ -27,6 +27,7 @@ from shared.publication_metadata import (
     publication_metadata_label,
     publication_metadata_options,
 )
+from shared import special_issues
 
 try:
     import maxminddb
@@ -3871,6 +3872,7 @@ def app__issues():
     category_filter_raw = _clean_text(request.args.get('category'))
     category_filter = _resolve_issue_category_filter(category_filter_raw)
     masters_series_mode = _is_masters_issue_alias(category_filter)
+    special_overview_mode = category_filter == 'special'
     _set_masters_series_mode(masters_series_mode)
     access_filter = request.args.get('access')
 
@@ -3879,7 +3881,10 @@ def app__issues():
     if parsed_year_filter is not None:
         query = query.equal(year=parsed_year_filter)
 
-    if category_filter:
+    # ``special`` is the public overview: it must contain the generic special
+    # category and every electronic special series, rather than querying only
+    # the literal database value ``special``.
+    if category_filter and not special_overview_mode:
         query = query.equal(category=category_filter)
 
     if access_filter:
@@ -3891,7 +3896,9 @@ def app__issues():
             query = query.equal(subscription_enable=True)
 
     issues = query.exec()
-    if not masters_series_mode:
+    if special_overview_mode:
+        issues = [issue for issue in issues if special_issues.is_special_issue(issue)]
+    elif not masters_series_mode:
         issues = [
             issue for issue in issues
             if not _is_masters_issue(issue)
@@ -3902,13 +3909,12 @@ def app__issues():
     issues = sorted(issues, key=lambda x: (_parse_int(x.get('created_at')) or 0), reverse=True)
 
     all_issues = dbc.issues.get().exec()
-    year_source = [
-        issue for issue in all_issues
-        if _is_masters_issue(issue)
-    ] if masters_series_mode else [
-        issue for issue in all_issues
-        if not _is_masters_issue(issue)
-    ]
+    if special_overview_mode:
+        year_source = [issue for issue in all_issues if special_issues.is_special_issue(issue)]
+    elif masters_series_mode:
+        year_source = [issue for issue in all_issues if _is_masters_issue(issue)]
+    else:
+        year_source = [issue for issue in all_issues if not _is_masters_issue(issue)]
     available_years = sorted({
         parsed_year
         for issue in year_source
@@ -4349,6 +4355,34 @@ def app__issue(issue_id):
     next_issue = all_issues[current_index + 1] if current_index < len(all_issues) - 1 else None
 
     has_access = _resolve_issue_access(issue, session.get('user_id'))
+    is_special_issue = special_issues.is_special_issue(issue)
+    special_details = {}
+    special_documents = []
+    special_letter_documents = {}
+    special_ui = {}
+    if is_special_issue:
+        try:
+            special_details = special_issues.public_details(
+                special_issues.load_details(dbc.conn, issue_id),
+                current_lang,
+            )
+        except Exception:
+            current_app.logger.exception('Could not load special issue details for issue %s', issue_id)
+            special_details = special_issues.public_details({}, current_lang)
+
+        for document in special_details.get('documents', []):
+            document = dict(document)
+            document['download_url'] = url_for(
+                'app__download_special_issue_document',
+                issue_id=issue_id,
+                document_id=document.get('id'),
+            )
+            if document.get('kind') == 'letter':
+                special_letter_documents[document.get('language')] = document
+            else:
+                special_documents.append(document)
+        special_ui = special_issues.ui_texts(current_lang)
+
     issue_toc_public_url = _issue_toc_public_url(issue)
     issue_toc_file_path, _ = _resolve_issue_toc_download_file(issue)
     if issue_toc_file_path:
@@ -4443,7 +4477,8 @@ def app__issue(issue_id):
         _apply_localized_content(next_issue, ('title', 'shortinfo', 'price'), lang=current_lang)
     issue_shortinfo = _build_issue_shortinfo(issue.get('shortinfo'))
     issue_ui = _issue_ui_texts()
-    return render_template('mainweb/issue.html',
+    return render_template(
+                         'mainweb/special_issue.html' if is_special_issue else 'mainweb/issue.html',
                          issue=issue,
                          has_access=has_access,
                          prev_issue=prev_issue,
@@ -4453,6 +4488,11 @@ def app__issue(issue_id):
                          issue_toc_download_url=issue_toc_download_url,
                          issue_shortinfo=issue_shortinfo,
                          issue_ui=issue_ui,
+                         special_details=special_details,
+                         special_documents=special_documents,
+                         special_letter_documents=special_letter_documents,
+                         special_languages=special_issues.LANGUAGES,
+                         special_ui=special_ui,
                          author_tooltip_ui=author_tooltip_ui)
 
 
@@ -5166,6 +5206,40 @@ def app__download_issue_toc(issue_id):
     )
 
 
+def app__download_special_issue_document(issue_id, document_id):
+    issue_rows = dbc.issues.get(id=issue_id).exec()
+    if not issue_rows:
+        abort(404)
+
+    issue = issue_rows[0]
+    if not special_issues.is_special_issue(issue):
+        abort(404)
+    if _is_masters_issue(issue) and not _masters_series_mode_enabled():
+        return redirect(url_for('app__issues', category=_masters_issue_category_for_redirect(issue)))
+
+    try:
+        documents = special_issues.documents_from(special_issues.load_details(dbc.conn, issue_id))
+    except Exception:
+        current_app.logger.exception('Could not load special issue document for issue %s', issue_id)
+        abort(404)
+
+    document = next((item for item in documents if item.get('id') == document_id), None)
+    file_path = special_issues.document_path(
+        settings.SAVE_PATH,
+        document.get('filepath') if document else None,
+    )
+    if not file_path or not os.path.isfile(file_path):
+        abort(404)
+
+    mime_type = mimetypes.guess_type(file_path)[0] or 'application/octet-stream'
+    return send_file(
+        file_path,
+        as_attachment=True,
+        download_name=_clean_text(document.get('filename')) or os.path.basename(file_path),
+        mimetype=mime_type,
+    )
+
+
 def app__robots_txt():
     response = render_template('robots.txt')
     return Response(response, mimetype='text/plain')
@@ -5339,6 +5413,7 @@ def register(app):
     app.add_url_rule('/issue/purchase/<int:issue_id>', view_func=login_required(app__purchase_issue))
     app.add_url_rule('/issue/download/<int:issue_id>', view_func=app__download_issue)
     app.add_url_rule('/issue/toc/download/<int:issue_id>', view_func=app__download_issue_toc)
+    app.add_url_rule('/issue/<int:issue_id>/document/<string:document_id>', view_func=app__download_special_issue_document)
     app.add_url_rule('/article/<int:article_id>', view_func=app__article)
     app.add_url_rule('/article/download/<int:article_id>', view_func=app__download_article)
     app.add_url_rule('/static/uploads/<path:filename>', view_func=serve_static_uploads)

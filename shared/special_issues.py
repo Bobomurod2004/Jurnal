@@ -9,9 +9,12 @@ from pathlib import Path
 
 from psycopg2.errors import UndefinedTable
 
-SPECIAL_CATEGORIES = ('special_masters', 'special_phd', 'special_teacher')
+SPECIAL_CATEGORIES = ('special', 'special_masters', 'special_phd', 'special_teacher')
 LANGUAGES = {'uz': "O'zbekcha", 'ru': 'Русский', 'en': 'English'}
-LOCALIZED_FIELDS = ('description', 'organizer', 'venue', 'publication_languages')
+# Special issues are electronic publications. A physical venue is deliberately
+# not part of the public or admin content model. Existing rows may still
+# contain the old ``venue`` key, but it is ignored safely.
+LOCALIZED_FIELDS = ('description', 'organizer', 'publication_languages')
 DOCUMENT_KINDS = ('letter', 'program', 'template', 'committee', 'other')
 MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
 MAX_DOCUMENTS = 30
@@ -188,9 +191,9 @@ def public_details(data, language):
 
 
 UI = {
-    'uz': dict(special='Maxsus son', about='Maxsus son haqida', documents='Hujjatlar', articles='Ushbu sondagi maqolalar', letter='Axborot xati', letter_hint="Tadbir yo'nalishlari, muhim sanalar va mualliflar uchun talablar.", download_letter='Axborot xatini yuklab olish', primary='Asosiy hujjat', additional="Qo'shimcha hujjatlar", organizer='Tashkilotchi', venue="O'tkazilish joyi", event_date='Tadbir sanasi', publication_languages='Nashr tillari', read="Maqolalarni o'qish", search="Maqola yoki muallifni qidirish…", empty="Qidiruvga mos maqola topilmadi.", program='Konferensiya dasturi', template='Maqola shabloni', committee="Tashkiliy qo'mita", other='Boshqa hujjat', masters='Magistratura seriyasi', phd='Doktorantura seriyasi', teacher="Professor-o'qituvchilar seriyasi"),
-    'ru': dict(special='Специальный выпуск', about='О специальном выпуске', documents='Документы', articles='Статьи выпуска', letter='Информационное письмо', letter_hint='Направления мероприятия, важные даты и требования к авторам.', download_letter='Скачать информационное письмо', primary='Основной документ', additional='Дополнительные документы', organizer='Организатор', venue='Место проведения', event_date='Дата мероприятия', publication_languages='Языки публикации', read='Читать статьи', search='Поиск по статье или автору…', empty='Статьи не найдены.', program='Программа конференции', template='Шаблон статьи', committee='Организационный комитет', other='Другой документ', masters='Серия: Магистратура', phd='Серия: Докторантура', teacher='Серия: Профессорско-преподавательский состав'),
-    'en': dict(special='Special issue', about='About this issue', documents='Documents', articles='Articles in this issue', letter='Information letter', letter_hint='Event topics, important dates and requirements for authors.', download_letter='Download information letter', primary='Main document', additional='Additional documents', organizer='Organizer', venue='Location', event_date='Event date', publication_languages='Publication languages', read='Read articles', search='Search articles or authors…', empty='No matching articles found.', program='Conference programme', template='Article template', committee='Organizing committee', other='Other document', masters="Master's series", phd='Doctoral series', teacher='Academic staff series'),
+    'uz': dict(special='Maxsus son', about='Maxsus son haqida', documents='Hujjatlar', articles='Ushbu sondagi maqolalar', letter='Axborot xati', letter_hint="Nashr haqida muhim ma'lumotlar va mualliflar uchun talablar.", download_letter='Axborot xatini yuklab olish', primary='Asosiy hujjat', additional="Qo'shimcha hujjatlar", organizer='Tashkilotchi', event_date='Muhim sana', publication_languages='Nashr tillari', read="Maqolalarni o'qish", search="Maqola yoki muallifni qidirish…", empty="Qidiruvga mos maqola topilmadi.", program='Dastur', template='Maqola shabloni', committee="Tahrir hay’ati", other='Boshqa hujjat', masters='Magistratura seriyasi', phd='Doktorantura seriyasi', teacher="Professor-o'qituvchilar seriyasi"),
+    'ru': dict(special='Специальный выпуск', about='О специальном выпуске', documents='Документы', articles='Статьи выпуска', letter='Информационное письмо', letter_hint='Важная информация о выпуске и требования для авторов.', download_letter='Скачать информационное письмо', primary='Основной документ', additional='Дополнительные документы', organizer='Организатор', event_date='Важная дата', publication_languages='Языки публикации', read='Читать статьи', search='Поиск по статье или автору…', empty='Статьи не найдены.', program='Программа', template='Шаблон статьи', committee='Редакционная коллегия', other='Другой документ', masters='Серия: Магистратура', phd='Серия: Докторантура', teacher='Серия: Профессорско-преподавательский состав'),
+    'en': dict(special='Special issue', about='About this issue', documents='Documents', articles='Articles in this issue', letter='Information letter', letter_hint='Important publication information and requirements for authors.', download_letter='Download information letter', primary='Main document', additional='Additional documents', organizer='Organizer', event_date='Important date', publication_languages='Publication languages', read='Read articles', search='Search articles or authors…', empty='No matching articles found.', program='Programme', template='Article template', committee='Editorial board', other='Other document', masters="Master's series", phd='Doctoral series', teacher='Academic staff series'),
 }
 
 
