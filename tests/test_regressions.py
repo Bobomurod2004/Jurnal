@@ -2680,3 +2680,32 @@ def test_parse_optional_number_blank_values_become_none():
     assert parse('', int) is None
     assert parse('2026', int) == 2026
     assert parse('x', int) is None
+
+
+def test_special_issue_ui_has_scholars_message_in_all_languages():
+    from shared import special_issues
+    assert 'scholars_message' in special_issues.DOCUMENT_KINDS
+    assert special_issues.ui_texts('uz')['scholars_message'] == 'Olimlarga murojaat'
+    assert special_issues.ui_texts('ru')['scholars_message'] == 'Обращение к учёным'
+    assert special_issues.ui_texts('en')['scholars_message'] == 'Message to Scholars'
+
+
+def test_format_issue_label_skips_empty_volume_and_issue(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = 'x'
+    monkeypatch.setattr(context_routes, 't', lambda key, *a, **k: {'volume': 'jild', 'issue': 'son'}.get(key, key))
+    context_routes.register_context_processors(app)
+    with app.test_request_context('/'):
+        app.preprocess_request()
+        ctx = {}
+        for processor in app.template_context_processors[None]:
+            try:
+                ctx.update(processor())
+            except Exception:
+                continue
+    fmt = ctx['format_issue_label']
+    assert fmt('', '') == ''
+    assert fmt(None, None, 2026) == '2026'
+    assert fmt('', '3') == '3-son'
+    assert fmt('2', '') == '2-jild'
+    assert fmt('2', '3', 2026) == '2-jild, 3-son (2026)'

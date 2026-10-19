@@ -33,12 +33,15 @@ def register_context_processors(app):
         return f'{label} {value_text}'
 
     def _format_issue_label(volume_no, issue_no, year=None):
-        volume_text = _format_number_with_label(volume_no, t('volume'))
-        issue_text = _format_number_with_label(issue_no, t('issue'))
-        meta = f'{volume_text}, {issue_text}'
+        parts = []
+        if _clean_text(volume_no):
+            parts.append(_format_number_with_label(volume_no, t('volume')))
+        if _clean_text(issue_no):
+            parts.append(_format_number_with_label(issue_no, t('issue')))
+        meta = ', '.join(parts)
         year_text = _clean_text(year)
         if year_text:
-            return f'{meta} ({year_text})'
+            return f'{meta} ({year_text})' if meta else year_text
         return meta
 
     def _format_volume_label(volume_no):
