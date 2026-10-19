@@ -2670,3 +2670,13 @@ def test_assignments_list_keeps_administration_columns_for_admins():
     assert 'Qayta ishlash so\'ralgan' in html
     assert 'admin_label_editor' in html
     assert 'admin_option_all_editors' in html
+
+
+def test_parse_optional_number_blank_values_become_none():
+    parse = fmadmin_web._parse_optional_number
+    assert [parse(v) for v in ['', None, '  ', 'abc']] == [None, None, None, None]
+    assert parse('12,5') == 12.5
+    assert parse('0') == 0.0
+    assert parse('', int) is None
+    assert parse('2026', int) == 2026
+    assert parse('x', int) is None

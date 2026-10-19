@@ -7702,6 +7702,16 @@ def parse_date(date_str, with_time=False):
     except Exception:
         return None
 
+def _parse_optional_number(value, cast=float):
+    """Convert form input to a number; blank or invalid values become None (NULL)."""
+    text = _clean_text(value)
+    if not text:
+        return None
+    try:
+        return cast(text.replace(',', '.')) if cast is float else cast(text)
+    except (TypeError, ValueError):
+        return None
+
 @bp.route('/fmadmin/website/issues/<int:issue_id>', methods=['GET', 'POST'])
 @content_required
 def issue_edit(issue_id):
@@ -7764,14 +7774,14 @@ def issue_edit(issue_id):
             title_ru = request.form.get('title_ru')
             vol_no = request.form.get('vol_no')
             issue_no = request.form.get('issue_no')
-            year = request.form.get('year')
+            year = _parse_optional_number(request.form.get('year'), int)
             category = request.form.get('category')
             shortinfo = request.form.get('shortinfo')
             shortinfo_uz = request.form.get('shortinfo_uz')
             shortinfo_ru = request.form.get('shortinfo_ru')
-            price = request.form.get('price')
-            price_uz = request.form.get('price_uz')
-            price_ru = request.form.get('price_ru')
+            price = _parse_optional_number(request.form.get('price'))
+            price_uz = _parse_optional_number(request.form.get('price_uz'))
+            price_ru = _parse_optional_number(request.form.get('price_ru'))
             subscription_enable = bool(request.form.get('subscription_enable'))
             is_paid = bool(request.form.get('is_paid'))
             created_at = parse_date(request.form.get('created_at'), with_time=False)
@@ -7819,14 +7829,14 @@ def issue_edit(issue_id):
                 title_ru=data.get('title_ru'),
                 vol_no=data.get('vol_no'),
                 issue_no=data.get('issue_no'),
-                year=data.get('year'),
+                year=_parse_optional_number(data.get('year'), int),
                 category=data.get('category'),
                 shortinfo=data.get('shortinfo'),
                 shortinfo_uz=data.get('shortinfo_uz'),
                 shortinfo_ru=data.get('shortinfo_ru'),
-                price=data.get('price'),
-                price_uz=data.get('price_uz'),
-                price_ru=data.get('price_ru'),
+                price=_parse_optional_number(data.get('price')),
+                price_uz=_parse_optional_number(data.get('price_uz')),
+                price_ru=_parse_optional_number(data.get('price_ru')),
                 subscription_enable=bool(data.get('subscription_enable')),
                 is_paid=bool(data.get('is_paid')),
             )
