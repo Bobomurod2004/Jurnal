@@ -24,6 +24,7 @@
     {% if scholar_meta.issue %}<meta name="citation_issue" content="{{ scholar_meta.issue }}">{% endif %}
     {% if scholar_meta.first_page %}<meta name="citation_firstpage" content="{{ scholar_meta.first_page }}">{% endif %}
     {% if scholar_meta.last_page %}<meta name="citation_lastpage" content="{{ scholar_meta.last_page }}">{% endif %}
+    {% if publication.keywords %}<meta name="citation_keywords" content="{{ publication.keywords | join('; ') }}">{% endif %}
     {# citation_doi is intentionally omitted: our DOIs are not deposited with
        Crossref, so doi.org does not resolve them yet. Advertising a dead DOI
        to Scholar's crawler is worse than omitting the tag. Restore this once
@@ -34,6 +35,13 @@
     {% if scholar_meta.pdf_url %}<meta name="citation_pdf_url" content="{{ scholar_meta.pdf_url }}">{% endif %}
     {% if scholar_meta.is_world_readable %}<meta name="citation_fulltext_world_readable" content="1">{% endif %}
     {% if scholar_meta.language %}<meta name="citation_language" content="{{ scholar_meta.language }}">{% endif %}
+    {# One citation_reference per bibliography entry helps Scholar build the
+       citation graph. Only present on open-access articles, where the
+       reference list is loaded for anonymous visitors (and crawlers). #}
+    {% for ref in publication_refs %}
+        {% set _cite = [(ref.authors or '')|string|trim, (ref.title or '')|string|trim, (ref.resource or ref.source_title or '')|string|trim, (ref.year or '')|string|trim] | select | join('. ') %}
+        {% if _cite %}<meta name="citation_reference" content="{{ _cite }}{% if ref.doi %} doi:{{ ref.doi }}{% endif %}">{% endif %}
+    {% endfor %}
 {% endif %}
 {% endblock %}
 

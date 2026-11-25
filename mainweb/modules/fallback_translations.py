@@ -1,6 +1,10 @@
 # flake8: noqa
 EXTRA_STATIC_TRANSLATIONS = {
     'uz': {
+        'error_404_title': "Sahifa topilmadi",
+        'error_404_text': "Siz qidirgan sahifa mavjud emas yoki o'chirilgan.",
+        'error_404_home': "Bosh sahifaga",
+        'error_404_articles': "Maqolalarga",
         'academic_position': "Akademik lavozim",
         'accept_terms_required': "Shartlarni qabul qilish majburiy",
         'access_free': "Bepul kirish",
@@ -215,6 +219,10 @@ EXTRA_STATIC_TRANSLATIONS = {
         'indexing_oak_name': "OAK / Komissiya",
     },
     'ru': {
+        'error_404_title': "Страница не найдена",
+        'error_404_text': "Запрашиваемая страница не существует или была удалена.",
+        'error_404_home': "На главную",
+        'error_404_articles': "К статьям",
         'academic_position': "Академическая должность",
         'accept_terms_required': "Необходимо принять условия",
         'access_free': "Бесплатный доступ",
@@ -429,6 +437,10 @@ EXTRA_STATIC_TRANSLATIONS = {
         'indexing_oak_name': "ВАК / Комиссия",
     },
     'en': {
+        'error_404_title': "Page not found",
+        'error_404_text': "The page you are looking for does not exist or has been removed.",
+        'error_404_home': "Go to homepage",
+        'error_404_articles': "Browse articles",
         'academic_position': "Academic position",
         'accept_terms_required': "You must accept the terms",
         'access_free': "Free access",

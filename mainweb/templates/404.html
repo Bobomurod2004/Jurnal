@@ -1,0 +1,17 @@
+{% extends 'basic.html' %}
+{% block title %}404 — {{ t('website_title') }}{% endblock %}
+{# A genuine 404 (proper HTTP status) for missing articles/issues/pages, so
+   Google reports a clean "Not found" instead of a soft-404 / redirect.
+   Styled inline so it never depends on a Tailwind rebuild. #}
+{% block head_meta %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<div style="max-width: 640px; margin: 0 auto; padding: 5rem 1rem; text-align: center;">
+    <div style="font-size: 5rem; font-weight: 800; color: #2563eb; line-height: 1;">404</div>
+    <h1 style="font-size: 1.6rem; font-weight: 700; color: #0f172a; margin: 1rem 0 0.5rem;">{{ t('error_404_title') }}</h1>
+    <p style="color: #64748b; margin-bottom: 2rem;">{{ t('error_404_text') }}</p>
+    <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center;">
+        <a href="{{ url_for('app__index') }}" style="display:inline-block; background:#2563eb; color:#fff; padding:0.6rem 1.1rem; border-radius:0.5rem; text-decoration:none;">{{ t('error_404_home') }}</a>
+        <a href="{{ url_for('app__articles') }}" style="display:inline-block; border:1px solid #e2e8f0; color:#334155; padding:0.6rem 1.1rem; border-radius:0.5rem; text-decoration:none;">{{ t('error_404_articles') }}</a>
+    </div>
+</div>
+{% endblock %}

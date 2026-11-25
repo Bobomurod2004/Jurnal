@@ -3236,8 +3236,7 @@ def _build_attachments_section(attachments, lang):
 def _render_journal_info_page():
     page = _ensure_seed_page('journal_info')
     if not page:
-        flash('Page not found', 'error')
-        return redirect(url_for('app__index'))
+        abort(404)
 
     lang = _current_lang_code()
     page = _apply_localized_content(page, ('title', 'content'), lang=lang)
@@ -3321,8 +3320,7 @@ def app__page_alias(alias):
 
     page = _ensure_seed_page(page_alias)
     if not page:
-        flash('Page not found', 'error')
-        return redirect(url_for('app__index'))
+        abort(404)
 
     lang = _current_lang_code()
     page = _apply_localized_content(page, ('title', 'content'), lang=lang)
@@ -3814,8 +3812,7 @@ def app__news():
 def app__news_detail(news_id):
     news_item = dbc.news.get(id=news_id, status='published').exec()
     if not news_item:
-        flash('News item not found', 'error')
-        return redirect(url_for('app__news'))
+        abort(404)
 
     news_item = translate(news_item[0])
 
@@ -4328,8 +4325,7 @@ def app__issue(issue_id):
     }
     issue = dbc.issues.get(id=issue_id).exec()
     if not issue:
-        flash('Issue not found', 'error')
-        return redirect(url_for('app__issues'))
+        abort(404)
 
     issue = issue[0]
     issue_is_masters = _is_masters_issue(issue)
@@ -4582,8 +4578,7 @@ def app__article(article_id):
     viewer_user_id = session.get('user_id')
     publication = dbc.publications.get(id=article_id).exec()
     if not publication:
-        flash('Article not found', 'error')
-        return redirect(url_for('app__articles'))
+        abort(404)
 
     publication = publication[0]
     issue_row_for_visibility = None
@@ -5396,6 +5391,13 @@ def serve_static_uploads(filename):
 
 
 def register(app):
+    @app.errorhandler(404)
+    def _handle_not_found(error):
+        # Serve a real 404 page (proper HTTP status) for missing articles,
+        # issues, news and CMS pages, so Google records a clean "Not found"
+        # instead of a soft-404 or a 302 redirect to a listing page.
+        return render_template('404.html'), 404
+
     app.add_url_rule('/', view_func=app__index)
     app.add_url_rule('/editorial', view_func=app__editorial)
     app.add_url_rule('/page/<string:alias>', view_func=app__page_alias)
