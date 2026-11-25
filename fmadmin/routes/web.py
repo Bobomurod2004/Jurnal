@@ -9671,7 +9671,10 @@ def payment_guide_settings():
         fallback_value = ''
         for lang in PAYMENT_GUIDE_LANGS:
             field_name = f'payment_guide_{lang}'
-            value = _clean_text(request.form.get(field_name))
+            # Rendered with |safe on the public payment-guide and dashboard
+            # pages, so it must be sanitized like any other editor HTML --
+            # _clean_text only trims whitespace, it does not strip markup.
+            value = _sanitize_page_html(request.form.get(field_name))
             ok_all = _set_site_setting(f"{PAYMENT_GUIDE_KEY}_{lang}", value) and ok_all
             if not fallback_value and value:
                 fallback_value = value
@@ -9709,9 +9712,13 @@ def news_edit(news_id):
         title_ru = request.form.get('title_ru', '')
         title_uz = request.form.get('title_uz', '')
         title = request.form.get('title_en', '')
-        content_ru = request.form.get('content_ru', '')
-        content_uz = request.form.get('content_uz', '')
-        content = request.form.get('content_en', '')
+        # News/announcement bodies render with |safe on the public site, so
+        # they must go through the same HTML sanitizer as CMS pages -- otherwise
+        # a content editor can plant a stored XSS payload (mainweb and fmadmin
+        # share one origin, so it can reach an admin's session).
+        content_ru = _sanitize_page_html(request.form.get('content_ru', ''))
+        content_uz = _sanitize_page_html(request.form.get('content_uz', ''))
+        content = _sanitize_page_html(request.form.get('content_en', ''))
         status = request.form.get('status', 'draft')
         published_at = parse_date(request.form.get('published_at'), with_time=False)
         cover_image = None
@@ -10018,9 +10025,13 @@ def announcement_edit(announcement_id):
         title_ru = request.form.get('title_ru', '')
         title_uz = request.form.get('title_uz', '')
         title = request.form.get('title_en', '')
-        content_ru = request.form.get('content_ru', '')
-        content_uz = request.form.get('content_uz', '')
-        content = request.form.get('content_en', '')
+        # News/announcement bodies render with |safe on the public site, so
+        # they must go through the same HTML sanitizer as CMS pages -- otherwise
+        # a content editor can plant a stored XSS payload (mainweb and fmadmin
+        # share one origin, so it can reach an admin's session).
+        content_ru = _sanitize_page_html(request.form.get('content_ru', ''))
+        content_uz = _sanitize_page_html(request.form.get('content_uz', ''))
+        content = _sanitize_page_html(request.form.get('content_en', ''))
         status = request.form.get('status', 'draft')
         published_at = parse_date(request.form.get('published_at'), with_time=False)
         cover_image = None

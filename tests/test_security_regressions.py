@@ -1,5 +1,6 @@
 import os
 
+import pytest
 from flask import Flask, session
 
 from fmadmin.routes import messages as fmadmin_messages
@@ -387,3 +388,163 @@ def test_stream_b_notification_admin_message_targets_the_editor():
     assert target_user_id == _ASSIGNED_EDITOR_ID
     assert target_role == 'editor'
     assert target_user_id != _SUBMISSION['user_id']
+
+
+# ---------------------------------------------------------------------------
+# Security audit 2026-11-25 #1 -- workflow-integrity guard.
+#
+# The author-facing save/submit endpoints accept any submission_id the caller
+# owns. Without a server-side status check, an author could POST to
+# /api/article/save or /api/article/submit with a submission that has already
+# left their hands (under review, published, rejected) and silently overwrite
+# the manuscript or reset it to 'pending', bypassing the fixed workflow order.
+# ---------------------------------------------------------------------------
+
+from shared.submission_status import is_author_editable
+
+
+def test_is_author_editable_allows_only_author_owned_states():
+    for allowed in ('', 'draft', 'pending', 'failed_technical_check',
+                    'revision_required', 'antiplagiarism_failed'):
+        assert is_author_editable(allowed) is True, allowed
+    for locked in ('passed_technical_check', 'plagiarism_check', 'under_review',
+                   'recommended', 'payment_pending', 'in_layout',
+                   'published', 'rejected'):
+        assert is_author_editable(locked) is False, locked
+
+
+def _invoke_author_write(monkeypatch, status, handler_name):
+    app = Flask(__name__)
+    app.secret_key = 'test'
+
+    table = _FakeMutableTable([
+        {'id': 7, 'user_id': 42, 'status': status, 'title': 'original'},
+    ])
+
+    class _Dbc:
+        submissions = table
+
+    monkeypatch.setattr(mainweb_api, 'dbc', _Dbc)
+    # Keep the assertion independent of the translation backend / DB.
+    monkeypatch.setattr(mainweb_api, 't', lambda key, *a, **k: key)
+
+    handler = getattr(mainweb_api, handler_name)
+    with app.test_request_context(
+        '/api/article/save',
+        method='POST',
+        json={'submission_id': 7, 'title_en': 'tampered'},
+    ):
+        session['user_id'] = 42
+        result = handler()
+
+    response = result[0] if isinstance(result, tuple) else result
+    status_code = result[1] if isinstance(result, tuple) else 200
+    return response.get_json(), status_code, table
+
+
+@pytest.mark.parametrize('handler_name',
+                         ['app__api_article_submit', 'app__api_article_save'])
+@pytest.mark.parametrize('locked_status', ['published', 'under_review', 'rejected',
+                                           'plagiarism_check', 'in_layout'])
+def test_author_cannot_write_to_a_submission_that_left_their_hands(
+        monkeypatch, handler_name, locked_status):
+    body, status_code, table = _invoke_author_write(
+        monkeypatch, locked_status, handler_name)
+
+    assert status_code == 409
+    assert body['success'] is False
+    assert body['message'] == 'submission_not_editable'
+    # The stored row is untouched: no reset to 'pending', no overwritten title.
+    assert table.rows[0]['status'] == locked_status
+    assert table.rows[0]['title'] == 'original'
+
+
+# ---------------------------------------------------------------------------
+# Security audit 2026-11-25 #2 -- stored XSS via news/announcement bodies.
+#
+# News and announcement bodies render with |safe on the public site and share
+# one origin with /fmadmin/, so unsanitized HTML from a content editor is a
+# stored XSS that can reach an admin's session. The save handlers must run the
+# bodies through the same sanitizer as CMS pages.
+# ---------------------------------------------------------------------------
+
+import fmadmin.utils.auth as fmadmin_auth
+
+
+def _capture_news_add(monkeypatch, form):
+    app = Flask(__name__)
+    app.secret_key = 'test'
+    fmadmin_web.register(app)
+
+    monkeypatch.setattr(fmadmin_auth, 'user_has_permission', lambda *a, **k: True)
+
+    captured = {}
+
+    class _AddQuery:
+        def __init__(self, kwargs):
+            captured.update(kwargs)
+
+        def exec(self):
+            return [{'id': 1}]
+
+    class _FakeNews:
+        def add(self, **kwargs):
+            return _AddQuery(kwargs)
+
+    # The real connector intercepts attribute access (__getattr__ raises for
+    # unknown tables), so replace the whole `db` handle rather than one table.
+    class _FakeDb:
+        news = _FakeNews()
+
+    monkeypatch.setattr(fmadmin_web, 'db', _FakeDb())
+
+    with app.test_request_context(
+        '/fmadmin/website/news/edit/0', method='POST', data=form):
+        session['fmadmin_user'] = {'id': 1, 'rolename': 'admin', 'capabilities': {}}
+        fmadmin_web.news_edit(0)
+
+    return captured
+
+
+def test_news_edit_sanitizes_body_against_stored_xss(monkeypatch):
+    captured = _capture_news_add(monkeypatch, {
+        'title_en': 'Headline',
+        'content_en': '<p>safe body</p><script>alert(document.cookie)</script>',
+        'content_uz': '<img src=x onerror="steal()">',
+        'content_ru': '<a href="javascript:evil()">x</a>',
+        'status': 'draft',
+    })
+
+    assert '<script' not in captured['content']
+    assert '<p>safe body</p>' in captured['content']
+    assert 'onerror' not in captured['content_uz']
+    assert 'javascript:' not in captured['content_ru']
+
+
+def test_payment_guide_sanitizes_body_against_stored_xss(monkeypatch):
+    # The payment-guide body renders with |safe on public and dashboard pages,
+    # so the finance-settings save must sanitize it (audit 2026-11-25 #2).
+    app = Flask(__name__)
+    app.secret_key = 'test'
+    fmadmin_web.register(app)
+
+    monkeypatch.setattr(fmadmin_auth, 'user_has_permission', lambda *a, **k: True)
+
+    stored = {}
+    monkeypatch.setattr(fmadmin_web, '_set_site_setting',
+                        lambda key, value: stored.__setitem__(key, value) or True)
+
+    form = {
+        'payment_guide_uz': '<p>To’lov</p><script>alert(1)</script>',
+        'payment_guide_ru': '<img src=x onerror="evil()">',
+        'payment_guide_en': '<a href="javascript:evil()">x</a>',
+    }
+    with app.test_request_context(
+            '/fmadmin/website/payment-guide', method='POST', data=form):
+        session['fmadmin_user'] = {'id': 1, 'rolename': 'admin', 'capabilities': {}}
+        fmadmin_web.payment_guide_settings()
+
+    assert '<script' not in stored['payment_guide_html_uz']
+    assert '<p>' in stored['payment_guide_html_uz']
+    assert 'onerror' not in stored['payment_guide_html_ru']
+    assert 'javascript:' not in stored['payment_guide_html_en']

@@ -31,6 +31,7 @@ from shared.submission_status import (
     RESUBMITTABLE_STATUSES,
     STATUSES_REQUIRING_ANTIPLAGIARISM_FILE,
     is_resubmittable,
+    is_author_editable,
 )
 from shared.user_timezone import is_valid_timezone_name
 
@@ -2758,6 +2759,16 @@ def app__api_article_save():
             if not existing_rows:
                 return jsonify({'success': False, 'message': 'Submission not found'})
             existing = existing_rows[0]
+            # Workflow guard: once a submission leaves the author's hands
+            # (technical check onward) or reaches a terminal state, the author
+            # must not be able to overwrite the manuscript or reset it to
+            # 'pending' through save/submit. Enforced server-side because the
+            # client can call this endpoint with any owned submission_id.
+            if not is_author_editable(existing.get('status')):
+                return jsonify({
+                    'success': False,
+                    'message': t('submission_not_editable'),
+                }), 409
 
         submission_payload = _prepare_submission_payload(
             data=data,
@@ -2837,6 +2848,16 @@ def app__api_article_submit():
             if not existing_rows:
                 return jsonify({'success': False, 'message': 'Submission not found'})
             existing = existing_rows[0]
+            # Workflow guard: once a submission leaves the author's hands
+            # (technical check onward) or reaches a terminal state, the author
+            # must not be able to overwrite the manuscript or reset it to
+            # 'pending' through save/submit. Enforced server-side because the
+            # client can call this endpoint with any owned submission_id.
+            if not is_author_editable(existing.get('status')):
+                return jsonify({
+                    'success': False,
+                    'message': t('submission_not_editable'),
+                }), 409
 
         submission_payload = _prepare_submission_payload(
             data=data,

@@ -128,6 +128,13 @@ SUBMISSION_STATUS_CHART_COLOR = {
 # submission. `rejected` is deliberately excluded -- it is final.
 RESUBMITTABLE_STATUSES = {'failed_technical_check', 'revision_required', 'antiplagiarism_failed'}
 
+# Statuses in which the submission still belongs to the author's own hands,
+# so saving edits or (re)submitting it is allowed. 'draft' is the pre-intake
+# state; 'pending' is the intake queue before the first editorial action.
+# Everything else means an editor/reviewer has taken over -- see
+# is_author_editable().
+AUTHOR_EDITABLE_STATUSES = {'draft', 'pending'}
+
 # Statuses past which no further pipeline transition happens.
 TERMINAL_STATUSES = {'published', 'rejected'}
 
@@ -202,6 +209,23 @@ def submission_status_label(status, lang='uz'):
 
 def is_resubmittable(status):
     return status in RESUBMITTABLE_STATUSES
+
+
+def is_author_editable(status):
+    """Whether the author may still save edits to, or (re)submit, this row.
+
+    A submission is editable only while it is an unsaved/new draft, is still
+    sitting in the intake queue ('pending'), or has been bounced back to the
+    author (``RESUBMITTABLE_STATUSES``). Once it enters the editorial pipeline
+    (technical check, plagiarism, review, layout) or reaches a terminal state,
+    the author must not be able to silently replace the manuscript or reset it
+    back to 'pending' -- that would bypass the fixed workflow order. Enforced
+    server-side in app__api_article_save / app__api_article_submit.
+    """
+    normalized = (status or '').strip().lower()
+    if not normalized:
+        return True
+    return normalized in AUTHOR_EDITABLE_STATUSES or is_resubmittable(normalized)
 
 
 def is_terminal(status):
