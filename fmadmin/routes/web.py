@@ -1,3 +1,4 @@
+import mimetypes
 import os
 # flake8: noqa
 import uuid
@@ -7990,6 +7991,34 @@ def issue_document_action(issue_id, document_id, action):
     return redirect(url_for('issue_edit', issue_id=issue_id, _anchor='special-documents'))
 
 
+@bp.route('/fmadmin/website/articles/<int:article_id>/files/<int:file_id>')
+@content_required
+def article_file_view(article_id, file_id):
+    """Let content admins open an article's attached file.
+
+    Article files live under ``/static/uploads/articles/``, which is not served
+    directly (nginx and the apps return 404 so paid material cannot bypass the
+    entitlement check). Admins therefore open them through this route, which
+    only serves files actually attached to the given article.
+    """
+    article_rows = db.publications.all().equal(id=article_id).exec()
+    if not article_rows or file_id not in _parse_int_list(article_rows[0].get('file_ids')):
+        abort(404)
+    file_rows = db.files.all().equal(id=file_id).exec()
+    if not file_rows:
+        abort(404)
+    file_path = _public_upload_abspath(file_rows[0].get('filepath'))
+    if not file_path:
+        abort(404)
+    download_name = _clean_text(file_rows[0].get('name')) or os.path.basename(file_path)
+    return send_file(
+        file_path,
+        as_attachment=False,
+        download_name=download_name,
+        mimetype=mimetypes.guess_type(file_path)[0] or 'application/pdf',
+    )
+
+
 @bp.route('/fmadmin/website/issues/<int:issue_id>/documents/<string:document_id>')
 @content_required
 def issue_document_download(issue_id, document_id):
@@ -8124,16 +8153,21 @@ def _queue_public_upload_path(file_paths_to_remove, raw_path):
     file_paths_to_remove.add(path)
 
 
-def _remove_public_upload_file(raw_path):
+def _public_upload_abspath(raw_path):
+    """Resolve a stored ``/static/uploads/...`` path to a file on disk.
+
+    Returns None for external URLs, paths outside the uploads root
+    (traversal) or files that do not exist.
+    """
     path = _clean_text(raw_path)
     if not path:
-        return
+        return None
 
     normalized = path.split('?', 1)[0].split('#', 1)[0].strip()
     if not normalized:
-        return
+        return None
     if normalized.startswith('http://') or normalized.startswith('https://'):
-        return
+        return None
 
     normalized = normalized.replace('\\', '/')
     if normalized.startswith('/'):
@@ -8141,13 +8175,20 @@ def _remove_public_upload_file(raw_path):
     if normalized.startswith('uploads/'):
         normalized = f"static/{normalized}"
     if not normalized.startswith('static/uploads/'):
-        return
+        return None
 
     uploads_root = os.path.abspath(os.path.join(settings.SAVE_PATH, 'static', 'uploads'))
     file_path = os.path.abspath(os.path.join(settings.SAVE_PATH, normalized))
     if file_path != uploads_root and not file_path.startswith(uploads_root + os.sep):
-        return
+        return None
     if not os.path.isfile(file_path):
+        return None
+    return file_path
+
+
+def _remove_public_upload_file(raw_path):
+    file_path = _public_upload_abspath(raw_path)
+    if not file_path:
         return
 
     try:

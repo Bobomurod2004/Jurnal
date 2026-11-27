@@ -548,3 +548,38 @@ def test_payment_guide_sanitizes_body_against_stored_xss(monkeypatch):
     assert '<p>' in stored['payment_guide_html_uz']
     assert 'onerror' not in stored['payment_guide_html_ru']
     assert 'javascript:' not in stored['payment_guide_html_en']
+
+
+def test_public_upload_abspath_resolves_only_inside_uploads_root(tmp_path, monkeypatch):
+    monkeypatch.setattr(fmadmin_web.settings, 'SAVE_PATH', str(tmp_path))
+    article_dir = tmp_path / 'static' / 'uploads' / 'articles' / '2026' / '06'
+    article_dir.mkdir(parents=True)
+    pdf = article_dir / 'a.pdf'
+    pdf.write_bytes(b'%PDF-1.4')
+    (tmp_path / 'secret.txt').write_text('x')
+
+    assert fmadmin_web._public_upload_abspath('/static/uploads/articles/2026/06/a.pdf') == str(pdf)
+    assert fmadmin_web._public_upload_abspath('/static/uploads/../../secret.txt') is None
+    assert fmadmin_web._public_upload_abspath('/static/uploads/articles/missing.pdf') is None
+    assert fmadmin_web._public_upload_abspath('https://evil.example/a.pdf') is None
+
+
+def test_admin_article_file_view_requires_content_permission_and_attachment():
+    # The view must be guarded and must only serve files attached to the article.
+    import inspect
+    source = inspect.getsource(fmadmin_web)
+    route_index = source.index("'/fmadmin/website/articles/<int:article_id>/files/<int:file_id>'")
+    assert source[route_index:route_index + 120].count('@content_required') == 1
+    view_source = inspect.getsource(fmadmin_web.article_file_view)
+    assert "file_id not in _parse_int_list(article_rows[0].get('file_ids'))" in view_source
+    assert '_public_upload_abspath' in view_source
+
+
+def test_admin_article_edit_links_files_through_admin_route():
+    template_path = os.path.join(
+        os.path.dirname(__file__), '..', 'fmadmin', 'templates', 'website', 'articles', 'edit.html'
+    )
+    with open(template_path, encoding='utf-8') as template_file:
+        template = template_file.read()
+    assert 'href="{{ file_item.filepath }}"' not in template
+    assert "url_for('article_file_view'" in template

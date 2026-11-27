@@ -250,7 +250,7 @@
                                             checked>
                                         <span class="form-check-label">
                                             {% if file_item.filepath %}
-                                            <a href="{{ file_item.filepath }}" target="_blank" rel="noopener noreferrer">
+                                            <a href="{{ url_for('article_file_view', article_id=article.id, file_id=file_item.id) }}" target="_blank" rel="noopener noreferrer">
                                                 {{ file_item.name }}
                                             </a>
                                             {% else %}
