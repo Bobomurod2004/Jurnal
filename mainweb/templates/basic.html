@@ -1,5 +1,6 @@
 <!doctype html>
-<html>
+{% set _html_lang = (session.get('language') or 'en') | lower %}
+<html lang="{{ _html_lang if _html_lang in ['uz', 'ru', 'en'] else 'en' }}">
 
 <head>
     <meta charset="UTF-8">

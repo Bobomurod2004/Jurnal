@@ -198,6 +198,15 @@
                         </select>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">{{ metadata_labels.language_key }}</label>
+                        <select class="form-select" name="language_key">
+                            <option value="">{{ t("admin_label_not_selected") }}</option>
+                            {% for option in language_options %}
+                            <option value="{{ option.key }}" {% if article.language_key==option.key %}selected{% endif %}>{{ option.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">{{ t("admin_label_additional_info") }}</label>
                         <textarea class="form-control ckeditor-word" name="additional"
                             rows="3" data-editor-height="180">{{ article.additional or '' }}</textarea>

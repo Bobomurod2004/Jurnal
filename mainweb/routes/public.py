@@ -829,14 +829,57 @@ def _extract_page_range_bounds(page_range_value):
     return '', ''
 
 
-def _build_scholar_meta(publication, issue, author_names, article_id, current_lang):
+SCHOLAR_ARTICLE_LANGUAGES = ('uz', 'ru', 'en')
+
+
+def _scholar_article_language(publication):
+    """Return the article's own language (ISO 639-1) or '' when unknown."""
+    language = _clean_text((publication or {}).get('language_key')).lower()
+    return language if language in SCHOLAR_ARTICLE_LANGUAGES else ''
+
+
+def _scholar_volume(value):
+    """Return the volume only when it is a plain number.
+
+    Some issues store a series letter (e.g. ``"D"``) in ``vol_no``; Scholar
+    cannot interpret that as a volume, so such values are dropped.
+    """
+    text = _clean_text(value)
+    return text if re.fullmatch(r'\d+', text) else ''
+
+
+def _build_scholar_meta(publication, issue, author_names, article_id, current_lang, source_publication=None, author_institutions=None):
+    """Build Google Scholar ``citation_*`` values for an article page.
+
+    ``publication`` is the row as localized for the visitor's UI language;
+    ``source_publication`` is the same row before localization.  When the
+    article language is known, the title and keywords are taken in that
+    language from the source row so they match the PDF's first page no matter
+    which UI language the crawler sees (Googlebot has no session and always
+    gets the default UI language).  ``citation_language`` is emitted only when
+    the article language is known: the UI language says nothing about it.
+    """
     publication_row = publication or {}
+    source_row = source_publication if source_publication is not None else publication_row
     issue_row = issue or {}
+    article_lang = _scholar_article_language(source_row)
+    if article_lang:
+        title = _clean_text(_localized_content_field(source_row, 'title', lang=article_lang))
+        keywords = _localized_content_field(source_row, 'keywords', lang=article_lang)
+    else:
+        title = _clean_text(publication_row.get('title'))
+        keywords = publication_row.get('keywords')
+    keywords = [_clean_text(k) for k in (keywords or []) if _clean_text(k)] if isinstance(keywords, (list, tuple)) else []
     unique_authors = []
     for author_name in author_names or []:
         cleaned = _clean_text(author_name)
         if cleaned and cleaned not in unique_authors:
             unique_authors.append(cleaned)
+    institutions_by_author = author_institutions or {}
+    author_entries = [
+        {'name': name, 'institution': _clean_text(institutions_by_author.get(name))}
+        for name in unique_authors
+    ]
 
     publication_date = _format_scholar_date_from_timestamp(publication_row.get('date_publish'))
     if not publication_date:
@@ -852,15 +895,26 @@ def _build_scholar_meta(publication, issue, author_names, article_id, current_la
     requires_access = bool(publication_row.get('is_paid') or publication_row.get('subscription_enable'))
     is_world_readable = not requires_access
     abstract_url = url_for('app__article', article_id=article_id, _external=True)
-    pdf_url = url_for('app__download_article', article_id=article_id, _external=True) if is_world_readable else ''
+    # Advertise a PDF only when the article actually has an attached file;
+    # otherwise Scholar is pointed at a URL that returns 404.
+    has_file = bool(source_row.get('file_ids') or publication_row.get('file_ids'))
+    pdf_url = url_for('app__article_pdf', article_id=article_id, _external=True) if (is_world_readable and has_file) else ''
 
     meta = {
-        'title': _clean_text(publication_row.get('title')),
+        'title': title,
+        'keywords': keywords,
         'authors': unique_authors,
+        'author_entries': author_entries,
         'publication_date': publication_date,
+        'publication_date_iso': (
+            _format_iso_date_from_timestamp(publication_row.get('date_publish'))
+            or _format_iso_date_from_timestamp(publication_row.get('created_at'))
+            or _format_iso_date_from_timestamp(issue_row.get('created_at'))
+            or (publication_date if re.fullmatch(r'\d{4}', publication_date or '') else '')
+        ),
         'journal_title': _clean_text(t('website_title')) or 'Philology Matters',
         'issn': JOURNAL_CITATION_ISSN,
-        'volume': _clean_text(issue_row.get('vol_no')),
+        'volume': _scholar_volume(issue_row.get('vol_no')),
         'issue': _clean_text(issue_row.get('issue_no')),
         'first_page': first_page,
         'last_page': last_page,
@@ -872,7 +926,7 @@ def _build_scholar_meta(publication, issue, author_names, article_id, current_la
         # Do not advertise the abstract URL as ``citation_fulltext_html_url``:
         # Scholar can otherwise treat the abstract as a malformed full text.
         'pdf_url': pdf_url,
-        'language': _clean_text(current_lang).lower(),
+        'language': article_lang,
         'is_world_readable': is_world_readable,
     }
     return meta
@@ -918,9 +972,14 @@ def _add_sitemap_url(entries, seen_urls, endpoint, endpoint_kwargs=None, lastmod
     if not loc or loc in seen_urls:
         return
 
+    # A lastmod in the future (e.g. an issue scheduled ahead) is invalid for
+    # crawlers; never advertise a date later than now.
+    lastmod_value = _parse_int(lastmod_ts)
+    if lastmod_value is not None:
+        lastmod_value = min(lastmod_value, int(time.time()))
     payload = {
         'loc': loc,
-        'lastmod': _format_iso_date_from_timestamp(lastmod_ts),
+        'lastmod': _format_iso_date_from_timestamp(lastmod_value),
         'changefreq': _clean_text(changefreq).lower(),
         'priority': _clean_text(priority),
     }
@@ -4592,6 +4651,7 @@ def app__article(article_id):
         return redirect(url_for('app__issues', category=target_category))
 
     publication = translate(publication)
+    scholar_source_publication = dict(publication)
     _apply_localized_content(publication, ('title', 'abstract', 'keywords', 'price'), lang=current_lang)
     if publication.get('doi') and not publication.get('doi_link'):
         publication['doi_link'] = f"https://doi.org/{publication.get('doi')}"
@@ -4672,19 +4732,24 @@ def app__article(article_id):
         issue = _apply_localized_content(translated_issue, ('title', 'shortinfo', 'price'), lang=current_lang)
 
     scholar_author_names = []
+    scholar_author_institutions = {}
     for profile in [main_author] + list(co_authors):
         if not profile:
             continue
         author_name = _clean_text(profile.get('name')) if isinstance(profile, dict) else _clean_text(profile)
         if author_name:
             scholar_author_names.append(author_name)
+            if isinstance(profile, dict) and author_name not in scholar_author_institutions:
+                scholar_author_institutions[author_name] = _clean_text(profile.get('organization'))
 
     scholar_meta = _build_scholar_meta(
         publication=publication,
         issue=issue,
         author_names=scholar_author_names,
         article_id=article_id,
-        current_lang=current_lang
+        current_lang=current_lang,
+        source_publication=scholar_source_publication,
+        author_institutions=scholar_author_institutions,
     )
 
     parts = []
@@ -4991,8 +5056,24 @@ def _resolve_issue_toc_download_file(issue):
 
 
 def app__download_article(article_id):
+    return _serve_article_file(article_id)
+
+
+def app__article_pdf(article_id):
+    """Serve the article full text at a URL ending in ``.pdf``.
+
+    Google Scholar's inclusion guidelines expect the full-text URL to end with
+    ``.pdf``; this is the URL advertised in ``citation_pdf_url``.  Crawlers
+    get a real 404 for missing articles/files instead of a redirect.
+    """
+    return _serve_article_file(article_id, not_found_as_404=True)
+
+
+def _serve_article_file(article_id, not_found_as_404=False):
     publication = dbc.publications.get(id=article_id).exec()
     if not publication:
+        if not_found_as_404:
+            abort(404)
         flash('Article not found', 'error')
         return redirect(url_for('app__articles'))
 
@@ -5020,12 +5101,16 @@ def app__download_article(article_id):
             return redirect(url_for('app__article', article_id=article_id))
 
     if not publication.get('file_ids'):
+        if not_found_as_404:
+            abort(404)
         flash('Article file not found', 'error')
         return redirect(url_for('app__article', article_id=article_id))
 
     selected_file_path, selected_download_name = _resolve_publication_download_file(publication)
 
     if not selected_file_path:
+        if not_found_as_404:
+            abort(404)
         flash('Article file not found', 'error')
         return redirect(url_for('app__article', article_id=article_id))
 
@@ -5418,4 +5503,5 @@ def register(app):
     app.add_url_rule('/issue/<int:issue_id>/document/<string:document_id>', view_func=app__download_special_issue_document)
     app.add_url_rule('/article/<int:article_id>', view_func=app__article)
     app.add_url_rule('/article/download/<int:article_id>', view_func=app__download_article)
+    app.add_url_rule('/article/<int:article_id>.pdf', view_func=app__article_pdf)
     app.add_url_rule('/static/uploads/<path:filename>', view_func=serve_static_uploads)

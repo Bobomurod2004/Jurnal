@@ -8417,6 +8417,7 @@ def article_edit(article_id):
     academic_degree_options = publication_metadata_options('academic_degree_key', admin_lang)
     series_options = publication_metadata_options('series_key', admin_lang)
     section_options = publication_metadata_options('section_key', admin_lang)
+    language_options = publication_metadata_options('language_key', admin_lang)
 
     if request.method == 'POST':        
         title = request.form.get('title')
@@ -8475,6 +8476,7 @@ def article_edit(article_id):
         academic_degree_key = normalize_publication_metadata_key('academic_degree_key', request.form.get('academic_degree_key'))
         series_key = normalize_publication_metadata_key('series_key', request.form.get('series_key'))
         section_key = normalize_publication_metadata_key('section_key', request.form.get('section_key'))
+        language_key = normalize_publication_metadata_key('language_key', request.form.get('language_key'))
         publication_columns = set(db.columns.get('publications', []))
         selected_metadata_values = {
             'author_position_key': author_position_key,
@@ -8482,6 +8484,7 @@ def article_edit(article_id):
             'academic_degree_key': academic_degree_key,
             'series_key': series_key,
             'section_key': section_key,
+            'language_key': language_key,
         }
         required_columns = {
             field_name: metadata_labels.get(field_name, field_name)
@@ -8521,6 +8524,8 @@ def article_edit(article_id):
             metadata_payload['series_key'] = series_key
         if 'section_key' in publication_columns:
             metadata_payload['section_key'] = section_key
+        if 'language_key' in publication_columns:
+            metadata_payload['language_key'] = language_key
         if 'page_range' in publication_columns:
             metadata_payload['page_range'] = page_range
         date_sent = parse_date(request.form.get('date_sent'), with_time=True)
@@ -8711,6 +8716,7 @@ def article_edit(article_id):
             'academic_degree_key': '',
             'series_key': '',
             'section_key': '',
+            'language_key': '',
             'date_sent': None,
             'date_accept': None,
             'date_publish': None,
@@ -8750,6 +8756,7 @@ def article_edit(article_id):
         academic_degree_options=academic_degree_options,
         series_options=series_options,
         section_options=section_options,
+        language_options=language_options,
     )
 
 @bp.route('/fmadmin/website/articles/<int:article_id>/content', methods=['GET', 'POST'])

@@ -275,6 +275,29 @@ PUBLICATION_METADATA_CATALOG = {
             'en': 'THROUGH THE LENS OF HISTORY',
         },
     ),
+    # Language the article itself is written in (not the UI language). Keys
+    # are ISO 639-1 codes so they can be emitted directly as
+    # ``citation_language`` for Google Scholar.
+    'language_key': (
+        {
+            'key': 'uz',
+            'uz': "O'zbek tili",
+            'ru': 'Узбекский язык',
+            'en': 'Uzbek',
+        },
+        {
+            'key': 'ru',
+            'uz': 'Rus tili',
+            'ru': 'Русский язык',
+            'en': 'Russian',
+        },
+        {
+            'key': 'en',
+            'uz': 'Ingliz tili',
+            'ru': 'Английский язык',
+            'en': 'English',
+        },
+    ),
 }
 
 PUBLICATION_METADATA_FIELD_LABELS = {
@@ -302,6 +325,11 @@ PUBLICATION_METADATA_FIELD_LABELS = {
         'uz': 'Rukn',
         'ru': 'Рубрика',
         'en': 'Section',
+    },
+    'language_key': {
+        'uz': 'Maqola tili',
+        'ru': 'Язык статьи',
+        'en': 'Article language',
     },
 }
 

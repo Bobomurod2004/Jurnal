@@ -1037,6 +1037,7 @@ def test_build_scholar_meta_for_open_article_includes_pdf_url(monkeypatch):
         'doi': '10.1000/example-doi',
         'is_paid': False,
         'subscription_enable': False,
+        'file_ids': [5],
     }
     issue = {'vol_no': '3', 'issue_no': '1', 'year': 2025}
 
@@ -1060,7 +1061,9 @@ def test_build_scholar_meta_for_open_article_includes_pdf_url(monkeypatch):
     assert meta['issn'] == '1994-4233'
     assert meta['is_world_readable'] is True
     assert 'fulltext_html_url' not in meta
-    assert meta['pdf_url'] == 'https://journal.example/article/download/15'
+    assert meta['pdf_url'] == 'https://journal.example/article/15.pdf'
+    # Article language is unknown, so the UI language must not be advertised.
+    assert meta['language'] == ''
 
 
 def test_build_scholar_meta_for_paid_article_hides_pdf_url(monkeypatch):
@@ -1093,7 +1096,146 @@ def test_build_scholar_meta_for_paid_article_hides_pdf_url(monkeypatch):
     assert meta['is_world_readable'] is False
     assert 'fulltext_html_url' not in meta
     assert meta['pdf_url'] == ''
+    assert meta['language'] == ''
+
+
+def test_build_scholar_meta_uses_article_language_not_ui_language(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = 'test'
+    public_routes.register(app)
+    monkeypatch.setattr(public_routes, 't', lambda key: 'Philology Matters' if key == 'website_title' else key)
+
+    source = {
+        'title': 'English title',
+        'title_uz': "O'zbekcha sarlavha",
+        'title_ru': 'Русский заголовок',
+        'keywords': ['english'],
+        'keywords_uz': ["o'zbek", ' ', 'til'],
+        'keywords_ru': ['русский'],
+        'language_key': 'uz',
+        'date_publish': 1735689600,
+        'page_range': '1-5',
+    }
+    # Row as localized for a Russian-speaking visitor.
+    localized = dict(source, title=source['title_ru'], keywords=source['keywords_ru'])
+
+    with app.test_request_context('/article/7', base_url='https://journal.example'):
+        meta = public_routes._build_scholar_meta(
+            publication=localized,
+            issue={},
+            author_names=['A'],
+            article_id=7,
+            current_lang='ru',
+            source_publication=source,
+        )
+
     assert meta['language'] == 'uz'
+    assert meta['title'] == "O'zbekcha sarlavha"
+    assert meta['keywords'] == ["o'zbek", 'til']
+
+
+def test_build_scholar_meta_ignores_invalid_article_language(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = 'test'
+    public_routes.register(app)
+    monkeypatch.setattr(public_routes, 't', lambda key: key)
+
+    publication = {'title': 'Shown title', 'keywords': ['k'], 'language_key': 'de"><script>'}
+    with app.test_request_context('/article/8', base_url='https://journal.example'):
+        meta = public_routes._build_scholar_meta(
+            publication=publication, issue={}, author_names=[], article_id=8, current_lang='en',
+        )
+
+    assert meta['language'] == ''
+    assert meta['title'] == 'Shown title'
+    assert meta['keywords'] == ['k']
+
+
+def test_article_pdf_route_ends_with_pdf_and_returns_404_when_missing(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = 'test'
+    public_routes.register(app)
+
+    class _Query:
+        def exec(self):
+            return []
+
+    class _Table:
+        def get(self, **kwargs):
+            return _Query()
+
+    class _DB:
+        publications = _Table()
+
+    monkeypatch.setattr(public_routes, 'dbc', _DB())
+    # The real 404 page needs the full template set; only the status matters here.
+    app.register_error_handler(404, lambda error: ('not found', 404))
+
+    with app.test_request_context('/', base_url='https://journal.example'):
+        assert public_routes.url_for('app__article_pdf', article_id=42, _external=True) == 'https://journal.example/article/42.pdf'
+
+    response = app.test_client().get('/article/42.pdf')
+    assert response.status_code == 404
+
+
+def test_article_language_is_an_admin_selectable_publication_field():
+    from shared.publication_metadata import (
+        PUBLICATION_METADATA_COLUMN_TYPES,
+        normalize_publication_metadata_key,
+        publication_metadata_options,
+    )
+
+    assert PUBLICATION_METADATA_COLUMN_TYPES.get('language_key') == 'text'
+    assert [o['key'] for o in publication_metadata_options('language_key', 'uz')] == ['uz', 'ru', 'en']
+    assert normalize_publication_metadata_key('language_key', 'ru') == 'ru'
+    assert normalize_publication_metadata_key('language_key', 'de') is None
+
+
+def test_base_template_declares_html_lang():
+    template_path = os.path.join(os.path.dirname(__file__), '..', 'mainweb', 'templates', 'basic.html')
+    with open(template_path, encoding='utf-8') as template_file:
+        template = template_file.read()
+    assert '<html lang="' in template
+
+
+def test_build_scholar_meta_drops_non_numeric_volume_and_missing_pdf(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = 'test'
+    public_routes.register(app)
+    monkeypatch.setattr(public_routes, 't', lambda key: key)
+
+    publication = {'title': 'No file', 'date_publish': 1735689600, 'file_ids': []}
+    with app.test_request_context('/article/8', base_url='https://journal.example'):
+        meta = public_routes._build_scholar_meta(
+            publication=publication,
+            issue={'vol_no': 'D', 'issue_no': '4'},
+            author_names=['Ann Lee', 'Bob Ray'],
+            article_id=8,
+            current_lang='en',
+            author_institutions={'Ann Lee': 'UzSWLU'},
+        )
+
+    assert meta['volume'] == ''
+    assert meta['issue'] == '4'
+    assert meta['pdf_url'] == ''
+    assert meta['publication_date_iso'] == '2025-01-01'
+    assert meta['author_entries'] == [
+        {'name': 'Ann Lee', 'institution': 'UzSWLU'},
+        {'name': 'Bob Ray', 'institution': ''},
+    ]
+
+
+def test_sitemap_lastmod_is_never_in_the_future(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = 'test'
+    public_routes.register(app)
+    monkeypatch.setattr(public_routes.time, 'time', lambda: 1735689600)  # 2025-01-01
+
+    entries = []
+    with app.test_request_context('/', base_url='https://journal.example'):
+        public_routes._add_sitemap_url(entries, set(), 'app__article', {'article_id': 1}, lastmod_ts=1798761600)
+
+    assert entries[0]['lastmod'] == '2025-01-01'
 
 
 def test_scholar_article_template_uses_issn_and_does_not_label_an_abstract_as_fulltext():
